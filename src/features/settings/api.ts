@@ -594,7 +594,7 @@ export async function quickImportStudents(
 
 // ===========================================================================
 // النسخة الاحتياطية JSON — نطاقها: كل جداول بيانات المدرس التشغيلية في
-// المخطط (22 جدولاً أدناه بترتيب اعتماد الاستيراد) + صف إعداداته.
+// المخطط (25 جدولاً أدناه بترتيب اعتماد الاستيراد) + صف إعداداته.
 // (أُضيف activity_log في Phase 3 خطوة 2 كقسم اختياري أخير — نفس قاعدة
 // توافق الإصدار 1: ملف قديم بلا القسم يُستورد بنجاح، والتطبيق القديم
 // يتجاهل القسم الجديد.)
@@ -656,7 +656,7 @@ export const BACKUP_TABLES: BackupTableSpec[] = [
   { key: 'assessments', table: 'assessments', label: 'الامتحانات والواجبات', pk: ['id'], columns: ['id', 'teacher_id', 'group_id', 'title', 'type', 'assess_date', 'max_score', 'pass_score', 'created_at', 'updated_at'] },
   { key: 'invoice_lines', table: 'invoice_lines', label: 'بنود الفواتير', pk: ['id'], columns: ['id', 'teacher_id', 'invoice_id', 'line_type', 'description', 'amount', 'reason', 'created_at'] },
   { key: 'payments', table: 'payments', label: 'الدفعات', pk: ['id'], columns: ['id', 'teacher_id', 'invoice_id', 'amount', 'method', 'paid_on', 'receipt_no', 'reverses_payment_id', 'voided', 'created_at'] },
-  { key: 'attendance', table: 'attendance', label: 'الحضور', pk: ['session_id', 'student_id'], columns: ['teacher_id', 'session_id', 'student_id', 'status', 'homework_done', 'starred', 'created_at', 'updated_at'] },
+  { key: 'attendance', table: 'attendance', label: 'الحضور', pk: ['session_id', 'student_id'], columns: ['teacher_id', 'session_id', 'student_id', 'status', 'homework_done', 'starred', 'left_at', 'created_at', 'updated_at'] },
   { key: 'assessment_questions', table: 'assessment_questions', label: 'أسئلة الامتحانات', pk: ['id'], columns: ['id', 'teacher_id', 'assessment_id', 'position', 'type', 'text', 'options', 'correct_answer', 'points', 'created_at'] },
   { key: 'scores', table: 'scores', label: 'الدرجات', pk: ['assessment_id', 'student_id'], columns: ['teacher_id', 'assessment_id', 'student_id', 'score', 'source', 'exam_attempt_id', 'created_at', 'updated_at'] },
   { key: 'guardian_students', table: 'guardian_students', label: 'ربط أولياء الأمور بالطلاب', pk: ['guardian_id', 'student_id'], columns: ['teacher_id', 'guardian_id', 'student_id', 'relationship', 'created_at'] },
@@ -682,6 +682,12 @@ export const BACKUP_TABLES: BackupTableSpec[] = [
   // مؤقتاً بلا الرابط ويُصلَح في المرور الثاني (انظر importBackup).
   { key: 'online_exams', table: 'online_exams', label: 'الامتحانات الإلكترونية', pk: ['id'], columns: ['id', 'teacher_id', 'assessment_id', 'group_id', 'status', 'duration_minutes', 'max_attempts', 'starts_at', 'ends_at', 'allow_review', 'shuffle_questions', 'shuffle_options', 'created_at', 'updated_at'] },
   { key: 'exam_attempts', table: 'exam_attempts', label: 'محاولات الامتحانات الإلكترونية', pk: ['id'], columns: ['id', 'teacher_id', 'exam_id', 'student_id', 'attempt_no', 'status', 'seed', 'presentation', 'answers', 'started_at', 'submitted_at', 'score', 'max_score', 'pct', 'score_posted', 'created_at', 'updated_at'] },
+  // Phase 3 (الخطوة 6): تنبيهات وصل/غادر لولي الأمر (migration ‏0012)
+  // آخر الترتيب — تعتمد على students/guardians/sessions وكلها قبلها،
+  // وقيدها الفريد (session+student+kind) مع تخطّي الموجود بالهوية
+  // يجعل إعادة الاستيراد آمنة. guardian_id لقطة مستلم قد تشير لوليّ
+  // مُستورد في نفس النسخة (guardians قبلها في الترتيب).
+  { key: 'guardian_notifications', table: 'guardian_notifications', label: 'تنبيهات وصول/مغادرة أولياء الأمور', pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'guardian_id', 'session_id', 'kind', 'event_at', 'read_at', 'created_at'] },
 ]
 
 export interface BackupFile {

@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button'
 import {
   AlertTriangle,
   Ban,
+  BellRing,
   BookOpenCheck,
   CalendarDays,
   CalendarX2,
@@ -14,6 +15,9 @@ import {
   CheckCheck,
   Clock,
   CloudOff,
+  Copy,
+  LogIn,
+  LogOut,
   MessageCircle,
   ScanQrCode,
   Star,
@@ -37,13 +41,21 @@ import {
   STATUS_ACTIVE_CLASS,
   STATUS_FILL,
   absenceWaUrl,
+  arrivalMessage,
+  arrivalWaUrl,
+  departureMessage,
+  departureWaUrl,
+  isAttended,
+  resolveGuardian,
   type AttendanceValue,
   type SessionWithGroup,
 } from './api'
 import {
   ATT,
+  useClearStudentLeft,
   useDaySessions,
   useGuardianContacts,
+  useMarkStudentLeft,
   useMonthHasInvoices,
   useSaveAttendance,
   useSaveManyAttendance,
@@ -51,6 +63,7 @@ import {
   useSessionById,
   useSessionRoster,
 } from './hooks'
+import { useBrandIdentity } from '../../hooks/useBrandIdentity'
 import { QrScannerSheet, type ScanOutcome } from './QrScannerSheet'
 import { findStudentByCode, normalizeScannedCode } from './qr'
 import {
@@ -146,6 +159,15 @@ export function AttendancePage() {
     }
     return m
   }, [attQ.data])
+  // أوقات الانصراف المسجلة (left_at) — طبقة مستقلة عن قيم الحالات لأنها
+  // لا تمرّ بـ changeValue/قائمة الأوفلاين (تسجيل الانصراف أونلاين فقط)
+  const leftMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const row of attQ.data ?? []) {
+      if (row.left_at) m.set(row.student_id, row.left_at)
+    }
+    return m
+  }, [attQ.data])
   const [overrideState, setOverrideState] = useState<{
     sessionId: string
     values: Map<string, AttendanceValue>
@@ -154,6 +176,12 @@ export function AttendancePage() {
   const saveMut = useSaveAttendance(teacherId ?? '')
   const saveManyMut = useSaveManyAttendance(teacherId ?? '')
   const statusMut = useSetSessionStatus(teacherId ?? '')
+  // الانصراف الصريح (0012): left_at يعيش على صف الحضور نفسه منفصلاً عن
+  // قيم الحالات، وتنبيه «غادر» يتولد في القاعدة عند ضبطه أول مرة.
+  const markLeftMut = useMarkStudentLeft(teacherId ?? '')
+  const clearLeftMut = useClearStudentLeft(teacherId ?? '')
+  // اسم السنتر من الهوية البيضاء — يدخل نصوص واتساب الوصول/المغادرة
+  const { brand } = useBrandIdentity(teacherId)
 
   // أوفلاين (خطوة 11): حالة الاتصال + قائمة المزامنة + محركها. الحفظ
   // الأونلاين يبقى كما هو حرفياً؛ عند غياب الاتصال أو فشل شبكي يمرّ
@@ -323,6 +351,61 @@ export function AttendancePage() {
           void qc.invalidateQueries({ queryKey: [ATT] })
         },
         onError: () => toast('حصلت مشكلة — حاول تاني'),
+      },
+    )
+  }
+
+  // سياق رسائل وصل/غادر الموحّدة: الحصة المختارة + اسم السنتر (الهوية
+  // البيضاء) — نفس النصوص تُستخدم في روابط wa.me وفي «نسخ الكل».
+  const waCtx = selected
+    ? {
+        sessionDate: selected.session_date,
+        groupName: selected.group_name,
+        centreName: brand.name,
+      }
+    : null
+  // قائمة إرسال الواتساب: الحاضرون فعلاً (p/l/m) لرسالة الوصول، ومن
+  // سُجّل انصرافهم لرسالة المغادرة — إرسال يدوي فردي، بلا أي تلقائية.
+  const waRows = roster
+    .map((st) => {
+      const v = valueOf(st.id)
+      const contact = contactsQ.data?.get(st.id)
+      const attended = isAttended(v.status)
+      const leftAt = leftMap.get(st.id) ?? null
+      if (!attended && !leftAt) return null
+      return {
+        student: st,
+        guardianName: resolveGuardian(st, contact).name,
+        arrivalUrl: attended && waCtx ? arrivalWaUrl(st, contact, waCtx) : null,
+        departureUrl: leftAt && waCtx ? departureWaUrl(st, contact, waCtx) : null,
+        arrivalText: attended && waCtx ? arrivalMessage(st, contact, waCtx) : null,
+        departureText: leftAt && waCtx ? departureMessage(st, contact, waCtx) : null,
+      }
+    })
+    .filter((r) => r !== null)
+
+  const copyAllWaMessages = () => {
+    const lines: string[] = []
+    for (const r of waRows) {
+      if (r.arrivalText) lines.push(`${r.guardianName} (${r.student.name}): ${r.arrivalText}`)
+      if (r.departureText) lines.push(`${r.guardianName} (${r.student.name}): ${r.departureText}`)
+    }
+    if (lines.length === 0) return
+    void navigator.clipboard
+      .writeText(lines.join('\n'))
+      .then(() => toast(`اتنسخ ${lines.length} رسالة — الصقها في واتساب زي ما تحب`))
+      .catch(() => toast('ماقدرناش ننسخ — جرّب تاني'))
+  }
+
+  const toggleLeft = (studentId: string) => {
+    if (!selected || cancelled || !teacherId) return
+    const isLeft = leftMap.has(studentId)
+    const mut = isLeft ? clearLeftMut : markLeftMut
+    mut.mutate(
+      { sessionId: selected.id, studentId },
+      {
+        onSuccess: () => toast(isLeft ? 'اتلغى تسجيل الانصراف' : 'اتسجّل الانصراف — ولي الأمر هيشوف تنبيه «غادر» في بوابته'),
+        onError: () => toast('حصلت مشكلة في تسجيل الانصراف — حاول تاني'),
       },
     )
   }
@@ -645,6 +728,55 @@ export function AttendancePage() {
                             لا يوجد رقم ولي أمر أو موبايل طالب مسجل لإبلاغ الغياب.
                           </div>
                         ))}
+                      {/* الانصراف الصريح (0012): ضبط left_at يولّد تنبيه
+                          «غادر» في بوابة ولي الأمر. أونلاين فقط بوعي —
+                          لا يدخل قائمة مزامنة الأوفلاين. */}
+                      {isAttended(v.status) &&
+                        (() => {
+                          const leftAt = leftMap.get(st.id)
+                          return (
+                            <div className="mt-2 flex items-center gap-2 flex-wrap">
+                              {leftAt ? (
+                                <>
+                                  <span className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-primary">
+                                    <LogOut size={16} />
+                                    انصرف{' '}
+                                    {new Date(leftAt).toLocaleTimeString('ar-EG', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                    })}
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    className="min-h-[48px] text-[13.5px] px-3"
+                                    disabled={cancelled || clearLeftMut.isPending}
+                                    onClick={() => toggleLeft(st.id)}
+                                  >
+                                    <Undo2 size={16} />
+                                    تراجع
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="soft"
+                                    className="min-h-[48px] text-[13.5px] px-3"
+                                    disabled={cancelled || !online || markLeftMut.isPending}
+                                    onClick={() => toggleLeft(st.id)}
+                                  >
+                                    <LogOut size={18} />
+                                    تسجيل انصراف
+                                  </Button>
+                                  {!online && (
+                                    <span className="text-muted text-[12px]">
+                                      تسجيل الانصراف بيحتاج اتصال بالنت
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          )
+                        })()}
                     </div>
                   )
                 })}
@@ -682,6 +814,79 @@ export function AttendancePage() {
                   اضغط اسم الطالب لتبديل تسليم الواجب — بيتحفظ فوراً مع باقي بيانات حضوره.
                 </p>
               </Card>
+
+              {/* قائمة إرسال واتساب وصل/غادر (خطوة 6): روابط wa.me فردية
+                  بنص موحّد للحاضرين والمنصرفين — إرسال يدوي بالكامل:
+                  لا إرسال تلقائي ولا Push خارجي في هذه المرحلة، والتنبيه
+                  داخل بوابة ولي الأمر يتولد تلقائياً في القاعدة أصلاً. */}
+              {waRows.length > 0 && (
+                <Card>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="font-bold text-[15px] flex items-center gap-2">
+                      <BellRing size={20} className="text-primary" />
+                      تنبيهات ولي الأمر — واتساب
+                    </div>
+                    <Button
+                      variant="ghost"
+                      className="min-h-[48px] text-[13.5px] px-3"
+                      onClick={copyAllWaMessages}
+                    >
+                      <Copy size={16} />
+                      نسخ كل الرسائل
+                    </Button>
+                  </div>
+                  <p className="text-muted text-[13.5px] mt-0">
+                    اضغط «إرسال» لكل ولي أمر على حدة — مفيش إرسال تلقائي. تنبيه البوابة
+                    (وصل/غادر) اتسجّل تلقائياً لكل طالب مع تحضيره وانصرافه وهيظهر لولي
+                    أمره في بوابته.
+                  </p>
+                  <div className="flex flex-col">
+                    {waRows.map((r, i) => (
+                      <div
+                        key={r.student.id}
+                        className={`py-2.5 ${i > 0 ? 'border-t border-border' : ''}`}
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-[15px]">{r.student.name}</span>
+                          <span className="text-muted text-[13.5px]">
+                            ولي الأمر: {r.guardianName}
+                          </span>
+                        </div>
+                        <div className="flex gap-2 mt-1.5 flex-wrap">
+                          {r.arrivalUrl ? (
+                            <a href={r.arrivalUrl} target="_blank" rel="noreferrer" className="no-underline">
+                              <Button variant="soft" className="min-h-[48px] text-[13.5px] px-3">
+                                <LogIn size={18} />
+                                إرسال «وصل»
+                              </Button>
+                            </a>
+                          ) : (
+                            r.arrivalText && (
+                              <span className="text-muted text-[12px] self-center">
+                                لا يوجد رقم ولي أمر لإرسال «وصل»
+                              </span>
+                            )
+                          )}
+                          {r.departureUrl ? (
+                            <a href={r.departureUrl} target="_blank" rel="noreferrer" className="no-underline">
+                              <Button variant="soft" className="min-h-[48px] text-[13.5px] px-3">
+                                <LogOut size={18} />
+                                إرسال «غادر»
+                              </Button>
+                            </a>
+                          ) : (
+                            r.departureText && (
+                              <span className="text-muted text-[12px] self-center">
+                                لا يوجد رقم ولي أمر لإرسال «غادر»
+                              </span>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
 
               {/* شريط ملخص لاصق: عدّادات حية لكل حالة + «الكل حاضر» —
                   يطفو فوق الشريط السفلي أثناء تمرير القائمة ويتحدث مع كل تعديل */}

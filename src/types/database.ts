@@ -218,8 +218,30 @@ export interface AttendanceRow {
   status: AttendanceStatus | null // null = لم يُسجّل بعد
   homework_done: boolean
   starred: boolean
+  /** وقت الانصراف الفعلي (0012) — null = لم ينصرف؛ زر «انصراف» في شاشة الحضور */
+  left_at: string | null
   created_at: string
   updated_at: string
+}
+
+/** نوع تنبيه ولي الأمر (0012): وصل الحصة / غادرها */
+export type GuardianNotificationKind = 'arrived' | 'left'
+
+/**
+ * تنبيه وصول/مغادرة لولي الأمر (0012): يتولد بـ trigger على attendance
+ * (قيد فريد session+student+kind يجعله idempotent)، وread_at لا يضبطه
+ * إلا RPC البوابة بالتوكن.
+ */
+export interface GuardianNotificationRow {
+  id: string
+  teacher_id: string
+  student_id: string
+  guardian_id: string | null
+  session_id: string
+  kind: GuardianNotificationKind
+  event_at: string
+  read_at: string | null
+  created_at: string
 }
 
 export interface InvoiceRow {

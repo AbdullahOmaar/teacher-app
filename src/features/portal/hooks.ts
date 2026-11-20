@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { PaymentMethod, StudentRow } from '../../types/database'
 import {
   createPortalLink,
+  fetchPortalNotifications,
   fetchPortalOverview,
   fetchPortalProofs,
   fetchStudentTokens,
   fetchTeacherTokens,
+  markPortalNotificationsRead,
   revokePortalToken,
   submitPaymentProof,
 } from './api'
@@ -80,6 +82,28 @@ export function usePortalProofs(studentId: string | null, rawToken: string | nul
     queryFn: () => fetchPortalProofs(rawToken!, studentId!),
     retry: false,
     staleTime: 30_000,
+  })
+}
+
+/** تنبيهات وصل/غادر طالب الرابط — بنفس قواعد قراءة البوابة (بلا إعادة محاولة، والرمز لا يدخل المفتاح) */
+export function usePortalNotifications(studentId: string | null, rawToken: string | null) {
+  return useQuery({
+    queryKey: [PORTAL, 'notifications', studentId],
+    enabled: Boolean(studentId && rawToken),
+    queryFn: () => fetchPortalNotifications(rawToken!, studentId!),
+    retry: false,
+    staleTime: 30_000,
+  })
+}
+
+/** تعليم تنبيهات البوابة كمقروءة — يبطل قائمة التنبيهات بعد النجاح */
+export function useMarkPortalNotificationsRead(studentId: string | null, rawToken: string | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (ids?: string[]) => markPortalNotificationsRead(rawToken!, studentId!, ids),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [PORTAL, 'notifications', studentId] })
+    },
   })
 }
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
+  Bell,
   CalendarCheck2,
   CalendarDays,
   Check,
@@ -25,13 +26,20 @@ import { fmtScore, pctOf } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import {
   PORTAL_ATT_META,
+  PORTAL_NOTIF_META,
   PROOF_METHODS,
   PROOF_STATUS_META,
   portalErrorInfo,
   type PortalBrand,
 } from './api'
 import { darken } from '../../lib/brand'
-import { usePortalOverview, usePortalProofs, useSubmitPortalProof } from './hooks'
+import {
+  useMarkPortalNotificationsRead,
+  usePortalNotifications,
+  usePortalOverview,
+  usePortalProofs,
+  useSubmitPortalProof,
+} from './hooks'
 
 /**
  * بوابة ولي الأمر العامة — الخطوة 9 (المواصفات §3.17).
@@ -272,6 +280,107 @@ function PaymentProofSection({
   )
 }
 
+/** وقت حدث التنبيه (ISO) بصيغة ساعة مقروءة — التاريخ يأتي من الحصة نفسها */
+function fmtEventTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: '2-digit' })
+}
+
+/**
+ * قسم «تنبيهات الوصول والمغادرة» (Phase 3 خطوة 6): صندوق ولي الأمر
+ * داخل البوابة نفسها — تنبيه «وصل» يتولد عند أول تسجيل حضور للطالب في
+ * الحصة و«غادر» عند تسجيل انصرافه، ويُقرأ عبر RPC بالتوكن مقيداً بهذا
+ * الطالب فقط، مع عدّاد غير مقروء وزر تعليم الكل كمقروء (RPC كتابة
+ * مقيدة بالتوكن تضبط read_at فقط). لا Push خارجي في هذه المرحلة:
+ * التنبيه يظهر هنا عند فتح الرابط، وإشعار الواتساب اليدوي عند المدرس.
+ */
+function NotificationsSection({
+  studentId,
+  rawToken,
+}: {
+  studentId: string
+  rawToken: string
+}) {
+  const notifQ = usePortalNotifications(studentId, rawToken)
+  const markRead = useMarkPortalNotificationsRead(studentId, rawToken)
+  const notifications = notifQ.data?.notifications ?? []
+  const unread = notifQ.data?.unread_count ?? 0
+
+  return (
+    <>
+      <SectionTitle icon={Bell}>
+        تنبيهات الوصول والمغادرة
+        {unread > 0 && (
+          <span className="text-[12px] font-extrabold bg-bad text-white rounded-full px-2 py-0.5">
+            {unread} جديد
+          </span>
+        )}
+      </SectionTitle>
+      {notifQ.isPending ? (
+        <Card>
+          <p className="text-muted text-[13.5px] mb-0">بنحمّل التنبيهات…</p>
+        </Card>
+      ) : notifQ.isError ? (
+        <Card>
+          <p className="text-muted text-[13.5px] mb-0">
+            ماقدرناش نحمّل التنبيهات دلوقتي — حدّث الصفحة وحاول تاني.
+          </p>
+        </Card>
+      ) : notifications.length === 0 ? (
+        <Card>
+          <p className="text-muted text-[13.5px] mb-0">
+            لسه مفيش تنبيهات — أول ما المدرس يسجّل وصول الطالب أو انصرافه من حصة هيظهر هنا.
+          </p>
+        </Card>
+      ) : (
+        <>
+          <Card className="p-0 overflow-hidden">
+            {notifications.map((n, i) => {
+              const meta = PORTAL_NOTIF_META[n.kind]
+              const isUnread = !n.read_at
+              return (
+                <div
+                  key={n.id}
+                  className={`flex items-center gap-3 px-[14px] py-2.5 ${
+                    i < notifications.length - 1 ? 'border-b border-border' : ''
+                  } ${isUnread ? 'bg-soft/60' : ''}`}
+                >
+                  <span
+                    className={`text-[12px] font-bold border rounded-full px-2.5 py-1 shrink-0 ${meta.badge}`}
+                  >
+                    {meta.label}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-[15px] truncate">{n.group_name}</div>
+                    <div className="text-muted text-[12px]">
+                      {n.session_date} · الساعة {fmtEventTime(n.event_at)}
+                    </div>
+                  </div>
+                  {isUnread && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-bad shrink-0" aria-label="غير مقروء" />
+                  )}
+                </div>
+              )
+            })}
+          </Card>
+          {unread > 0 && (
+            <Button
+              variant="soft"
+              className="mt-2 min-h-[48px] text-[13.5px] px-3"
+              disabled={markRead.isPending}
+              onClick={() => markRead.mutate(undefined)}
+            >
+              <Check size={18} />
+              {markRead.isPending ? 'بنعلّم…' : 'تعليم الكل كمقروء'}
+            </Button>
+          )}
+        </>
+      )}
+    </>
+  )
+}
+
 export function PortalPage() {
   const params = useParams()
   const [searchParams] = useSearchParams()
@@ -341,6 +450,9 @@ export function PortalPage() {
           </p>
         )}
       </Card>
+
+      {/* تنبيهات الوصول والمغادرة — صندوق ولي الأمر (خطوة 6، Phase 3) */}
+      <NotificationsSection studentId={studentId} rawToken={rawToken} />
 
       {/* إثبات دفع — رفع لقطة تحويل ومراجعة المدرس (خطوة 7) */}
       <PaymentProofSection studentId={studentId} rawToken={rawToken} balance={o.balance} />

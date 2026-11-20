@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { HOME } from '../home/hooks'
 import { SCHED } from '../schedule/hooks'
 import {
+  clearStudentLeft,
   fetchGuardianContacts,
   fetchMonthHasInvoices,
   fetchSessionAttendance,
@@ -10,6 +11,7 @@ import {
   fetchSessionsInRange,
   fetchStudentAttendance,
   fetchStudentAttendanceStats,
+  markStudentLeft,
   saveAttendance,
   saveManyAttendance,
   type AttendanceValue,
@@ -131,6 +133,28 @@ export function useSaveManyAttendance(teacherId: string) {
       sessionId: string
       entries: { studentId: string; value: AttendanceValue }[]
     }) => saveManyAttendance(teacherId, sessionId, entries),
+    onSuccess: invalidate,
+  })
+}
+
+/**
+ * الانصراف الصريح (0012): ضبط/مسح left_at — تحديث مستقل عن حفظ الحالات
+ * فيبطل نفس كاشات الحضور، وتنبيه «غادر» يتولد في القاعدة بالـ trigger.
+ */
+export function useMarkStudentLeft(teacherId: string) {
+  const invalidate = useInvalidateAttendance()
+  return useMutation({
+    mutationFn: ({ sessionId, studentId }: { sessionId: string; studentId: string }) =>
+      markStudentLeft(teacherId, sessionId, studentId),
+    onSuccess: invalidate,
+  })
+}
+
+export function useClearStudentLeft(teacherId: string) {
+  const invalidate = useInvalidateAttendance()
+  return useMutation({
+    mutationFn: ({ sessionId, studentId }: { sessionId: string; studentId: string }) =>
+      clearStudentLeft(teacherId, sessionId, studentId),
     onSuccess: invalidate,
   })
 }

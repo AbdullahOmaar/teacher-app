@@ -85,7 +85,7 @@ function isEmptyValue(v: AttendanceValue): boolean {
 const SESSION_COLS =
   'id, teacher_id, group_id, session_date, start_time, duration_minutes, kind, status, origin_session_id, note, created_at, updated_at'
 const ATT_COLS =
-  'teacher_id, session_id, student_id, status, homework_done, starred, created_at, updated_at'
+  'teacher_id, session_id, student_id, status, homework_done, starred, left_at, created_at, updated_at'
 
 function withGroup(row: Record<string, unknown>): SessionWithGroup {
   const g = (row.groups ?? {}) as { name?: string; room?: string | null }
@@ -295,6 +295,102 @@ export async function saveManyAttendance(
       absent_count: rows.filter((r) => r.status === 'a').length,
     },
   })
+}
+
+// ---------------------------------------------------------------------------
+// تنبيهات وصل/غادر لولي الأمر (Phase 3 خطوة 6 — migration ‏0012)
+//
+// التوليد نفسه في القاعدة (trigger على attendance + قيد فريد)، فلا كود
+// توليد هنا إطلاقاً: حفظ الحضور بأي مسار (فردي/جماعي/QR/مزامنة أوفلاين)
+// يولّد تنبيه البوابة تلقائياً وبشكل idempotent وfail-safe. ما هنا:
+// 1) الانصراف الصريح: left_at على صف الحضور نفسه — تحديث مستقل لا يمرّ
+//    بـ AttendanceValue حتى لا تمسّه قائمة الأوفلاين ولا حفظ الحالات.
+//    أونلاين فقط بوعي (الزر معطّل أوفلاين في الواجهة).
+// 2) رسائل واتساب الوصول/المغادرة الموحّدة لقائمة الإرسال اليدوية —
+//    روابط wa.me فردية يضغطها المدرس/المساعد بنفسه، بلا أي إرسال
+//    تلقائي وبلا Push خارجي (قيد المرحلة الموثّق في 0012).
+// ---------------------------------------------------------------------------
+
+/** تسجيل انصراف طالب الآن (يولّد تنبيه «غادر» في بوابة ولي أمره) */
+export async function markStudentLeft(
+  teacherId: string,
+  sessionId: string,
+  studentId: string,
+): Promise<void> {
+  const { error } = await db()
+    .from('attendance')
+    .update({ left_at: new Date().toISOString() })
+    .eq('teacher_id', teacherId)
+    .eq('session_id', sessionId)
+    .eq('student_id', studentId)
+    .is('left_at', null)
+  if (error) throw error
+}
+
+/** التراجع عن انصراف مسجل (تنبيه المغادرة المولّد يبقى — انظر 0012) */
+export async function clearStudentLeft(
+  teacherId: string,
+  sessionId: string,
+  studentId: string,
+): Promise<void> {
+  const { error } = await db()
+    .from('attendance')
+    .update({ left_at: null })
+    .eq('teacher_id', teacherId)
+    .eq('session_id', sessionId)
+    .eq('student_id', studentId)
+  if (error) throw error
+}
+
+export interface ArrivalWaContext {
+  sessionDate: string
+  groupName: string
+  /** اسم السنتر من الهوية البيضاء (0008) — null يسقط لصياغة بلا اسم سنتر */
+  centreName: string | null
+}
+
+/** نص رسالة الوصول الموحّد — يُستخدم في رابط wa.me وفي «نسخ الكل» معاً */
+export function arrivalMessage(
+  student: RosterStudent,
+  contact: GuardianContact | undefined,
+  ctx: ArrivalWaContext,
+): string {
+  const { name: guardianName } = resolveGuardian(student, contact)
+  const place = ctx.centreName ? ` إلى ${ctx.centreName}` : ''
+  return `أهلاً ${guardianName}، نحيطكم علماً بوصول الطالب ${student.name}${place} — حصة ${ctx.groupName} بتاريخ ${ctx.sessionDate}.`
+}
+
+/** نص رسالة المغادرة الموحّد — يُستخدم في رابط wa.me وفي «نسخ الكل» معاً */
+export function departureMessage(
+  student: RosterStudent,
+  contact: GuardianContact | undefined,
+  ctx: ArrivalWaContext,
+): string {
+  const { name: guardianName } = resolveGuardian(student, contact)
+  const place = ctx.centreName ? ` من ${ctx.centreName}` : ''
+  return `أهلاً ${guardianName}، نحيطكم علماً بمغادرة الطالب ${student.name}${place} — حصة ${ctx.groupName} بتاريخ ${ctx.sessionDate}.`
+}
+
+export function arrivalWaUrl(
+  student: RosterStudent,
+  contact: GuardianContact | undefined,
+  ctx: ArrivalWaContext,
+): string | null {
+  const { phone } = resolveGuardian(student, contact)
+  const base = waLink(phone)
+  if (!base) return null
+  return `${base}?text=${encodeURIComponent(arrivalMessage(student, contact, ctx))}`
+}
+
+export function departureWaUrl(
+  student: RosterStudent,
+  contact: GuardianContact | undefined,
+  ctx: ArrivalWaContext,
+): string | null {
+  const { phone } = resolveGuardian(student, contact)
+  const base = waLink(phone)
+  if (!base) return null
+  return `${base}?text=${encodeURIComponent(departureMessage(student, contact, ctx))}`
 }
 
 /** هل صدرت فواتير شهر هذه الحصة لمجموعتها؟ (تنبيه المرجع §3.2) */

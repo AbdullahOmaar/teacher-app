@@ -557,6 +557,86 @@ export async function fetchPortalProofs(
   return rows.map((r) => ({ ...r, amount: num(r.amount) }))
 }
 
+// ---------------------------------------------------------------------------
+// صندوق تنبيهات الوصول/المغادرة — Phase 3 خطوة 6 (migration ‏0012).
+//
+// التنبيهات تتولد في القاعدة بـ trigger على attendance عند أول تسجيل
+// حضوري («وصل») وعند ضبط انصراف الطالب («غادر») — بلا Push خارجي وبلا
+// إرسال تلقائي: البوابة صندوق قراءة داخل رابط ولي الأمر نفسه، وقائمة
+// واتساب اليدوية عند المدرس في شاشة الحضور. الوصول هنا عبر RPC بـ
+// security definer تتحقق من التوكن بـ portal_validate_token (نفس آلية
+// العرض والإثباتات)، والقائمة مقيدة بطالب الرابط حصراً، وتعليم القراءة
+// يكتب read_at فقط لصفوف هذا الطالب.
+// ---------------------------------------------------------------------------
+
+export interface PortalNotification {
+  id: string
+  kind: 'arrived' | 'left'
+  event_at: string
+  read_at: string | null
+  session_date: string
+  start_time: string
+  group_name: string
+}
+
+export interface PortalNotificationsResult {
+  notifications: PortalNotification[]
+  unread_count: number
+}
+
+function notificationErrorMessage(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error ?? '')
+  if (msg.includes('invalid or expired') || msg.includes('not authorized') || msg.includes('token not valid')) {
+    return 'رابط البوابة منتهي أو مش صالح — اطلب من المدرس رابط جديد.'
+  }
+  return 'ماقدرناش نحمّل التنبيهات — اتأكد من النت وحاول تاني.'
+}
+
+/** تنبيهات وصل/غادر طالب الرابط + عدّاد غير المقروء — عبر RPC بالتوكن فقط */
+export async function fetchPortalNotifications(
+  rawToken: string,
+  studentId: string,
+): Promise<PortalNotificationsResult> {
+  const { data, error } = await db().rpc('portal_list_guardian_notifications', {
+    p_token: rawToken,
+    p_student_id: studentId,
+  })
+  if (error) throw new Error(notificationErrorMessage(error))
+  const raw = (data ?? {}) as unknown as Partial<PortalNotificationsResult>
+  return {
+    notifications: raw.notifications ?? [],
+    unread_count: Number(raw.unread_count) || 0,
+  }
+}
+
+/**
+ * تعليم تنبيهات الطالب كمقروءة (الكل عند غياب القائمة) — RPC الكتابة
+ * الوحيدة في الصندوق، مقيدة بالتوكن وتكتب read_at فقط. يعيد العدّاد.
+ */
+export async function markPortalNotificationsRead(
+  rawToken: string,
+  studentId: string,
+  ids?: string[],
+): Promise<number> {
+  const { data, error } = await db().rpc('portal_mark_notifications_read', {
+    p_token: rawToken,
+    p_student_id: studentId,
+    p_ids: ids ?? null,
+  })
+  if (error) throw new Error(notificationErrorMessage(error))
+  const raw = (data ?? {}) as unknown as { unread_count?: number }
+  return Number(raw.unread_count) || 0
+}
+
+/** شارات نوع التنبيه في البوابة — وصل/غادر بألوان مضمونة التباين */
+export const PORTAL_NOTIF_META: Record<
+  PortalNotification['kind'],
+  { label: string; badge: string }
+> = {
+  arrived: { label: 'وصل', badge: 'bg-ok-soft text-ok-text border-ok/30' },
+  left: { label: 'غادر', badge: 'bg-soft text-primary border-primary/30' },
+}
+
 /** حالات الحضور الأربع في البوابة (§2.4) — الاسم وشارة اللون */
 export const PORTAL_ATT_META: Record<string, { label: string; badge: string }> = {
   p: { label: 'حاضر', badge: 'bg-ok/10 text-ok border-ok/30' },
