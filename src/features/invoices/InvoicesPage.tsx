@@ -6,7 +6,8 @@ import { Button } from '../../components/ui/Button'
 import { AlertTriangle, Lock, ReceiptText } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
-import { Chip, ChipRow, TextInput } from '../../components/ui/form'
+import { Chip } from '../../components/ui/form'
+import { PageToolBar, StickyGroupHeader } from '../../components/ui/PageToolBar'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
@@ -178,6 +179,18 @@ export function InvoicesPage() {
     )
   }
 
+  // تجميع العرض بالشهر (W3 — R-11): الفواتير مرتبة بالفترة تنازلياً
+  // أصلاً، فالتجميع المتتالي يحافظ على الترتيب ويضيف عنوان شهر لاصقاً
+  const invoiceSections = useMemo(() => {
+    const sections: { period: string; items: InvoiceListItem[] }[] = []
+    for (const inv of filtered) {
+      const last = sections[sections.length - 1]
+      if (last && last.period === inv.period_month) last.items.push(inv)
+      else sections.push({ period: inv.period_month, items: [inv] })
+    }
+    return sections
+  }, [filtered])
+
   const currentMonthLabel = periodLabel(monthStartStr(todayStr()))
   const paneInvoiceId =
     selectedId && filtered.some((i) => i.invoice_id === selectedId)
@@ -187,23 +200,21 @@ export function InvoicesPage() {
   return (
     <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-5 lg:items-start">
       <div className="min-w-0">
-      <div className="flex gap-2 mb-3">
-        <div className="flex-1">
-          <TextInput
-            placeholder="ابحث باسم الطالب أو باسم الشهر (نوفمبر)…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <ChipRow>
-        {FILTERS.map((f) => (
+      {/* شريط الأدوات الموحّد (W3 — R-10): بحث + رقائق حالة + عدّاد */}
+      <PageToolBar
+        bleed={false}
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: 'ابحث باسم الطالب أو باسم الشهر (نوفمبر)…',
+        }}
+        chips={FILTERS.map((f) => (
           <Chip key={f.key} active={filter === f.key} onClick={() => setFilter(f.key)}>
             {f.label}
           </Chip>
         ))}
-      </ChipRow>
+        resultCount={invoicesQ.isPending ? undefined : filtered.length}
+      />
 
       {teacherId && (
         <ProofsReviewSection teacherId={teacherId} reviewerId={teacherId} />
@@ -332,17 +343,24 @@ export function InvoicesPage() {
             </Card>
           ) : (
             <>
-              <Card className="p-0 overflow-hidden">
-                {filtered.map((inv, i) => (
-                  <InvoiceCard
-                    key={inv.invoice_id}
-                    inv={inv}
-                    first={i === 0}
-                    selected={paneInvoiceId === inv.invoice_id}
-                    onDesktopSelect={setSelectedId}
-                  />
-                ))}
-              </Card>
+              {invoiceSections.map((section) => (
+                <div key={section.period}>
+                  <StickyGroupHeader bleed={false}>
+                    {periodLabel(section.period)} · {section.items.length} فاتورة
+                  </StickyGroupHeader>
+                  <Card className="p-0 overflow-hidden">
+                    {section.items.map((inv, i) => (
+                      <InvoiceCard
+                        key={inv.invoice_id}
+                        inv={inv}
+                        first={i === 0}
+                        selected={paneInvoiceId === inv.invoice_id}
+                        onDesktopSelect={setSelectedId}
+                      />
+                    ))}
+                  </Card>
+                </div>
+              ))}
               {/* حشوة تمرير سفلية: آخر فاتورة تمرّ بالكامل فوق الـ FAB
                   العائم فلا يحجب الزر صفها ولا شارة حالتها */}
               <div aria-hidden="true" className="h-[76px]" />
