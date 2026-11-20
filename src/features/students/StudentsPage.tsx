@@ -71,7 +71,14 @@ export function StudentsPage() {
         return false
       }
       if (status === 'late' && !((balances?.get(s.id) ?? 0) > 0)) return false
-      if (status === 'ok' && (balances?.get(s.id) ?? 0) > 0) return false
+      // «مسدد» تعني فواتير موجودة ومُسوّاة: طالب بلا أي فاتورة (لا صف له
+      // في student_balances) حالته محايدة «لا فواتير بعد» لا «مسدد» (L1)
+      if (
+        status === 'ok' &&
+        balances &&
+        !(balances.has(s.id) && (balances.get(s.id) ?? 0) <= 0)
+      )
+        return false
       // فلتر المجموعة
       if (groupFilter && !(groupIdsByStudent.get(s.id) ?? []).includes(groupFilter)) return false
       // البحث
@@ -193,6 +200,9 @@ export function StudentsPage() {
         <Card className="p-0 overflow-hidden">
           {filtered.map((s, i) => {
             const balance = balancesQ.data?.get(s.id) ?? 0
+            // وجود صف في خريطة الأرصدة = للطالب فواتير أصلاً (الـ view
+            // يجمع invoice_balances فقط) — غيابه حالة محايدة (L1)
+            const hasInvoices = balancesQ.data?.has(s.id) ?? false
             const names = groupNamesByStudent.get(s.id) ?? []
             const selected = paneStudentId === s.id
             return (
@@ -234,14 +244,18 @@ export function StudentsPage() {
                     </>
                   }
                   trailing={
-                    !isAssistant ? (
+                    !isAssistant && balancesQ.data ? (
                       balance > 0 ? (
                         <span className="shrink-0 type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
                           باقي {formatMoney(balance)}
                         </span>
-                      ) : (
+                      ) : hasInvoices ? (
                         <span className="shrink-0 type-badge bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
                           مسدد
+                        </span>
+                      ) : (
+                        <span className="shrink-0 type-badge bg-soft text-muted border border-border rounded-full px-2 py-0.5">
+                          لا فواتير بعد
                         </span>
                       )
                     ) : undefined

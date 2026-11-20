@@ -121,6 +121,8 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
 
   const enrollments = enrollmentsQ.data ?? []
   const balance = balancesQ.data?.get(student.id) ?? 0
+  // وجود صف رصيد = للطالب فواتير أصلاً؛ غيابه حالة محايدة لا «مسدد» (L1)
+  const hasInvoices = balancesQ.data?.has(student.id) ?? false
   const isAssistant = teacher.role === 'assistant'
   const groupNames = enrollments
     .map((e) => groupById.get(e.group_id)?.name)
@@ -164,6 +166,10 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
             (balance > 0 ? (
               <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
                 باقي {formatMoney(balance)}
+              </span>
+            ) : balancesQ.data && !hasInvoices ? (
+              <span className="shrink-0 text-[12px] font-bold bg-soft text-muted border border-border rounded-full px-2 py-0.5">
+                لا فواتير بعد
               </span>
             ) : (
               <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">

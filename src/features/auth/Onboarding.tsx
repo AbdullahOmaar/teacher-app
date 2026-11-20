@@ -49,8 +49,10 @@ export function Onboarding() {
       </div>
       <div className="type-section mb-1">أهلاً بيك — كمّل إعداد حسابك</div>
       <p className="text-muted text-[13.5px] mb-4">
-        حسابك مسجل دخوله ({user?.email ?? ''})، فاضل خطوة واحدة: إنشاء ملف المدرس
-        الخاص بيك وإعداداته الافتراضية.
+        {/* البريد داخل جملة عربية: عزل اتجاه (bdi + dir=ltr) حتى لا
+            ينكسر ترتيب أجزائه عبر الأسطر (تدقيق أول استخدام — M2) */}
+        حسابك مسجل دخوله (<bdi dir="ltr">{user?.email ?? ''}</bdi>)، فاضل خطوة
+        واحدة: إنشاء ملف المدرس الخاص بيك وإعداداته الافتراضية.
       </p>
       {error && (
         <p className="bg-[#FEF2F2] text-bad-text text-[13.5px] rounded-xl px-3 py-2 mb-3" role="alert">

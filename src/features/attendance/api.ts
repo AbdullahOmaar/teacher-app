@@ -185,7 +185,14 @@ export function resolveGuardian(
   contact: GuardianContact | undefined,
 ): { name: string; phone: string | null } {
   return {
-    name: contact?.name ?? (student.guardian_name?.trim() ? student.guardian_name : 'ولي الأمر'),
+    // غياب الاسم: «ولي أمر {اسم الطالب الأول}» (نفس اصطلاح الاستيراد) —
+    // لا التسمية الحرفية «ولي الأمر» حتى لا تظهر «ولي الأمر: ولي الأمر»
+    // في قوائم العرض (تدقيق أول استخدام — L2)
+    name:
+      contact?.name ??
+      (student.guardian_name?.trim()
+        ? student.guardian_name
+        : `ولي أمر ${student.name.trim().split(/\s+/)[0] ?? ''}`.trim()),
     phone: contact?.phone ?? student.guardian_phone ?? student.phone,
   }
 }

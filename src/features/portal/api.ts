@@ -81,12 +81,16 @@ export function buildPortalLink(origin: string, studentId: string, rawToken: str
 }
 
 /** بيانات ولي الأمر الفعّالة من حقول الطالب (ترتيب وحدة الحضور نفسه) */
-export function effectiveGuardianFromStudent(student: Pick<StudentRow, 'guardian_name' | 'guardian_phone' | 'phone'>): {
+export function effectiveGuardianFromStudent(student: Pick<StudentRow, 'name' | 'guardian_name' | 'guardian_phone' | 'phone'>): {
   name: string
   phone: string | null
 } {
   return {
-    name: student.guardian_name?.trim() ? student.guardian_name.trim() : 'ولي الأمر',
+    // غياب الاسم: «ولي أمر {اسم الطالب الأول}» لا التسمية الحرفية —
+    // حتى لا يعرض شيت البوابة «ولي الأمر: ولي الأمر» (L2)
+    name: student.guardian_name?.trim()
+      ? student.guardian_name.trim()
+      : `ولي أمر ${student.name.trim().split(/\s+/)[0] ?? ''}`.trim(),
     phone: student.guardian_phone?.trim() || student.phone?.trim() || null,
   }
 }
