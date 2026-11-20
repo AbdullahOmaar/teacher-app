@@ -320,3 +320,48 @@ export interface QuestionInput {
   correct_answer: string | null
   points: number
 }
+
+/** مصروف فعلي — جدول expenses في المخطط حرفياً (لا حقل عنوان: الفئة + الملحوظة) */
+export interface ExpenseRow {
+  id: string
+  teacher_id: string
+  expense_date: string // 'YYYY-MM-DD'
+  category: string // مقيدة بقيد المخطط لقيم EXP_CATS الخمس
+  amount: number // > 0 (قيد المخطط)
+  note: string | null
+  created_at: string
+}
+
+/** قالب مصروف شهري ثابت — جدول recurring_expenses (لا عمود تفعيل/يوم في المخطط) */
+export interface RecurringExpenseRow {
+  id: string
+  teacher_id: string
+  category: string
+  amount: number // > 0 (قيد المخطط)
+  note: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** صف من view ‏monthly_profit — ملخص مالي شهري محسوب في قاعدة البيانات دائماً */
+export interface MonthlyProfitRow {
+  teacher_id: string
+  month: string // أول يوم في الشهر 'YYYY-MM-DD'
+  collected: number
+  expenses: number
+  center_share_amount: number
+  net_profit: number
+}
+
+export interface ExpenseInput {
+  expense_date: string // 'YYYY-MM-DD'
+  category: string
+  amount: number
+  note: string | null
+}
+
+export interface RecurringExpenseInput {
+  category: string
+  amount: number
+  note: string | null
+}
