@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { TriangleAlert } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { useAtRisk } from './hooks'
 
@@ -8,7 +9,15 @@ import { useAtRisk } from './hooks'
  * بطاقة «معرّضون للفقد» في الرئيسية (Phase 5 / خطوة 1): تظهر فقط عند
  * وجود حالات فعلية — عدد الطلاب وأخطر سببين (أول طالبين في ترتيب
  * الخطورة وسبب كلٍّ منهما الأول) — وتفتح صفحة القائمة الكاملة.
- * لا تُعرض أثناء التحميل أو عند الخطأ: غيابها أصدق من بطاقة فارغة.
+ *
+ * حجز المكان أثناء التحميل (موجة W1 — بند د-3): اشتقاق المعرّضين هو
+ * أثقل استعلام في الصفحة، وكانت البطاقة تنبثق متأخرة وتزيح «حصص
+ * اليوم» تحتها. أثناء تحميله يظهر هيكل ثابت الارتفاع في موضع البطاقة
+ * نفسه: 157px هو ارتفاع البطاقة الحقيقية المقاس حياً على الديمو
+ * (ترويسة + صفّا طالبين + سطر إرشادي، مع mb-3 مثل البطاقة)، فاستبدال
+ * الهيكل بالبطاقة عند وصول البيانات لا يحرّك أي محتوى. عند الخطأ أو
+ * غياب الحالات لا يبقى أي أثر: غيابها أصدق من بطاقة فارغة.
+ * منطق اشتقاق المعرّضين نفسه لم يتغيّر إطلاقاً.
  */
 export function AtRiskCard() {
   const teacher = useCurrentTeacher()
@@ -16,8 +25,12 @@ export function AtRiskCard() {
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
   const atRiskQ = useAtRisk(teacherId, isOwner)
 
+  if (teacherId && atRiskQ.isPending) {
+    return <Skeleton className="h-[157px] mb-3" />
+  }
+
   const items = atRiskQ.data ?? []
-  if (!teacherId || atRiskQ.isPending || atRiskQ.error || items.length === 0) {
+  if (!teacherId || atRiskQ.error || items.length === 0) {
     return null
   }
 
