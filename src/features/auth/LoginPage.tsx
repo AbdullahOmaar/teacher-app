@@ -4,7 +4,7 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/AuthProvider'
-import { ensureTeacherProfile, signInWithEmail, signUpWithEmail } from './api'
+import { ensureTeacherProfile, signInDemo, signInWithEmail, signUpWithEmail } from './api'
 
 type Mode = 'signin' | 'signup'
 
@@ -26,6 +26,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [busy, setBusy] = useState(false)
+  const [demoBusy, setDemoBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -51,6 +52,20 @@ export function LoginPage() {
       setError(err instanceof Error ? err.message : 'تعذّر تسجيل الدخول.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  const handleDemo = async () => {
+    setError(null)
+    setNotice(null)
+    setDemoBusy(true)
+    try {
+      await signInDemo()
+      // تغيّر الجلسة في AuthProvider يعيد التوجيه تلقائياً بالأعلى
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر الدخول التجريبي.')
+    } finally {
+      setDemoBusy(false)
     }
   }
 
@@ -237,6 +252,18 @@ export function LoginPage() {
               </p>
             </form>
           )}
+
+          <div className="flex items-center gap-3 mt-5 mb-3" aria-hidden="true">
+            <span className="flex-1 h-px bg-border" />
+            <span className="text-muted text-[12px]">أو جرّب على طول</span>
+            <span className="flex-1 h-px bg-border" />
+          </div>
+          <Button full variant="soft" type="button" onClick={handleDemo} disabled={demoBusy || busy || !configured}>
+            {demoBusy ? 'جارٍ الدخول التجريبي…' : '🧪 دخول تجريبي — جرّب التطبيق فوراً'}
+          </Button>
+          <p className="text-muted text-[12px] mt-2 mb-0 text-center">
+            الحساب التجريبي مشترك ومفتوح للكل — ما تدخّلش فيه بيانات حقيقية.
+          </p>
 
           {!configured && (
             <p className="text-warn text-[13px] mt-3 mb-0 text-center">

@@ -84,6 +84,19 @@ export async function signInWithEmail(email: string, password: string): Promise<
 }
 
 // ---------------------------------------------------------------------------
+// الحساب التجريبي — حساب مدرس مشترك هدفه تجربة التطبيق فوراً بدون تسجيل.
+// بياناته معلنة عمداً (زرار ثابت في صفحة الدخول)، وبياناته معزولة بـ RLS
+// عن أي مدرس حقيقي. لا تُدخل فيه بيانات حقيقية أبداً.
+// ---------------------------------------------------------------------------
+
+export const DEMO_EMAIL = 'demo@teacher-app.com'
+export const DEMO_PASSWORD = 'Demo123456'
+
+export async function signInDemo(): Promise<void> {
+  await signInWithEmail(DEMO_EMAIL, DEMO_PASSWORD)
+}
+
+// ---------------------------------------------------------------------------
 // Onboarding — إنشاء صف المدرس + إعداداته الافتراضية
 // المخطط 0001_init.sql لا يحتوي أي trigger على auth.users ينشئ صف teachers،
 // فالإنشاء يتم من العميل: insert بمعرّف المستخدم الحالي فقط، وهو ما تسمح
