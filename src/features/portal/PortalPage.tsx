@@ -29,9 +29,13 @@ import {
   PORTAL_NOTIF_META,
   PROOF_METHODS,
   PROOF_STATUS_META,
+  fetchGuardianPushStatus,
   portalErrorInfo,
+  subscribeGuardianPush,
+  unsubscribeGuardianPush,
   type PortalBrand,
 } from './api'
+import { PortalPushToggle, type PortalPushAdapter } from '../../components/PortalPushToggle'
 import { darken } from '../../lib/brand'
 import {
   useMarkPortalNotificationsRead,
@@ -292,8 +296,9 @@ function fmtEventTime(iso: string): string {
  * داخل البوابة نفسها — تنبيه «وصل» يتولد عند أول تسجيل حضور للطالب في
  * الحصة و«غادر» عند تسجيل انصرافه، ويُقرأ عبر RPC بالتوكن مقيداً بهذا
  * الطالب فقط، مع عدّاد غير مقروء وزر تعليم الكل كمقروء (RPC كتابة
- * مقيدة بالتوكن تضبط read_at فقط). لا Push خارجي في هذه المرحلة:
- * التنبيه يظهر هنا عند فتح الرابط، وإشعار الواتساب اليدوي عند المدرس.
+ * مقيدة بالتوكن تضبط read_at فقط). ومن Phase 4 خطوة 2 يصل نفس الحدث
+ * أيضاً كـ Push فوري لاشتراكات البوابة النشطة (مشغّل خادمي على توليد
+ * التنبيه نفسه في 0014) — الصندوق هنا يبقى سجل القراءة الدائم.
  */
 function NotificationsSection({
   studentId,
@@ -415,6 +420,15 @@ export function PortalPage() {
   const o = overviewQ.data
   const rate = o.attendance_rate
 
+  // محوّل Push لبوابة ولي الأمر (Phase 4 خطوة 2): الحفظ/الإيقاف/الحالة
+  // عبر RPC بالتوكن تربط الاشتراك بهذا الطالب وبوليّ أمره — يُبنى من
+  // معالم الرابط مباشرة فلا يدخل أي كاش استعلامات.
+  const pushAdapter: PortalPushAdapter = {
+    status: (endpoint) => fetchGuardianPushStatus(rawToken, studentId, endpoint),
+    subscribe: (keys) => subscribeGuardianPush(rawToken, studentId, keys),
+    unsubscribe: (endpoint) => unsubscribeGuardianPush(rawToken, studentId, endpoint),
+  }
+
   return (
     <PortalShell brand={o.brand}>
       {/* البانر: الاسم + KPI الحضور + KPI الموقف المالي (§3.17) */}
@@ -450,6 +464,9 @@ export function PortalPage() {
           </p>
         )}
       </Card>
+
+      {/* إشعارات Push الفورية — اشتراك اختياري من البوابة (Phase 4 خطوة 2) */}
+      <PortalPushToggle adapter={pushAdapter} />
 
       {/* تنبيهات الوصول والمغادرة — صندوق ولي الأمر (خطوة 6، Phase 3) */}
       <NotificationsSection studentId={studentId} rawToken={rawToken} />

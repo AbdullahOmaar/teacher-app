@@ -628,6 +628,74 @@ export async function markPortalNotificationsRead(
   return Number(raw.unread_count) || 0
 }
 
+// ---------------------------------------------------------------------------
+// إشعارات Push الفورية من البوابة — Phase 4 خطوة 2 (migration ‏0014).
+//
+// الاشتراك اختياري من نفس جلسة توكن البوابة: المتصفح يشترك عند خدمة
+// الـ Push عبر lib/push (subscribeBrowserPush)، والحفظ/الإيقاف/الحالة
+// عبر RPC بـ security definer تتحقق من التوكن بـ portal_validate_token
+// وتربط الاشتراك بالطالب وبصف التوكن وبوليّ الأمر (portal_token_id +
+// guardian_id). لا وصول مباشر لجدول push_subscriptions من anon إطلاقاً.
+// الإرسال عند الأحداث خادمي بالكامل (مشغّلات 0014 ← pg_net ← send-push).
+// ---------------------------------------------------------------------------
+
+function pushErrorMessage(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error ?? '')
+  if (msg.includes('invalid or expired') || msg.includes('not authorized') || msg.includes('token not valid')) {
+    return 'رابط البوابة منتهي أو مش صالح — اطلب من المدرس رابط جديد قبل تفعيل الإشعارات.'
+  }
+  if (msg.includes('invalid subscription')) {
+    return 'المتصفح رجّع اشتراكاً ناقصاً — حدّث الصفحة وحاول تاني.'
+  }
+  return 'ماقدرناش نغيّر حالة الإشعارات — اتأكد من النت وحاول تاني.'
+}
+
+/** حالة اشتراك هذا المتصفح لبوابة ولي الأمر (نشط لهذا الطالب؟) */
+export async function fetchGuardianPushStatus(
+  rawToken: string,
+  studentId: string,
+  endpoint: string,
+): Promise<boolean> {
+  const { data, error } = await db().rpc('portal_push_status', {
+    p_token: rawToken,
+    p_student_id: studentId,
+    p_endpoint: endpoint,
+  })
+  if (error) throw new Error(pushErrorMessage(error))
+  return Boolean((data as unknown as { subscribed?: boolean })?.subscribed)
+}
+
+/** تسجيل اشتراك Push هذا المتصفح لولي أمر طالب الرابط */
+export async function subscribeGuardianPush(
+  rawToken: string,
+  studentId: string,
+  sub: { endpoint: string; p256dh: string; auth: string; userAgent: string },
+): Promise<void> {
+  const { error } = await db().rpc('portal_push_subscribe', {
+    p_token: rawToken,
+    p_student_id: studentId,
+    p_endpoint: sub.endpoint,
+    p_p256dh: sub.p256dh,
+    p_auth: sub.auth,
+    p_user_agent: sub.userAgent,
+  })
+  if (error) throw new Error(pushErrorMessage(error))
+}
+
+/** إيقاف اشتراك Push هذا المتصفح من البوابة — يعطّل الصف خادمياً */
+export async function unsubscribeGuardianPush(
+  rawToken: string,
+  studentId: string,
+  endpoint: string,
+): Promise<void> {
+  const { error } = await db().rpc('portal_push_unsubscribe', {
+    p_token: rawToken,
+    p_student_id: studentId,
+    p_endpoint: endpoint,
+  })
+  if (error) throw new Error(pushErrorMessage(error))
+}
+
 /** شارات نوع التنبيه في البوابة — وصل/غادر بألوان مضمونة التباين */
 export const PORTAL_NOTIF_META: Record<
   PortalNotification['kind'],

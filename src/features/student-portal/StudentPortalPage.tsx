@@ -24,9 +24,13 @@ import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import { formatDateLabel, formatDayMonth } from '../schedule/api'
 import {
   STUDENT_PORTAL_ATT_META,
+  fetchStudentPushStatus,
   studentPortalErrorInfo,
+  subscribeStudentPush,
+  unsubscribeStudentPush,
   type StudentPortalBrand,
 } from './api'
+import { PortalPushToggle, type PortalPushAdapter } from '../../components/PortalPushToggle'
 import { useStudentPortalOverview } from './hooks'
 
 /**
@@ -158,6 +162,14 @@ export function StudentPortalPage() {
   const rate = o.attendance_rate
   const hw = o.homework_summary
 
+  // محوّل Push لبوابة الطالب (Phase 4 خطوة 2): الحفظ/الإيقاف/الحالة عبر
+  // RPC بتوكن الطالب تربط الاشتراك بالطالب وبصف توكنه.
+  const pushAdapter: PortalPushAdapter = {
+    status: (endpoint) => fetchStudentPushStatus(rawToken, endpoint),
+    subscribe: (keys) => subscribeStudentPush(rawToken, keys),
+    unsubscribe: (endpoint) => unsubscribeStudentPush(rawToken, endpoint),
+  }
+
   return (
     <StudentPortalShell brand={o.brand}>
       {/* البانر: الاسم + نسبة الحضور + الموقف المالي */}
@@ -195,6 +207,9 @@ export function StudentPortalPage() {
           </div>
         </div>
       </Card>
+
+      {/* إشعارات Push الفورية — اشتراك اختياري من البوابة (Phase 4 خطوة 2) */}
+      <PortalPushToggle adapter={pushAdapter} />
 
       {/* ١) حصصي القادمة */}
       <SectionTitle icon={CalendarDays}>حصصي القادمة</SectionTitle>

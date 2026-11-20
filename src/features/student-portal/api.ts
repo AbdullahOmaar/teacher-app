@@ -323,6 +323,63 @@ export function studentPortalErrorInfo(error: unknown): { title: string; hint: s
   }
 }
 
+// ---------------------------------------------------------------------------
+// إشعارات Push الفورية من بوابة الطالب — Phase 4 خطوة 2 (migration ‏0014).
+//
+// نفس نموذج بوابة ولي الأمر: المتصفح يشترك عند خدمة الـ Push عبر
+// lib/push، والحفظ/الإيقاف/الحالة عبر RPC بـ security definer تتحقق من
+// توكن الطالب بـ student_portal_resolve_token وتربط الاشتراك بالطالب
+// وبصف التوكن (portal_token_id). لا وصول مباشر لأي جدول من anon.
+// ---------------------------------------------------------------------------
+
+function pushErrorMessage(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error ?? '')
+  if (msg.includes('invalid or expired')) {
+    return 'رابط بوابتك منتهي أو مش صالح — اطلب من المدرس رابط جديد قبل تفعيل الإشعارات.'
+  }
+  if (msg.includes('invalid subscription')) {
+    return 'المتصفح رجّع اشتراكاً ناقصاً — حدّث الصفحة وحاول تاني.'
+  }
+  return 'ماقدرناش نغيّر حالة الإشعارات — اتأكد من النت وحاول تاني.'
+}
+
+/** حالة اشتراك هذا المتصفح لبوابة الطالب (نشط؟) */
+export async function fetchStudentPushStatus(
+  rawToken: string,
+  endpoint: string,
+): Promise<boolean> {
+  const { data, error } = await db().rpc('student_portal_push_status', {
+    p_token: rawToken,
+    p_endpoint: endpoint,
+  })
+  if (error) throw new Error(pushErrorMessage(error))
+  return Boolean((data as unknown as { subscribed?: boolean })?.subscribed)
+}
+
+/** تسجيل اشتراك Push هذا المتصفح للطالب صاحب الرابط */
+export async function subscribeStudentPush(
+  rawToken: string,
+  sub: { endpoint: string; p256dh: string; auth: string; userAgent: string },
+): Promise<void> {
+  const { error } = await db().rpc('student_portal_push_subscribe', {
+    p_token: rawToken,
+    p_endpoint: sub.endpoint,
+    p_p256dh: sub.p256dh,
+    p_auth: sub.auth,
+    p_user_agent: sub.userAgent,
+  })
+  if (error) throw new Error(pushErrorMessage(error))
+}
+
+/** إيقاف اشتراك Push هذا المتصفح من البوابة — يعطّل الصف خادمياً */
+export async function unsubscribeStudentPush(rawToken: string, endpoint: string): Promise<void> {
+  const { error } = await db().rpc('student_portal_push_unsubscribe', {
+    p_token: rawToken,
+    p_endpoint: endpoint,
+  })
+  if (error) throw new Error(pushErrorMessage(error))
+}
+
 /** حالات الحضور في سجل الواجبات — نفس شارات بوابة ولي الأمر */
 export const STUDENT_PORTAL_ATT_META: Record<string, { label: string; badge: string }> = {
   p: { label: 'حاضر', badge: 'bg-ok/10 text-ok border-ok/30' },
