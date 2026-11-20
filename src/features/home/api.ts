@@ -152,6 +152,21 @@ export async function fetchMonthlyAttendance(
   return { marked, attended, rate: marked ? Math.round((attended / marked) * 100) : null }
 }
 
+/**
+ * عدد سجلات الحضور المُعلَّمة فعلياً (status غير خالٍ) عبر كل الفترات —
+ * خطوة «سجّل أول حضور» في بطاقة «ابدأ هنا» تُحسم بأي تعليم تاريخي،
+ * لا بحضور الشهر الحالي وحده (M3).
+ */
+export async function fetchAnyAttendanceCount(teacherId: string): Promise<number> {
+  const { count, error } = await db()
+    .from('attendance')
+    .select('id', { count: 'exact', head: true })
+    .eq('teacher_id', teacherId)
+    .not('status', 'is', null)
+  if (error) throw error
+  return count ?? 0
+}
+
 export interface MonthPayments {
   /** محصّل الشهر = مجموع payments.amount داخل الشهر (يشمل العكسيات السالبة) */
   collectedMonth: number

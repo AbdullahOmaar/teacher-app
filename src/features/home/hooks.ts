@@ -5,6 +5,7 @@ import {
   addDaysStr,
   fetchActiveCountsByGroup,
   fetchActiveStudentsCount,
+  fetchAnyAttendanceCount,
   fetchAttendanceForSessions,
   fetchInvoiceBalances,
   fetchMonthPayments,
@@ -36,6 +37,15 @@ export function useMonthlyAttendance(teacherId: string | undefined) {
     queryKey: [HOME, 'month-attendance', teacherId, monthStart],
     enabled: Boolean(teacherId),
     queryFn: () => fetchMonthlyAttendance(teacherId!, monthStart, monthEnd),
+  })
+}
+
+/** أي حضور مُعلَّم تاريخياً — خطوة بطاقة «ابدأ هنا» الثالثة (M3) */
+export function useAnyAttendanceCount(teacherId: string | undefined) {
+  return useQuery({
+    queryKey: [HOME, 'any-attendance', teacherId],
+    enabled: Boolean(teacherId),
+    queryFn: () => fetchAnyAttendanceCount(teacherId!),
   })
 }
 

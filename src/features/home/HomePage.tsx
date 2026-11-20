@@ -1,11 +1,15 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   CalendarDays,
+  CheckCircle2,
+  Circle,
   ClipboardCheck,
+  ListChecks,
   Plus,
   ReceiptText,
   Users,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
@@ -24,12 +28,16 @@ import {
 import {
   useActiveCountsByGroup,
   useActiveStudentsCount,
+  useAnyAttendanceCount,
   useAttendanceForSessions,
   useInvoiceBalances,
   useMonthPayments,
   useMonthlyAttendance,
   useUpcomingSessions,
 } from './hooks'
+import { useGroups } from '../groups/hooks'
+import { useAuth } from '../../lib/AuthProvider'
+import { DEMO_EMAIL } from '../auth/api'
 
 function KpiCard({
   to,
@@ -73,6 +81,60 @@ export function HomePage() {
 
   const activeStudentsQ = useActiveStudentsCount(teacherId)
   const monthAttendanceQ = useMonthlyAttendance(teacherId)
+
+  // بطاقة «ابدأ هنا» (M3): خطوات إعداد المدرس الجديد — تُشتق من بياناته
+  // الفعلية (مجموعة ← طلاب ← أول حضور)، وتختفي عند اكتمالها أو بإخفاء
+  // دائم. للمالك فقط، ولا تظهر للحساب التجريبي أبداً.
+  const { user } = useAuth()
+  const groupsQ = useGroups(teacherId)
+  const anyAttendanceQ = useAnyAttendanceCount(teacherId)
+  const dismissKey = teacherId ? `start-here-dismissed:${teacherId}` : null
+  const [startDismissed, setStartDismissed] = useState(false)
+  useEffect(() => {
+    if (!dismissKey) return
+    try {
+      setStartDismissed(window.localStorage.getItem(dismissKey) === '1')
+    } catch {
+      setStartDismissed(false)
+    }
+  }, [dismissKey])
+  const dismissStartHere = () => {
+    if (dismissKey) {
+      try {
+        window.localStorage.setItem(dismissKey, '1')
+      } catch {
+        // تجاهل: الإخفاء للجلسة الحالية على الأقل
+      }
+    }
+    setStartDismissed(true)
+  }
+  const startSteps = [
+    {
+      done: (groupsQ.data?.length ?? 0) > 0,
+      label: 'أنشئ أول مجموعة وحدّد جدولها ونظام دفعها',
+      to: '/groups',
+    },
+    {
+      done: (activeStudentsQ.data ?? 0) > 0,
+      label: 'أضف طلابك وسجّلهم في المجموعة',
+      to: '/students',
+    },
+    {
+      done: (anyAttendanceQ.data ?? 0) > 0,
+      label: 'سجّل أول حضور لحصة',
+      to: '/attendance',
+    },
+  ]
+  const stepsKnown =
+    groupsQ.data !== undefined &&
+    activeStudentsQ.data !== undefined &&
+    anyAttendanceQ.data !== undefined
+  const showStartHere =
+    isOwner &&
+    user?.email !== DEMO_EMAIL &&
+    stepsKnown &&
+    !startDismissed &&
+    startSteps.some((s) => !s.done)
   const paymentsQ = useMonthPayments(teacherId, isOwner)
   const balancesQ = useInvoiceBalances(teacherId, isOwner)
   const sessionsQ = useUpcomingSessions(teacherId)
@@ -203,6 +265,46 @@ export function HomePage() {
         />
       ) : (
         <>
+          {/* بطاقة «ابدأ هنا» — للمدرس الجديد فقط (M3): خطوات مرتبة
+              تُعلَّم من بياناته الفعلية وتختفي عند اكتمالها */}
+          {showStartHere && (
+            <Card>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="font-bold text-[15px] flex items-center gap-2">
+                  <ListChecks size={20} className="text-primary" />
+                  ابدأ هنا — 3 خطوات وتشتغل
+                </span>
+                <button
+                  type="button"
+                  onClick={dismissStartHere}
+                  aria-label="إخفاء بطاقة البدء نهائياً"
+                  className="w-9 h-9 shrink-0 flex items-center justify-center bg-transparent border-0 text-muted cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              {startSteps.map((s, i) => (
+                <Link
+                  key={s.to}
+                  to={s.to}
+                  className="flex items-center gap-2 py-2 no-underline text-text border-b border-border/60 last:border-0"
+                >
+                  {s.done ? (
+                    <CheckCircle2 size={20} className="text-ok-text shrink-0" />
+                  ) : (
+                    <Circle size={20} className="text-muted shrink-0" />
+                  )}
+                  <span className={s.done ? 'text-muted line-through' : 'font-semibold'}>
+                    {i + 1}. {s.label}
+                  </span>
+                </Link>
+              ))}
+              <p className="text-muted text-[12px] mt-2 mb-0">
+                البطاقة دي بتختفي لوحدها أول ما تخلّص الخطوات التلاتة.
+              </p>
+            </Card>
+          )}
+
           {/* Hero: الحصة القادمة بتدرّج نيلي — وبصمة الهوية: علامة
               الكتاب/الصح مائية بيضاء خفيفة جداً على التدرّج نفسه */}
           <div className="relative overflow-hidden rounded-2xl p-4 mb-3 text-white bg-[linear-gradient(135deg,#4F46E5,#4338CA)] shadow-[0_8px_20px_rgba(79,70,229,0.35)]">
