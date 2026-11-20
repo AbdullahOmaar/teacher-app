@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { SearchCheck } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
@@ -24,7 +25,9 @@ function proofDate(iso: string): string {
  * مالي فيُحجب عن المساعد ويبقى له سبب الغياب فقط؛ وهنا البطاقة كلها
  * مالية (وRLS على payment_proofs مالك فقط أصلاً، وصفحة الفواتير نفسها
  * للمالك فقط) فلا تظهر للمساعد إطلاقاً ولا يُفعَّل استعلامها له.
- * لا تُعرض أثناء التحميل أو عند الخطأ: غيابها أصدق من بطاقة فارغة.
+ * أثناء التحميل هيكل محجوز الارتفاع (W5 — R-12: بطاقات الإجراء في
+ * الرئيسية لا تقفز بالمحتوى)؛ وعند الخطأ أو الفراغ لا تُعرض إطلاقاً:
+ * غيابها أصدق من بطاقة فارغة.
  */
 export function PendingProofsCard() {
   const teacher = useCurrentTeacher()
@@ -33,7 +36,9 @@ export function PendingProofsCard() {
   const proofsQ = usePendingProofs(teacherId, isOwner)
 
   const proofs = proofsQ.data ?? []
-  if (!teacherId || !isOwner || proofsQ.isPending || proofsQ.error || proofs.length === 0) {
+  if (!teacherId || !isOwner) return null
+  if (proofsQ.isPending) return <Skeleton className="h-[150px] mb-3" />
+  if (proofsQ.error || proofs.length === 0) {
     return null
   }
 

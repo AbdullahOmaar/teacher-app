@@ -7,13 +7,17 @@ import {
   fetchActiveStudentsCount,
   fetchAnyAttendanceCount,
   fetchAttendanceForSessions,
+  fetchCollectedInRange,
   fetchInvoiceBalances,
   fetchMonthPayments,
   fetchMonthlyAttendance,
+  fetchNewStudentsCount,
   fetchSessionsInRange,
   monthEndStr,
   monthStartStr,
+  prevMonthSameDaysWindow,
   todayStr,
+  type MonthlyAttendance,
 } from './api'
 import { fetchAlerts } from '../notifications/api'
 
@@ -58,6 +62,43 @@ export function useMonthPayments(teacherId: string | undefined, enabled: boolean
     queryKey: [HOME, 'month-payments', teacherId, monthStart],
     enabled: Boolean(teacherId) && enabled,
     queryFn: () => fetchMonthPayments(teacherId!, monthStart, monthEnd, today),
+  })
+}
+
+export interface HomeDeltas {
+  /** محصّل نافذة نفس الأيام من الشهر السابق — null للمساعد (لا مالية) */
+  collectedPrev: number | null
+  /** حضور نافذة المقارنة (نفس أيام الشهر السابق) */
+  attPrev: MonthlyAttendance
+  /** انضمامات هذا الشهر حتى اليوم */
+  joinsCur: number
+  /** انضمامات نافذة المقارنة */
+  joinsPrev: number
+}
+
+/**
+ * بيانات مقارنة الدلتا (W5 — R-13): نافذة «نفس عدد الأيام» من الشهر
+ * السابق لثلاثة مؤشرات — التحصيل (مالك فقط)، الحضور، وانضمامات الطلاب.
+ * استعلام ثانوي: لا يدخل في حالة تحميل/خطأ البطاقات الأساسية.
+ */
+export function useHomeDeltas(teacherId: string | undefined, isOwner: boolean) {
+  const today = todayStr()
+  const monthStart = monthStartStr(today)
+  const win = prevMonthSameDaysWindow(today)
+  return useQuery({
+    queryKey: [HOME, 'deltas', teacherId, monthStart],
+    enabled: Boolean(teacherId),
+    queryFn: async (): Promise<HomeDeltas> => {
+      const [attPrev, joinsCur, joinsPrev, collectedPrev] = await Promise.all([
+        fetchMonthlyAttendance(teacherId!, win.start, win.end),
+        fetchNewStudentsCount(teacherId!, monthStart, today),
+        fetchNewStudentsCount(teacherId!, win.start, win.end),
+        isOwner
+          ? fetchCollectedInRange(teacherId!, win.start, win.end)
+          : Promise.resolve(null),
+      ])
+      return { collectedPrev, attPrev, joinsCur, joinsPrev }
+    },
   })
 }
 

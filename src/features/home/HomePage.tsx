@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   CalendarDays,
@@ -6,8 +6,11 @@ import {
   Circle,
   ClipboardCheck,
   ListChecks,
+  Minus,
   Plus,
   ReceiptText,
+  TrendingDown,
+  TrendingUp,
   Users,
   X,
   type LucideIcon,
@@ -19,10 +22,12 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { Logo } from '../../components/brand/Logo'
 import { formatMoney, formatTime12 } from '../../lib/format'
 import {
+  kpiDelta,
   monthStartStr,
   relLabel,
   sessionEnd,
   todayStr,
+  type KpiDelta,
   type SessionWithGroup,
 } from './api'
 import {
@@ -30,6 +35,7 @@ import {
   useActiveStudentsCount,
   useAnyAttendanceCount,
   useAttendanceForSessions,
+  useHomeDeltas,
   useInvoiceBalances,
   useMonthPayments,
   useMonthlyAttendance,
@@ -56,12 +62,15 @@ function KpiCard({
   value,
   label,
   sub,
+  delta,
   valueClass = '',
 }: {
   to: string
   value: string
   label: string
   sub?: string
+  /** سطر الدلتا/التعريف تحت المؤشر (W5 — R-13/R-15) */
+  delta?: ReactNode
   valueClass?: string
 }) {
   return (
@@ -70,8 +79,43 @@ function KpiCard({
         <b className={`block whitespace-nowrap overflow-hidden text-ellipsis text-[clamp(17px,5.6vw,21px)] font-extrabold leading-tight ${valueClass}`}>{value}</b>
         <span className="block text-muted text-[12px] font-semibold">{label}</span>
         {sub && <span className="block text-muted text-[12px] mt-0.5">{sub}</span>}
+        {delta}
       </Card>
     </Link>
+  )
+}
+
+/**
+ * سطر دلتا المؤشر (W5 — R-13): فرق مطلق (+ نسبة عند وجود قاعدة) وسهم،
+ * ملوّناً باتجاه المعنى لا الاتجاه الحسابي (goodWhen)، وبجانبه مرجع
+ * المقارنة نصاً. delta = null بعد اكتمال التحميل = «لا مقارنة بعد».
+ */
+function DeltaLine({
+  delta,
+  formatAbs,
+  goodWhen,
+}: {
+  delta: KpiDelta | null
+  formatAbs: (n: number) => string
+  goodWhen: 'up' | 'down'
+}) {
+  if (!delta) {
+    return <span className="block text-muted text-[11.5px] mt-0.5">لا مقارنة بعد</span>
+  }
+  const good = delta.direction !== 'flat' && delta.direction === goodWhen
+  const cls =
+    delta.direction === 'flat' ? 'text-muted' : good ? 'text-ok-text' : 'text-bad-text'
+  const Icon =
+    delta.direction === 'up' ? TrendingUp : delta.direction === 'down' ? TrendingDown : Minus
+  return (
+    <span className={`flex items-center justify-center gap-1 text-[11.5px] font-semibold mt-0.5 ${cls}`}>
+      <Icon size={13} className="shrink-0" />
+      <span>
+        {formatAbs(Math.abs(delta.abs))}
+        {delta.pct != null && delta.direction !== 'flat' ? ` (${Math.abs(delta.pct)}%)` : ''}
+      </span>
+      <span className="text-muted font-normal">عن نفس أيام الشهر الماضي</span>
+    </span>
   )
 }
 
@@ -153,6 +197,7 @@ export function HomePage() {
   const paymentsQ = useMonthPayments(teacherId, isOwner)
   const balancesQ = useInvoiceBalances(teacherId, isOwner)
   const sessionsQ = useUpcomingSessions(teacherId)
+  const deltasQ = useHomeDeltas(teacherId, isOwner)
 
   const sessions = useMemo(() => sessionsQ.data ?? [], [sessionsQ.data])
   const groupIds = useMemo(() => [...new Set(sessions.map((s) => s.group_id))], [sessions])
@@ -383,12 +428,30 @@ export function HomePage() {
             </div>
           </div>
 
-          {/* KPIs */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
+          {/* بطاقات الإجراء المطلوب (W5 — R-12): المعرّضون للفقد ثم
+              إثباتات الدفع المعلّقة — قبل المؤشرات، وكلتاهما بهيكل
+              تحميل محجوز الارتفاع فلا قفزة عند ظهورها */}
+          <AtRiskCard />
+          <PendingProofsCard />
+
+          {/* KPIs — صف واحد من أربعة على الشاشات الواسعة (R-16)، وكل
+              مؤشر بدلتا نفس أيام الشهر الماضي (R-13) عدا «غير المسددة»
+              فرقمها مخزون حالي لا يُعاد بناؤه تاريخياً — يحمل تعريفه
+              بدلاً منها (R-15) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
             <KpiCard
               to="/students"
               value={String(activeStudentsQ.data ?? 0)}
               label="طالب نشط"
+              delta={
+                deltasQ.data ? (
+                  <DeltaLine
+                    delta={kpiDelta(deltasQ.data.joinsCur, deltasQ.data.joinsPrev)}
+                    formatAbs={(n) => `${n} طالب جديد`}
+                    goodWhen="up"
+                  />
+                ) : undefined
+              }
             />
             <KpiCard
               to="/students"
@@ -400,6 +463,19 @@ export function HomePage() {
                   : `حضر ${monthAttendanceQ.data?.attended ?? 0} من ${monthAttendanceQ.data?.marked ?? 0} مسجلة`
               }
               valueClass={attRate == null ? '' : attRate >= 80 ? 'text-ok-text' : 'text-warn-text'}
+              delta={
+                deltasQ.data ? (
+                  <DeltaLine
+                    delta={
+                      attRate != null && deltasQ.data.attPrev.rate != null
+                        ? { ...kpiDelta(attRate, deltasQ.data.attPrev.rate), pct: null }
+                        : null
+                    }
+                    formatAbs={(n) => `${n} نقطة`}
+                    goodWhen="up"
+                  />
+                ) : undefined
+              }
             />
             {isOwner && (
               <KpiCard
@@ -408,6 +484,19 @@ export function HomePage() {
                 label="محصّل الشهر"
                 sub={`اليوم: ${formatMoney(paymentsQ.data?.collectedToday ?? 0)}`}
                 valueClass="text-ok-text"
+                delta={
+                  deltasQ.data ? (
+                    <DeltaLine
+                      delta={
+                        deltasQ.data.collectedPrev != null
+                          ? kpiDelta(collectedMonth, deltasQ.data.collectedPrev)
+                          : null
+                      }
+                      formatAbs={(n) => formatMoney(n)}
+                      goodWhen="up"
+                    />
+                  ) : undefined
+                }
               />
             )}
             {isOwner && (
@@ -421,6 +510,11 @@ export function HomePage() {
                     : 'لا توجد متأخرات'
                 }
                 valueClass={invoiceStats.unpaidCount > 0 ? 'text-warn-text' : ''}
+                delta={
+                  <span className="block text-muted text-[11.5px] mt-0.5">
+                    أي رصيد غير مسدد — كل الشهور
+                  </span>
+                }
               />
             )}
           </div>
@@ -441,16 +535,6 @@ export function HomePage() {
               </div>
             </Card>
           )}
-
-          {/* «معرّضون للفقد» (Phase 5 خطوة 1): بطاقة ملخص تظهر فقط عند
-              وجود حالات — ليست تنبيهاً عاماً بل قائمة عمل بمتابعات */}
-          <AtRiskCard />
-
-          {/* «إثباتات دفع معلّقة» (موجة W1): بطاقة شرطية بنفس النمط —
-              إجراء مالي يومي كان غائباً عن الرئيسية تماماً. موضعها بعد
-              بطاقة المعرّضين عمداً حتى لا يزحزح ظهورها موضعَ تلك البطاقة
-              المحجوز بهيكل تحميل (بند W1-4) */}
-          <PendingProofsCard />
 
           {/* التنبيهات ليست هنا عمداً (طلب المالك): مكانها الوحيد زر الجرس
               في الشريط العلوي بعدّاده، وشاشة الإشعارات خلفه */}
