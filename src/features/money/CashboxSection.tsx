@@ -137,15 +137,18 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
         <h2 className="type-section">الإغلاق اليومي للخزنة</h2>
       </div>
 
-      {/* اختيار اليوم: السابق/التالي + منتقي تاريخ + رجوع لليوم */}
-      <div className="flex items-center gap-2 mb-3">
+      {/* اختيار اليوم: على الموبايل منتقي التاريخ في صف كامل أولاً ثم
+          زرا التنقل نصفين تحته — الصف الواحد القديم كان يقصّ قيمة التاريخ
+          («11/20/2…») لأن لحقل التاريخ حداً أدنى ذاتياً لا ينكمش */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <Button
           variant="ghost"
+          className="flex-1 min-[480px]:flex-none"
           onClick={() => setSelectedDate(addDaysStr(selectedDate, -1))}
         >
           اليوم السابق
         </Button>
-        <div className="flex-1 min-w-0">
+        <div className="order-first w-full min-[480px]:order-none min-[480px]:w-auto min-[480px]:flex-1 min-w-0">
           <TextInput
             type="date"
             aria-label="يوم الإغلاق"
@@ -158,6 +161,7 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
         </div>
         <Button
           variant="ghost"
+          className="flex-1 min-[480px]:flex-none"
           disabled={isToday}
           onClick={() => setSelectedDate(addDaysStr(selectedDate, 1))}
         >

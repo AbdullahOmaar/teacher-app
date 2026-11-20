@@ -208,19 +208,23 @@ export function InvoicesPage() {
         <>
           {overdue.count > 0 && (
             <Card className="border-warn/50 bg-warn/5">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="font-extrabold text-[16px] flex items-center gap-2"><AlertTriangle size={20} className="text-warn-text" /> متأخرات مستحقة</div>
+              {/* على الموبايل: النص فوق وزرّان بعرض كامل تحت بعضهما في صف —
+                  الصف الأفقي القديم كان يضغط النص لعرض كلمة ويطرد زر «نسخ»
+                  خارج حدود البطاقة عند 360px */}
+              <div className="flex flex-col gap-3 min-[560px]:flex-row min-[560px]:items-center min-[560px]:justify-between min-[560px]:gap-2">
+                <div className="min-w-0">
+                  <div className="font-extrabold text-[16px] flex items-center gap-2"><AlertTriangle size={20} className="text-warn-text shrink-0" /> متأخرات مستحقة</div>
                   <div className="text-muted text-[13.5px]">
                     {overdue.count} طالب · إجمالي {formatMoney(overdue.total)}
                   </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <Button variant="soft" onClick={() => setShowOverdue((v) => !v)}>
+                <div className="flex gap-2 min-[560px]:shrink-0">
+                  <Button variant="soft" className="flex-1 min-[560px]:flex-none" onClick={() => setShowOverdue((v) => !v)}>
                     {showOverdue ? 'إخفاء القائمة' : 'عرض القائمة'}
                   </Button>
                   <Button
                     variant="ghost"
+                    className="flex-1 min-[560px]:flex-none"
                     onClick={() => {
                       const text = overdue.rows
                         .map((r) => `${r.name}: ${formatMoney(r.total)}`)

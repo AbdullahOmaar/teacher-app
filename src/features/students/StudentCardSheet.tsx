@@ -52,7 +52,7 @@ export function StudentCardSheet({ student, groupNames, onClose }: StudentCardSh
         }}
       >
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5">
               {brand.logoUrl ? (
                 <img

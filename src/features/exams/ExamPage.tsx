@@ -333,12 +333,12 @@ export function ExamPage() {
       <ExamShell brand={brand} title={attempt.exam_title}>
         <div className="sticky top-[52px] z-10 -mx-4 px-4 py-2 bg-bg/95 backdrop-blur border-b border-border mb-3">
           <div className="max-w-[640px] mx-auto flex items-center justify-between gap-2">
-            <span className="text-[13.5px] font-bold truncate">
+            <span className="flex-1 min-w-0 text-[13.5px] font-bold truncate">
               {attempt.student_name} · محاولة {attempt.attempt_no}
             </span>
             {remainingMs != null ? (
               <span
-                className={`inline-flex items-center gap-1.5 text-[15px] font-extrabold rounded-full px-3 py-1 ${
+                className={`shrink-0 inline-flex items-center gap-1.5 text-[15px] font-extrabold rounded-full px-3 py-1 ${
                   lowTime ? 'bg-bad text-white' : 'bg-soft text-primary'
                 }`}
                 dir="ltr"
@@ -347,7 +347,7 @@ export function ExamPage() {
                 {fmtCountdown(remainingMs)}
               </span>
             ) : (
-              <span className="text-[12px] font-bold bg-soft text-muted rounded-full px-2.5 py-1">
+              <span className="shrink-0 text-[12px] font-bold bg-soft text-muted rounded-full px-2.5 py-1">
                 بلا مؤقّت
               </span>
             )}

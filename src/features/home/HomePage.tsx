@@ -48,7 +48,7 @@ function KpiCard({
   return (
     <Link to={to} className="block no-underline text-text">
       <Card className="mb-0 text-center h-full">
-        <b className={`block text-[21px] font-extrabold leading-tight ${valueClass}`}>{value}</b>
+        <b className={`block whitespace-nowrap overflow-hidden text-ellipsis text-[clamp(17px,5.6vw,21px)] font-extrabold leading-tight ${valueClass}`}>{value}</b>
         <span className="block text-muted text-[12px] font-semibold">{label}</span>
         {sub && <span className="block text-muted text-[12px] mt-0.5">{sub}</span>}
       </Card>

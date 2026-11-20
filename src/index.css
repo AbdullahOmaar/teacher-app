@@ -191,10 +191,39 @@ a {
   box-sizing: border-box;
 }
 
+html {
+  /*
+   * منع التضخيم التلقائي للنصوص على متصفحات الموبايل (إصلاح فيض الموبايل):
+   * كروم أندرويد وSafari iOS بيكبّروا النصوص تلقائياً (font boosting /
+   * text autosizing) في بعض الحاويات، فصفوف مظبوطة على 360px بتفيض على
+   * أجهزة حقيقية رغم سلامتها في المعاينة. 100% = النص بحجمه المصمم فقط.
+   */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
+}
+
+body {
+  /*
+   * شبكة أمان أخيرة فقط (ليست الحل): أي عنصر شارد مستقبلاً لا يحوّل الصفحة
+   * كلها لتمرير أفقي. القيمة clip لا تنشئ حاوية تمرير فلا تكسر sticky،
+   * والإصلاحات الحقيقية في المكونات نفسها (min-w-0/التفاف/قصّ موضعي).
+   */
+  overflow-x: clip;
+}
+
+/* صفوف الرقائق: تمرير أفقي مقصود بلا شريط تمرير ظاهر */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 body {

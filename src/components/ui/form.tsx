@@ -91,5 +91,5 @@ export function Chip({
 }
 
 export function ChipRow({ children }: { children: ReactNode }) {
-  return <div className="flex gap-2 overflow-x-auto pb-1 mb-3 -mx-1 px-1">{children}</div>
+  return <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-3 -mx-1 px-1">{children}</div>
 }

@@ -27,7 +27,9 @@ import { ExpenseFormSheet, RecurringFormSheet } from './sheets'
 function Kpi({ value, label, valueClass = '' }: { value: string; label: string; valueClass?: string }) {
   return (
     <Card className="mb-0 text-center h-full">
-      <b className={`block text-[19px] font-extrabold leading-tight ${valueClass}`}>{value}</b>
+      {/* شبكة 3 أعمدة على 360px: القيمة بسطر واحد وحجم متدرج مع العرض حتى
+          لا ينكسر مبلغ كبير (مع الفواصل و«ج») على سطرين داخل البطاقة */}
+      <b className={`block whitespace-nowrap overflow-hidden text-ellipsis text-[clamp(14px,4.6vw,19px)] font-extrabold leading-tight ${valueClass}`}>{value}</b>
       <span className="block text-muted text-[12px] font-semibold mt-0.5">{label}</span>
     </Card>
   )
@@ -167,19 +169,22 @@ export function MoneyPage() {
 
   return (
     <div>
-      {/* تنقّل الشهور */}
-      <div className="flex items-center gap-2 mb-3">
+      {/* تنقّل الشهور — نفس معالجة تنقّل أيام الخزنة: اسم الشهر صف كامل
+          على الموبايل والزرّان نصفان تحته، وصف واحد من 480px */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <Button
           variant="ghost"
+          className="flex-1 min-[480px]:flex-none"
           onClick={() => setSelectedMonth(addMonthsStr(selectedMonth, -1))}
         >
           الشهر السابق
         </Button>
-        <div className="flex-1 text-center font-extrabold text-[15px]">
+        <div className="order-first w-full text-center min-[480px]:order-none min-[480px]:w-auto min-[480px]:flex-1 font-extrabold text-[15px]">
           {periodLabel(selectedMonth)}
         </div>
         <Button
           variant="ghost"
+          className="flex-1 min-[480px]:flex-none"
           onClick={() => setSelectedMonth(addMonthsStr(selectedMonth, 1))}
         >
           الشهر التالي

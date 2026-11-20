@@ -177,14 +177,14 @@ export function GroupDetailPage() {
             ))}
           </div>
         )}
-        <div className="flex gap-2 mt-3">
-          <Link to={`/students?group=${group.id}`} className="no-underline flex-1">
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Link to={`/students?group=${group.id}`} className="no-underline flex-1 min-w-[150px]">
             <Button variant="soft" full>
               عرض في قائمة الطلاب
             </Button>
           </Link>
           {!isArchived && (
-            <Button className="flex-1" onClick={() => setEnrollOpen(true)}>
+            <Button className="flex-1 min-w-[150px]" onClick={() => setEnrollOpen(true)}>
               + إضافة طالب
             </Button>
           )}

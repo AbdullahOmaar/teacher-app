@@ -19,12 +19,12 @@ export function Fab({ onClick, ariaLabel, label, icon: Icon = Plus }: FabProps) 
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`fixed z-30 bottom-[calc(88px+env(safe-area-inset-bottom,0px))] end-4 h-14 min-w-14 bg-primary text-on-primary shadow-raised cursor-pointer border-0 flex items-center justify-center gap-2 font-bold text-[15px] hover:bg-primary-d transition-colors ${
+      className={`fixed z-30 bottom-[calc(88px+env(safe-area-inset-bottom,0px))] end-4 h-14 min-w-14 max-w-[calc(100vw-2rem)] bg-primary text-on-primary shadow-raised cursor-pointer border-0 flex items-center justify-center gap-2 font-bold text-[15px] hover:bg-primary-d transition-colors ${
         label ? 'rounded-full px-5' : 'rounded-full w-14'
       }`}
     >
-      <Icon size={24} />
-      {label}
+      <Icon size={24} className="shrink-0" />
+      {label ? <span className="truncate">{label}</span> : null}
     </button>
   )
 }

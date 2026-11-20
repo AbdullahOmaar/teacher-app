@@ -91,18 +91,20 @@ export function GroupsPage() {
           return (
             <Link key={g.id} to={`/groups/${g.id}`} className="block no-underline text-text">
               <Card className={g.archived_at != null ? 'opacity-70' : ''}>
-                <div className="flex items-center gap-3">
+                {/* التفاف مقصود: اسم مجموعة طويل + شارة مساعد كانا ينضغطان
+                    في صف واحد فتلتف الشارة داخل كبسولتها لسطرين */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                   <span className="shrink-0 w-10 h-10 rounded-full bg-soft text-primary flex items-center justify-center">
                     <Users size={20} />
                   </span>
-                  <span className="font-bold text-[16px]">{g.name}</span>
+                  <span className="font-bold text-[16px] min-w-0">{g.name}</span>
                   {g.archived_at != null && (
-                    <span className="text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
+                    <span className="text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 whitespace-nowrap">
                       مؤرشفة
                     </span>
                   )}
                   {g.assistant_name && (
-                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
+                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5 max-w-full truncate">
                       مساعد: {g.assistant_name}
                     </span>
                   )}

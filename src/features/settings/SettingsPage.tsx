@@ -343,7 +343,7 @@ export function SettingsPage() {
       <Card>
         <h2 className="type-section mt-0 mb-3 flex items-center gap-2"><UserRound size={22} className="text-primary" /> حسابي</h2>
         <div className="text-[13.5px] text-muted mb-1">البريد الإلكتروني</div>
-        <div className="font-semibold mb-3" dir="ltr" style={{ textAlign: 'start' }}>
+        <div className="font-semibold mb-3 break-all" dir="ltr" style={{ textAlign: 'start' }}>
           {user?.email ?? '—'}
         </div>
         <div className="text-[13.5px] text-muted mb-1">
@@ -807,7 +807,7 @@ export function SettingsPage() {
                 return (
                   <div key={inv.id} className="border border-border rounded-xl p-3 mb-2">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-bold text-[15px] flex-1" dir="ltr" style={{ textAlign: 'start' }}>
+                      <span className="font-bold text-[15px] flex-1 min-w-0 break-all" dir="ltr" style={{ textAlign: 'start' }}>
                         {inv.invited_email}
                       </span>
                       <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">

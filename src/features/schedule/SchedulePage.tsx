@@ -359,20 +359,22 @@ function WeekView({
   const isCurrentWeek = weekStart === weekStartStr(today)
   return (
     <div>
-      <div className="flex items-center justify-between gap-2 mb-3">
+      {/* مدى الأسبوع طويل («15 نوفمبر – 21 نوفمبر 2026»): صف كامل على
+          الموبايل والزرّان نصفان تحته بدل انضغاطه بينهما على سطرين */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <button
           onClick={onPrev}
-          className="text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer"
+          className="flex-1 min-[480px]:flex-none text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
         >
           الأسبوع السابق
         </button>
-        <div className="font-extrabold text-[15px] text-center">
+        <div className="order-first w-full min-[480px]:order-none min-[480px]:w-auto font-extrabold text-[15px] text-center">
           {formatDayMonth(dates[0])} – {formatDayMonth(dates[6])}{' '}
           {parseDate(dates[6]).getFullYear()}
         </div>
         <button
           onClick={onNext}
-          className="text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer"
+          className="flex-1 min-[480px]:flex-none text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
         >
           الأسبوع التالي
         </button>
@@ -475,19 +477,19 @@ function MonthView({
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2 mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <button
           onClick={onPrevMonth}
-          className="text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer"
+          className="flex-1 min-[480px]:flex-none text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
         >
           الشهر السابق
         </button>
-        <div className="font-extrabold text-[15px]">
+        <div className="order-first w-full text-center min-[480px]:order-none min-[480px]:w-auto font-extrabold text-[15px]">
           {MONTH_NAMES[cursorDate.getMonth()]} {cursorDate.getFullYear()}
         </div>
         <button
           onClick={onNextMonth}
-          className="text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer"
+          className="flex-1 min-[480px]:flex-none text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
         >
           الشهر التالي
         </button>
