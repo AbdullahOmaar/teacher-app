@@ -37,6 +37,7 @@ export interface PortalPushAdapter {
 
 type PushUiState =
   | 'loading'
+  | 'check-failed'
   | 'ios-install'
   | 'unsupported'
   | 'unconfigured'
@@ -48,44 +49,44 @@ export function PortalPushToggle({ adapter }: { adapter: PortalPushAdapter }) {
   const [state, setState] = useState<PushUiState>('loading')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [probeRun, setProbeRun] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    let finished = false
+    // مهلة الفحص (L3): أي خطوة معلّقة — Service Worker لا يجهز أبداً أو
+    // استدعاء حالة خادمي لا يرد — تنتهي بحالة «تعذّر الفحص» الصريحة مع
+    // زر إعادة، بدل تعليق «جارٍ فحص…» إلى الأبد.
+    const timer = setTimeout(() => {
+      if (!cancelled && !finished) setState('check-failed')
+    }, 6_000)
+    const finish = (next: PushUiState) => {
+      finished = true
+      clearTimeout(timer)
+      if (!cancelled) setState(next)
+    }
     void (async () => {
       try {
-        if (isIosNotInstalled()) {
-          if (!cancelled) setState('ios-install')
-          return
-        }
-        if (!isPushSupported()) {
-          if (!cancelled) setState('unsupported')
-          return
-        }
-        if (!isPushConfigured()) {
-          if (!cancelled) setState('unconfigured')
-          return
-        }
-        if (Notification.permission === 'denied') {
-          if (!cancelled) setState('denied')
-          return
-        }
+        if (isIosNotInstalled()) return finish('ios-install')
+        if (!isPushSupported()) return finish('unsupported')
+        if (!isPushConfigured()) return finish('unconfigured')
+        if (Notification.permission === 'denied') return finish('denied')
         const endpoint = await currentPushEndpoint()
-        if (!endpoint) {
-          if (!cancelled) setState('not-subscribed')
-          return
-        }
+        if (!endpoint) return finish('not-subscribed')
         const active = await adapter.status(endpoint).catch(() => false)
-        if (!cancelled) setState(active ? 'subscribed' : 'not-subscribed')
+        finish(active ? 'subscribed' : 'not-subscribed')
       } catch {
-        if (!cancelled) setState('not-subscribed')
+        finish('not-subscribed')
       }
     })()
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
-    // المحوّل ثابت طوال عمر الصفحة (يُبنى من توكن الرابط) — فحص واحد يكفي
+    // المحوّل ثابت طوال عمر الصفحة (يُبنى من توكن الرابط) — فحص واحد
+    // لكل تشغيل، وإعادة الفحص من زر الحالة عند التعذّر
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [probeRun])
 
   const handleSubscribe = async () => {
     setBusy(true)
@@ -137,6 +138,24 @@ export function PortalPushToggle({ adapter }: { adapter: PortalPushAdapter }) {
 
         {state === 'loading' && (
           <p className="text-muted text-[13.5px] mb-0">جارٍ فحص حالة الإشعارات…</p>
+        )}
+
+        {state === 'check-failed' && (
+          <div className="text-[13.5px] bg-soft rounded-xl px-3 py-2.5">
+            <p className="mt-0 mb-2">
+              تعذّر فحص حالة الإشعارات على الجهاز ده — خدمة الإشعارات في
+              المتصفح مش جاهزة أو الفحص أخذ وقتاً أطول من اللازم.
+            </p>
+            <Button
+              variant="soft"
+              onClick={() => {
+                setState('loading')
+                setProbeRun((n) => n + 1)
+              }}
+            >
+              إعادة الفحص
+            </Button>
+          </div>
         )}
 
         {state === 'ios-install' && (

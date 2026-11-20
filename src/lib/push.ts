@@ -54,9 +54,32 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return out
 }
 
-async function browserSubscription(): Promise<PushSubscription | null> {
+/**
+ * مهلة جاهزية الـ Service Worker: الوعد `navigator.serviceWorker.ready`
+ * لا يُرفض أبداً — يبقى معلّقاً للأبد إن لم يُفعَّل أي SW (بيئة بلا
+ * تسجيل/تسجيل فاشل)، فكانت بطاقات فحص الإشعارات تعلق على «جارٍ فحص…»
+ * بلا نهاية (تدقيق أول استخدام — L3). السباق بمهلة يعيد null عند
+ * التعذّر فتتحول كل الحالات المعلّقة لحالة سقوط واضحة.
+ */
+const SW_READY_TIMEOUT_MS = 4_000
+
+async function swReadyWithTimeout(): Promise<ServiceWorkerRegistration | null> {
   if (!isPushSupported()) return null
-  const reg = await navigator.serviceWorker.ready
+  try {
+    return await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<null>((resolve) => {
+        setTimeout(() => resolve(null), SW_READY_TIMEOUT_MS)
+      }),
+    ])
+  } catch {
+    return null
+  }
+}
+
+async function browserSubscription(): Promise<PushSubscription | null> {
+  const reg = await swReadyWithTimeout()
+  if (!reg) return null
   return reg.pushManager.getSubscription()
 }
 
@@ -122,7 +145,12 @@ export async function subscribeBrowserPush(): Promise<BrowserPushKeys> {
   if (permission !== 'granted') {
     throw new Error('إذن الإشعارات غير ممنوح — فعّله من إعدادات المتصفح للموقع ثم حاول تاني.')
   }
-  const reg = await navigator.serviceWorker.ready
+  const reg = await swReadyWithTimeout()
+  if (!reg) {
+    throw new Error(
+      'تعذّر الوصول لخدمة الإشعارات في المتصفح ده (الـ Service Worker مش جاهز) — حدّث الصفحة وحاول تاني، ولو استمرت جرّب متصفحاً حديثاً.',
+    )
+  }
   const existing = await reg.pushManager.getSubscription()
   const sub =
     existing ??
