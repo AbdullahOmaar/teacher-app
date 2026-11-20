@@ -160,6 +160,18 @@ export function InvoicesPage() {
     }
   }, [invoices, currentMonth])
 
+  // تجميع العرض بالشهر (W3 — R-11): الفواتير مرتبة بالفترة تنازلياً
+  // أصلاً، فالتجميع المتتالي يحافظ على الترتيب ويضيف عنوان شهر لاصقاً
+  const invoiceSections = useMemo(() => {
+    const sections: { period: string; items: InvoiceListItem[] }[] = []
+    for (const inv of filtered) {
+      const last = sections[sections.length - 1]
+      if (last && last.period === inv.period_month) last.items.push(inv)
+      else sections.push({ period: inv.period_month, items: [inv] })
+    }
+    return sections
+  }, [filtered])
+
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status === 'signed-out') return <SignInRequired />
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
@@ -178,18 +190,6 @@ export function InvoicesPage() {
       </Card>
     )
   }
-
-  // تجميع العرض بالشهر (W3 — R-11): الفواتير مرتبة بالفترة تنازلياً
-  // أصلاً، فالتجميع المتتالي يحافظ على الترتيب ويضيف عنوان شهر لاصقاً
-  const invoiceSections = useMemo(() => {
-    const sections: { period: string; items: InvoiceListItem[] }[] = []
-    for (const inv of filtered) {
-      const last = sections[sections.length - 1]
-      if (last && last.period === inv.period_month) last.items.push(inv)
-      else sections.push({ period: inv.period_month, items: [inv] })
-    }
-    return sections
-  }, [filtered])
 
   const currentMonthLabel = periodLabel(monthStartStr(todayStr()))
   const paneInvoiceId =
