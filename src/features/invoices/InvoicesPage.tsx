@@ -110,6 +110,7 @@ export function InvoicesPage() {
     filterChoice ?? (params.get('filter') === 'due' ? 'due' : 'all')
   const [issueOpen, setIssueOpen] = useState(false)
   const [showOverdue, setShowOverdue] = useState(false)
+  const [showCurrentDue, setShowCurrentDue] = useState(false)
   // اختيار List-Detail عند ≥1024px — تحت هذا العرض يبقى التنقل لصفحة التفاصيل
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const toast = useToast()
@@ -132,20 +133,31 @@ export function InvoicesPage() {
     })
   }, [invoices, search, filter])
 
-  // المتأخرات: تجميع أرصدة الطلاب المستحقة من نفس view الأرصدة
-  const overdue = useMemo(() => {
-    const byStudent = new Map<string, { name: string; total: number }>()
-    for (const inv of invoices) {
-      if (inv.balance <= 0) continue
-      const cur = byStudent.get(inv.student_id) ?? { name: inv.student_name, total: 0 }
-      cur.total += inv.balance
-      byStudent.set(inv.student_id, cur)
+  // تعريف «متأخر» المعتمد في التطبيق (تدقيق أول استخدام — M4): فاتورة
+  // شهرٍ سابق برصيد موجب — هكذا يحسب الملخص اليومي في migration ‏0015
+  // حرفياً (period_month < أول الشهر الحالي). فواتير الشهر الحالي غير
+  // المسددة «مستحقات جارية» لا «متأخرات»، فلا تدخل بطاقة المتأخرات
+  // (كانت فواتير تُصدر للتوّ تظهر «متأخرات مستحقة» بعد دقيقة من إصدارها).
+  const currentMonth = monthStartStr(todayStr())
+  const { overdue, currentDue } = useMemo(() => {
+    const aggregate = (list: InvoiceListItem[]) => {
+      const byStudent = new Map<string, { name: string; total: number }>()
+      for (const inv of list) {
+        const cur = byStudent.get(inv.student_id) ?? { name: inv.student_name, total: 0 }
+        cur.total += inv.balance
+        byStudent.set(inv.student_id, cur)
+      }
+      const rows = [...byStudent.entries()]
+        .map(([studentId, v]) => ({ studentId, ...v }))
+        .sort((a, b) => b.total - a.total)
+      return { rows, total: rows.reduce((s, r) => s + r.total, 0), count: rows.length }
     }
-    const rows = [...byStudent.entries()]
-      .map(([studentId, v]) => ({ studentId, ...v }))
-      .sort((a, b) => b.total - a.total)
-    return { rows, total: rows.reduce((s, r) => s + r.total, 0), count: rows.length }
-  }, [invoices])
+    const unpaid = invoices.filter((inv) => inv.balance > 0)
+    return {
+      overdue: aggregate(unpaid.filter((inv) => inv.period_month < currentMonth)),
+      currentDue: aggregate(unpaid.filter((inv) => inv.period_month >= currentMonth)),
+    }
+  }, [invoices, currentMonth])
 
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status === 'signed-out') return <SignInRequired />
@@ -249,6 +261,49 @@ export function InvoicesPage() {
                     >
                       <span className="font-semibold">{r.name}</span>
                       <span className="font-bold text-warn-text" dir="ltr">
+                        {formatMoney(r.total)}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {currentDue.count > 0 && (
+                <div className="text-muted text-[13.5px] mt-2 border-t border-warn/30 pt-2">
+                  وبالإضافة لكده، مستحقات {currentMonthLabel} (لسه في شهرها — مش
+                  متأخرة): {currentDue.count} طالب · إجمالي {formatMoney(currentDue.total)}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {overdue.count === 0 && currentDue.count > 0 && (
+            <Card>
+              {/* مستحقات الشهر الحالي فقط: بطاقة محايدة بلا تلوين إنذاري —
+                  الفواتير لسه في شهرها ولم تتجاوز استحقاقها (M4) */}
+              <div className="flex flex-col gap-3 min-[560px]:flex-row min-[560px]:items-center min-[560px]:justify-between min-[560px]:gap-2">
+                <div className="min-w-0">
+                  <div className="font-extrabold text-[16px] flex items-center gap-2"><ReceiptText size={20} className="text-primary shrink-0" /> مستحقات {currentMonthLabel}</div>
+                  <div className="text-muted text-[13.5px]">
+                    {currentDue.count} طالب · إجمالي {formatMoney(currentDue.total)} — فواتير
+                    الشهر الحالي لسه مش متأخرة
+                  </div>
+                </div>
+                <div className="flex gap-2 min-[560px]:shrink-0">
+                  <Button variant="soft" className="flex-1 min-[560px]:flex-none" onClick={() => setShowCurrentDue((v) => !v)}>
+                    {showCurrentDue ? 'إخفاء القائمة' : 'عرض القائمة'}
+                  </Button>
+                </div>
+              </div>
+              {showCurrentDue && (
+                <div className="mt-2 border-t border-border pt-2">
+                  {currentDue.rows.map((r) => (
+                    <Link
+                      key={r.studentId}
+                      to={`/students/${r.studentId}`}
+                      className="flex justify-between py-1.5 text-[13.5px] no-underline text-text border-b border-border/60 last:border-0"
+                    >
+                      <span className="font-semibold">{r.name}</span>
+                      <span className="font-bold" dir="ltr">
                         {formatMoney(r.total)}
                       </span>
                     </Link>
