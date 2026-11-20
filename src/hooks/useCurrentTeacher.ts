@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthProvider'
@@ -70,11 +71,24 @@ export function useCurrentTeacher(): TeacherResolution {
   const activeTeacherId = useActiveTeacherId()
 
   const createdAtMs = user?.created_at ? new Date(user.created_at).getTime() : NaN
-  // عمر الحساب يُقاس بلحظة العرض عمداً: إعادة العرض تأتي من استطلاع
-  // النافذة نفسه، فتنقضي النافذة حسابياً مع مرور الوقت الحقيقي.
   // oxlint-disable-next-line react/purity
   const nowMs = Date.now()
-  const inGrace = Number.isFinite(createdAtMs) && nowMs - createdAtMs < NEW_ACCOUNT_GRACE_MS
+  const graceEndsAt = Number.isFinite(createdAtMs) ? createdAtMs + NEW_ACCOUNT_GRACE_MS : 0
+  // انقضاء النافذة يحدث بمؤقّت صريح لا بقياس الوقت عند العرض: نتيجة
+  // الاستطلاع الفارغة لا تتغير قيمتها (null دائماً) فلا تُعيد React
+  // Query عرض المكوّن مع كل استطلاع، وبدا الحساب بلا ملف فعلاً عالقاً
+  // على «تحميل» للأبد في أول نسخة من النافذة. المؤقّت يفرض إعادة عرض
+  // عند الحدّ بالضبط، فيسقط الحساب الجديد بلا ملف إلى شاشة الإعداد.
+  const [expiredDeadline, setExpiredDeadline] = useState(0)
+  useEffect(() => {
+    if (!graceEndsAt) return
+    const remaining = graceEndsAt - Date.now()
+    if (remaining <= 0) return
+    const t = setTimeout(() => setExpiredDeadline(graceEndsAt), remaining)
+    return () => clearTimeout(t)
+  }, [graceEndsAt])
+  const inGrace =
+    graceEndsAt > 0 && nowMs < graceEndsAt && expiredDeadline !== graceEndsAt
 
   const query = useQuery({
     queryKey: ['current-teacher', user?.id ?? null, activeTeacherId],
