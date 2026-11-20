@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   CalendarDays,
@@ -89,15 +89,18 @@ export function HomePage() {
   const groupsQ = useGroups(teacherId)
   const anyAttendanceQ = useAnyAttendanceCount(teacherId)
   const dismissKey = teacherId ? `start-here-dismissed:${teacherId}` : null
-  const [startDismissed, setStartDismissed] = useState(false)
-  useEffect(() => {
-    if (!dismissKey) return
+  // إخفاء دائم محفوظ محلياً لكل مدرس — يُقرأ اشتقاقياً مع كل تغيّر
+  // للمفتاح أو نقرة إخفاء (لا حالة مرآة في إفكت)
+  const [dismissTick, setDismissTick] = useState(0)
+  const startDismissed = useMemo(() => {
+    void dismissTick
+    if (!dismissKey) return false
     try {
-      setStartDismissed(window.localStorage.getItem(dismissKey) === '1')
+      return window.localStorage.getItem(dismissKey) === '1'
     } catch {
-      setStartDismissed(false)
+      return false
     }
-  }, [dismissKey])
+  }, [dismissKey, dismissTick])
   const dismissStartHere = () => {
     if (dismissKey) {
       try {
@@ -106,7 +109,7 @@ export function HomePage() {
         // تجاهل: الإخفاء للجلسة الحالية على الأقل
       }
     }
-    setStartDismissed(true)
+    setDismissTick((t) => t + 1)
   }
   const startSteps = [
     {

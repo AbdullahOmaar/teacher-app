@@ -70,8 +70,11 @@ export function useCurrentTeacher(): TeacherResolution {
   const activeTeacherId = useActiveTeacherId()
 
   const createdAtMs = user?.created_at ? new Date(user.created_at).getTime() : NaN
-  const inGrace =
-    Number.isFinite(createdAtMs) && Date.now() - createdAtMs < NEW_ACCOUNT_GRACE_MS
+  // عمر الحساب يُقاس بلحظة العرض عمداً: إعادة العرض تأتي من استطلاع
+  // النافذة نفسه، فتنقضي النافذة حسابياً مع مرور الوقت الحقيقي.
+  // oxlint-disable-next-line react/purity
+  const nowMs = Date.now()
+  const inGrace = Number.isFinite(createdAtMs) && nowMs - createdAtMs < NEW_ACCOUNT_GRACE_MS
 
   const query = useQuery({
     queryKey: ['current-teacher', user?.id ?? null, activeTeacherId],
