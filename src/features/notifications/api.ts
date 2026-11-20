@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { t } from '../../i18n'
 import { formatMoney, shortTime, waLink } from '../../lib/format'
 import {
   addDaysStr,
@@ -118,13 +119,13 @@ export interface AlertPrepaidMember {
 export const ALERT_KINDS: AlertKind[] = ['att', 'absence', 'prepaid', 'fin', 'proof', 'grade', 'backup']
 
 export const SECTION_META: Record<AlertKind, { title: string }> = {
-  att: { title: 'حضور اليوم لسه متسجلش' },
-  absence: { title: 'غياب متكرر' },
-  prepaid: { title: 'باقات على وشك النفاد' },
-  fin: { title: 'متأخرات الدفع' },
-  proof: { title: 'إثباتات دفع بانتظار المراجعة' },
-  grade: { title: 'درجات منخفضة' },
-  backup: { title: 'النسخ الاحتياطي' },
+  att: { title: t('notifications.section.att') },
+  absence: { title: t('notifications.section.absence') },
+  prepaid: { title: t('notifications.section.prepaid') },
+  fin: { title: t('notifications.section.fin') },
+  proof: { title: t('notifications.section.proof') },
+  grade: { title: t('notifications.section.grade') },
+  backup: { title: t('notifications.section.backup') },
 }
 
 /** عتبة الغياب المتكرر: غيابات (a) خلال نافذة الأيام دي — انظر الترويسة */
@@ -153,8 +154,7 @@ export function prepaidZone(left: number, prepaid: number): 'urgent' | 'follow' 
 }
 
 /** نص «تذكير عام» (§3.13: نص تذكير مهذب جاهز للنسخ — المرجع لا يقتبسه حرفياً) */
-export const GENERIC_REMINDER_TEXT =
-  'أهلاً وسهلاً، نذكّركم بوجود اشتراك مستحق لم يُسدّد بعد. برجاء السداد في أقرب وقت ممكن، وشكراً لتعاونكم.'
+export const GENERIC_REMINDER_TEXT = t('notifications.alert.genericReminder')
 
 /** '2026-11-01' → 'نوفمبر 2026' — نفس periodLabel في وحدة الفواتير */
 function periodLabel(periodMonth: string): string {
@@ -243,10 +243,10 @@ export async function fetchAlerts(
       if (total > 0 && unmarked > 0) {
         alerts.push({
           kind: 'att',
-          text: `${s.group_name}: ${unmarked} طالب لسه متسجلش حضورهم`,
+          text: t('notifications.alert.attText', { group: s.group_name, count: unmarked }),
           to: `/attendance?session=${s.id}`,
           groupName: s.group_name,
-          detail: `حصة اليوم · الساعة ${shortTime(s.start_time)} · ${s.duration_minutes} دقيقة`,
+          detail: t('notifications.alert.attDetail', { time: shortTime(s.start_time), minutes: s.duration_minutes }),
         })
       }
     }
@@ -281,13 +281,13 @@ export async function fetchAlerts(
         const n = counts.get(id) ?? 0
         alerts.push({
           kind: 'absence',
-          text: `${st.name} غاب ${n} مرات خلال آخر ${ABSENCE_WINDOW_DAYS} يوم`,
+          text: t('notifications.alert.absenceText', { name: st.name, count: n, days: ABSENCE_WINDOW_DAYS }),
           to: `/students/${id}`,
           studentId: id,
           studentName: st.name,
-          detail: 'غياب متكرر — يستحق متابعة مع ولي الأمر',
+          detail: t('notifications.alert.absenceDetail'),
           waUrl: waUrlFor(st, contacts.get(id), (g) =>
-            `أهلاً ${g}، نلاحظ تكرار غياب الطالب ${st.name} — تغيّب ${n} مرات خلال آخر ${ABSENCE_WINDOW_DAYS} يوم. نرجو المتابعة معنا، وشكراً لكم.`,
+            t('notifications.alert.absenceWa', { guardian: g, name: st.name, count: n, days: ABSENCE_WINDOW_DAYS }),
           ),
         })
       }
@@ -342,7 +342,7 @@ export async function fetchAlerts(
         const left = prepaidLeft(r.prepaid_sessions, used.get(`${r.student_id}|${r.group_id}`) ?? 0)
         const zone = prepaidZone(left, r.prepaid_sessions)
         if (!zone) continue
-        const groupName = r.groups?.name ?? 'مجموعة'
+        const groupName = r.groups?.name ?? t('notifications.alert.groupFallback')
         const st: ContactStudent = {
           id: r.student_id,
           name: r.students?.name ?? '—',
@@ -354,14 +354,14 @@ export async function fetchAlerts(
         if (zone === 'urgent') {
           alerts.push({
             kind: 'prepaid',
-            text: `(${groupName}): باقة ${st.name} نفدت`,
+            text: t('notifications.alert.prepaidDepleted', { group: groupName, name: st.name }),
             to: `/students/${r.student_id}`,
             studentId: r.student_id,
             studentName: st.name,
             groupName,
-            detail: `الطالب: ${st.name}`,
+            detail: t('notifications.alert.studentLine', { name: st.name }),
             waUrl: waUrlFor(st, contacts.get(r.student_id), (g) =>
-              `أهلاً ${g}، نذكّركم إن باقة الطالب ${st.name} في مجموعة ${groupName} خلصت، ونحتاج تجديدها قبل الحصة الجاية بإذن الله.`,
+              t('notifications.alert.prepaidDepletedWa', { guardian: g, name: st.name, group: groupName }),
             ),
           })
         } else {
@@ -372,7 +372,7 @@ export async function fetchAlerts(
             left,
             prepaid: r.prepaid_sessions,
             waUrl: waUrlFor(st, contacts.get(r.student_id), (g) =>
-              `أهلاً ${g}، نذكّركم إن باقة الطالب ${st.name} في مجموعة ${groupName} متبقي فيها ${left} حصة فقط.`,
+              t('notifications.alert.prepaidLowWa', { guardian: g, name: st.name, group: groupName, left }),
             ),
           })
           followByGroup.set(r.group_id, entry)
@@ -384,10 +384,10 @@ export async function fetchAlerts(
         )
         alerts.push({
           kind: 'prepaid',
-          text: `${entry.members.length} طالباً باقاتهم على وشك النفاد في ${entry.groupName}`,
+          text: t('notifications.alert.prepaidSummary', { count: entry.members.length, group: entry.groupName }),
           to: `/students?group=${groupId}`,
           groupName: entry.groupName,
-          detail: 'متبقٍّ لهم ≤ 25% من باقاتهم — افتح التفاصيل لتذكير كل ولي أمر',
+          detail: t('notifications.alert.prepaidSummaryDetail'),
           prepaidMembers: entry.members,
         })
       }
@@ -447,17 +447,17 @@ export async function fetchAlerts(
         const invoices = invoicesByStudent.get(b.student_id) ?? []
         alerts.push({
           kind: 'fin',
-          text: `${st.name} عليه ${formatMoney(balance)}`,
+          text: t('notifications.alert.finText', { name: st.name, amount: formatMoney(balance) }),
           to: `/students/${b.student_id}`,
           studentId: b.student_id,
           studentName: st.name,
           detail:
             invoices.length > 0
-              ? `${invoices.length} فاتورة غير مسددة · أقدمها ${periodLabel(invoices[0].period_month)}`
+              ? t('notifications.alert.finDetail', { count: invoices.length, month: periodLabel(invoices[0].period_month) })
               : undefined,
           invoices,
           waUrl: waUrlFor(st, contacts.get(b.student_id), (g) =>
-            `أهلاً ${g}، نذكّركم بوجود مبلغ مستحق على الطالب ${st.name} قدره ${formatMoney(balance)}. برجاء السداد في أقرب وقت ممكن، وشكراً لكم.`,
+            t('notifications.alert.finWa', { guardian: g, name: st.name, amount: formatMoney(balance) }),
           ),
         })
       }
@@ -520,13 +520,13 @@ export async function fetchAlerts(
         })
         alerts.push({
           kind: 'grade',
-          text: `${v.lows.length} طالب تحت 50% في ${v.title}`,
+          text: t('notifications.alert.gradeText', { count: v.lows.length, title: v.title }),
           to: `/assessments/${id}`,
           groupName: groupNameById.get(v.groupId),
           detail: v.lows
             .map((l) => {
               const st = students.get(l.student_id)
-              return `${st?.name ?? '—'}: ${fmtScore(l.score)} من ${fmtScore(v.max)}`
+              return t('notifications.alert.gradeLine', { name: st?.name ?? '—', score: fmtScore(l.score), max: fmtScore(v.max) })
             })
             .join(' · '),
           lowStudents,
@@ -550,9 +550,9 @@ export async function fetchAlerts(
     if ((count ?? 0) > 0) {
       alerts.push({
         kind: 'proof',
-        text: `عندك ${count} إثبات دفع مستني المراجعة`,
+        text: t('notifications.alert.proofText', { count: count ?? 0 }),
         to: '/invoices',
-        detail: 'راجع اللقطات واعتمدها فتتحول لدفعات مسجلة — من قسم «إثباتات دفع قيد المراجعة» في شاشة الفواتير',
+        detail: t('notifications.alert.proofDetail'),
       })
     }
   }
@@ -569,7 +569,7 @@ export async function fetchAlerts(
     const due = !last || Date.now() - new Date(last).getTime() >= 30 * 24 * 60 * 60 * 1000
     if (due) {
       // silent (R-8): معلومة P3 لا ترفع شارة الجرس
-      alerts.push({ kind: 'backup', text: 'مفيش نسخة احتياطية من أكتر من 30 يوم', to: '/backup', silent: true })
+      alerts.push({ kind: 'backup', text: t('notifications.alert.backupText'), to: '/backup', silent: true })
     }
   }
 

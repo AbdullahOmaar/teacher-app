@@ -37,7 +37,6 @@ src/features/money/CashboxSection.tsx
 src/features/money/ClosingFormSheet.tsx
 src/features/money/MoneyPage.tsx
 src/features/money/sheets.tsx
-src/features/notifications/NotificationsPage.tsx
 src/features/payment-proofs/components.tsx
 src/features/portal/PortalLinkSheet.tsx
 src/features/portal/PortalManagePage.tsx
