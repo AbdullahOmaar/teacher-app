@@ -138,8 +138,15 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg text-text flex items-start justify-center">
-      <div className="w-full max-w-[640px] px-4 pt-14 pb-10">
+    <div className="relative overflow-hidden min-h-screen bg-bg text-text flex items-start justify-center">
+      {/* بصمة الهوية: علامة الشعار مائية كبيرة خفيفة جداً خلف المحتوى */}
+      <div
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+        aria-hidden="true"
+      >
+        <Logo decorative size={430} className="opacity-[0.06]" />
+      </div>
+      <div className="relative w-full max-w-[640px] px-4 pt-14 pb-10">
         <div className="text-center mb-6">
           <div className="flex justify-center mb-3">
             <Logo size={76} />

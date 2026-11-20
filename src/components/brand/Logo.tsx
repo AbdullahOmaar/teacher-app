@@ -27,11 +27,22 @@ interface LogoProps {
   mono?: boolean
   className?: string
   title?: string
+  /** زخرفة بحتة (علامة مائية): تُخفى من قارئات الشاشة */
+  decorative?: boolean
 }
 
-export function Logo({ size = 40, mono = false, className, title = 'تطبيق المدرس' }: LogoProps) {
+export function Logo({
+  size = 40,
+  mono = false,
+  className,
+  title = 'تطبيق المدرس',
+  decorative = false,
+}: LogoProps) {
   const rawId = useId().replace(/[^a-zA-Z0-9]/g, '')
   const gradId = `logo-grad-${rawId}`
+  const a11y = decorative
+    ? ({ 'aria-hidden': true } as const)
+    : ({ role: 'img', 'aria-label': title } as const)
 
   if (mono) {
     return (
@@ -40,8 +51,7 @@ export function Logo({ size = 40, mono = false, className, title = 'تطبيق �
         height={size}
         viewBox="0 0 64 64"
         className={className}
-        role="img"
-        aria-label={title}
+        {...a11y}
         style={{ display: 'block', flexShrink: 0 }}
       >
         <path d={MONO_PATH} fill="currentColor" fillRule="evenodd" />
@@ -55,8 +65,7 @@ export function Logo({ size = 40, mono = false, className, title = 'تطبيق �
       height={size}
       viewBox="0 0 64 64"
       className={className}
-      role="img"
-      aria-label={title}
+      {...a11y}
       style={{ display: 'block', flexShrink: 0 }}
     >
       <defs>
