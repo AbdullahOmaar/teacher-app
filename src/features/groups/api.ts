@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import type {
   EnrollmentRow,
   GroupInput,
@@ -13,7 +14,7 @@ function db() {
 }
 
 const GROUP_COLS =
-  'id, teacher_id, name, billing_type, price, days, start_time, duration_minutes, room, capacity, assistant_name, links, created_at, updated_at'
+  'id, teacher_id, name, billing_type, price, days, start_time, duration_minutes, room, capacity, assistant_name, links, archived_at, created_at, updated_at'
 const ENROLLMENT_COLS = 'id, teacher_id, student_id, group_id, price_override, prepaid_sessions, created_at'
 const WAITLIST_COLS = 'id, teacher_id, group_id, name, phone, note, created_at'
 
@@ -110,6 +111,93 @@ export async function addWaitlistEntry(
     .single()
   if (error) throw error
   return data as unknown as GroupWaitlistRow
+}
+
+// ---------------------------------------------------------------------------
+// حذف / أرشفة آمنة (Phase 2 — خطوة 10)
+//
+// قواعد المجموعة:
+// - الأرشفة (groups.archived_at من 0007): تتوقف المجموعة عن توليد حصص
+//   جديدة (حارس في RPC generate_group_sessions + تصفية ensureSessionsGenerated)
+//   ولا تظهر كخيار تسجيل جديد، وتبقى كل بياناتها التاريخية سليمة.
+// - الحذف النهائي لمجموعة فارغة تماماً فقط: لا تسجيلات ولا حصص ولا فواتير
+//   ولا تقييمات. أي تاريخ ⇒ أرشفة فقط. والقاعدة تحرس أيضاً:
+//   invoices.group_id بقيد on delete restrict يمنع حذف أي مجموعة لها فواتير.
+// - عند حذف مجموعة فارغة إلا من قائمة الانتظار، تُحذف أسماء الانتظار معها
+//   (on delete cascade) — ويُذكر ذلك صراحة في شاشة التأكيد قبل التنفيذ.
+// - لا تُحذف أي فاتورة أو دفعة من هذا المسار إطلاقاً.
+// ---------------------------------------------------------------------------
+
+export interface GroupFootprint {
+  enrollmentCount: number
+  sessionCount: number
+  invoiceCount: number
+  assessmentCount: number
+  waitlistCount: number
+  /** الحذف النهائي مسموح فقط لمجموعة بلا أي تاريخ تشغيلي أو مالي */
+  canDelete: boolean
+}
+
+async function countGroupRows(table: string, teacherId: string, groupId: string): Promise<number> {
+  const { count, error } = await db()
+    .from(table)
+    .select('*', { count: 'exact', head: true })
+    .eq('teacher_id', teacherId)
+    .eq('group_id', groupId)
+  if (error) throw error
+  return count ?? 0
+}
+
+/** بصمة المجموعة: ما يرتبط بها فعلياً — أساس قرار «حذف نهائي أم أرشفة فقط» */
+export async function fetchGroupFootprint(
+  teacherId: string,
+  groupId: string,
+): Promise<GroupFootprint> {
+  const [enrollmentCount, sessionCount, invoiceCount, assessmentCount, waitlistCount] =
+    await Promise.all([
+      countGroupRows('enrollments', teacherId, groupId),
+      countGroupRows('sessions', teacherId, groupId),
+      countGroupRows('invoices', teacherId, groupId),
+      countGroupRows('assessments', teacherId, groupId),
+      countGroupRows('group_waitlist', teacherId, groupId),
+    ])
+  return {
+    enrollmentCount,
+    sessionCount,
+    invoiceCount,
+    assessmentCount,
+    waitlistCount,
+    canDelete:
+      enrollmentCount === 0 && sessionCount === 0 && invoiceCount === 0 && assessmentCount === 0,
+  }
+}
+
+/** أرشفة مجموعة (archived=true) أو إلغاء أرشفتها — البيانات التاريخية لا تُمس */
+export async function setGroupArchived(
+  teacherId: string,
+  groupId: string,
+  archived: boolean,
+): Promise<void> {
+  const { error } = await db()
+    .from('groups')
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq('teacher_id', teacherId)
+    .eq('id', groupId)
+  if (error) throw error
+}
+
+/**
+ * حذف نهائي لمجموعة فارغة تماماً. وجود فاتورة يمنعه بقيد restrict في
+ * القاعدة فيظهر سبب واضح؛ وبقية الروابط (انتظار فقط عملياً عند هذه النقطة)
+ * تُحذف cascade.
+ */
+export async function deleteGroup(teacherId: string, groupId: string): Promise<void> {
+  const { error } = await db()
+    .from('groups')
+    .delete()
+    .eq('teacher_id', teacherId)
+    .eq('id', groupId)
+  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء حذف المجموعة')
 }
 
 /** عدّاد طلاب كل مجموعة (لبطاقات القائمة وشريط السعة) */

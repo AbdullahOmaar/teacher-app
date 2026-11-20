@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import type {
   EnrollmentInput,
   EnrollmentRow,
@@ -145,4 +146,92 @@ export async function deleteEnrollment(teacherId: string, enrollmentId: string):
 /** خريطة سريعة: group_id → صف المجموعة */
 export function indexGroups(groups: GroupRow[]): Map<string, GroupRow> {
   return new Map(groups.map((g) => [g.id, g]))
+}
+
+// ---------------------------------------------------------------------------
+// حذف / أرشفة آمنة (Phase 2 — خطوة 10)
+//
+// قواعد الطالب:
+// - الأرشفة = حالة «موقوف» القائمة أصلاً (students.paused): المرجع يعرّفها
+//   «موقوف/مؤرشف»، وهي تُخفي الطالب من كل القوائم التشغيلية (فوترة/حضور/
+//   تسجيل) وتُبقي كل سجلاته المالية والتاريخية سليمة، وتظهر فقط في فلتر
+//   «موقوف / أرشيف». لا حالة أرشفة ثانية — حتى لا تتداخل حالتان.
+// - الحذف النهائي ممنوع إطلاقاً عند وجود أي أثر مالي (فواتير أو دفعات)،
+//   والقاعدة نفسها تحرسه: invoices.student_id بقيد on delete restrict
+//   و payments.invoice_id بقيد restrict — أي محاولة حذف رغم الفحص تُرفض
+//   بقيد 23503 وتُترجم لرسالة عربية واضحة (لا خطأ خام).
+// - بلا أثر مالي: الحذف النهائي يحذف معه تلقائياً (on delete cascade في
+//   0001) التسجيلات والحضور والدرجات وملاحظات الطالب وروابط أولياء الأمور
+//   ورموز بوابتهم وإثباتات الدفع المرتبطة به.
+// ---------------------------------------------------------------------------
+
+export interface StudentFootprint {
+  invoiceCount: number
+  paymentCount: number
+  enrollmentCount: number
+  attendanceCount: number
+  scoreCount: number
+  /** الحذف النهائي مسموح فقط بلا أي فاتورة أو دفعة */
+  canDelete: boolean
+}
+
+async function countRows(
+  table: string,
+  teacherId: string,
+  column: string,
+  value: string,
+): Promise<number> {
+  const { count, error } = await db()
+    .from(table)
+    // '*' لأن جداول مثل attendance/scores مفاتيحها مركّبة بلا عمود id
+    .select('*', { count: 'exact', head: true })
+    .eq('teacher_id', teacherId)
+    .eq(column, value)
+  if (error) throw error
+  return count ?? 0
+}
+
+/** بصمة الطالب: ما يرتبط به فعلياً — أساس قرار «حذف نهائي أم أرشفة فقط» */
+export async function fetchStudentFootprint(
+  teacherId: string,
+  studentId: string,
+): Promise<StudentFootprint> {
+  // الدفعات لا تحمل student_id مباشرة: تُعدّ عبر فواتير الطالب (join داخلي)
+  const paymentsQ = db()
+    .from('payments')
+    .select('id, invoices!inner(student_id)', { count: 'exact', head: true })
+    .eq('teacher_id', teacherId)
+    .eq('invoices.student_id', studentId)
+  const [invoiceCount, paymentsRes, enrollmentCount, attendanceCount, scoreCount] =
+    await Promise.all([
+      countRows('invoices', teacherId, 'student_id', studentId),
+      paymentsQ,
+      countRows('enrollments', teacherId, 'student_id', studentId),
+      countRows('attendance', teacherId, 'student_id', studentId),
+      countRows('scores', teacherId, 'student_id', studentId),
+    ])
+  if (paymentsRes.error) throw paymentsRes.error
+  const paymentCount = paymentsRes.count ?? 0
+  return {
+    invoiceCount,
+    paymentCount,
+    enrollmentCount,
+    attendanceCount,
+    scoreCount,
+    canDelete: invoiceCount === 0 && paymentCount === 0,
+  }
+}
+
+/**
+ * حذف نهائي لطالب بلا أثر مالي. الروابط غير المالية تُحذف cascade من
+ * القاعدة؛ ووجود فاتورة يمنع الحذف بقيد restrict فيظهر سبب واضح.
+ * لا تُحذف أي فاتورة أو دفعة من هذا المسار إطلاقاً.
+ */
+export async function deleteStudent(teacherId: string, studentId: string): Promise<void> {
+  const { error } = await db()
+    .from('students')
+    .delete()
+    .eq('teacher_id', teacherId)
+    .eq('id', studentId)
+  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء حذف الطالب')
 }

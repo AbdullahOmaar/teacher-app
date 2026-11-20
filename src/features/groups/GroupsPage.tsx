@@ -4,6 +4,7 @@ import { Card } from '../../components/ui/Card'
 import { Users } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
+import { Chip, ChipRow } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { BILLING_LABELS, daysLabel, formatMoney, shortTime } from '../../lib/format'
@@ -16,9 +17,12 @@ import { GroupFormSheet } from './GroupFormSheet'
  * شاشة المجموعات (المواصفات §3.9): بطاقة لكل مجموعة (نظام الفوترة · السعر ·
  * الأيام · الميعاد والمدة) وشريط سعة عند وجود حد. الضغط يفتح تفاصيل المجموعة.
  */
+type GroupFilter = 'active' | 'archived'
+
 export function GroupsPage() {
   const teacher = useCurrentTeacher()
   const [formOpen, setFormOpen] = useState(false)
+  const [filter, setFilter] = useState<GroupFilter>('active')
 
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
   const groupsQ = useGroups(teacherId)
@@ -42,16 +46,43 @@ export function GroupsPage() {
       />
     )
 
-  const groups = groupsQ.data ?? []
+  const allGroups = groupsQ.data ?? []
+  // القائمة الافتراضية تعرض النشطة فقط؛ المؤرشفة في فلترها الخاص (خطوة 10)
+  const groups = allGroups.filter((g) =>
+    filter === 'archived' ? g.archived_at != null : g.archived_at == null,
+  )
+  const hasArchived = allGroups.some((g) => g.archived_at != null)
 
   return (
     <div>
-      {groups.length === 0 ? (
+      {allGroups.length > 0 && (
+        <ChipRow>
+          <Chip active={filter === 'active'} onClick={() => setFilter('active')}>
+            النشطة
+          </Chip>
+          <Chip active={filter === 'archived'} onClick={() => setFilter('archived')}>
+            المؤرشفة
+          </Chip>
+        </ChipRow>
+      )}
+      {allGroups.length === 0 ? (
         <EmptyState
           icon={Users}
           title="لا توجد مجموعات بعد"
           hint="أنشئ أول مجموعة وحدد جدولها ونظام الدفع"
           action={{ label: 'إنشاء مجموعة', onClick: () => setFormOpen(true) }}
+        />
+      ) : groups.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title={filter === 'archived' ? 'لا توجد مجموعات مؤرشفة' : 'لا توجد مجموعات نشطة'}
+          hint={
+            filter === 'archived'
+              ? 'المجموعات التي تؤرشفها من صفحة تفاصيلها ستظهر هنا'
+              : hasArchived
+                ? 'كل مجموعاتك مؤرشفة حالياً — اعرضها من فلتر «المؤرشفة»'
+                : undefined
+          }
         />
       ) : (
         groups.map((g) => {
@@ -59,12 +90,17 @@ export function GroupsPage() {
           const pct = g.capacity ? Math.min(100, Math.round((cnt / g.capacity) * 100)) : null
           return (
             <Link key={g.id} to={`/groups/${g.id}`} className="block no-underline text-text">
-              <Card>
+              <Card className={g.archived_at != null ? 'opacity-70' : ''}>
                 <div className="flex items-center gap-3">
                   <span className="shrink-0 w-10 h-10 rounded-full bg-soft text-primary flex items-center justify-center">
                     <Users size={20} />
                   </span>
                   <span className="font-bold text-[16px]">{g.name}</span>
+                  {g.archived_at != null && (
+                    <span className="text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
+                      مؤرشفة
+                    </span>
+                  )}
                   {g.assistant_name && (
                     <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
                       مساعد: {g.assistant_name}

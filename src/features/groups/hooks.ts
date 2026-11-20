@@ -4,10 +4,13 @@ import { SG } from '../students/hooks'
 import {
   addWaitlistEntry,
   createGroup,
+  deleteGroup,
   fetchGroup,
+  fetchGroupFootprint,
   fetchGroupRoster,
   fetchGroups,
   fetchWaitlist,
+  setGroupArchived,
   updateGroup,
 } from './api'
 
@@ -64,6 +67,42 @@ export function useUpdateGroup(teacherId: string) {
     mutationFn: ({ groupId, input }: { groupId: string; input: GroupInput }) =>
       updateGroup(teacherId, groupId, input),
     onSuccess: invalidate,
+  })
+}
+
+/** بصمة المجموعة (تسجيلات/حصص/فواتير/تقييمات) — تُحسم بها أهلية الحذف النهائي */
+export function useGroupFootprint(
+  teacherId: string | undefined,
+  groupId: string | undefined,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [SG, 'group-footprint', teacherId, groupId],
+    enabled: Boolean(teacherId && groupId && enabled),
+    queryFn: () => fetchGroupFootprint(teacherId!, groupId!),
+  })
+}
+
+/** أرشفة/إلغاء أرشفة مجموعة — تُبطل كل الكاش لأن التوليد والجدول يتأثران */
+export function useSetGroupArchived(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ groupId, archived }: { groupId: string; archived: boolean }) =>
+      setGroupArchived(teacherId, groupId, archived),
+    onSuccess: () => {
+      void qc.invalidateQueries()
+    },
+  })
+}
+
+/** حذف نهائي لمجموعة فارغة — إبطال شامل للكاش (فعل نادر ومدمّر) */
+export function useDeleteGroup(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (groupId: string) => deleteGroup(teacherId, groupId),
+    onSuccess: () => {
+      void qc.invalidateQueries()
+    },
   })
 }
 

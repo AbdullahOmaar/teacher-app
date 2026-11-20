@@ -66,6 +66,8 @@ export interface GroupRow {
   capacity: number | null // null = بلا حد
   assistant_name: string | null
   links: string[]
+  /** أرشفة المجموعة (0007): null = نشطة، وغير ذلك = مؤرشفة (لا حصص/تسجيل جديد، التاريخ محفوظ) */
+  archived_at: string | null
   created_at: string
   updated_at: string
 }

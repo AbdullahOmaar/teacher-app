@@ -128,6 +128,8 @@ export async function ensureSessionsGenerated(
   const jobs: Promise<void>[] = []
   for (const g of groups) {
     if (!g.days || g.days.length === 0) continue
+    // مجموعة مؤرشفة لا تولّد حصصاً جديدة (خطوة 10) — والـ RPC نفسه يرفضها أيضاً (0007)
+    if (g.archived_at != null) continue
     for (const month of monthStarts) {
       const key = `${teacherId}|${g.id}|${month}`
       if (ensuredKeys.has(key)) continue

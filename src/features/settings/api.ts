@@ -515,7 +515,7 @@ export interface BackupTableSpec {
 
 /** الترتيب = ترتيب الاستيراد الآمن حسب اعتماد المفاتيح الخارجية */
 export const BACKUP_TABLES: BackupTableSpec[] = [
-  { key: 'groups', table: 'groups', label: 'المجموعات', pk: ['id'], columns: ['id', 'teacher_id', 'name', 'billing_type', 'price', 'days', 'start_time', 'duration_minutes', 'room', 'capacity', 'assistant_name', 'links', 'created_at', 'updated_at'] },
+  { key: 'groups', table: 'groups', label: 'المجموعات', pk: ['id'], columns: ['id', 'teacher_id', 'name', 'billing_type', 'price', 'days', 'start_time', 'duration_minutes', 'room', 'capacity', 'assistant_name', 'links', 'archived_at', 'created_at', 'updated_at'] },
   { key: 'students', table: 'students', label: 'الطلاب', pk: ['id'], columns: ['id', 'teacher_id', 'public_code', 'name', 'grade', 'school', 'paused', 'phone', 'guardian_name', 'guardian_phone', 'level_note', 'created_at', 'updated_at'] },
   { key: 'guardians', table: 'guardians', label: 'أولياء الأمور', pk: ['id'], columns: ['id', 'teacher_id', 'user_id', 'display_name', 'phone', 'created_at', 'updated_at'] },
   { key: 'group_waitlist', table: 'group_waitlist', label: 'قوائم الانتظار', pk: ['id'], columns: ['id', 'teacher_id', 'group_id', 'name', 'phone', 'note', 'created_at'] },

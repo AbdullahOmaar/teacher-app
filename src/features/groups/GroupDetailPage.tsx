@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { BookOpenCheck, Link2, MapPin, Pencil, Users } from 'lucide-react'
+import { Archive, ArchiveRestore, BookOpenCheck, Link2, MapPin, Pencil, Trash2, TriangleAlert, Users } from 'lucide-react'
+import { DangerConfirmSheet } from '../../components/ui/DangerConfirmSheet'
+import { useToast } from '../../components/ui/toast'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Field, FormError, TextInput } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -12,7 +14,16 @@ import { ListRow } from '../../components/ui/ListRow'
 import { BILLING_LABELS, daysLabel, formatMoney, shortTime } from '../../lib/format'
 import { useStudents } from '../students/hooks'
 import { EnrollStudentSheet } from '../students/EnrollStudentSheet'
-import { useAddWaitlistEntry, useGroup, useGroupRoster, useGroups, useWaitlist } from './hooks'
+import {
+  useAddWaitlistEntry,
+  useDeleteGroup,
+  useGroup,
+  useGroupFootprint,
+  useGroupRoster,
+  useGroups,
+  useSetGroupArchived,
+  useWaitlist,
+} from './hooks'
 import { GroupFormSheet } from './GroupFormSheet'
 
 /**
@@ -29,13 +40,23 @@ export function GroupDetailPage() {
   const [wlNote, setWlNote] = useState('')
   const [wlError, setWlError] = useState<string | null>(null)
 
+  const navigate = useNavigate()
+  const toast = useToast()
+  const [dangerMode, setDangerMode] = useState<'archive' | 'delete' | null>(null)
+  const [dangerError, setDangerError] = useState<string | null>(null)
+
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
+  const isAssistantRole = teacher.status === 'ready' && teacher.role === 'assistant'
   const groupQ = useGroup(teacherId, id)
   const groupsQ = useGroups(teacherId)
   const rosterQ = useGroupRoster(teacherId, id)
   const waitlistQ = useWaitlist(teacherId, id)
   const studentsQ = useStudents(teacherId)
   const addWaitlist = useAddWaitlistEntry(teacherId ?? '', id ?? '')
+  const setGroupArchived = useSetGroupArchived(teacherId ?? '')
+  const deleteGroup = useDeleteGroup(teacherId ?? '')
+  // بصمة المجموعة للمالك فقط (الفواتير محجوبة عن المساعد بـ RLS) — الحذف قرار مالك
+  const footprintQ = useGroupFootprint(teacherId, id, !isAssistantRole)
 
   const enrolledStudentIds = useMemo(
     () => new Set((rosterQ.data ?? []).map((r) => r.student_id)),
@@ -63,6 +84,27 @@ export function GroupDetailPage() {
 
   const roster = rosterQ.data ?? []
   const waitlist = waitlistQ.data ?? []
+  const isArchived = group.archived_at != null
+  const isAssistant = teacher.role === 'assistant'
+
+  const confirmDanger = async () => {
+    if (!dangerMode) return
+    setDangerError(null)
+    try {
+      if (dangerMode === 'archive') {
+        await setGroupArchived.mutateAsync({ groupId: group.id, archived: true })
+        toast(`تمت أرشفة مجموعة «${group.name}» — بياناتها التاريخية محفوظة`)
+        setDangerMode(null)
+      } else {
+        await deleteGroup.mutateAsync(group.id)
+        toast(`تم حذف مجموعة «${group.name}» نهائياً`)
+        setDangerMode(null)
+        navigate('/groups', { replace: true })
+      }
+    } catch (e) {
+      setDangerError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء التنفيذ')
+    }
+  }
   const pct = group.capacity ? Math.min(100, Math.round((roster.length / group.capacity) * 100)) : null
 
   const submitWaitlist = async () => {
@@ -86,12 +128,24 @@ export function GroupDetailPage() {
     <div>
       <Card>
         <div className="flex items-start justify-between gap-2">
-          <div className="text-[16px] font-extrabold">{group.name}</div>
+          <div className="text-[16px] font-extrabold">
+            {group.name}
+            {isArchived && (
+              <span className="ms-2 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
+                مؤرشفة
+              </span>
+            )}
+          </div>
           <Button variant="ghost" onClick={() => setEditOpen(true)}>
             <Pencil size={20} />
             تعديل
           </Button>
         </div>
+        {isArchived && (
+          <p className="text-muted text-[13.5px] mt-1 mb-0">
+            مجموعة مؤرشفة: لا تولّد حصصاً جديدة ولا تظهر كخيار تسجيل جديد، وكل بياناتها التاريخية محفوظة وقابلة للعرض.
+          </p>
+        )}
         <div className="text-muted text-[13.5px] mt-1 leading-relaxed">
           {BILLING_LABELS[group.billing_type]} · {formatMoney(group.price)}
           <br />
@@ -129,9 +183,11 @@ export function GroupDetailPage() {
               عرض في قائمة الطلاب
             </Button>
           </Link>
-          <Button className="flex-1" onClick={() => setEnrollOpen(true)}>
-            + إضافة طالب
-          </Button>
+          {!isArchived && (
+            <Button className="flex-1" onClick={() => setEnrollOpen(true)}>
+              + إضافة طالب
+            </Button>
+          )}
         </div>
         <Link to={`/homework?group=${group.id}`} className="no-underline block mt-2">
           <Button variant="soft" full>
@@ -201,6 +257,11 @@ export function GroupDetailPage() {
             </div>
           ))
         )}
+        {isArchived ? (
+          <p className="text-muted text-[13.5px] border-t border-border mt-2 pt-3 mb-0">
+            الإضافة لقائمة الانتظار متوقفة لأن المجموعة مؤرشفة.
+          </p>
+        ) : (
         <div className="border-t border-border mt-2 pt-3">
           <Field label="اسم المنتظر *">
             <TextInput value={wlName} onChange={(e) => setWlName(e.target.value)} placeholder="الاسم" />
@@ -217,6 +278,90 @@ export function GroupDetailPage() {
           <Button full variant="soft" onClick={submitWaitlist} disabled={addWaitlist.isPending}>
             {addWaitlist.isPending ? 'بنضيف…' : '+ إضافة لقائمة الانتظار'}
           </Button>
+        </div>
+        )}
+      </Card>
+
+      {/* منطقة الخطر — حذف/أرشفة آمنة (خطوة 10):
+          الأرشفة (archived_at من 0007) توقف توليد الحصص والتسجيل الجديد مع
+          حفظ التاريخ كاملاً. الحذف النهائي للمالك فقط ولمجموعة فارغة تماماً
+          (لا تسجيلات/حصص/فواتير/تقييمات)، وبعد كتابة اسم المجموعة كاملاً. */}
+      <Card className="border-bad/50 mt-5">
+        <div className="flex items-center gap-2 mb-2">
+          <TriangleAlert size={20} className="text-bad-text" />
+          <span className="font-extrabold text-[15px] text-bad-text">منطقة الخطر</span>
+        </div>
+
+        {isArchived ? (
+          <>
+            <Button
+              variant="primary"
+              full
+              disabled={setGroupArchived.isPending}
+              onClick={async () => {
+                await setGroupArchived.mutateAsync({ groupId: group.id, archived: false })
+                toast(`تم إلغاء أرشفة مجموعة «${group.name}»`)
+              }}
+            >
+              <ArchiveRestore size={20} /> إلغاء أرشفة المجموعة
+            </Button>
+            <p className="text-muted text-[13.5px] mt-2 mb-0">
+              إلغاء الأرشفة يعيد المجموعة للتشغيل: توليد حصص جديدة وظهورها كخيار تسجيل.
+            </p>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              full
+              className="text-bad-text border-bad/50"
+              onClick={() => {
+                setDangerError(null)
+                setDangerMode('archive')
+              }}
+            >
+              <Archive size={20} /> أرشفة المجموعة
+            </Button>
+            <p className="text-muted text-[13.5px] mt-2 mb-0">
+              الأرشفة توقف توليد الحصص الجديدة والتسجيل الجديد في المجموعة، مع بقاء كل بياناتها التاريخية سليمة، ويمكن التراجع عنها في أي وقت.
+            </p>
+          </>
+        )}
+
+        <div className="border-t border-border mt-3 pt-3">
+          {isAssistant ? (
+            <p className="text-muted text-[13.5px] m-0">
+              الحذف النهائي متاح لمالك الحساب فقط — السجلات المالية محجوبة عن المساعد.
+            </p>
+          ) : footprintQ.isPending ? (
+            <p className="text-muted text-[13.5px] m-0">بنفحص سجلات المجموعة قبل إتاحة الحذف…</p>
+          ) : footprintQ.error ? (
+            <p className="text-bad-text text-[13.5px] m-0">
+              تعذّر فحص سجلات المجموعة، فالحذف النهائي غير متاح الآن. جرّب تحديث الصفحة.
+            </p>
+          ) : footprintQ.data?.canDelete ? (
+            <>
+              <Button
+                variant="danger"
+                full
+                onClick={() => {
+                  setDangerError(null)
+                  setDangerMode('delete')
+                }}
+              >
+                <Trash2 size={20} /> حذف المجموعة نهائياً
+              </Button>
+              <p className="text-muted text-[13.5px] mt-2 mb-0">
+                المجموعة بلا تسجيلات ولا حصص ولا فواتير، فالحذف النهائي مسموح — وسيُطلب منك كتابة اسمها كاملاً للتأكيد.
+              </p>
+            </>
+          ) : (
+            <p className="text-[13.5px] m-0 leading-relaxed">
+              <span className="font-bold text-bad-text">الحذف النهائي غير متاح: </span>
+              المجموعة لها تاريخ محفوظ ({footprintQ.data?.enrollmentCount ?? 0} تسجيل، {footprintQ.data?.sessionCount ?? 0} حصة، {footprintQ.data?.invoiceCount ?? 0} فاتورة، {footprintQ.data?.assessmentCount ?? 0} تقييم).
+              البيانات التاريخية والمالية لا تُحذف — المتاح لهذه المجموعة هو الأرشفة فقط.
+            </p>
+          )}
         </div>
       </Card>
 
@@ -238,6 +383,33 @@ export function GroupDetailPage() {
           excludeStudentIds={enrolledStudentIds}
         />
       )}
+
+      <DangerConfirmSheet
+        open={dangerMode !== null}
+        title={dangerMode === 'delete' ? 'حذف المجموعة نهائياً' : 'أرشفة المجموعة'}
+        entityName={group.name}
+        mode={dangerMode === 'delete' ? 'delete' : 'archive'}
+        confirmLabel={dangerMode === 'delete' ? 'نعم، احذف نهائياً' : 'نعم، أرشف المجموعة'}
+        pending={setGroupArchived.isPending || deleteGroup.isPending}
+        error={dangerError}
+        onConfirm={confirmDanger}
+        onClose={() => setDangerMode(null)}
+        lines={
+          dangerMode === 'delete'
+            ? [
+                `ستُحذف مجموعة «${group.name}» نهائياً ولا يمكن التراجع.`,
+                'المجموعة بلا تسجيلات ولا حصص ولا فواتير ولا تقييمات (تحققنا من سجلاتها)، فلن يضيع أي سجل مالي أو تاريخي.',
+                ...(footprintQ.data && footprintQ.data.waitlistCount > 0
+                  ? [`تنبيه: قائمة انتظار المجموعة فيها ${footprintQ.data.waitlistCount} اسم — ستُحذف هذه الأسماء مع المجموعة.`]
+                  : []),
+              ]
+            : [
+                `سيتم إيقاف مجموعة «${group.name}» وأرشفتها.`,
+                'ستتوقف عن توليد حصص جديدة ولن تظهر كخيار عند تسجيل طالب جديد، وستظهر في قائمة المجموعات ضمن فلتر «المؤرشفة» فقط.',
+                'كل بياناتها التاريخية (الحصص والحضور والفواتير والتقييمات) ستبقى سليمة وقابلة للعرض، ويمكنك إلغاء الأرشفة في أي وقت من هذه الصفحة.',
+              ]
+        }
+      />
     </div>
   )
 }

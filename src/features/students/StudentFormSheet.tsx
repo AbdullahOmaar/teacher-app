@@ -175,7 +175,13 @@ export function StudentFormSheet({
       {groups.length > 0 && (
         <div className="mb-3">
           <h4 className="type-section mb-2 mt-2">التسجيل في المجموعات</h4>
-          {groups.map((g) => {
+          {groups
+            .filter(
+              // المؤرشفة لا تُعرض كتسجيل جديد (خطوة 10) إلا إن كان الطالب
+              // مسجلاً فيها أصلاً — حتى لا يختفي تسجيله القائم من النموذج
+              (g) => g.archived_at == null || existingByGroup.has(g.id),
+            )
+            .map((g) => {
             const draft = drafts[g.id] ?? { checked: false, price: '', prepaid: '' }
             return (
               <div key={g.id} className="border border-border rounded-xl px-3 py-2 mb-2">
@@ -187,6 +193,11 @@ export function StudentFormSheet({
                     className="w-5 h-5 accent-[#4f46e5]"
                   />
                   <span className="font-semibold text-[15px]">{g.name}</span>
+                  {g.archived_at != null && (
+                    <span className="text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
+                      مؤرشفة
+                    </span>
+                  )}
                   <span className="text-muted text-[13.5px]">سعر المجموعة: {g.price} ج</span>
                 </label>
                 {draft.checked && (

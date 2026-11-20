@@ -41,8 +41,13 @@ export function EnrollStudentSheet({
   const upsert = useUpsertEnrollment(teacherId)
 
   const groupOptions = useMemo(
-    () => groups.filter((g) => !excludeGroupIds?.has(g.id)),
-    [groups, excludeGroupIds],
+    () =>
+      groups.filter(
+        // المجموعة المؤرشفة لا تظهر كخيار تسجيل جديد (خطوة 10) —
+        // إلا إن كانت هي المجموعة المثبتة من صفحتها (حالتها تُدار من هناك)
+        (g) => !excludeGroupIds?.has(g.id) && (g.archived_at == null || g.id === fixedGroupId),
+      ),
+    [groups, excludeGroupIds, fixedGroupId],
   )
   const studentOptions = useMemo(
     () => students.filter((s) => !s.paused && !excludeStudentIds?.has(s.id)),
