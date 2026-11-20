@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
-import { Search, Upload, Users } from 'lucide-react'
+import { Check, Upload, Users, X } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
-import { Chip, ChipRow, TextInput } from '../../components/ui/form'
+import { PageToolBar, StickyGroupHeader } from '../../components/ui/PageToolBar'
+import { Sheet } from '../../components/ui/Sheet'
+import { Chip } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
@@ -37,6 +39,9 @@ export function StudentsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [formOpen, setFormOpen] = useState(false)
+  // Sheet «تصفية» النمط الموحّد (W3): فلتر المجموعة المتقدم كان صف رقائق
+  // ثانياً مكدّساً فوق المحتوى — انتقل هنا، والمفعّل منه يظهر رقاقة إزالة
+  const [filterOpen, setFilterOpen] = useState(false)
   // استيراد الملفات: يُفتح من زر الشاشة أو من رابط شاشة التصدير (?import=1)
   const [importOpen, setImportOpen] = useState(() => searchParams.get('import') === '1')
   // اختيار List-Detail عند ≥1024px — تحت هذا العرض يبقى التنقل لصفحة التفاصيل
@@ -107,6 +112,33 @@ export function StudentsPage() {
     return map
   }, [enrollmentsQ.data, groupNameById])
 
+  // تجميع العرض بمجموعة الطالب الأولى (W3 — R-11: عناوين مجموعات لاصقة
+  // في قوائم السجلات): يعمل فقط بلا فلتر مجموعة صريح وعند تعدد المجموعات،
+  // وإلا قائمة واحدة كما كانت. ترتيب الأقسام = أول ظهور في القائمة
+  // المفلترة، و«بلا مجموعة» أخيراً دائماً.
+  const sections = useMemo(() => {
+    const multi = (groupsQ.data?.length ?? 0) > 1
+    if (!multi || groupFilter) {
+      return [{ title: null as string | null, items: filtered }]
+    }
+    const order: string[] = []
+    const byTitle = new Map<string, typeof filtered>()
+    for (const s of filtered) {
+      const title = (groupNamesByStudent.get(s.id) ?? [])[0] ?? 'بلا مجموعة'
+      if (!byTitle.has(title)) {
+        byTitle.set(title, [])
+        order.push(title)
+      }
+      byTitle.get(title)!.push(s)
+    }
+    const noGroupIdx = order.indexOf('بلا مجموعة')
+    if (noGroupIdx >= 0) {
+      order.splice(noGroupIdx, 1)
+      order.push('بلا مجموعة')
+    }
+    return order.map((title) => ({ title: title as string | null, items: byTitle.get(title)! }))
+  }, [filtered, groupsQ.data, groupFilter, groupNamesByStudent])
+
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status === 'signed-out') return <SignInRequired />
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
@@ -123,6 +155,37 @@ export function StudentsPage() {
   return (
     <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-5 lg:items-start">
       <div className="min-w-0">
+      {/* شريط الأدوات الموحّد (W3 — R-10): بحث + رقائق حالة + تصفية
+          المجموعة من Sheet، وفلتر المجموعة المفعّل رقاقة قابلة للإزالة */}
+      <PageToolBar
+        bleed={false}
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: 'ابحث بالاسم أو الكود أو الموبايل…',
+        }}
+        chips={
+          <>
+            {groupFilter && (
+              <Chip
+                active
+                onClick={() => setSearchParams({}, { replace: true })}
+              >
+                {groupNameById.get(groupFilter) ?? 'مجموعة'} <X size={14} />
+              </Chip>
+            )}
+            {STATUS_CHIPS.map((c) => (
+              <Chip key={c.key} active={status === c.key} onClick={() => setStatus(c.key)}>
+                {c.label}
+              </Chip>
+            ))}
+          </>
+        }
+        onFilter={(groupsQ.data?.length ?? 0) > 1 ? () => setFilterOpen(true) : undefined}
+        activeFilterCount={groupFilter ? 1 : 0}
+        resultCount={loading ? undefined : filtered.length}
+      />
+
       <Button
         variant="soft"
         full
@@ -131,43 +194,6 @@ export function StudentsPage() {
       >
         <Upload size={20} /> استيراد طلاب من Excel / CSV
       </Button>
-      <div className="relative mb-3">
-        <Search size={20} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-        <TextInput
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="ابحث بالاسم أو الكود أو الموبايل…"
-          className="ps-10"
-        />
-      </div>
-
-      <ChipRow>
-        {STATUS_CHIPS.map((c) => (
-          <Chip key={c.key} active={status === c.key} onClick={() => setStatus(c.key)}>
-            {c.label}
-          </Chip>
-        ))}
-      </ChipRow>
-
-      {(groupsQ.data?.length ?? 0) > 1 && (
-        <ChipRow>
-          <Chip
-            active={!groupFilter}
-            onClick={() => setSearchParams({}, { replace: true })}
-          >
-            كل المجموعات
-          </Chip>
-          {(groupsQ.data ?? []).map((g) => (
-            <Chip
-              key={g.id}
-              active={groupFilter === g.id}
-              onClick={() => setSearchParams({ group: g.id }, { replace: true })}
-            >
-              {g.name}
-            </Chip>
-          ))}
-        </ChipRow>
-      )}
 
       {loading ? (
         <LoadingState label="بنحمّل الطلاب…" />
@@ -197,8 +223,15 @@ export function StudentsPage() {
         />
       ) : (
         <>
-        <Card className="p-0 overflow-hidden">
-          {filtered.map((s, i) => {
+        {sections.map((section) => (
+          <div key={section.title ?? '__all'}>
+            {section.title && (
+              <StickyGroupHeader bleed={false}>
+                {section.title} · {section.items.length} طالب
+              </StickyGroupHeader>
+            )}
+            <Card className="p-0 overflow-hidden">
+              {section.items.map((s, i) => {
             const balance = balancesQ.data?.get(s.id) ?? 0
             // وجود صف في خريطة الأرصدة = للطالب فواتير أصلاً (الـ view
             // يجمع invoice_balances فقط) — غيابه حالة محايدة (L1)
@@ -262,9 +295,11 @@ export function StudentsPage() {
                   }
                 />
               </Link>
-            )
-          })}
-        </Card>
+                )
+              })}
+            </Card>
+          </div>
+        ))}
         {/* حشوة تمرير سفلية: آخر صف يمرّ بالكامل فوق الـ FAB العائم
             فلا يحجب الزر الصف الأخير ولا شاراته */}
         <div aria-hidden="true" className="h-[76px]" />
@@ -314,6 +349,44 @@ export function StudentsPage() {
           initialEnrollments={[]}
         />
       )}
+
+      {/* Sheet «تصفية» النمط الموحّد (W3): اختيار المجموعة — الفلاتر
+          المتقدمة لا تكدَّس فوق المحتوى بعد اليوم */}
+      <Sheet open={filterOpen} onClose={() => setFilterOpen(false)} title="تصفية حسب المجموعة">
+        <div className="flex flex-col gap-2 pb-2">
+          <button
+            type="button"
+            onClick={() => {
+              setSearchParams({}, { replace: true })
+              setFilterOpen(false)
+            }}
+            className={`flex items-center justify-between min-h-[52px] px-3 rounded-xl border text-[15px] font-semibold cursor-pointer ${
+              !groupFilter ? 'bg-soft border-primary/40 text-primary' : 'bg-card border-border text-text'
+            }`}
+          >
+            كل المجموعات
+            {!groupFilter && <Check size={19} />}
+          </button>
+          {(groupsQ.data ?? []).map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => {
+                setSearchParams({ group: g.id }, { replace: true })
+                setFilterOpen(false)
+              }}
+              className={`flex items-center justify-between min-h-[52px] px-3 rounded-xl border text-[15px] font-semibold cursor-pointer ${
+                groupFilter === g.id
+                  ? 'bg-soft border-primary/40 text-primary'
+                  : 'bg-card border-border text-text'
+              }`}
+            >
+              {g.name}
+              {groupFilter === g.id && <Check size={19} />}
+            </button>
+          ))}
+        </div>
+      </Sheet>
     </div>
   )
 }
