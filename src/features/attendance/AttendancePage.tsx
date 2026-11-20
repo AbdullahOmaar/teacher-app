@@ -712,7 +712,7 @@ export function AttendancePage() {
                           <div className="flex-1 min-w-0">
                             <Link
                               to={`/students/${st.id}`}
-                              className="block font-semibold text-[15px] leading-[1.6] text-text no-underline truncate"
+                              className="block font-semibold text-[15px] leading-[1.6] text-text no-underline line-clamp-2"
                             >
                               {st.name}
                             </Link>

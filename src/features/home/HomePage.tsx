@@ -39,6 +39,16 @@ import { useGroups } from '../groups/hooks'
 import { useAuth } from '../../lib/AuthProvider'
 import { DEMO_EMAIL } from '../auth/api'
 
+/** فاصل ميتا: نقطة مستقلة أخف بصرياً داخل صف flex متباعد (طلب المالك:
+    الفواصل النصية «·» ضيقة وتجعل الميتا مزدحمة على الشاشات الضيقة) */
+function MetaSep() {
+  return (
+    <span aria-hidden="true" className="opacity-45 select-none">
+      •
+    </span>
+  )
+}
+
 function KpiCard({
   to,
   value,
@@ -317,15 +327,36 @@ export function HomePage() {
             <div className="relative">
             {hero ? (
               <>
-                <div className="text-[13.5px] opacity-85 mb-1">
-                  الحصة القادمة · {hero.session_date === today ? 'اليوم' : 'غداً'}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13.5px] opacity-85 mb-1">
+                  <span>الحصة القادمة</span>
+                  <MetaSep />
+                  <span>{hero.session_date === today ? 'اليوم' : 'غداً'}</span>
                 </div>
                 <div className="font-extrabold text-[19px] leading-[1.6]">{hero.group_name}</div>
-                <div className="text-[13.5px] opacity-90 mt-1 leading-[1.7]">
-                  {hero.session_date === today ? `${relLabel(hero, now)} · ` : ''}
-                  الساعة {formatTime12(hero.start_time)} · {hero.duration_minutes} دقيقة
-                  {hero.group_room ? ` · ${hero.group_room}` : ''}
-                  {countsQ.data ? ` · ${countsQ.data.get(hero.group_id) ?? 0} طالب` : ''}
+                {/* ميتا الحصة القادمة: عناصر منفصلة في صف flex يلتف بنضافة
+                    على 360px، بفواصل متباعدة مقروءة بدل «·» النصية الضيقة */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13.5px] opacity-90 mt-1 leading-[1.7]">
+                  {hero.session_date === today && (
+                    <>
+                      <span>{relLabel(hero, now)}</span>
+                      <MetaSep />
+                    </>
+                  )}
+                  <span>الساعة {formatTime12(hero.start_time)}</span>
+                  <MetaSep />
+                  <span>{hero.duration_minutes} دقيقة</span>
+                  {hero.group_room && (
+                    <>
+                      <MetaSep />
+                      <span>{hero.group_room}</span>
+                    </>
+                  )}
+                  {countsQ.data && (
+                    <>
+                      <MetaSep />
+                      <span>{countsQ.data.get(hero.group_id) ?? 0} طالب</span>
+                    </>
+                  )}
                 </div>
                 <Link
                   to={`/attendance?session=${hero.id}`}
@@ -473,9 +504,16 @@ function TodaySessionCard({
               </span>
             )}
           </div>
-          <div className="text-muted text-[13.5px] mt-0.5">
-            {formatTime12(s.start_time)} · {s.duration_minutes} دقيقة
-            {s.group_room ? ` · ${s.group_room}` : ''}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-muted text-[13.5px] mt-0.5">
+            <span>{formatTime12(s.start_time)}</span>
+            <MetaSep />
+            <span>{s.duration_minutes} دقيقة</span>
+            {s.group_room && (
+              <>
+                <MetaSep />
+                <span>{s.group_room}</span>
+              </>
+            )}
           </div>
         </div>
         {!cancelled &&
