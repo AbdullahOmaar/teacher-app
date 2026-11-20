@@ -1,11 +1,402 @@
-import { Placeholder } from '../../components/ui/Placeholder'
+import { useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { Card } from '../../components/ui/Card'
+import { Button } from '../../components/ui/Button'
+import { Field, TextInput } from '../../components/ui/form'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { ErrorState, LoadingState } from '../../components/ui/states'
+import { useAuth } from '../../lib/AuthProvider'
+import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
+import { getActiveTeacherId, setActiveTeacherId } from '../../lib/workspace'
+import {
+  ASSISTANT_DEFAULT_PERMISSIONS,
+  PERMISSION_LABELS,
+} from '../auth/api'
+import {
+  useInviteAssistant,
+  useRemoveTeamMember,
+  useTeamMembers,
+  useUpdateMemberPermissions,
+  useUpdateOwnProfile,
+} from '../auth/hooks'
+import type { TeacherMemberRow } from '../../types/database'
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function shortId(id: string) {
+  return `${id.slice(0, 8)}…${id.slice(-4)}`
+}
+
+/**
+ * الإعدادات — نطاق خطوة Auth + Onboarding فقط:
+ * حسابي (البريد + معرّف الحساب + تعديل اسم المدرس وموبايله)، تبديل
+ * مساحة العمل (مالك/مساعد)، إدارة فريق المساعدين عبر teacher_members،
+ * وتسجيل الخروج. بقية الإعدادات (قالب واتساب/نسبة السنتر/المظهر في
+ * teacher_settings) مكانها خطوة الإعدادات اللاحقة في الخطة.
+ */
 export function SettingsPage() {
+  const { user, signOut } = useAuth()
+  const teacher = useCurrentTeacher()
+  const navigate = useNavigate()
+  const qc = useQueryClient()
+
+  const [copied, setCopied] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+
+  // نموذج تعديل الملف الشخصي
+  const ownTeacher = teacher.status === 'ready' ? teacher.ownTeacher : null
+  const [profileName, setProfileName] = useState<string | null>(null)
+  const [profilePhone, setProfilePhone] = useState<string | null>(null)
+  const [profileMsg, setProfileMsg] = useState<string | null>(null)
+  const updateProfile = useUpdateOwnProfile(user?.id ?? '')
+
+  // نموذج دعوة مساعد
+  const ownId = user?.id ?? ''
+  const isOwnerWorkspace = teacher.status === 'ready' && teacher.role === 'owner'
+  const membersQ = useTeamMembers(ownId || undefined, Boolean(ownTeacher))
+  const invite = useInviteAssistant(ownId)
+  const updatePerms = useUpdateMemberPermissions(ownId)
+  const removeMember = useRemoveTeamMember(ownId)
+  const [assistantId, setAssistantId] = useState('')
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [perms, setPerms] = useState<Record<string, boolean>>({ ...ASSISTANT_DEFAULT_PERMISSIONS })
+  const [inviteMsg, setInviteMsg] = useState<string | null>(null)
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
+
+  if (teacher.status === 'loading') return <LoadingState />
+  if (teacher.status !== 'ready') return <LoadingState label="بنجهّز الإعدادات…" />
+
+  const memberships = teacher.memberships
+  const activeId = getActiveTeacherId()
+  const inOwnWorkspace = !activeId || activeId === ownId
+
+  const copyMyId = async () => {
+    try {
+      await navigator.clipboard.writeText(ownId)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  const switchWorkspace = (teacherId: string | null) => {
+    setActiveTeacherId(teacherId)
+    void qc.invalidateQueries({ queryKey: ['current-teacher'] })
+    navigate('/')
+  }
+
+  const handleProfileSave = (e: FormEvent) => {
+    e.preventDefault()
+    if (!ownTeacher) return
+    setProfileMsg(null)
+    updateProfile.mutate(
+      {
+        display_name: (profileName ?? ownTeacher.display_name).trim(),
+        phone: (profilePhone ?? ownTeacher.phone ?? '').trim() || null,
+      },
+      {
+        onSuccess: () => setProfileMsg('تم حفظ بياناتك ✅'),
+        onError: (err) =>
+          setProfileMsg(err instanceof Error ? err.message : 'تعذّر حفظ البيانات.'),
+      },
+    )
+  }
+
+  const handleInvite = (e: FormEvent) => {
+    e.preventDefault()
+    setInviteMsg(null)
+    const id = assistantId.trim()
+    if (!UUID_RE.test(id)) {
+      setInviteMsg('معرّف الحساب شكله مش صح — لازم يكون معرّف كامل (UUID) من إعدادات حساب المساعد.')
+      return
+    }
+    if (id === ownId) {
+      setInviteMsg('ده معرّف حسابك إنت — اكتب معرّف حساب المساعد.')
+      return
+    }
+    invite.mutate(
+      { assistantUserId: id, permissions: perms },
+      {
+        onSuccess: () => {
+          setAssistantId('')
+          setInviteMsg('تمت إضافة المساعد لفريقك ✅ هيقدر يشتغل بصلاحياته فوراً.')
+        },
+        onError: (err) =>
+          setInviteMsg(err instanceof Error ? err.message : 'تعذّرت إضافة المساعد.'),
+      },
+    )
+  }
+
+  const toggleMemberPerm = (member: TeacherMemberRow, key: string) => {
+    const current = (member.permissions ?? {}) as Record<string, unknown>
+    const next: Record<string, boolean> = {}
+    for (const k of Object.keys(PERMISSION_LABELS)) {
+      next[k] = current[k] === true
+    }
+    next[key] = !next[key]
+    updatePerms.mutate({ memberId: member.id, permissions: next })
+  }
+
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    await signOut()
+    qc.clear()
+    navigate('/login', { replace: true })
+  }
+
   return (
-    <Placeholder
-      icon="⚙️"
-      title="الإعدادات"
-      hint="البروفايل والمظهر (تلقائي/فاتح/داكن) وقالب رسالة واتساب والتذكيرات — هتتنفذ من المواصفات §3.11."
-    />
+    <div>
+      {/* حسابي */}
+      <Card>
+        <h2 className="text-[15px] font-extrabold mt-0 mb-3">👤 حسابي</h2>
+        <div className="text-[13px] text-muted mb-1">البريد الإلكتروني</div>
+        <div className="font-semibold mb-3" dir="ltr" style={{ textAlign: 'start' }}>
+          {user?.email ?? '—'}
+        </div>
+        <div className="text-[13px] text-muted mb-1">
+          معرّف حسابي — شاركه مع مدرس لو عايز يضيفك كمساعد في فريقه
+        </div>
+        <div className="flex items-center gap-2 mb-1">
+          <code className="flex-1 text-[12px] bg-soft rounded-lg px-2 py-2 overflow-hidden text-ellipsis whitespace-nowrap" dir="ltr">
+            {ownId}
+          </code>
+          <Button variant="soft" onClick={copyMyId} className="min-h-[36px] px-3 text-[13px]">
+            {copied ? 'تم النسخ ✅' : 'نسخ'}
+          </Button>
+        </div>
+        <div className="text-[13px] text-muted mt-2 mb-0">
+          دورك الحالي:{' '}
+          <b className="text-text">
+            {teacher.role === 'owner' ? 'مدرس (مالك الحساب)' : 'مساعد عند مدرس آخر'}
+          </b>
+        </div>
+      </Card>
+
+      {/* ملف المدرس — يظهر لمن له ملف خاص */}
+      {ownTeacher && (
+        <Card>
+          <h2 className="text-[15px] font-extrabold mt-0 mb-3">🧑‍🏫 ملف المدرس</h2>
+          {profileMsg && <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{profileMsg}</p>}
+          <form onSubmit={handleProfileSave}>
+            <Field label="اسم المدرس">
+              <TextInput
+                value={profileName ?? ownTeacher.display_name}
+                onChange={(e) => setProfileName(e.target.value)}
+                required
+              />
+            </Field>
+            <Field label="رقم الموبايل">
+              <TextInput
+                type="tel"
+                dir="ltr"
+                value={profilePhone ?? ownTeacher.phone ?? ''}
+                onChange={(e) => setProfilePhone(e.target.value)}
+                placeholder="01xxxxxxxxx"
+              />
+            </Field>
+            <Button full type="submit" disabled={updateProfile.isPending}>
+              {updateProfile.isPending ? 'جارٍ الحفظ…' : 'حفظ'}
+            </Button>
+          </form>
+        </Card>
+      )}
+
+      {/* مساحة العمل — عند وجود عضويات فريق */}
+      {(ownTeacher || memberships.length > 0) && (memberships.length > 0 || !inOwnWorkspace) && (
+        <Card>
+          <h2 className="text-[15px] font-extrabold mt-0 mb-1">🗂️ مساحة العمل</h2>
+          <p className="text-muted text-[13px] mt-0 mb-3">
+            اختر الحساب اللي هتشتغل عليه دلوقتي — بيانات كل مساحة منفصلة تماماً.
+          </p>
+          {ownTeacher && (
+            <button
+              type="button"
+              onClick={() => switchWorkspace(null)}
+              className={`w-full flex items-center gap-2 px-3 min-h-[48px] rounded-xl border cursor-pointer mb-2 text-start ${
+                inOwnWorkspace ? 'border-primary bg-soft font-bold' : 'border-border bg-card'
+              }`}
+            >
+              <span className="flex-1">حسابي — {ownTeacher.display_name || 'مدرّسي'}</span>
+              {inOwnWorkspace && <span className="text-primary text-[13px]">الحالية</span>}
+            </button>
+          )}
+          {memberships.map((m) => {
+            const active = activeId === m.teacher_id
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => switchWorkspace(m.teacher_id)}
+                className={`w-full flex items-center gap-2 px-3 min-h-[48px] rounded-xl border cursor-pointer mb-2 text-start ${
+                  active ? 'border-primary bg-soft font-bold' : 'border-border bg-card'
+                }`}
+              >
+                <span className="flex-1">
+                  مساعد عند مدرس <span dir="ltr">{shortId(m.teacher_id)}</span>
+                </span>
+                {active && <span className="text-primary text-[13px]">الحالية</span>}
+              </button>
+            )
+          })}
+        </Card>
+      )}
+
+      {/* فريق العمل — للمالك في مساحته فقط */}
+      {ownTeacher && isOwnerWorkspace && (
+        <Card>
+          <h2 className="text-[15px] font-extrabold mt-0 mb-1">🤝 فريق العمل (المساعدون)</h2>
+          <p className="text-muted text-[13px] mt-0 mb-3">
+            المساعد لازم يكون عنده حساب في التطبيق الأول. اطلب منه «معرّف الحساب» من
+            إعدادات حسابه والصقه هنا — هيتضاف لفريقك فوراً بالصلاحيات اللي تختارها.
+            البيانات المالية (فواتير/أرباح) محجوبة عن المساعدين في قاعدة البيانات نفسها.
+          </p>
+
+          <form onSubmit={handleInvite} className="mb-4">
+            <Field label="بريد المساعد (لإرسال دعوة إنشاء الحساب)">
+              <TextInput
+                type="email"
+                dir="ltr"
+                placeholder="assistant@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+            </Field>
+            {inviteEmail.includes('@') && (
+              <a
+                className="inline-block text-primary text-[13px] font-semibold mb-3 -mt-1"
+                href={`mailto:${inviteEmail.trim()}?subject=${encodeURIComponent(
+                  'دعوة للانضمام كمساعد في تطبيق المدرس',
+                )}&body=${encodeURIComponent(
+                  'أهلاً،\n\nبدعوك تنضم لفريقي كمساعد في تطبيق المدرس.\nالخطوات:\n1) أنشئ حساباً جديداً في التطبيق ببريدك وكلمة مرور.\n2) افتح «الإعدادات» في حسابك وانسخ «معرّف الحساب».\n3) ابعت لي المعرّف علشان أضيفك للفريق بصلاحياتك.\n\nشكراً لك.',
+                )}`}
+              >
+                ✉️ إرسال الدعوة لبريد المساعد
+              </a>
+            )}
+            <Field label="معرّف حساب المساعد (UUID)">
+              <TextInput
+                dir="ltr"
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                value={assistantId}
+                onChange={(e) => setAssistantId(e.target.value)}
+                required
+              />
+            </Field>
+            <div className="mb-3">
+              <div className="text-[13px] text-muted font-semibold mb-2">صلاحيات المساعد</div>
+              <div className="flex flex-wrap gap-2">
+                {Object.keys(PERMISSION_LABELS).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setPerms((p) => ({ ...p, [key]: !p[key] }))}
+                    className={`px-3 min-h-[34px] rounded-full border text-[13px] font-semibold cursor-pointer ${
+                      perms[key]
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-card text-muted border-border'
+                    }`}
+                  >
+                    {PERMISSION_LABELS[key]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {inviteMsg && (
+              <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{inviteMsg}</p>
+            )}
+            <Button full type="submit" disabled={invite.isPending}>
+              {invite.isPending ? 'جارٍ الإضافة…' : '+ إضافة مساعد للفريق'}
+            </Button>
+          </form>
+
+          <div className="text-[13px] text-muted font-semibold mb-2">أعضاء الفريق الحاليون</div>
+          {membersQ.isPending ? (
+            <LoadingState label="بنحمّل الفريق…" />
+          ) : membersQ.isError ? (
+            <ErrorState
+              message={membersQ.error instanceof Error ? membersQ.error.message : 'خطأ غير معروف'}
+            />
+          ) : (membersQ.data ?? []).length === 0 ? (
+            <EmptyState icon="🤝" title="لا يوجد مساعدون بعد" hint="أضف أول مساعد بمعرّف حسابه من النموذج بالأعلى" />
+          ) : (
+            (membersQ.data ?? []).map((m) => {
+              const memberPerms = (m.permissions ?? {}) as Record<string, unknown>
+              return (
+                <div key={m.id} className="border border-border rounded-xl p-3 mb-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-bold text-[14px] flex-1">
+                      مساعد — <span dir="ltr">{shortId(m.user_id)}</span>
+                    </span>
+                    <span className="text-[11px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
+                      {m.status === 'active' ? 'فعّال' : m.status === 'invited' ? 'مدعو' : 'موقوف'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {Object.keys(PERMISSION_LABELS).map((key) => {
+                      const on = memberPerms[key] === true
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          disabled={updatePerms.isPending}
+                          onClick={() => toggleMemberPerm(m, key)}
+                          className={`px-2 min-h-[28px] rounded-full border text-[11px] font-semibold cursor-pointer ${
+                            on
+                              ? 'bg-primary text-white border-primary'
+                              : 'bg-card text-muted border-border'
+                          }`}
+                        >
+                          {PERMISSION_LABELS[key]}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {confirmRemoveId === m.id ? (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="danger"
+                        className="flex-1 min-h-[38px] text-[13px]"
+                        disabled={removeMember.isPending}
+                        onClick={() =>
+                          removeMember.mutate(m.id, {
+                            onSuccess: () => setConfirmRemoveId(null),
+                          })
+                        }
+                      >
+                        أيوه، إزالة نهائية
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="flex-1 min-h-[38px] text-[13px]"
+                        onClick={() => setConfirmRemoveId(null)}
+                      >
+                        إلغاء
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      className="min-h-[38px] text-[13px] text-bad"
+                      onClick={() => setConfirmRemoveId(m.id)}
+                    >
+                      إزالة من الفريق
+                    </Button>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </Card>
+      )}
+
+      {/* تسجيل الخروج */}
+      <Card>
+        <Button full variant="danger" onClick={handleSignOut} disabled={signingOut}>
+          {signingOut ? 'جارٍ تسجيل الخروج…' : 'تسجيل الخروج'}
+        </Button>
+      </Card>
+    </div>
   )
 }

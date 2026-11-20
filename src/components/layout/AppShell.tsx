@@ -1,5 +1,8 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../hooks/useTheme'
+import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
+import { Onboarding } from '../../features/auth/Onboarding'
+import { LoadingState } from '../ui/states'
 
 /** عناوين الشاشات الـ16 (من جدول titles في المرجع) */
 const TITLES: Record<string, string> = {
@@ -59,8 +62,13 @@ export function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
   const { toggle } = useTheme()
+  const teacher = useCurrentTeacher()
   const { screen, tab } = resolveRoute(location.pathname)
   const isRoot = TAB_ROOTS.has(screen)
+  const avatarLetter =
+    teacher.status === 'ready' && teacher.teacher?.display_name
+      ? teacher.teacher.display_name.trim().charAt(0)
+      : 'م'
 
   return (
     <div className="min-h-screen bg-bg text-text">
@@ -99,7 +107,7 @@ export function AppShell() {
                 className="w-8 h-8 rounded-full bg-primary text-white font-bold flex items-center justify-center cursor-pointer border-0"
                 aria-label="الإعدادات"
               >
-                م
+                {avatarLetter}
               </button>
             </>
           )}
@@ -108,7 +116,13 @@ export function AppShell() {
 
       {/* المحتوى — حاوية 640px وحشوة سفلية تترك مكاناً للشريط السفلي (المرجع §6.2) */}
       <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-[calc(84px+env(safe-area-inset-bottom,0px))]">
-        <Outlet />
+        {teacher.status === 'loading' ? (
+          <LoadingState />
+        ) : teacher.status === 'no-teacher' ? (
+          <Onboarding />
+        ) : (
+          <Outlet />
+        )}
       </main>
 
       {/* الشريط السفلي — ثابت، 4 تبويبات (المرجع §6.4) */}

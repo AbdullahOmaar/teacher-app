@@ -64,6 +64,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       configured: isSupabaseConfigured,
       signOut: async () => {
+        // مسح اختيار مساحة العمل حتى لا يرثه الحساب التالي على نفس الجهاز
+        try {
+          localStorage.removeItem('teacher-app-active-teacher')
+        } catch {
+          // تجاهل
+        }
         await supabase?.auth.signOut()
       },
     }),

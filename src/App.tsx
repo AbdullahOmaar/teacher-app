@@ -21,6 +21,7 @@ import { ExportPage } from './features/settings/ExportPage'
 import { BackupPage } from './features/settings/BackupPage'
 import { MorePage } from './features/settings/MorePage'
 import { LoginPage } from './features/auth/LoginPage'
+import { RequireAuth } from './features/auth/RequireAuth'
 
 const queryClient = new QueryClient()
 
@@ -31,6 +32,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route element={<RequireAuth />}>
             <Route element={<AppShell />}>
               <Route index element={<HomePage />} />
               <Route path="attendance" element={<AttendancePage />} />
@@ -50,6 +52,7 @@ export default function App() {
               <Route path="backup" element={<BackupPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="portal" element={<PortalPage />} />
+            </Route>
             </Route>
           </Routes>
         </BrowserRouter>

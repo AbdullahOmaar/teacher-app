@@ -1,35 +1,243 @@
+import { useState, type FormEvent } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
+import { Field, TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/AuthProvider'
+import { ensureTeacherProfile, signInWithEmail, signUpWithEmail } from './api'
 
-/** صفحة تسجيل الدخول — placeholder حتى يُبنى Auth الحقيقي بـ Supabase */
+type Mode = 'signin' | 'signup'
+
+/**
+ * الدخول والتسجيل الحقيقي بـ Supabase Auth (بريد + كلمة مرور).
+ * عند أول تسجيل بجلسة فورية يُنشأ صف teachers + إعدادات افتراضية؛
+ * وإن تطلب تأكيد البريد تظهر رسالة، ويُستكمل الإنشاء من شاشة الإعداد
+ * (Onboarding) بعد أول دخول. مع جلسة قائمة يُعاد التوجيه للرئيسية.
+ */
 export function LoginPage() {
-  const { configured } = useAuth()
+  const { session, loading, configured } = useAuth()
+  const location = useLocation()
+  const from = (location.state as { from?: string } | null)?.from ?? '/'
+
+  const [mode, setMode] = useState<Mode>('signin')
+  const [displayName, setDisplayName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [passwordConfirm, setPasswordConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  if (!loading && session) {
+    return <Navigate to={from} replace />
+  }
+
+  const switchMode = (next: Mode) => {
+    setMode(next)
+    setError(null)
+    setNotice(null)
+  }
+
+  const handleSignIn = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setNotice(null)
+    setBusy(true)
+    try {
+      await signInWithEmail(email, password)
+      // تغيّر الجلسة في AuthProvider يعيد التوجيه تلقائياً بالأعلى
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر تسجيل الدخول.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleSignUp = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setNotice(null)
+    if (!displayName.trim()) {
+      setError('اكتب اسمك (هيظهر كاسم المدرس في التطبيق).')
+      return
+    }
+    if (password.length < 6) {
+      setError('كلمة المرور قصيرة — لازم 6 أحرف على الأقل.')
+      return
+    }
+    if (password !== passwordConfirm) {
+      setError('كلمة المرور وتأكيدها مش متطابقين.')
+      return
+    }
+    setBusy(true)
+    try {
+      const result = await signUpWithEmail({
+        email,
+        password,
+        displayName,
+        phone: phone || undefined,
+      })
+      if (result.hasSession && result.userId) {
+        // أول تسجيل: إنشاء ملف المدرس + إعداداته (آمن التكرار،
+        // وإن فشل هنا تستكمله شاشة الإعداد بعد الدخول)
+        try {
+          await ensureTeacherProfile(result.userId, displayName, phone || null)
+        } catch {
+          // تجاهل: Onboarding سيعيد المحاولة
+        }
+      } else {
+        setMode('signin')
+        setPassword('')
+        setPasswordConfirm('')
+        setNotice(
+          'تم إنشاء حسابك 🎉 افتح رسالة التأكيد في بريدك الإلكتروني، وبعدين سجّل دخولك من هنا.',
+        )
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر إنشاء الحساب.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-bg text-text flex items-start justify-center">
-      <div className="w-full max-w-[640px] px-4 pt-16">
+      <div className="w-full max-w-[640px] px-4 pt-14 pb-10">
         <div className="text-center mb-6">
           <div className="text-[40px] mb-2">🎓</div>
           <h1 className="text-[20px] font-extrabold m-0">تطبيق المدرس</h1>
-          <p className="text-muted text-[13px] mt-1">سجّل دخولك علشان تكمل</p>
+          <p className="text-muted text-[13px] mt-1">
+            {mode === 'signin' ? 'سجّل دخولك علشان تكمل' : 'أنشئ حساب مدرس جديد'}
+          </p>
         </div>
+
+        <div className="flex bg-soft rounded-xl p-1 mb-4" role="tablist" aria-label="الدخول أو التسجيل">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'signin'}
+            onClick={() => switchMode('signin')}
+            className={`flex-1 min-h-[40px] rounded-lg border-0 cursor-pointer font-bold text-[14px] ${
+              mode === 'signin' ? 'bg-card text-primary shadow-sm' : 'bg-transparent text-muted'
+            }`}
+          >
+            تسجيل الدخول
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'signup'}
+            onClick={() => switchMode('signup')}
+            className={`flex-1 min-h-[40px] rounded-lg border-0 cursor-pointer font-bold text-[14px] ${
+              mode === 'signup' ? 'bg-card text-primary shadow-sm' : 'bg-transparent text-muted'
+            }`}
+          >
+            حساب جديد
+          </button>
+        </div>
+
         <Card>
-          <label className="block text-[13px] text-muted font-semibold mb-1">رقم الموبايل أو البريد</label>
-          <input
-            className="w-full border border-border rounded-xl px-3 min-h-[48px] bg-card text-text mb-3"
-            placeholder="01xxxxxxxxx"
-            disabled
-          />
-          <label className="block text-[13px] text-muted font-semibold mb-1">كلمة المرور</label>
-          <input
-            type="password"
-            className="w-full border border-border rounded-xl px-3 min-h-[48px] bg-card text-text mb-4"
-            placeholder="••••••••"
-            disabled
-          />
-          <Button full disabled>
-            دخول
-          </Button>
+          {notice && (
+            <p className="bg-soft text-primary text-[13px] rounded-xl px-3 py-2 mb-3 mt-0">{notice}</p>
+          )}
+          {error && (
+            <p className="bg-[#FEF2F2] text-bad text-[13px] rounded-xl px-3 py-2 mb-3 mt-0" role="alert">
+              {error}
+            </p>
+          )}
+
+          {mode === 'signin' ? (
+            <form onSubmit={handleSignIn}>
+              <Field label="البريد الإلكتروني">
+                <TextInput
+                  type="email"
+                  dir="ltr"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label="كلمة المرور">
+                <TextInput
+                  type="password"
+                  dir="ltr"
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </Field>
+              <Button full type="submit" disabled={busy || !configured}>
+                {busy ? 'جارٍ تسجيل الدخول…' : 'دخول'}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignUp}>
+              <Field label="اسم المدرس">
+                <TextInput
+                  autoComplete="name"
+                  placeholder="مثال: مستر أحمد سامي"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label="رقم الموبايل (اختياري)">
+                <TextInput
+                  type="tel"
+                  dir="ltr"
+                  autoComplete="tel"
+                  placeholder="01xxxxxxxxx"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </Field>
+              <Field label="البريد الإلكتروني">
+                <TextInput
+                  type="email"
+                  dir="ltr"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label="كلمة المرور">
+                <TextInput
+                  type="password"
+                  dir="ltr"
+                  autoComplete="new-password"
+                  placeholder="6 أحرف على الأقل"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label="تأكيد كلمة المرور">
+                <TextInput
+                  type="password"
+                  dir="ltr"
+                  autoComplete="new-password"
+                  placeholder="••••••••"
+                  value={passwordConfirm}
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                  required
+                />
+              </Field>
+              <Button full type="submit" disabled={busy || !configured}>
+                {busy ? 'جارٍ إنشاء الحساب…' : 'إنشاء الحساب'}
+              </Button>
+              <p className="text-muted text-[12px] mt-3 mb-0 text-center">
+                بإنشاء الحساب هيتعمل ملف مدرس خاص بيك وإعدادات افتراضية تلقائياً.
+              </p>
+            </form>
+          )}
+
           {!configured && (
             <p className="text-warn text-[13px] mt-3 mb-0 text-center">
               وضع تجريبي: لسه Supabase مش مربوط — عبّي قيم .env علشان الدخول يشتغل.

@@ -22,6 +22,17 @@ export interface TeacherRow {
   updated_at: string
 }
 
+export interface TeacherSettingsRow {
+  teacher_id: string
+  whatsapp_template: string
+  center_share_percent: number
+  reminder_minutes: number
+  theme: string // 'auto' | 'light' | 'dark' (check في المخطط)
+  last_export_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface TeacherMemberRow {
   id: string
   teacher_id: string
