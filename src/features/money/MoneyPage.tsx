@@ -8,9 +8,11 @@ import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../.
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import type { ExpenseRow, RecurringExpenseRow } from '../../types/database'
+import { PageToolBar, StickyGroupHeader } from '../../components/ui/PageToolBar'
+import { Chip } from '../../components/ui/form'
 import { monthStartStr, todayStr } from '../home/api'
 import { periodLabel } from '../invoices/api'
-import { addMonthsStr, formatDateLabel } from '../schedule/api'
+import { formatDateLabel } from '../schedule/api'
 import { lastSixMonths, summaryOf, type MonthSummary } from './api'
 import { CashboxSection } from './CashboxSection'
 import {
@@ -140,6 +142,21 @@ export function MoneyPage() {
     [sixMonths],
   )
   const expenses = useMemo(() => expensesQ.data ?? [], [expensesQ.data])
+  // تجميع المصروفات باليوم (W3 — R-11): مرتبة بالتاريخ تنازلياً أصلاً،
+  // فالتجميع المتتالي يحافظ على الترتيب ويضيف عنوان يوم لاصقاً بإجماليه
+  const expenseDayGroups = useMemo(() => {
+    const groups: { day: string; items: ExpenseRow[]; total: number }[] = []
+    for (const exp of expenses) {
+      const last = groups[groups.length - 1]
+      if (last && last.day === exp.expense_date) {
+        last.items.push(exp)
+        last.total += Number(exp.amount) || 0
+      } else {
+        groups.push({ day: exp.expense_date, items: [exp], total: Number(exp.amount) || 0 })
+      }
+    }
+    return groups
+  }, [expenses])
   const templates = useMemo(() => recurringQ.data ?? [], [recurringQ.data])
   const centerPercent = centerQ.data ?? 0
 
@@ -169,27 +186,30 @@ export function MoneyPage() {
 
   return (
     <div>
-      {/* تنقّل الشهور — نفس معالجة تنقّل أيام الخزنة: اسم الشهر صف كامل
-          على الموبايل والزرّان نصفان تحته، وصف واحد من 480px */}
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <Button
-          variant="ghost"
-          className="flex-1 min-[480px]:flex-none"
-          onClick={() => setSelectedMonth(addMonthsStr(selectedMonth, -1))}
-        >
-          الشهر السابق
-        </Button>
-        <div className="order-first w-full text-center min-[480px]:order-none min-[480px]:w-auto min-[480px]:flex-1 font-extrabold text-[15px]">
-          {periodLabel(selectedMonth)}
-        </div>
-        <Button
-          variant="ghost"
-          className="flex-1 min-[480px]:flex-none"
-          onClick={() => setSelectedMonth(addMonthsStr(selectedMonth, 1))}
-        >
-          الشهر التالي
-        </Button>
-      </div>
+      {/* شريط الشهور الموحّد (W3 — R-10): رقائق آخر 6 شهور بدل زرّي
+          السابق/التالي — اختيار شهر أقدم من خارج الستة يبقى ظاهراً
+          رقاقة نشطة حتى لا يضيع سياق الاختيار */}
+      <PageToolBar
+        chips={
+          <>
+            {sixMonths.map((row) => (
+              <Chip
+                key={row.month}
+                active={selectedMonth === row.month}
+                onClick={() => setSelectedMonth(row.month)}
+              >
+                {periodLabel(row.month)}
+              </Chip>
+            ))}
+            {!sixMonths.some((r) => r.month === selectedMonth) && (
+              <Chip active onClick={() => setSelectedMonth(selectedMonth)}>
+                {periodLabel(selectedMonth)}
+              </Chip>
+            )}
+          </>
+        }
+        resultCount={pending ? undefined : expenses.length}
+      />
       {!isCurrentMonth && (
         <Button full variant="soft" className="mb-3" onClick={() => setSelectedMonth(currentMonth)}>
           رجوع للشهر الحالي ({periodLabel(currentMonth)})
@@ -300,8 +320,13 @@ export function MoneyPage() {
               />
             </Card>
           ) : (
-            expenses.map((exp) => (
-              <Card key={exp.id}>
+            expenseDayGroups.map((g) => (
+              <div key={g.day}>
+                <StickyGroupHeader>
+                  {formatDateLabel(g.day)} · {g.items.length} مصروف · {formatMoney(g.total)}
+                </StickyGroupHeader>
+                {g.items.map((exp) => (
+                  <Card key={exp.id}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-bold text-[15px]">{exp.category}</div>
@@ -336,7 +361,9 @@ export function MoneyPage() {
                     حذف
                   </Button>
                 </div>
-              </Card>
+                  </Card>
+                ))}
+              </div>
             ))
           )}
 
