@@ -17,6 +17,7 @@ export type AttendanceStatus = 'p' | 'a' | 'l' | 'm'
 export type SessionKind = 'regular' | 'extra' | 'moved'
 export type SessionStatus = 'scheduled' | 'cancelled'
 export type PaymentMethod = 'cash' | 'vodafone_cash' | 'instapay' | 'bank_transfer'
+export type InvoiceLineType = 'base' | 'discount' | 'adjustment'
 
 export interface TeacherRow {
   id: string
@@ -177,6 +178,26 @@ export interface AttendanceRow {
   starred: boolean
   created_at: string
   updated_at: string
+}
+
+export interface InvoiceRow {
+  id: string
+  teacher_id: string
+  student_id: string
+  group_id: string
+  period_month: string // أول يوم في الشهر 'YYYY-MM-DD' (قيد المخطط)
+  created_at: string
+}
+
+export interface InvoiceLineRow {
+  id: string
+  teacher_id: string
+  invoice_id: string
+  line_type: InvoiceLineType
+  description: string
+  amount: number // قد يكون سالباً (خصم / تسوية)
+  reason: string | null // سبب الخصم أو التسوية
+  created_at: string
 }
 
 /** صف من view ‏invoice_balances — الإجمالي/المدفوع/المتبقي محسوب دائماً */

@@ -64,3 +64,32 @@ body {
   line-height: 1.5;
   -webkit-tap-highlight-color: transparent;
 }
+
+/*
+ * الطباعة — المرجع §6.8: إخفاء كل شيء عدا منطقة الطباعة (.print-area)
+ * بتقنية visibility، ومنطقة الطباعة بيضاء دائماً في الثيمين.
+ * الإيصال الحراري (.paper-thermal) بعرض 80mm وخط 12px.
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    top: 0;
+    inset-inline: 0;
+    background: #fff !important;
+    color: #0f172a !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+  .print-area.paper-thermal {
+    width: 80mm;
+    margin: 0 auto;
+    font-size: 12px;
+  }
+}

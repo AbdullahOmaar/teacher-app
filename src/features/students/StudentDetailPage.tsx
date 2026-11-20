@@ -16,6 +16,7 @@ import {
   useStudentEnrollments,
 } from './hooks'
 import { StudentAttendanceTab } from '../attendance/StudentAttendanceTab'
+import { StudentPaymentsTab } from '../invoices/StudentPaymentsTab'
 import { StudentFormSheet } from './StudentFormSheet'
 import { StudentCardSheet } from './StudentCardSheet'
 import { EnrollStudentSheet } from './EnrollStudentSheet'
@@ -32,7 +33,6 @@ const TABS: { key: TabKey; label: string }[] = [
 ]
 
 const UPCOMING: Record<string, string> = {
-  pay: 'فواتير الطالب ودفعاته هتتبني مع وحدة الفواتير.',
   grades: 'درجات الطالب وتطور مستواه هيتبنوا مع وحدة الدرجات.',
   notes: 'ملاحظات الطالب المؤرخة هتتبني في خطوة لاحقة.',
 }
@@ -48,8 +48,8 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 
 /**
  * ملف الطالب (المواصفات §3.4): ترويسة (اتصال/واتساب/الكارت الرقمي) وتبويبات.
- * «البيانات» و«المجموعات» و«الحضور» منفذة فعلياً؛ المدفوعات/الدرجات/الملاحظات
- * هياكل جاهزة لوحداتها القادمة.
+ * «البيانات» و«المجموعات» و«الحضور» و«المدفوعات» منفذة فعلياً (المدفوعات
+ * للمالك فقط)؛ الدرجات/الملاحظات هياكل جاهزة لوحداتها القادمة.
  */
 export function StudentDetailPage() {
   const { id } = useParams()
@@ -145,7 +145,7 @@ export function StudentDetailPage() {
       </Card>
 
       <ChipRow>
-        {TABS.map((t) => (
+        {TABS.filter((t) => !(isAssistant && t.key === 'pay')).map((t) => (
           <Chip key={t.key} active={tab === t.key} onClick={() => setTab(t.key)}>
             {t.label}
           </Chip>
@@ -229,7 +229,22 @@ export function StudentDetailPage() {
         />
       )}
 
-      {(tab === 'pay' || tab === 'grades' || tab === 'notes') && (
+      {tab === 'pay' &&
+        (isAssistant ? (
+          <EmptyState
+            icon="🔒"
+            title="المدفوعات للمالك فقط"
+            hint="تبويب المدفوعات مخفي في وضع المساعد — المالية محجوبة بـ RLS أيضاً."
+          />
+        ) : (
+          <StudentPaymentsTab
+            teacherId={teacher.teacherId}
+            studentId={student.id}
+            studentName={student.name}
+          />
+        ))}
+
+      {(tab === 'grades' || tab === 'notes') && (
         <EmptyState icon="🚧" title="قريباً" hint={UPCOMING[tab]} />
       )}
 
