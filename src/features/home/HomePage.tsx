@@ -36,6 +36,7 @@ import {
   useUpcomingSessions,
 } from './hooks'
 import { AtRiskCard } from '../atrisk/AtRiskCard'
+import { PendingProofsCard } from '../payment-proofs/PendingProofsCard'
 import { useGroups } from '../groups/hooks'
 import { useAuth } from '../../lib/AuthProvider'
 import { DEMO_EMAIL } from '../auth/api'
@@ -444,6 +445,12 @@ export function HomePage() {
           {/* «معرّضون للفقد» (Phase 5 خطوة 1): بطاقة ملخص تظهر فقط عند
               وجود حالات — ليست تنبيهاً عاماً بل قائمة عمل بمتابعات */}
           <AtRiskCard />
+
+          {/* «إثباتات دفع معلّقة» (موجة W1): بطاقة شرطية بنفس النمط —
+              إجراء مالي يومي كان غائباً عن الرئيسية تماماً. موضعها بعد
+              بطاقة المعرّضين عمداً حتى لا يزحزح ظهورها موضعَ تلك البطاقة
+              المحجوز بهيكل تحميل (بند W1-4) */}
+          <PendingProofsCard />
 
           {/* التنبيهات ليست هنا عمداً (طلب المالك): مكانها الوحيد زر الجرس
               في الشريط العلوي بعدّاده، وشاشة الإشعارات خلفه */}
