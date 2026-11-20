@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import type { TeacherMemberRow, TeacherRow, TeacherSettingsRow } from '../../types/database'
+import { logActivity } from '../activity/api'
 
 function db() {
   if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
@@ -258,7 +259,16 @@ export async function inviteAssistant(
       throw new Error('معرّف الحساب ده غير موجود — اتأكد إن المساعد أنشأ حسابه ونسخ المعرّف صح.')
     throw new Error(translateDbError(error))
   }
-  return data as unknown as TeacherMemberRow
+  const row = data as unknown as TeacherMemberRow
+  // سجل النشاط: إضافة مساعد مباشرة بمعرّف حسابه (عضوية فعّالة فوراً)
+  void logActivity(teacherId, {
+    event_type: 'member_invited',
+    entity_type: 'teacher_member',
+    entity_id: row.id,
+    entity_label: assistantUserId.trim(),
+    details: { invited_via: 'user_id', member_user_id: assistantUserId.trim() },
+  })
+  return row
 }
 
 // ---------------------------------------------------------------------------
@@ -323,11 +333,27 @@ export async function inviteAssistantByEmail(
     }
     throw new Error(translateDbError(error))
   }
-  return data as unknown as TeacherMemberRow
+  const row = data as unknown as TeacherMemberRow
+  // سجل النشاط: دعوة مساعد بالبريد (معلّقة حتى الادعاء)
+  void logActivity(teacherId, {
+    event_type: 'member_invited',
+    entity_type: 'teacher_member',
+    entity_id: row.id,
+    entity_label: email,
+    details: { invited_via: 'email', invited_email: email },
+  })
+  return row
 }
 
 /** إلغاء دعوة معلّقة — حذف صفها، بشرط إضافي أنها لم تُدّعَ بعد */
 export async function cancelTeamInvite(teacherId: string, inviteId: string): Promise<void> {
+  const { data: before } = await db()
+    .from('teacher_members')
+    .select(MEMBER_COLS)
+    .eq('teacher_id', teacherId)
+    .eq('id', inviteId)
+    .maybeSingle()
+  const beforeRow = (before as unknown as TeacherMemberRow | null) ?? null
   const { error } = await db()
     .from('teacher_members')
     .delete()
@@ -335,6 +361,13 @@ export async function cancelTeamInvite(teacherId: string, inviteId: string): Pro
     .eq('id', inviteId)
     .is('user_id', null)
   if (error) throw new Error(translateDbError(error))
+  void logActivity(teacherId, {
+    event_type: 'member_invite_cancelled',
+    entity_type: 'teacher_member',
+    entity_id: inviteId,
+    entity_label: beforeRow?.invited_email ?? null,
+    details: beforeRow?.invited_email ? { invited_email: beforeRow.invited_email } : {},
+  })
 }
 
 export interface ClaimInvitesResult {
@@ -358,13 +391,27 @@ export async function claimTeacherInvites(): Promise<ClaimInvitesResult> {
     skipped_duplicates?: unknown
     teacher_ids?: unknown
   }
-  return {
+  const result: ClaimInvitesResult = {
     claimed: Number(raw.claimed) || 0,
     skipped_duplicates: Number(raw.skipped_duplicates) || 0,
     teacher_ids: Array.isArray(raw.teacher_ids)
       ? raw.teacher_ids.filter((t): t is string => typeof t === 'string')
       : [],
   }
+  // سجل النشاط: قبول الدعوة حدث عضوية — يُسجَّل في نطاق كل مدرس انضم له
+  // المساعد، والفاعل هنا هو المساعد نفسه (جلسته الحالية)، وسياسة الإدراج
+  // للمساعد تمر لأنه صار عضواً فعّالاً بفعل الادعاء نفسه.
+  if (result.claimed > 0) {
+    for (const hostTeacherId of result.teacher_ids) {
+      void logActivity(hostTeacherId, {
+        event_type: 'member_joined',
+        entity_type: 'teacher_member',
+        entity_label: null,
+        details: { joined_via: 'email_invite_claim' },
+      })
+    }
+  }
+  return result
 }
 
 export async function updateMemberPermissions(
@@ -378,13 +425,36 @@ export async function updateMemberPermissions(
     .eq('teacher_id', teacherId)
     .eq('id', memberId)
   if (error) throw new Error(translateDbError(error))
+  void logActivity(teacherId, {
+    event_type: 'member_permissions_updated',
+    entity_type: 'teacher_member',
+    entity_id: memberId,
+    details: { permissions },
+  })
 }
 
 export async function removeTeamMember(teacherId: string, memberId: string): Promise<void> {
+  const { data: before } = await db()
+    .from('teacher_members')
+    .select(MEMBER_COLS)
+    .eq('teacher_id', teacherId)
+    .eq('id', memberId)
+    .maybeSingle()
+  const beforeRow = (before as unknown as TeacherMemberRow | null) ?? null
   const { error } = await db()
     .from('teacher_members')
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', memberId)
   if (error) throw new Error(translateDbError(error))
+  void logActivity(teacherId, {
+    event_type: 'member_removed',
+    entity_type: 'teacher_member',
+    entity_id: memberId,
+    entity_label: beforeRow?.invited_email ?? beforeRow?.user_id ?? null,
+    details: {
+      ...(beforeRow?.invited_email ? { invited_email: beforeRow.invited_email } : {}),
+      ...(beforeRow?.user_id ? { member_user_id: beforeRow.user_id } : {}),
+    },
+  })
 }

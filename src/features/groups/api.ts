@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
+import { logActivity } from '../activity/api'
 import type {
   EnrollmentRow,
   GroupInput,
@@ -178,12 +179,20 @@ export async function setGroupArchived(
   groupId: string,
   archived: boolean,
 ): Promise<void> {
+  const before = await fetchGroup(teacherId, groupId).catch(() => null)
   const { error } = await db()
     .from('groups')
     .update({ archived_at: archived ? new Date().toISOString() : null })
     .eq('teacher_id', teacherId)
     .eq('id', groupId)
   if (error) throw error
+  void logActivity(teacherId, {
+    event_type: archived ? 'group_archived' : 'group_unarchived',
+    entity_type: 'group',
+    entity_id: groupId,
+    entity_label: before?.name ?? null,
+    details: {},
+  })
 }
 
 /**
@@ -192,12 +201,20 @@ export async function setGroupArchived(
  * تُحذف cascade.
  */
 export async function deleteGroup(teacherId: string, groupId: string): Promise<void> {
+  const before = await fetchGroup(teacherId, groupId).catch(() => null)
   const { error } = await db()
     .from('groups')
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', groupId)
   if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء حذف المجموعة')
+  void logActivity(teacherId, {
+    event_type: 'group_deleted',
+    entity_type: 'group',
+    entity_id: groupId,
+    entity_label: before?.name ?? null,
+    details: {},
+  })
 }
 
 /** عدّاد طلاب كل مجموعة (لبطاقات القائمة وشريط السعة) */

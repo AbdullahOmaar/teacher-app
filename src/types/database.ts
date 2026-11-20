@@ -443,3 +443,46 @@ export interface DailyClosingInput {
   counted_electronic: number
   note: string | null
 }
+
+// ---------------------------------------------------------------------------
+// سجل النشاط — جدول activity_log (migration ‏0009، Phase 3 خطوة 2)
+// ---------------------------------------------------------------------------
+
+/** أنواع أحداث السجل — قائمة قيد CHECK في المخطط حرفياً */
+export type ActivityEventType =
+  | 'payment_created'
+  | 'payment_voided'
+  | 'invoice_created'
+  | 'invoices_generated'
+  | 'attendance_saved'
+  | 'member_invited'
+  | 'member_joined'
+  | 'member_removed'
+  | 'member_invite_cancelled'
+  | 'member_permissions_updated'
+  | 'proof_approved'
+  | 'proof_rejected'
+  | 'student_deleted'
+  | 'student_archived'
+  | 'student_unarchived'
+  | 'group_deleted'
+  | 'group_archived'
+  | 'group_unarchived'
+  | 'cashbox_closed'
+
+export type ActivityActorRole = 'owner' | 'assistant'
+
+/** صف سجل نشاط — لقطة الفاعل والكيان وقت الحدث (تبقى بعد حذف الكيان) */
+export interface ActivityLogRow {
+  id: string
+  teacher_id: string
+  actor_id: string | null // يُصفَّر عند حذف حساب الفاعل — اللقطة النصية تبقى
+  actor_role: ActivityActorRole
+  actor_name: string | null
+  event_type: ActivityEventType
+  entity_type: string | null
+  entity_id: string | null // بلا FK عمداً: السجل يبقى بعد حذف الكيان
+  entity_label: string | null
+  details: Record<string, unknown>
+  created_at: string
+}

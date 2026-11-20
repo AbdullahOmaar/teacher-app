@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
+import { logActivity } from '../activity/api'
 import type {
   EnrollmentInput,
   EnrollmentRow,
@@ -109,12 +110,23 @@ export async function setStudentPaused(
   studentId: string,
   paused: boolean,
 ): Promise<void> {
+  // اسم الطالب قبل التغيير (لقطة السجل) — فشله لا يمنع العملية نفسها
+  const before = await fetchStudent(teacherId, studentId).catch(() => null)
   const { error } = await db()
     .from('students')
     .update({ paused })
     .eq('teacher_id', teacherId)
     .eq('id', studentId)
   if (error) throw error
+  // سجل النشاط: الإيقاف هو «أرشفة» الطالب في هذا النظام (انظر قسم الحذف/
+  // الأرشفة الآمنة أسفل) وإلغاؤه إلغاء أرشفة.
+  void logActivity(teacherId, {
+    event_type: paused ? 'student_archived' : 'student_unarchived',
+    entity_type: 'student',
+    entity_id: studentId,
+    entity_label: before?.name ?? null,
+    details: before?.public_code ? { student_code: before.public_code } : {},
+  })
 }
 
 /** تسجيل طالب في مجموعة (أو تحديث سعره الخاص) — unique (student_id, group_id) */
@@ -228,10 +240,19 @@ export async function fetchStudentFootprint(
  * لا تُحذف أي فاتورة أو دفعة من هذا المسار إطلاقاً.
  */
 export async function deleteStudent(teacherId: string, studentId: string): Promise<void> {
+  // لقطة الاسم/الكود قبل الحذف — بعد الحذف لا يبقى من الطالب إلا سجل النشاط
+  const before = await fetchStudent(teacherId, studentId).catch(() => null)
   const { error } = await db()
     .from('students')
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', studentId)
   if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء حذف الطالب')
+  void logActivity(teacherId, {
+    event_type: 'student_deleted',
+    entity_type: 'student',
+    entity_id: studentId,
+    entity_label: before?.name ?? null,
+    details: before?.public_code ? { student_code: before.public_code } : {},
+  })
 }

@@ -4,6 +4,7 @@ import type {
   DailyClosingRow,
   PaymentMethod,
 } from '../../types/database'
+import { logActivity } from '../activity/api'
 
 function db() {
   if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
@@ -182,7 +183,25 @@ export async function upsertDailyClosing(
     .select(CLOSING_COLS)
     .single()
   if (error) throw error
-  return toClosing(data as unknown as Record<string, unknown>)
+  const closing = toClosing(data as unknown as Record<string, unknown>)
+  // سجل النشاط: إغلاق/إعادة إغلاق يوم للخزنة (upsert — الحدث واحد في
+  // الحالتين، والتفاصيل تحمل لقطة المعدود والمتوقع والفرق الكلي)
+  void logActivity(teacherId, {
+    event_type: 'cashbox_closed',
+    entity_type: 'daily_closing',
+    entity_id: closing.id,
+    entity_label: closing.closing_date,
+    details: {
+      closing_date: closing.closing_date,
+      counted_total: closing.counted_cash + closing.counted_electronic,
+      expected_total: closing.expected_cash + closing.expected_electronic,
+      diff_total:
+        closing.counted_cash +
+        closing.counted_electronic -
+        (closing.expected_cash + closing.expected_electronic),
+    },
+  })
+  return closing
 }
 
 // ---------------------------------------------------------------------------

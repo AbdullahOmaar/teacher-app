@@ -594,7 +594,10 @@ export async function quickImportStudents(
 
 // ===========================================================================
 // النسخة الاحتياطية JSON — نطاقها: كل جداول بيانات المدرس التشغيلية في
-// المخطط (21 جدولاً أدناه بترتيب اعتماد الاستيراد) + صف إعداداته.
+// المخطط (22 جدولاً أدناه بترتيب اعتماد الاستيراد) + صف إعداداته.
+// (أُضيف activity_log في Phase 3 خطوة 2 كقسم اختياري أخير — نفس قاعدة
+// توافق الإصدار 1: ملف قديم بلا القسم يُستورد بنجاح، والتطبيق القديم
+// يتجاهل القسم الجديد.)
 // الجدولان الأخيران أُضيفا في Phase 2 (الخطوة 14) بعد اكتشاف الخطوة 13
 // أن نطاق النسخة لم يشملهما:
 // • daily_closings (migration ‏0004 — إغلاقات الخزنة اليومية): بيانات
@@ -661,6 +664,11 @@ export const BACKUP_TABLES: BackupTableSpec[] = [
   { key: 'daily_closings', table: 'daily_closings', label: 'إغلاقات الخزنة اليومية', pk: ['id'], columns: ['id', 'teacher_id', 'closing_date', 'expected_cash', 'expected_electronic', 'expenses_total', 'counted_cash', 'counted_electronic', 'note', 'closed_by', 'created_at', 'updated_at'] },
   // صفوف بيانات فقط — الصور في Storage وليست في ملف JSON (انظر الترويسة)
   { key: 'payment_proofs', table: 'payment_proofs', label: 'إثباتات الدفع (صفوف فقط)', pk: ['id'], columns: ['id', 'teacher_id', 'guardian_id', 'student_id', 'invoice_id', 'amount', 'method', 'storage_path', 'status', 'rejection_reason', 'reviewed_by', 'reviewed_at', 'payment_id', 'uploaded_at', 'created_at', 'updated_at'] },
+  // Phase 3 (الخطوة 2): سجل النشاط (migration ‏0009) آخر الترتيب — يعتمد
+  // على teachers فقط داخل نطاق النسخة، وactor_id (auth.users) يُعاد ربطه
+  // بالمستورِد في toInsertRow كي لا يفشل قيده في بيئة جديدة، وتبقى لقطتا
+  // actor_role/actor_name شاهدتين على الفاعل الأصلي كما هما.
+  { key: 'activity_log', table: 'activity_log', label: 'سجل النشاط', pk: ['id'], columns: ['id', 'teacher_id', 'actor_id', 'actor_role', 'actor_name', 'event_type', 'entity_type', 'entity_id', 'entity_label', 'details', 'created_at'] },
 ]
 
 export interface BackupFile {
@@ -894,6 +902,16 @@ function toInsertRow(
   if (spec.table === 'daily_closings') out.closed_by = teacherId
   if (spec.table === 'payment_proofs' && out.reviewed_by != null) {
     out.reviewed_by = teacherId
+  }
+  // سجل النشاط (0009): actor_id مرجع auth.users، وسياسة إدراجه تشترط
+  // actor_id = auth.uid() — فكل صفوف السجل المستوردة تُعاد نسبتها شكلياً
+  // للمستورِد (actor_id = حسابه وactor_role = 'owner') حتى يمر الإدراج
+  // ولا يفشل القيد في بيئة جديدة، بما فيها صفوف كان فاعلها مساعداً أو
+  // حُذف حسابه (actor_id خالٍ أصلاً)؛ اللقطة النصية actor_name تبقى كما
+  // هي شاهدة على الفاعل الأصلي، فلا تضيع معلومة «مين عملها فعلاً».
+  if (spec.table === 'activity_log') {
+    out.actor_id = teacherId
+    out.actor_role = 'owner'
   }
   return out
 }

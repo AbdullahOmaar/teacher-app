@@ -13,6 +13,7 @@ import { monthEndStr, monthStartStr, todayStr } from '../home/api'
 import { MONTH_NAMES, ensureSessionsGenerated } from '../schedule/api'
 import { isAttended, saveAttendance } from '../attendance/api'
 import { fetchGroups } from '../groups/api'
+import { logActivity } from '../activity/api'
 
 function db() {
   if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
@@ -497,6 +498,24 @@ export async function generateInvoices(
     created += 1
   }
 
+  // سجل النشاط: حدث واحد للتوليد كله (أو فاتورة فردية عند استهداف طالب
+  // واحد) — لا يُسجَّل توليد لم ينشئ شيئاً. Fail-safe: لا يكسر الإصدار.
+  if (created > 0) {
+    void logActivity(teacherId, {
+      event_type: opts.studentId ? 'invoice_created' : 'invoices_generated',
+      entity_type: 'invoice_batch',
+      entity_label: periodLabel(period),
+      details: {
+        period,
+        period_label: periodLabel(period),
+        created,
+        skipped,
+        total: enrollments.length,
+        ...(opts.studentId ? { student_id: opts.studentId } : {}),
+      },
+    })
+  }
+
   return { created, skipped, total: enrollments.length }
 }
 
@@ -535,7 +554,24 @@ export async function createPayment(
     .single()
   if (error) throw error
   const row = data as unknown as PaymentRow
-  return { ...row, amount: Number(row.amount) || 0 }
+  const payment = { ...row, amount: Number(row.amount) || 0 }
+  // سجل النشاط: إنشاء دفعة (يشمل الدفعة التي ينشئها اعتماد إثبات دفع —
+  // حدث الاعتماد نفسه يُسجَّل منفصلاً من وحدة الإثباتات)
+  void logActivity(teacherId, {
+    event_type: 'payment_created',
+    entity_type: 'payment',
+    entity_id: payment.id,
+    entity_label: `إيصال ${payment.receipt_no}`,
+    details: {
+      amount: payment.amount,
+      method: payment.method,
+      method_label: PAYMENT_METHOD_LABELS[payment.method] ?? payment.method,
+      paid_on: payment.paid_on,
+      receipt_no: payment.receipt_no,
+      invoice_id: invoiceId,
+    },
+  })
+  return payment
 }
 
 /**
@@ -577,7 +613,24 @@ export async function voidPayment(teacherId: string, payment: PaymentRow): Promi
   if (markErr) throw markErr
 
   const row = data as unknown as PaymentRow
-  return { ...row, amount: Number(row.amount) || 0 }
+  const reversal = { ...row, amount: Number(row.amount) || 0 }
+  // سجل النشاط: عكس الدفعة هو «حذف/إبطال» الدفعات في هذا النظام (لا حذف
+  // فعلي للدفتر أبداً) — يُسجَّل باسم الأصلية المعكوسة ومبلغها الأصلي.
+  void logActivity(teacherId, {
+    event_type: 'payment_voided',
+    entity_type: 'payment',
+    entity_id: payment.id,
+    entity_label: `إيصال ${payment.receipt_no}`,
+    details: {
+      amount: payment.amount,
+      method: payment.method,
+      method_label: PAYMENT_METHOD_LABELS[payment.method] ?? payment.method,
+      receipt_no: payment.receipt_no,
+      reversal_receipt_no: reversal.receipt_no,
+      invoice_id: payment.invoice_id,
+    },
+  })
+  return reversal
 }
 
 // ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@ import { supabase } from '../../lib/supabase'
 import { waLink } from '../../lib/format'
 import type { AttendanceRow, AttendanceStatus, StudentRow } from '../../types/database'
 import { fetchSessionsInRange, monthStartStr, type SessionWithGroup } from '../home/api'
+import { logActivity, logAttendanceTouch } from '../activity/api'
 
 export { fetchSessionsInRange, monthStartStr }
 export type { SessionWithGroup }
@@ -239,6 +240,9 @@ export async function saveAttendance(
       .eq('session_id', sessionId)
       .eq('student_id', studentId)
     if (error) throw error
+    // سجل النشاط: لمسة حضور فردية — تُجمَّع مع لمسات نفس الحصة (انظر
+    // logAttendanceTouch) فلا يغرق السجل بصف لكل طالب.
+    logAttendanceTouch(teacherId, sessionId, studentId)
     return
   }
   const { error } = await db()
@@ -255,6 +259,7 @@ export async function saveAttendance(
       { onConflict: 'session_id,student_id' },
     )
   if (error) throw error
+  logAttendanceTouch(teacherId, sessionId, studentId)
 }
 
 /** حفظ جماعي (حاضر للكل): upsert واحد لكل الطلاب ذوي القيم غير الفارغة */
@@ -278,6 +283,18 @@ export async function saveManyAttendance(
     .from('attendance')
     .upsert(rows, { onConflict: 'session_id,student_id' })
   if (error) throw error
+  // سجل النشاط: حدث واحد تجميعي للحصة كلها (لا صف لكل طالب) — فاشل-safe
+  void logActivity(teacherId, {
+    event_type: 'attendance_saved',
+    entity_type: 'session',
+    entity_id: sessionId,
+    details: {
+      student_count: rows.length,
+      present_count: rows.filter((r) => r.status === 'p' || r.status === 'l' || r.status === 'm')
+        .length,
+      absent_count: rows.filter((r) => r.status === 'a').length,
+    },
+  })
 }
 
 /** هل صدرت فواتير شهر هذه الحصة لمجموعتها؟ (تنبيه المرجع §3.2) */

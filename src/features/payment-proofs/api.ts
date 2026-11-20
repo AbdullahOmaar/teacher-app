@@ -1,7 +1,8 @@
 import { supabase } from '../../lib/supabase'
 import type { PaymentProofRow } from '../../types/database'
 import { todayStr } from '../home/api'
-import { createPayment, voidPayment } from '../invoices/api'
+import { createPayment, voidPayment, PAYMENT_METHOD_LABELS } from '../invoices/api'
+import { logActivity } from '../activity/api'
 
 function db() {
   if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
@@ -146,6 +147,22 @@ export async function approveProof(
     if (error) throw error
     if ((data ?? []).length === 0) throw new Error(ALREADY_PROCESSED)
 
+    // سجل النشاط: اعتماد الإثبات (الدفعة الناتجة سجّلت حدثها من createPayment)
+    void logActivity(teacherId, {
+      event_type: 'proof_approved',
+      entity_type: 'payment_proof',
+      entity_id: proof.id,
+      entity_label: (proof as PendingProofItem).student_name ?? null,
+      details: {
+        amount: input.amount,
+        method: proof.method,
+        method_label: PAYMENT_METHOD_LABELS[proof.method] ?? proof.method,
+        receipt_no: payment.receipt_no,
+        payment_id: payment.id,
+        invoice_id: input.invoiceId,
+      },
+    })
+
     return { paymentId: payment.id, receiptNo: payment.receipt_no }
   } catch (e) {
     // تعويض: دفعة اتعملت ومفيش إثبات معتمد مربوط بيها = تُعكس فوراً
@@ -184,4 +201,11 @@ export async function rejectProof(
     .select('id')
   if (error) throw error
   if ((data ?? []).length === 0) throw new Error(ALREADY_PROCESSED)
+  // سجل النشاط: رفض الإثبات بسبب اختياري يظهر في التفاصيل
+  void logActivity(teacherId, {
+    event_type: 'proof_rejected',
+    entity_type: 'payment_proof',
+    entity_id: proofId,
+    details: reason?.trim() ? { reason: reason.trim() } : {},
+  })
 }
