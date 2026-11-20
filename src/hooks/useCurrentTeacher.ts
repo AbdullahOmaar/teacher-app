@@ -14,15 +14,17 @@ export type TeacherResolution =
       status: 'ready'
       teacherId: string
       teacher: TeacherRow | null
-      /** owner = المدرس نفسه، assistant = عضو فريق بصلاحيات */
+      /** owner = مالك السنتر النشط، assistant = عضو فريق بصلاحيات */
       role: 'owner' | 'assistant'
-      /** صف ملف المستخدم نفسه (المدرس المالك) إن وُجد — يبقى متاحاً للتبديل */
+      /** السنتر الأساسي للمستخدم (id = uid إن وُجد، وإلا أقدم سنتر يملكه) */
       ownTeacher: TeacherRow | null
+      /** كل السناتر التي يملكها المستخدم (0016) مرتبة بالأقدم — للمبدّل */
+      ownTeachers: TeacherRow[]
       /** عضوياته الفعّالة عند مدرسين آخرين */
       memberships: TeacherMemberRow[]
     }
 
-const TEACHER_COLS = 'id, display_name, avatar_url, phone, created_at, updated_at'
+const TEACHER_COLS = 'id, owner_user_id, display_name, avatar_url, phone, created_at, updated_at'
 const MEMBER_COLS =
   'id, teacher_id, user_id, invited_email, role, permissions, status, created_at, updated_at'
 
@@ -34,18 +36,22 @@ const MEMBER_COLS =
 const claimAttemptedFor = new Set<string>()
 
 /**
- * يحلّ «المدرس الحالي» من جلسة Supabase:
+ * يحلّ «السنتر النشط» من جلسة Supabase:
  * 0) ادعاء أي دعوات بريد معلّقة ببريد المستخدم (مرة واحدة لكل جلسة)
  *    حتى تُقرأ العضويات بعد تفعيلها مباشرة.
- * 1) صف teachers حيث id = معرّف المستخدم (المدرس المالك).
- * 2) عضويات teacher_members الفعّالة (مساعد) — تُستخدم عند اختيار مساحة
- *    عمل مدرس آخر من الإعدادات (انظر lib/workspace).
- * الافتراضي دائماً حساب المستخدم نفسه؛ الهوكس كلها تعتمد على teacherId
- * الناتج هنا — لا بيانات بلا جلسة.
+ * 1) كل صفوف teachers التي يملكها المستخدم (owner_user_id = uid، ‏0016) —
+ *    قد تكون سنتراً واحداً (الحالة التاريخية) أو عدة سناتر.
+ * 2) عضويات teacher_members الفعّالة (مساعد عند مدرسين آخرين).
  *
- * ملحوظة RLS: سياسة teachers تسمح لكل مستخدم برؤية صفه فقط، لذا صف ملف
- * المدرس المضيف لا يُقرأ عند العمل كمساعد (teacher = null) بينما يبقى
- * teacherId صالحاً لاستعلامات البيانات بفضل سياسات المساعد.
+ * اختيار النشط: معرّف محفوظ في lib/workspace إن كان ما زال صالحاً
+ * (سنتر يملكه أو عضوية فعّالة)، وإلا سقوط آمن: السنتر الأساسي
+ * (id = uid) ثم أقدم سنتر مملوك ثم أول عضوية. مستخدم السنتر الواحد
+ * يرى سلوك ما قبل 0016 حرفياً.
+ * الهوكس كلها تعتمد على teacherId الناتج هنا — لا بيانات بلا جلسة.
+ *
+ * ملحوظة RLS: عند العمل كمساعد لا يُقرأ صف ملف المدرس المضيف
+ * (teacher = null) بينما يبقى teacherId صالحاً لاستعلامات البيانات
+ * بفضل سياسات المساعد — كما كان قبل 0016.
  */
 export function useCurrentTeacher(): TeacherResolution {
   const { user, loading: authLoading, configured } = useAuth()
@@ -59,6 +65,7 @@ export function useCurrentTeacher(): TeacherResolution {
       teacher: TeacherRow | null
       role: 'owner' | 'assistant'
       ownTeacher: TeacherRow | null
+      ownTeachers: TeacherRow[]
       memberships: TeacherMemberRow[]
     } | null> => {
       const db = supabase!
@@ -77,13 +84,15 @@ export function useCurrentTeacher(): TeacherResolution {
         }
       }
 
-      const { data: own, error: ownErr } = await db
+      const { data: ownRows, error: ownErr } = await db
         .from('teachers')
         .select(TEACHER_COLS)
-        .eq('id', uid)
-        .maybeSingle()
+        .eq('owner_user_id', uid)
+        .order('created_at', { ascending: true })
       if (ownErr) throw ownErr
-      const ownTeacher = (own as TeacherRow | null) ?? null
+      const ownTeachers = (ownRows ?? []) as unknown as TeacherRow[]
+      // السنتر الأساسي: الصف التاريخي id = uid إن وُجد، وإلا الأقدم
+      const ownTeacher = ownTeachers.find((t) => t.id === uid) ?? ownTeachers[0] ?? null
 
       const { data: memberRows, error: memErr } = await db
         .from('teacher_members')
@@ -94,8 +103,19 @@ export function useCurrentTeacher(): TeacherResolution {
       if (memErr) throw memErr
       const memberships = (memberRows ?? []) as unknown as TeacherMemberRow[]
 
-      // مساحة عمل مختارة صراحة: عضوية فعّالة عند مدرس آخر
-      if (activeTeacherId && activeTeacherId !== uid) {
+      // مساحة عمل مختارة صراحة وما زالت صالحة
+      if (activeTeacherId) {
+        const ownActive = ownTeachers.find((t) => t.id === activeTeacherId)
+        if (ownActive) {
+          return {
+            teacherId: ownActive.id,
+            teacher: ownActive,
+            role: 'owner',
+            ownTeacher,
+            ownTeachers,
+            memberships,
+          }
+        }
         const active = memberships.find((m) => m.teacher_id === activeTeacherId)
         if (active) {
           return {
@@ -103,9 +123,11 @@ export function useCurrentTeacher(): TeacherResolution {
             teacher: null, // RLS لا تسمح بقراءة ملف المدرس المضيف
             role: 'assistant',
             ownTeacher,
+            ownTeachers,
             memberships,
           }
         }
+        // اختيار محفوظ لم يعد صالحاً (سنتر حُذف/عضوية انتهت): سقوط آمن للأسفل
       }
 
       if (ownTeacher) {
@@ -114,11 +136,12 @@ export function useCurrentTeacher(): TeacherResolution {
           teacher: ownTeacher,
           role: 'owner',
           ownTeacher,
+          ownTeachers,
           memberships,
         }
       }
 
-      // لا ملف خاص: أول عضوية فعّالة إن وُجدت
+      // لا سنتر مملوك: أول عضوية فعّالة إن وُجدت
       const first = memberships[0]
       if (first) {
         return {
@@ -126,6 +149,7 @@ export function useCurrentTeacher(): TeacherResolution {
           teacher: null,
           role: 'assistant',
           ownTeacher: null,
+          ownTeachers,
           memberships,
         }
       }

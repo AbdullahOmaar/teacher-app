@@ -21,6 +21,8 @@ export type InvoiceLineType = 'base' | 'discount' | 'adjustment'
 
 export interface TeacherRow {
   id: string
+  /** حساب Auth المالك لهذا السنتر (0016) — السنتر الأساسي: owner_user_id = id */
+  owner_user_id: string
   display_name: string
   avatar_url: string | null
   phone: string | null

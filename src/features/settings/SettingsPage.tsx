@@ -10,7 +10,7 @@ import { ErrorState, LoadingState } from '../../components/ui/states'
 import { useAuth } from '../../lib/AuthProvider'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { useTheme, type ThemeMode } from '../../hooks/useTheme'
-import { getActiveTeacherId, setActiveTeacherId } from '../../lib/workspace'
+import { setActiveTeacherId } from '../../lib/workspace'
 import {
   ASSISTANT_DEFAULT_PERMISSIONS,
   INVITE_EMAIL_RE,
@@ -19,6 +19,7 @@ import {
 } from '../auth/api'
 import {
   useCancelTeamInvite,
+  useCreateCentre,
   useInviteAssistant,
   useInviteAssistantByEmail,
   useRemoveTeamMember,
@@ -71,16 +72,24 @@ export function SettingsPage() {
 
   // نموذج تعديل الملف الشخصي
   const ownTeacher = teacher.status === 'ready' ? teacher.ownTeacher : null
+  const ownTeachers = teacher.status === 'ready' ? teacher.ownTeachers : []
+  const activeCentreId = teacher.status === 'ready' ? teacher.teacherId : null
+  // السنتر المُدار في هذه الصفحة (ملف/إعدادات/هوية/فريق): السنتر النشط إن
+  // كان مملوكاً، وإلا الأساسي — فعند العمل كمساعد عند مدرس آخر تبقى
+  // إعدادات سنترك الخاص معروضة وقابلة للتحرير كما قبل 0016.
+  const managedCentre =
+    teacher.status === 'ready' && teacher.role === 'owner' ? teacher.teacher : ownTeacher
+  const managedCentreId = managedCentre?.id ?? ''
   const [profileName, setProfileName] = useState<string | null>(null)
   const [profilePhone, setProfilePhone] = useState<string | null>(null)
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null)
   const [profileMsg, setProfileMsg] = useState<string | null>(null)
-  const updateProfile = useUpdateOwnProfile(user?.id ?? '')
+  const updateProfile = useUpdateOwnProfile(managedCentreId)
 
   // إعدادات التطبيق — teacher_settings لحساب المدرس نفسه (RLS للمالك فقط)
   const theme = useTheme()
-  const settingsQ = useTeacherSettings(user?.id || undefined, Boolean(ownTeacher))
-  const updateSettings = useUpdateTeacherSettings(user?.id ?? '')
+  const settingsQ = useTeacherSettings(managedCentreId || undefined, Boolean(managedCentre))
+  const updateSettings = useUpdateTeacherSettings(managedCentreId)
   const [waTpl, setWaTpl] = useState<string | null>(null)
   const [centerShare, setCenterShare] = useState<string | null>(null)
   const [reminder, setReminder] = useState<number | null>(null)
@@ -92,8 +101,8 @@ export function SettingsPage() {
   const [brandAccent, setBrandAccent] = useState<string | null | undefined>(undefined)
   const [brandMsg, setBrandMsg] = useState<string | null>(null)
   const [confirmLogoRemove, setConfirmLogoRemove] = useState(false)
-  const uploadLogo = useUploadBrandLogo(user?.id ?? '')
-  const removeLogo = useRemoveBrandLogo(user?.id ?? '')
+  const uploadLogo = useUploadBrandLogo(managedCentreId)
+  const removeLogo = useRemoveBrandLogo(managedCentreId)
 
   // مزامنة الثيم من القاعدة مرة واحدة عند تحميل الإعدادات: عمود
   // teacher_settings.theme هو المحفوظ حسابياً وخطاف useTheme هو آلية
@@ -112,12 +121,15 @@ export function SettingsPage() {
   // نموذج دعوة مساعد
   const ownId = user?.id ?? ''
   const isOwnerWorkspace = teacher.status === 'ready' && teacher.role === 'owner'
-  const membersQ = useTeamMembers(ownId || undefined, Boolean(ownTeacher))
-  const invite = useInviteAssistant(ownId)
-  const inviteByEmail = useInviteAssistantByEmail(ownId)
-  const cancelInvite = useCancelTeamInvite(ownId)
-  const updatePerms = useUpdateMemberPermissions(ownId)
-  const removeMember = useRemoveTeamMember(ownId)
+  // فريق السنتر النشط عند العمل مالكاً (0016: لكل سنتر فريقه)، وإلا فريق
+  // السنتر الأساسي (القسم لا يظهر إلا في مساحة مالك أصلاً)
+  const teamTeacherId = isOwnerWorkspace && activeCentreId ? activeCentreId : ownId
+  const membersQ = useTeamMembers(teamTeacherId || undefined, Boolean(ownTeacher))
+  const invite = useInviteAssistant(teamTeacherId)
+  const inviteByEmail = useInviteAssistantByEmail(teamTeacherId)
+  const cancelInvite = useCancelTeamInvite(teamTeacherId)
+  const updatePerms = useUpdateMemberPermissions(teamTeacherId)
+  const removeMember = useRemoveTeamMember(teamTeacherId)
   const [assistantId, setAssistantId] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
   const [perms, setPerms] = useState<Record<string, boolean>>({ ...ASSISTANT_DEFAULT_PERMISSIONS })
@@ -127,12 +139,15 @@ export function SettingsPage() {
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
 
+  // نموذج إنشاء سنتر جديد (0016)
+  const [newCentreName, setNewCentreName] = useState('')
+  const [centreMsg, setCentreMsg] = useState<string | null>(null)
+  const createCentre = useCreateCentre(ownId)
+
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status !== 'ready') return <LoadingState label="بنجهّز الإعدادات…" />
 
   const memberships = teacher.memberships
-  const activeId = getActiveTeacherId()
-  const inOwnWorkspace = !activeId || activeId === ownId
 
   // صفوف الفريق: أعضاء مربوطون بحساب فعلياً + دعوات بريد معلّقة (بلا حساب بعد)
   const teamRows = membersQ.data ?? []
@@ -155,15 +170,31 @@ export function SettingsPage() {
     navigate('/')
   }
 
+  // إنشاء سنتر جديد (0016) — عند النجاح ننتقل إليه فوراً
+  const handleCreateCentre = (e: FormEvent) => {
+    e.preventDefault()
+    const name = newCentreName.trim()
+    if (!name) return
+    setCentreMsg(null)
+    createCentre.mutate(name, {
+      onSuccess: (centre) => {
+        setNewCentreName('')
+        switchWorkspace(centre.id)
+      },
+      onError: (err) =>
+        setCentreMsg(err instanceof Error ? err.message : 'تعذّر إنشاء السنتر.'),
+    })
+  }
+
   const handleProfileSave = (e: FormEvent) => {
     e.preventDefault()
-    if (!ownTeacher) return
+    if (!managedCentre) return
     setProfileMsg(null)
     updateProfile.mutate(
       {
-        display_name: (profileName ?? ownTeacher.display_name).trim(),
-        phone: (profilePhone ?? ownTeacher.phone ?? '').trim() || null,
-        avatar_url: (profileAvatar ?? ownTeacher.avatar_url ?? '').trim() || null,
+        display_name: (profileName ?? managedCentre.display_name).trim(),
+        phone: (profilePhone ?? managedCentre.phone ?? '').trim() || null,
+        avatar_url: (profileAvatar ?? managedCentre.avatar_url ?? '').trim() || null,
       },
       {
         onSuccess: () => setProfileMsg('تم حفظ بياناتك'),
@@ -258,7 +289,7 @@ export function SettingsPage() {
   // اختيار المظهر يطبّق فوراً عبر خطاف الثيم ويُحفظ في القاعدة معه
   const handleThemePick = (mode: ThemeMode) => {
     theme.setMode(mode)
-    if (!ownTeacher) return
+    if (!managedCentre) return
     setSettingsMsg(null)
     updateSettings.mutate(settingsPayload({ theme: mode }), {
       onError: (err) =>
@@ -365,15 +396,15 @@ export function SettingsPage() {
         </div>
       </Card>
 
-      {/* ملف المدرس — يظهر لمن له ملف خاص */}
-      {ownTeacher && (
+      {/* ملف المدرس — بيانات السنتر المُدار (النشط إن كان مملوكاً) */}
+      {managedCentre && (
         <Card>
           <h2 className="type-section mt-0 mb-3 flex items-center gap-2"><GraduationCap size={22} className="text-primary" /> ملف المدرس</h2>
           {profileMsg && <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{profileMsg}</p>}
           <form onSubmit={handleProfileSave}>
             <Field label="اسم المدرس">
               <TextInput
-                value={profileName ?? ownTeacher.display_name}
+                value={profileName ?? managedCentre.display_name}
                 onChange={(e) => setProfileName(e.target.value)}
                 required
               />
@@ -382,7 +413,7 @@ export function SettingsPage() {
               <TextInput
                 type="tel"
                 dir="ltr"
-                value={profilePhone ?? ownTeacher.phone ?? ''}
+                value={profilePhone ?? managedCentre.phone ?? ''}
                 onChange={(e) => setProfilePhone(e.target.value)}
                 placeholder="01xxxxxxxxx"
               />
@@ -391,15 +422,15 @@ export function SettingsPage() {
               <TextInput
                 type="url"
                 dir="ltr"
-                value={profileAvatar ?? ownTeacher.avatar_url ?? ''}
+                value={profileAvatar ?? managedCentre.avatar_url ?? ''}
                 onChange={(e) => setProfileAvatar(e.target.value)}
                 placeholder="https://…"
               />
             </Field>
-            {(profileAvatar ?? ownTeacher.avatar_url) && (
+            {(profileAvatar ?? managedCentre.avatar_url) && (
               <div className="flex items-center gap-2 mb-3">
                 <img
-                  src={profileAvatar ?? ownTeacher.avatar_url ?? ''}
+                  src={profileAvatar ?? managedCentre.avatar_url ?? ''}
                   alt="صورة المدرس"
                   className="w-10 h-10 rounded-full object-cover border border-border"
                 />
@@ -414,7 +445,7 @@ export function SettingsPage() {
       )}
 
       {/* إعدادات التطبيق — teacher_settings كاملة (الخطوة 10) */}
-      {ownTeacher && (
+      {managedCentre && (
         <Card>
           <h2 className="type-section mt-0 mb-3 flex items-center gap-2"><SlidersHorizontal size={22} className="text-primary" /> إعدادات التطبيق</h2>
           {settingsQ.isPending ? (
@@ -521,7 +552,7 @@ export function SettingsPage() {
           للمالك فقط (teacher_settings بلا سياسة مساعد أصلاً). الاسم
           والشعار ولون اللهجة يظهرون على كارت الطالب والإيصالات وأوراق
           الامتحان وبوابة ولي الأمر — وغياب أي عنصر يسقط للافتراضي. */}
-      {ownTeacher && (
+      {managedCentre && (
         <Card>
           <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><Palette size={22} className="text-primary" /> هوية السنتر</h2>
           <p className="text-muted text-[13.5px] mt-0 mb-3">
@@ -694,27 +725,34 @@ export function SettingsPage() {
         </Card>
       )}
 
-      {/* مساحة العمل — عند وجود عضويات فريق */}
-      {(ownTeacher || memberships.length > 0) && (memberships.length > 0 || !inOwnWorkspace) && (
+      {/* السناتر ومساحات العمل (0016) — مبدّل السنتر: كل سناترك المملوكة
+          (مالك) + عضوياتك عند مدرسين آخرين (مساعد)، وإنشاء سنتر جديد.
+          بيانات وهوية وإعدادات كل سنتر منفصلة تماماً بـ teacher_id. */}
+      {(ownTeachers.length > 0 || memberships.length > 0) && (
         <Card>
-          <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FolderCog size={22} className="text-primary" /> مساحة العمل</h2>
+          <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FolderCog size={22} className="text-primary" /> السناتر ومساحات العمل</h2>
           <p className="text-muted text-[13.5px] mt-0 mb-3">
-            اختر الحساب اللي هتشتغل عليه دلوقتي — بيانات كل مساحة منفصلة تماماً.
+            اختر السنتر اللي هتشتغل عليه دلوقتي — بيانات كل سنتر منفصلة تماماً.
           </p>
-          {ownTeacher && (
-            <button
-              type="button"
-              onClick={() => switchWorkspace(null)}
-              className={`w-full flex items-center gap-2 px-3 min-h-[48px] rounded-xl border cursor-pointer mb-2 text-start ${
-                inOwnWorkspace ? 'border-primary bg-soft font-bold' : 'border-border bg-card'
-              }`}
-            >
-              <span className="flex-1">حسابي — {ownTeacher.display_name || 'مدرّسي'}</span>
-              {inOwnWorkspace && <span className="text-primary text-[13.5px]">الحالية</span>}
-            </button>
-          )}
+          {ownTeachers.map((t) => {
+            const active = activeCentreId === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => switchWorkspace(t.id)}
+                className={`w-full flex items-center gap-2 px-3 min-h-[48px] rounded-xl border cursor-pointer mb-2 text-start ${
+                  active ? 'border-primary bg-soft font-bold' : 'border-border bg-card'
+                }`}
+              >
+                <span className="flex-1">{t.display_name || 'سنتر بدون اسم'}</span>
+                <span className="text-muted text-[12px]">مالك</span>
+                {active && <span className="text-primary text-[13.5px]">الحالي</span>}
+              </button>
+            )
+          })}
           {memberships.map((m) => {
-            const active = activeId === m.teacher_id
+            const active = activeCentreId === m.teacher_id
             return (
               <button
                 key={m.id}
@@ -727,10 +765,33 @@ export function SettingsPage() {
                 <span className="flex-1">
                   مساعد عند مدرس <span dir="ltr">{shortId(m.teacher_id)}</span>
                 </span>
-                {active && <span className="text-primary text-[13.5px]">الحالية</span>}
+                <span className="text-muted text-[12px]">مساعد</span>
+                {active && <span className="text-primary text-[13.5px]">الحالي</span>}
               </button>
             )
           })}
+
+          {/* إنشاء سنتر جديد لنفس الحساب — يبدأ فاضياً بإعدادات افتراضية
+              وننتقل إليه فوراً */}
+          {user && (
+            <form onSubmit={handleCreateCentre} className="mt-4 border-t border-border pt-4">
+              <div className="text-[13.5px] text-muted font-semibold mb-2">إنشاء سنتر جديد</div>
+              <Field label="اسم السنتر الجديد">
+                <TextInput
+                  value={newCentreName}
+                  onChange={(e) => setNewCentreName(e.target.value)}
+                  placeholder="مثال: سنتر الفرع الثاني"
+                  required
+                />
+              </Field>
+              {centreMsg && (
+                <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{centreMsg}</p>
+              )}
+              <Button full type="submit" disabled={createCentre.isPending || !newCentreName.trim()}>
+                {createCentre.isPending ? 'جارٍ الإنشاء…' : 'إنشاء السنتر والانتقال إليه'}
+              </Button>
+            </form>
+          )}
         </Card>
       )}
 

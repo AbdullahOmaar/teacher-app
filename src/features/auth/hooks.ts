@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   cancelTeamInvite,
+  createCentre,
   fetchMyMemberships,
   fetchTeamMembers,
   inviteAssistant,
@@ -94,11 +95,22 @@ export function useRemoveTeamMember(teacherId: string) {
   })
 }
 
-export function useUpdateOwnProfile(userId: string) {
+export function useUpdateOwnProfile(teacherId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: { display_name: string; phone: string | null; avatar_url?: string | null }) =>
-      updateOwnTeacherProfile(userId, input),
+      updateOwnTeacherProfile(teacherId, input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['current-teacher'] })
+    },
+  })
+}
+
+/** إنشاء سنتر إضافي (0016) — نجاحه يبطل حلّ الهوية ليلتقط السنتر الجديد */
+export function useCreateCentre(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (displayName: string) => createCentre(userId, displayName),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['current-teacher'] })
     },

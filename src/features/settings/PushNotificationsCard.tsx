@@ -34,7 +34,8 @@ export function PushNotificationsCard() {
   const { user } = useAuth()
   const teacher = useCurrentTeacher()
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : ''
-  const isOwner = teacher.status === 'ready' && Boolean(teacher.ownTeacher) && teacherId === user?.id
+  // المالك = دوره في السنتر النشط مالك (0016: أي سنتر يملكه، لا الأساسي فقط)
+  const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
   const [state, setState] = useState<BrowserPushState | 'loading'>('loading')
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)

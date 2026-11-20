@@ -100,12 +100,13 @@ export async function signInDemo(): Promise<void> {
 // ---------------------------------------------------------------------------
 // Onboarding — إنشاء صف المدرس + إعداداته الافتراضية
 // المخطط 0001_init.sql لا يحتوي أي trigger على auth.users ينشئ صف teachers،
-// فالإنشاء يتم من العميل: insert بمعرّف المستخدم الحالي فقط، وهو ما تسمح
-// به سياسات RLS حرفياً (teachers_self_insert: id = auth.uid()،
-// وsettings_owner_all: teacher_id = auth.uid()). الدالة آمنة التكرار.
+// فالإنشاء يتم من العميل: insert بملكية المستخدم الحالي فقط، وهو ما تسمح
+// به سياسات RLS حرفياً (teachers_self_insert: owner_user_id = auth.uid()
+// منذ 0016، والسنتر الأساسي يحتفظ بـ id = uid، وsettings_owner_all عبر
+// is_teacher_owner). الدالة آمنة التكرار.
 // ---------------------------------------------------------------------------
 
-const TEACHER_COLS = 'id, display_name, avatar_url, phone, created_at, updated_at'
+const TEACHER_COLS = 'id, owner_user_id, display_name, avatar_url, phone, created_at, updated_at'
 const SETTINGS_COLS =
   'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, last_export_at, created_at, updated_at'
 const MEMBER_COLS =
@@ -131,6 +132,7 @@ export async function ensureTeacherProfile(
   if (!existing) {
     const { error } = await client.from('teachers').insert({
       id: userId,
+      owner_user_id: userId,
       display_name: displayName.trim(),
       phone: phone?.trim() || null,
     })
@@ -151,7 +153,7 @@ export async function ensureTeacherProfile(
 }
 
 export async function updateOwnTeacherProfile(
-  userId: string,
+  teacherId: string,
   input: { display_name: string; phone: string | null; avatar_url?: string | null },
 ): Promise<void> {
   const patch: { display_name: string; phone: string | null; avatar_url?: string | null } = {
@@ -160,8 +162,32 @@ export async function updateOwnTeacherProfile(
   }
   // avatar_url اختياري في النداء: لا يُمسّ إلا عندما يمرّره النموذج صراحة
   if ('avatar_url' in input) patch.avatar_url = input.avatar_url
-  const { error } = await db().from('teachers').update(patch).eq('id', userId)
+  const { error } = await db().from('teachers').update(patch).eq('id', teacherId)
   if (error) throw new Error(translateDbError(error))
+}
+
+/**
+ * إنشاء سنتر إضافي لنفس الحساب (0016): صف teachers جديد بهوية مستقلة
+ * (id افتراضي من القاعدة) وowner_user_id = المستخدم الحالي — سياسة
+ * teachers_self_insert تشترط ذلك حرفياً. يُنشأ له صف إعدادات افتراضي
+ * فوراً (نفس عقد الـ onboarding) حتى تعمل كل الشاشات عليه مباشرة.
+ */
+export async function createCentre(userId: string, displayName: string): Promise<TeacherRow> {
+  const client = db()
+  const { data, error } = await client
+    .from('teachers')
+    .insert({ owner_user_id: userId, display_name: displayName.trim() })
+    .select(TEACHER_COLS)
+    .single()
+  if (error) throw new Error(translateDbError(error))
+  const centre = data as unknown as TeacherRow
+
+  const { error: sErr } = await client
+    .from('teacher_settings')
+    .upsert({ teacher_id: centre.id }, { onConflict: 'teacher_id', ignoreDuplicates: true })
+  if (sErr) throw new Error(translateDbError(sErr))
+
+  return centre
 }
 
 export async function fetchTeacherSettings(teacherId: string): Promise<TeacherSettingsRow | null> {
