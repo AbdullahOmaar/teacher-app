@@ -4,9 +4,11 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Link2, MapPin, Pencil, Users } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Field, TextInput } from '../../components/ui/form'
+import { Field, FormError, TextInput } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
+import { Avatar } from '../../components/ui/Avatar'
+import { ListRow } from '../../components/ui/ListRow'
 import { BILLING_LABELS, daysLabel, formatMoney, shortTime } from '../../lib/format'
 import { useStudents } from '../students/hooks'
 import { EnrollStudentSheet } from '../students/EnrollStudentSheet'
@@ -100,7 +102,7 @@ export function GroupDetailPage() {
         </div>
         {group.capacity != null && pct != null && (
           <div className="mt-2">
-            <div className="flex justify-between text-[12px] text-muted mb-1">
+            <div className="flex justify-between text-[13.5px] text-muted mb-1">
               <span>
                 السعة: {roster.length}/{group.capacity} طالب
               </span>
@@ -133,33 +135,46 @@ export function GroupDetailPage() {
         </div>
       </Card>
 
-      <h3 className="type-section mt-4 mb-2">الطلاب المسجلون ({roster.length})</h3>
+      <h3 className="type-section mt-5 mb-2">الطلاب المسجلون ({roster.length})</h3>
       {roster.length === 0 ? (
         <EmptyState icon={Users} title="لا طلاب مسجلين بعد" hint="أضف طلاباً من زر «إضافة طالب»" />
       ) : (
-        roster.map((r) => (
-          <Link key={r.id} to={`/students/${r.student_id}`} className="block no-underline text-text">
-            <Card className={r.student_paused ? 'opacity-60' : ''}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-bold text-[16px]">
-                  {r.student_name}
-                  {r.student_paused && <span className="text-warn-text text-[12px]"> (موقوف)</span>}
-                </span>
-                <span className="text-muted text-[13.5px]">
-                  <span dir="ltr">{r.student_code}</span>
-                </span>
-              </div>
-              <div className="text-muted text-[13.5px] mt-0.5">
-                السعر الفعلي: {formatMoney(r.price_override ?? group.price)}
-                {r.price_override != null ? ' (سعر خاص)' : ''}
-                {r.prepaid_sessions != null ? ` · مدفوع مسبقاً: ${r.prepaid_sessions} حصة` : ''}
-              </div>
-            </Card>
-          </Link>
-        ))
+        <Card className="p-0 overflow-hidden">
+          {roster.map((r, i) => (
+            <Link key={r.id} to={`/students/${r.student_id}`} className="block no-underline text-text">
+              <ListRow
+                first={i === 0}
+                className={r.student_paused ? 'opacity-60' : ''}
+                leading={<Avatar name={r.student_name} />}
+                title={
+                  <>
+                    {r.student_name}
+                    {r.student_paused && (
+                      <span className="ms-2 type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
+                        موقوف
+                      </span>
+                    )}
+                  </>
+                }
+                secondary={
+                  <>
+                    السعر الفعلي: {formatMoney(r.price_override ?? group.price)}
+                    {r.price_override != null ? ' (سعر خاص)' : ''}
+                    {r.prepaid_sessions != null ? ` · مدفوع مسبقاً: ${r.prepaid_sessions} حصة` : ''}
+                  </>
+                }
+                trailing={
+                  <span className="text-muted text-[13.5px]" dir="ltr">
+                    {r.student_code}
+                  </span>
+                }
+              />
+            </Link>
+          ))}
+        </Card>
       )}
 
-      <h3 className="type-section mt-4 mb-2">قائمة الانتظار ({waitlist.length})</h3>
+      <h3 className="type-section mt-5 mb-2">قائمة الانتظار ({waitlist.length})</h3>
       <Card>
         {waitlistQ.isPending ? (
           <LoadingState label="بنحمّل قائمة الانتظار…" />
@@ -192,7 +207,7 @@ export function GroupDetailPage() {
               <TextInput value={wlNote} onChange={(e) => setWlNote(e.target.value)} />
             </Field>
           </div>
-          {wlError && <p className="text-bad-text text-[13.5px] mb-2">{wlError}</p>}
+          {wlError && <FormError message={wlError} />}
           <Button full variant="soft" onClick={submitWaitlist} disabled={addWaitlist.isPending}>
             {addWaitlist.isPending ? 'بنضيف…' : '+ إضافة لقائمة الانتظار'}
           </Button>

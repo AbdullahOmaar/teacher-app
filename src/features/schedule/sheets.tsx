@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Sheet } from '../../components/ui/Sheet'
 import { AlertTriangle, CalendarCheck2, MoveHorizontal, NotebookPen, Undo2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
-import { Field, Select, TextInput } from '../../components/ui/form'
+import { Field, FormError, Select, TextInput } from '../../components/ui/form'
 import { shortTime } from '../../lib/format'
 import type { GroupRow, SessionRow } from '../../types/database'
 import { datesBetween, formatDateLabel, todayStr, type SessionWithGroup } from './api'
@@ -191,7 +191,7 @@ export function SessionDetailSheet({
         </Button>
       </div>
 
-      {error && <p className="text-bad-text text-[13.5px] mt-3">{error}</p>}
+      {error && <FormError message={error} />}
     </Sheet>
   )
 }
@@ -258,7 +258,23 @@ export function ExtraSessionSheet({
   }
 
   return (
-    <Sheet open title="حصة إضافية / مراجعة" onClose={onClose}>
+    <Sheet
+      open
+      title="حصة إضافية / مراجعة"
+      onClose={onClose}
+      footer={
+        groups.length > 0 ? (
+          <div className="flex gap-2">
+            <Button full onClick={save} disabled={createMut.isPending}>
+              {createMut.isPending ? 'بنحفظ…' : 'إضافة الحصة'}
+            </Button>
+            <Button variant="ghost" onClick={onClose}>
+              إلغاء
+            </Button>
+          </div>
+        ) : undefined
+      }
+    >
       {groups.length === 0 ? (
         <p className="text-muted text-[13.5px]">
           مفيش مجموعات لسه — أنشئ مجموعة الأول من شاشة المجموعات وبعدين ارجع ضيف حصتها الإضافية.
@@ -308,15 +324,7 @@ export function ExtraSessionSheet({
               <span>اليوم المختار إجازة رسمية — الحصة هتتنشأ بحالة «ملغاة» زي ما المخطط بيعامل حصص أيام الإجازات.</span>
             </div>
           )}
-          {error && <p className="text-bad-text text-[13.5px] mb-3">{error}</p>}
-          <div className="flex gap-2">
-            <Button full onClick={save} disabled={createMut.isPending}>
-              {createMut.isPending ? 'بنحفظ…' : 'إضافة الحصة'}
-            </Button>
-            <Button variant="ghost" onClick={onClose}>
-              إلغاء
-            </Button>
-          </div>
+          {error && <FormError message={error} />}
         </>
       )}
     </Sheet>
@@ -368,7 +376,21 @@ export function HolidaySheet({ teacherId, onClose, onDone }: HolidaySheetProps) 
   }
 
   return (
-    <Sheet open title="إجازة رسمية" onClose={onClose}>
+    <Sheet
+      open
+      title="إجازة رسمية"
+      onClose={onClose}
+      footer={
+        <div className="flex gap-2">
+          <Button full onClick={save} disabled={addMut.isPending}>
+            {addMut.isPending ? 'بنحفظ…' : 'حفظ الإجازة'}
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
+            إلغاء
+          </Button>
+        </div>
+      }
+    >
       <Field label="اسم الإجازة (اختياري)">
         <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="عيد الفطر، إجازة نصف العام…" />
       </Field>
@@ -385,15 +407,7 @@ export function HolidaySheet({ teacherId, onClose, onDone }: HolidaySheetProps) 
           ? `${dates.length} ${dates.length === 1 ? 'يوم' : 'يوم'} — حصص كل المجموعات في الأيام دي هتتعلّم «ملغاة» (مش هتتمسح)، وحذف الإجازة بعد كده بيرجّعها.`
           : 'اختار نطاقاً صحيحاً — ليوم واحد بس خلّي البداية والنهاية نفس اليوم.'}
       </p>
-      {error && <p className="text-bad-text text-[13.5px] mb-3">{error}</p>}
-      <div className="flex gap-2">
-        <Button full onClick={save} disabled={addMut.isPending}>
-          {addMut.isPending ? 'بنحفظ…' : 'حفظ الإجازة'}
-        </Button>
-        <Button variant="ghost" onClick={onClose}>
-          إلغاء
-        </Button>
-      </div>
+      {error && <FormError message={error} />}
     </Sheet>
   )
 }

@@ -30,12 +30,33 @@ export const STATUS_LABELS: Record<AttendanceStatus, string> = {
   m: 'تعويضية',
 }
 
-/** لون الحالة في المرجع §2.4 ‏(STATUS_COLOR) — يُستخدم للشارات والأزرار المختارة */
-export const STATUS_COLORS: Record<AttendanceStatus, string> = {
-  p: '#10B981',
-  a: '#EF4444',
-  l: '#F59E0B',
-  m: '#4F46E5',
+/**
+ * ألوان الحالة بنسختي التوكنز (بحث §5 — معالجة خطوة 3 بدل STATUS_COLORS
+ * الخام التي فشل تباينها كنصوص ≈2.2–3.9:1): حشوة/نقطة عبر متغيرات CSS
+ * (--ok/--bad/--warn/--primary) وشارات ناعمة (خلفية -soft + نص -text ≥4.5:1).
+ * أزرار المبدّل النشطة تستخدم كلاسات att-active-* في index.css.
+ */
+export const STATUS_FILL: Record<AttendanceStatus, string> = {
+  p: 'var(--ok)',
+  a: 'var(--bad)',
+  l: 'var(--warn)',
+  m: 'var(--primary)',
+}
+
+/** كلاسات الشارة الناعمة لكل حالة (خلفية + نص مصحح التباين + حد) */
+export const STATUS_BADGE_CLASS: Record<AttendanceStatus, string> = {
+  p: 'bg-ok-soft text-ok-text border border-ok/30',
+  a: 'bg-bad-soft text-bad-text border border-bad/30',
+  l: 'bg-warn-soft text-warn-text border border-warn/40',
+  m: 'bg-soft text-primary border border-primary/30',
+}
+
+/** كلاس زر المبدّل عند تفعيل الحالة (حشوة مصححة التباين — index.css) */
+export const STATUS_ACTIVE_CLASS: Record<AttendanceStatus, string> = {
+  p: 'att-active-p',
+  a: 'att-active-a',
+  l: 'att-active-l',
+  m: 'att-active-m',
 }
 
 /** الحضور الفعلي (المرجع §2.4): حاضر/متأخر/تعويضية */

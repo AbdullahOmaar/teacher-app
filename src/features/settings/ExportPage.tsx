@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { Banknote, Calculator, CalendarCheck2, DatabaseBackup, FileDown, FileUp, Lock, NotebookPen, ReceiptText, Users, type LucideIcon } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
-import { Field, TextArea } from '../../components/ui/form'
+import { Field, FormError, TextArea } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { CSV_KINDS, type CsvKind } from './api'
@@ -167,9 +167,9 @@ export function ExportPage() {
           <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{importMsg}</p>
         )}
         {quickImport.isError && (
-          <p className="text-[13.5px] text-bad-text mb-3 mt-0">
-            {quickImport.error instanceof Error ? quickImport.error.message : 'تعذّر الاستيراد.'}
-          </p>
+          <FormError
+            message={quickImport.error instanceof Error ? quickImport.error.message : 'تعذّر الاستيراد.'}
+          />
         )}
         {quickImport.data && quickImport.data.errors.length > 0 && (
           <div className="text-[12px] text-bad-text bg-bad/5 rounded-xl px-3 py-2 mb-3">

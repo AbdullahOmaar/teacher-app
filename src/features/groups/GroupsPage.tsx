@@ -60,7 +60,10 @@ export function GroupsPage() {
           return (
             <Link key={g.id} to={`/groups/${g.id}`} className="block no-underline text-text">
               <Card>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 w-10 h-10 rounded-full bg-soft text-primary flex items-center justify-center">
+                    <Users size={20} />
+                  </span>
                   <span className="font-bold text-[16px]">{g.name}</span>
                   {g.assistant_name && (
                     <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
@@ -75,7 +78,7 @@ export function GroupsPage() {
                 </div>
                 {g.capacity != null && pct != null ? (
                   <div className="mt-2">
-                    <div className="flex justify-between text-[12px] text-muted mb-1">
+                    <div className="flex justify-between text-[13.5px] text-muted mb-1">
                       <span>
                         {cnt}/{g.capacity} طالب
                       </span>

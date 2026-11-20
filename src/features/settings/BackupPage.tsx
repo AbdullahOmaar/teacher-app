@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent } from 'react'
 import { Card } from '../../components/ui/Card'
 import { AlertTriangle, Check, DatabaseBackup, Download, Lock, Upload } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
-import { Field, TextArea } from '../../components/ui/form'
+import { Field, FormError, TextArea } from '../../components/ui/form'
 import { LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatDateLabel } from '../schedule/api'
@@ -145,9 +145,9 @@ export function BackupPage() {
           <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{downloadMsg}</p>
         )}
         {download.isError && (
-          <p className="text-[13.5px] text-bad-text mb-3 mt-0">
-            {download.error instanceof Error ? download.error.message : 'تعذّر إنشاء النسخة.'}
-          </p>
+          <FormError
+            message={download.error instanceof Error ? download.error.message : 'تعذّر إنشاء النسخة.'}
+          />
         )}
         <Button full onClick={handleDownload} disabled={download.isPending}>
           {download.isPending ? 'جارٍ تجهيز النسخة…' : 'عمل نسخة الآن وتنزيلها'}
@@ -234,11 +234,11 @@ export function BackupPage() {
               )}
             </div>
             {importer.isError && (
-              <p className="text-[13.5px] text-bad-text mb-3 mt-0">
-                {importer.error instanceof Error
-                  ? importer.error.message
-                  : 'تعذّر الاستيراد.'}
-              </p>
+              <FormError
+                message={
+                  importer.error instanceof Error ? importer.error.message : 'تعذّر الاستيراد.'
+                }
+              />
             )}
             {confirming ? (
               <div className="flex gap-2">

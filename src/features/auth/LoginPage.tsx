@@ -161,7 +161,7 @@ export function LoginPage() {
             <p className="bg-soft text-primary text-[13.5px] rounded-xl px-3 py-2 mb-3 mt-0">{notice}</p>
           )}
           {error && (
-            <p className="bg-[#FEF2F2] text-bad-text text-[13.5px] rounded-xl px-3 py-2 mb-3 mt-0" role="alert">
+            <p className="bg-bad-soft text-bad-text text-[13.5px] font-semibold rounded-xl px-3 py-2 mb-3 mt-0" role="alert">
               {error}
             </p>
           )}

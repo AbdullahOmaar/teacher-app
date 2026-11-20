@@ -6,10 +6,13 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
 import { Chip, ChipRow, TextInput } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
+import { Avatar } from '../../components/ui/Avatar'
+import { ListRow } from '../../components/ui/ListRow'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import { useGroups } from '../groups/hooks'
 import { useEnrollments, useStudentBalances, useStudents } from './hooks'
+import { StudentDetailPage } from './StudentDetailPage'
 import { StudentFormSheet } from './StudentFormSheet'
 
 type StatusFilter = 'all' | 'late' | 'ok' | 'paused'
@@ -32,6 +35,8 @@ export function StudentsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [formOpen, setFormOpen] = useState(false)
+  // اختيار List-Detail عند ≥1024px — تحت هذا العرض يبقى التنقل لصفحة التفاصيل
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
   const studentsQ = useStudents(teacherId)
@@ -99,8 +104,14 @@ export function StudentsPage() {
   const loading = studentsQ.isPending || enrollmentsQ.isPending || groupsQ.isPending
   const error = studentsQ.error ?? enrollmentsQ.error ?? groupsQ.error
 
+  const paneStudentId =
+    selectedId && filtered.some((s) => s.id === selectedId)
+      ? selectedId
+      : (filtered[0]?.id ?? null)
+
   return (
-    <div>
+    <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-5 lg:items-start">
+      <div className="min-w-0">
       <div className="relative mb-3">
         <Search size={20} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
         <TextInput
@@ -166,42 +177,81 @@ export function StudentsPage() {
           }
         />
       ) : (
-        filtered.map((s) => {
-          const balance = balancesQ.data?.get(s.id) ?? 0
-          const names = groupNamesByStudent.get(s.id) ?? []
-          return (
-            <Link key={s.id} to={`/students/${s.id}`} className="block no-underline text-text">
-              <Card className={s.paused ? 'opacity-60' : ''}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="font-bold text-[16px]">
-                    {s.name}
-                    {s.paused && (
-                      <span className="ms-2 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
-                        موقوف
-                      </span>
-                    )}
-                  </div>
-                  {!isAssistant &&
-                    (balance > 0 ? (
-                      <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-                        باقي {formatMoney(balance)}
-                      </span>
-                    ) : (
-                      <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-                        مسدد
-                      </span>
-                    ))}
-                </div>
-                <div className="text-muted text-[13.5px] mt-0.5">
-                  <span dir="ltr">{s.public_code}</span>
-                  {s.grade ? ` · ${s.grade}` : ''}
-                  {names.length ? ` · ${names.join('، ')}` : ''}
-                </div>
-              </Card>
-            </Link>
-          )
-        })
+        <Card className="p-0 overflow-hidden">
+          {filtered.map((s, i) => {
+            const balance = balancesQ.data?.get(s.id) ?? 0
+            const names = groupNamesByStudent.get(s.id) ?? []
+            const selected = paneStudentId === s.id
+            return (
+              <Link
+                key={s.id}
+                to={`/students/${s.id}`}
+                className="block no-underline text-text"
+                onClick={(e) => {
+                  // عند ≥1024px الاختيار يعرض التفاصيل في اللوحة الجانبية بلا تنقل؛
+                  // تحت هذا العرض يبقى الرابط تنقلاً عادياً لصفحة التفاصيل
+                  if (window.matchMedia('(min-width: 1024px)').matches) {
+                    e.preventDefault()
+                    setSelectedId(s.id)
+                  }
+                }}
+              >
+                <ListRow
+                  first={i === 0}
+                  className={`${s.paused ? 'opacity-60' : ''} ${selected ? 'lg:bg-soft' : ''}`}
+                  leading={<Avatar name={s.name} />}
+                  title={
+                    <>
+                      {s.name}
+                      {s.paused && (
+                        <span className="ms-2 type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
+                          موقوف
+                        </span>
+                      )}
+                    </>
+                  }
+                  secondary={
+                    <>
+                      <span dir="ltr">{s.public_code}</span>
+                      {s.grade ? ` · ${s.grade}` : ''}
+                      {names.length ? ` · ${names.join('، ')}` : ''}
+                    </>
+                  }
+                  trailing={
+                    !isAssistant ? (
+                      balance > 0 ? (
+                        <span className="shrink-0 type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
+                          باقي {formatMoney(balance)}
+                        </span>
+                      ) : (
+                        <span className="shrink-0 type-badge bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
+                          مسدد
+                        </span>
+                      )
+                    ) : undefined
+                  }
+                />
+              </Link>
+            )
+          })}
+        </Card>
       )}
+      </div>
+
+      {/* لوحة التفاصيل — List-Detail عند ≥1024px فقط */}
+      <div className="hidden lg:block min-w-0 sticky top-[76px]">
+        {paneStudentId ? (
+          <StudentDetailPage key={paneStudentId} studentId={paneStudentId} />
+        ) : (
+          <Card>
+            <EmptyState
+              icon={Users}
+              title="اختر طالباً من القائمة"
+              hint="تفاصيل الطالب المحدد هتظهر هنا — أو عدّل البحث والفلاتر."
+            />
+          </Card>
+        )}
+      </div>
 
       <Fab onClick={() => setFormOpen(true)} ariaLabel="إضافة طالب جديد" label="طالب جديد" />
 

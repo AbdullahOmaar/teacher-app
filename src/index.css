@@ -130,6 +130,42 @@
   box-shadow: var(--shadow-raised);
 }
 
+/*
+ * أزرار مبدّل الحضور النشطة (خطوة 3): حشوة بلون الحالة «النصي» المصحح
+ * التباين مع نص أبيض في الفاتح (≥5:1) ونص داكن في الداكن على الحشوات
+ * المفتّحة (≥5.9:1) — بدل STATUS_COLORS الخام ذات التباين الفاشل.
+ */
+.att-active-p { background-color: var(--ok-text); border-color: var(--ok-text); color: #fff; }
+.att-active-a { background-color: var(--bad-text); border-color: var(--bad-text); color: #fff; }
+.att-active-l { background-color: var(--warn-text); border-color: var(--warn-text); color: #fff; }
+.att-active-m { background-color: var(--primary-d); border-color: var(--primary-d); color: #fff; }
+:root[data-theme="dark"] .att-active-p,
+:root[data-theme="dark"] .att-active-a,
+:root[data-theme="dark"] .att-active-l,
+:root[data-theme="dark"] .att-active-m { color: #141a2e; }
+
+/* حركة موحدة (بحث §5): انتقالات 150–250ms ease-out للعناصر التفاعلية */
+button,
+a {
+  transition:
+    background-color 180ms ease-out,
+    border-color 180ms ease-out,
+    color 180ms ease-out,
+    opacity 180ms ease-out;
+}
+
+/* احترام تفضيل تقليل الحركة */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

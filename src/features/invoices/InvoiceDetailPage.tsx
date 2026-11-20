@@ -21,8 +21,11 @@ import { AdjustSheet, PaySheet, ReceiptSheet } from './sheets'
  * وزر تسوية الحضور لمجموعات «حسب الحضور» فقط.
  * المالية محجوبة عن المساعد بـ RLS والواجهة معاً.
  */
-export function InvoiceDetailPage() {
-  const { id } = useParams()
+export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
+  const params = useParams()
+  // نمط List-Detail (≥1024px): المعرّف من قائمة الفواتير؛ وصفحة التفاصيل
+  // المستقلة تقرأه من الرابط كالمعتاد (الروابط العميقة كما هي)
+  const id = invoiceId ?? params.id
   const teacher = useCurrentTeacher()
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
@@ -142,7 +145,7 @@ export function InvoiceDetailPage() {
                       </span>
                     )}
                   </div>
-                  {l.reason && <div className="text-muted text-[12px]">{l.reason}</div>}
+                  {l.reason && <div className="text-muted text-[13.5px]">{l.reason}</div>}
                 </div>
                 <span
                   className={`font-bold text-[15px] shrink-0 ${l.amount < 0 ? 'text-bad-text' : ''}`}
@@ -214,7 +217,7 @@ export function InvoiceDetailPage() {
             const isReversal = p.reverses_payment_id != null || p.amount < 0
             const canVoid = p.amount > 0 && !p.voided && !isReversal
             return (
-              <div key={p.id} className={`px-[14px] py-3 ${i > 0 ? 'border-t border-border' : ''}`}>
+              <div key={p.id} className={`px-4 py-3 ${i > 0 ? 'border-t border-border' : ''}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span
                     className={`font-extrabold text-[15px] ${p.amount < 0 ? 'text-bad-text' : 'text-ok-text'}`}

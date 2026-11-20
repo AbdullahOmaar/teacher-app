@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Sheet } from '../../components/ui/Sheet'
 import { Button } from '../../components/ui/Button'
-import { Field, TextInput } from '../../components/ui/form'
+import { Field, FormError, TextInput } from '../../components/ui/form'
 import type { EnrollmentRow, GroupRow, StudentInput, StudentRow } from '../../types/database'
 import {
   useCreateStudent,
@@ -51,6 +51,7 @@ export function StudentFormSheet({
   const [guardianPhone, setGuardianPhone] = useState(initial?.guardian_phone ?? '')
   const [levelNote, setLevelNote] = useState(initial?.level_note ?? '')
   const [error, setError] = useState<string | null>(null)
+  const [nameError, setNameError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const [drafts, setDrafts] = useState<Record<string, GroupDraft>>(() => {
@@ -81,7 +82,8 @@ export function StudentFormSheet({
 
   const save = async () => {
     setError(null)
-    if (!name.trim()) return setError('اسم الطالب إلزامي')
+    setNameError(null)
+    if (!name.trim()) return setNameError('اسم الطالب إلزامي')
     const input: StudentInput = {
       name: name.trim(),
       grade: emptyToNull(grade),
@@ -128,8 +130,23 @@ export function StudentFormSheet({
   }
 
   return (
-    <Sheet open title={initial ? 'تعديل طالب' : 'طالب جديد'} onClose={onClose}>
-      <Field label="الاسم *">
+    <Sheet
+      open
+      title={initial ? 'تعديل طالب' : 'طالب جديد'}
+      onClose={onClose}
+      footer={
+        <div className="flex gap-2">
+          <Button full onClick={save} disabled={saving}>
+            {saving ? 'بنحفظ…' : 'حفظ'}
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
+            إلغاء
+          </Button>
+        </div>
+      }
+    >
+      <h4 className="type-section mb-2">بيانات الطالب</h4>
+      <Field label="الاسم *" error={nameError}>
         <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="اسم الطالب" />
       </Field>
       <div className="grid grid-cols-2 gap-3">
@@ -157,7 +174,7 @@ export function StudentFormSheet({
 
       {groups.length > 0 && (
         <div className="mb-3">
-          <div className="text-[13.5px] text-muted font-semibold mb-2">المجموعات المسجل بها</div>
+          <h4 className="type-section mb-2 mt-2">التسجيل في المجموعات</h4>
           {groups.map((g) => {
             const draft = drafts[g.id] ?? { checked: false, price: '', prepaid: '' }
             return (
@@ -170,7 +187,7 @@ export function StudentFormSheet({
                     className="w-5 h-5 accent-[#4f46e5]"
                   />
                   <span className="font-semibold text-[15px]">{g.name}</span>
-                  <span className="text-muted text-[12px]">سعر المجموعة: {g.price} ج</span>
+                  <span className="text-muted text-[13.5px]">سعر المجموعة: {g.price} ج</span>
                 </label>
                 {draft.checked && (
                   <div className="grid grid-cols-2 gap-2 mt-1">
@@ -200,15 +217,7 @@ export function StudentFormSheet({
         </div>
       )}
 
-      {error && <p className="text-bad-text text-[13.5px] mb-3">{error}</p>}
-      <div className="flex gap-2">
-        <Button full onClick={save} disabled={saving}>
-          {saving ? 'بنحفظ…' : 'حفظ'}
-        </Button>
-        <Button variant="ghost" onClick={onClose}>
-          إلغاء
-        </Button>
-      </div>
+      {error && <FormError message={error} />}
     </Sheet>
   )
 }

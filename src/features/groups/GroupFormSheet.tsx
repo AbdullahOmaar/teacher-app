@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Sheet } from '../../components/ui/Sheet'
 import { AlertTriangle } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
-import { Chip, Field, Select, TextArea, TextInput } from '../../components/ui/form'
+import { Chip, Field, FieldError, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import type { BillingType, GroupInput, GroupRow } from '../../types/database'
 import { BILLING_LABELS, BILLING_TYPES, DAY_NAMES, shortTime, timeToMin } from '../../lib/format'
 import { useCreateGroup, useUpdateGroup } from './hooks'
@@ -64,6 +64,14 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
   const [assistant, setAssistant] = useState(initial?.assistant_name ?? '')
   const [links, setLinks] = useState((initial?.links ?? []).join('\n'))
   const [error, setError] = useState<string | null>(null)
+  // أخطاء الحقول — كل خطأ يظهر مباشرة تحت حقله (بحث §5)
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string
+    days?: string
+    price?: string
+    duration?: string
+    capacity?: string
+  }>({})
 
   const createGroup = useCreateGroup(teacherId)
   const updateGroup = useUpdateGroup(teacherId)
@@ -81,15 +89,18 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
 
   const save = async () => {
     setError(null)
-    if (!name.trim()) return setError('اسم المجموعة إلزامي')
-    if (!days.length) return setError('اختار يوماً واحداً على الأقل في الجدول')
+    const errs: typeof fieldErrors = {}
+    if (!name.trim()) errs.name = 'اسم المجموعة إلزامي'
+    if (!days.length) errs.days = 'اختار يوماً واحداً على الأقل في الجدول'
     const priceNum = price.trim() === '' ? 0 : Number(price)
-    if (!Number.isFinite(priceNum) || priceNum < 0) return setError('السعر غير صحيح')
+    if (!Number.isFinite(priceNum) || priceNum < 0) errs.price = 'السعر غير صحيح'
     const durNum = Number(duration)
-    if (!Number.isInteger(durNum) || durNum < 30) return setError('المدة لازم تكون 30 دقيقة على الأقل')
+    if (!Number.isInteger(durNum) || durNum < 30) errs.duration = 'المدة لازم تكون 30 دقيقة على الأقل'
     const capNum = capacity.trim() === '' ? null : Number(capacity)
     if (capNum !== null && (!Number.isInteger(capNum) || capNum <= 0))
-      return setError('السعة لازم تكون عدداً صحيحاً موجباً (أو فارغة = بلا حد)')
+      errs.capacity = 'السعة لازم تكون عدداً صحيحاً موجباً (أو فارغة = بلا حد)'
+    setFieldErrors(errs)
+    if (Object.keys(errs).length > 0) return
 
     const input: GroupInput = {
       name: name.trim(),
@@ -116,8 +127,23 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
   }
 
   return (
-    <Sheet open title={initial ? 'تعديل مجموعة' : 'مجموعة جديدة'} onClose={onClose}>
-      <Field label="اسم المجموعة *">
+    <Sheet
+      open
+      title={initial ? 'تعديل مجموعة' : 'مجموعة جديدة'}
+      onClose={onClose}
+      footer={
+        <div className="flex gap-2">
+          <Button full onClick={save} disabled={saving}>
+            {saving ? 'بنحفظ…' : 'حفظ'}
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
+            إلغاء
+          </Button>
+        </div>
+      }
+    >
+      <h4 className="type-section mb-2">البيانات الأساسية</h4>
+      <Field label="اسم المجموعة *" error={fieldErrors.name}>
         <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="مثال: فيزياء 3 ثانوي — السبت" />
       </Field>
       <div className="grid grid-cols-2 gap-3">
@@ -130,11 +156,12 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
             ))}
           </Select>
         </Field>
-        <Field label="السعر (ج)">
+        <Field label="السعر (ج)" error={fieldErrors.price}>
           <TextInput type="number" min={0} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" />
         </Field>
       </div>
 
+      <h4 className="type-section mb-2 mt-2">الجدول</h4>
       <div className="mb-3">
         <div className="text-[13.5px] text-muted font-semibold mb-1">أيام الجدول *</div>
         <div className="flex flex-wrap gap-2">
@@ -144,21 +171,23 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
             </Chip>
           ))}
         </div>
+        {fieldErrors.days ? <FieldError message={fieldErrors.days} /> : null}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="وقت البدء">
           <TextInput type="time" dir="ltr" value={time} onChange={(e) => setTime(e.target.value)} />
         </Field>
-        <Field label="المدة (دقيقة)">
+        <Field label="المدة (دقيقة)" error={fieldErrors.duration}>
           <TextInput type="number" min={30} step={15} inputMode="numeric" value={duration} onChange={(e) => setDuration(e.target.value)} />
         </Field>
       </div>
+      <h4 className="type-section mb-2 mt-2">تفاصيل إضافية</h4>
       <div className="grid grid-cols-2 gap-3">
         <Field label="المكان / القاعة">
           <TextInput value={room} onChange={(e) => setRoom(e.target.value)} placeholder="قاعة 2 — أو اتركه للأونلاين" />
         </Field>
-        <Field label="السعة (فارغ = بلا حد)">
+        <Field label="السعة (فارغ = بلا حد)" error={fieldErrors.capacity}>
           <TextInput type="number" min={1} inputMode="numeric" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
         </Field>
       </div>
@@ -180,15 +209,7 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
         </div>
       )}
 
-      {error && <p className="text-bad-text text-[13.5px] mb-3">{error}</p>}
-      <div className="flex gap-2">
-        <Button full onClick={save} disabled={saving}>
-          {saving ? 'بنحفظ…' : 'حفظ'}
-        </Button>
-        <Button variant="ghost" onClick={onClose}>
-          إلغاء
-        </Button>
-      </div>
+      {error && <FormError message={error} />}
     </Sheet>
   )
 }

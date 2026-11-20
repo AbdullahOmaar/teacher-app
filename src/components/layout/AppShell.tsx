@@ -78,6 +78,10 @@ export function AppShell() {
   const teacher = useCurrentTeacher()
   const { screen, tab } = resolveRoute(location.pathname)
   const isRoot = TAB_ROOTS.has(screen)
+  // شاشتا الطلاب والفواتير بنمط List-Detail عند ≥1024px (بحث §5):
+  // الحاويات تتسع لهما فقط، وباقي الشاشات تبقى 640px كما هي
+  const wide = location.pathname === '/students' || location.pathname === '/invoices'
+  const containerCls = wide ? 'max-w-[640px] lg:max-w-[1180px]' : 'max-w-[640px]'
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
   // شارة التنبيهات: نفس استعلام وكاش بطاقة تنبيهات الرئيسية وشاشة
@@ -97,7 +101,7 @@ export function AppShell() {
     <div className="min-h-screen bg-bg text-text">
       {/* الشريط العلوي — لاصق، أزراره أهداف لمس ≥48px (بحث §5) */}
       <header className="sticky top-0 z-20 bg-card border-b border-border">
-        <div className="mx-auto max-w-[640px] px-2 flex items-center gap-1">
+        <div className={`mx-auto ${containerCls} px-2 flex items-center gap-1`}>
           {!isRoot ? (
             <button
               onClick={() => navigate(-1)}
@@ -151,7 +155,7 @@ export function AppShell() {
       </header>
 
       {/* المحتوى — حاوية 640px وحشوة سفلية تترك مكاناً للشريط السفلي (64px + safe-area) */}
-      <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-[calc(88px+env(safe-area-inset-bottom,0px))]">
+      <main className={`mx-auto ${containerCls} px-4 pt-[14px] pb-[calc(88px+env(safe-area-inset-bottom,0px))]`}>
         {teacher.status === 'loading' ? (
           <LoadingState />
         ) : teacher.status === 'no-teacher' ? (
@@ -164,7 +168,7 @@ export function AppShell() {
       {/* الشريط السفلي — أيقونة + نص دائماً، pill خلف النشط بأيقونة ممتلئة،
           منطقة لمس 64px مع safe-area (بحث §5) */}
       <nav className="fixed bottom-0 inset-x-0 z-20 bg-card border-t border-border pb-[env(safe-area-inset-bottom,0px)]">
-        <div className="mx-auto max-w-[640px] flex">
+        <div className={`mx-auto ${containerCls} flex`}>
           {TABS.map((t) => {
             const active = tab === t.key
             const Icon = t.icon

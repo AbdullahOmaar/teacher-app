@@ -225,7 +225,7 @@ export function MoneyPage() {
           )}
 
           {/* آخر 6 شهور */}
-          <h2 className="text-[15px] font-extrabold mb-2 mt-1">آخر 6 شهور</h2>
+          <h2 className="type-section mb-2 mt-1">آخر 6 شهور</h2>
           <Card>
             {sixMonths.map((row) => (
               <MonthBarRow
@@ -236,14 +236,14 @@ export function MoneyPage() {
                 onSelect={() => setSelectedMonth(row.month)}
               />
             ))}
-            <p className="text-muted text-[12px] mb-0 mt-1">
+            <p className="text-muted text-[13.5px] mb-0 mt-1">
               الرقم اللي على الشمال هو صافي ربح الشهر — اضغط أي شهر لعرض تفاصيله ومصروفاته.
             </p>
           </Card>
 
           {/* مصروفات الشهر المختار */}
           <div className="flex items-center justify-between gap-2 mt-4 mb-2">
-            <h2 className="text-[15px] font-extrabold">مصروفات {periodLabel(selectedMonth)}</h2>
+            <h2 className="type-section">مصروفات {periodLabel(selectedMonth)}</h2>
           </div>
           <div className="flex gap-2 mb-3">
             <Button className="flex-1" onClick={() => setExpenseSheet({ mode: 'create' })}>
@@ -325,7 +325,7 @@ export function MoneyPage() {
 
           {/* المصروفات الشهرية الثابتة (القوالب) */}
           <div className="flex items-center justify-between gap-2 mt-4 mb-2">
-            <h2 className="text-[15px] font-extrabold">المصروفات الشهرية الثابتة</h2>
+            <h2 className="type-section">المصروفات الشهرية الثابتة</h2>
             <Button variant="soft" onClick={() => setRecurringSheet({ mode: 'create' })}>
               + قالب ثابت
             </Button>
@@ -377,7 +377,7 @@ export function MoneyPage() {
               </Card>
             ))
           )}
-          <p className="text-muted text-[12px] mt-1">
+          <p className="text-muted text-[13.5px] mt-1">
             حذف القالب بيوقفه من الشهور الجاية بس، والمصروفات اللي اتطبقت منه قبل كده بتفضل
             موجودة زي ما هي.
           </p>

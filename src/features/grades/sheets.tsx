@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Sheet } from '../../components/ui/Sheet'
 import { Check, Printer, Trash2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
-import { Chip, ChipRow, Field, Select, TextArea, TextInput } from '../../components/ui/form'
+import { Chip, ChipRow, Field, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import type {
   AssessmentQuestionRow,
   AssessmentRow,
@@ -77,8 +77,23 @@ export function AssessmentFormSheet({
     pass >= 0
 
   return (
-    <Sheet open title={initial ? 'تعديل بيانات الامتحان' : 'امتحان أو واجب جديد'} onClose={onClose}>
+    <Sheet
+      open
+      title={initial ? 'تعديل بيانات الامتحان' : 'امتحان أو واجب جديد'}
+      onClose={onClose}
+      footer={
+        <>
+          <Button full type="submit" form="assessment-form" disabled={mut.isPending || !valid}>
+            {mut.isPending ? 'بنحفظ…' : initial ? 'حفظ التعديلات' : 'إنشاء التقييم'}
+          </Button>
+          <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
+            إلغاء
+          </Button>
+        </>
+      }
+    >
       <form
+        id="assessment-form"
         onSubmit={(e) => {
           e.preventDefault()
           if (!valid) return
@@ -162,20 +177,12 @@ export function AssessmentFormSheet({
             درجة النجاح أكبر من النهائية — كل الطلاب هيظهروا تحت النجاح.
           </p>
         )}
-        {mut.isError && <p className="text-bad-text text-[13.5px] font-semibold">{errText(mut.error)}</p>}
-        <Button full type="submit" disabled={mut.isPending || !valid}>
-          {mut.isPending ? 'بنحفظ…' : initial ? 'حفظ التعديلات' : 'إنشاء التقييم'}
-        </Button>
-        <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
-          إلغاء
-        </Button>
+        {mut.isError && <FormError message={errText(mut.error)} />}
       </form>
 
       {initial && (
         <div className="mt-4 border-t border-border pt-3">
-          {del.isError && (
-            <p className="text-bad-text text-[13.5px] font-semibold">{errText(del.error)}</p>
-          )}
+          {del.isError && <FormError message={errText(del.error)} />}
           <Button
             full
             variant="danger"
@@ -315,7 +322,7 @@ export function ExamBuilderSheet({
             />
           </Field>
         </div>
-        {add.isError && <p className="text-bad-text text-[13.5px] font-semibold">{errText(add.error)}</p>}
+        {add.isError && <FormError message={errText(add.error)} />}
         <Button full type="submit" disabled={add.isPending || !valid}>
           {add.isPending ? 'بنضيف…' : '+ إضافة السؤال'}
         </Button>
@@ -331,7 +338,7 @@ export function ExamBuilderSheet({
         {questionsQ.isPending ? (
           <p className="text-muted text-[13.5px]">بنحمّل الأسئلة…</p>
         ) : questionsQ.isError ? (
-          <p className="text-bad-text text-[13.5px] font-semibold">{errText(questionsQ.error)}</p>
+          <FormError message={errText(questionsQ.error)} />
         ) : questions.length === 0 ? (
           <p className="text-muted text-[13.5px] mb-0">
             لسه مفيش أسئلة — أضف أول سؤال من النموذج اللي فوق.
@@ -371,9 +378,7 @@ export function ExamBuilderSheet({
             ))}
           </div>
         )}
-        {del.isError && (
-          <p className="text-bad-text text-[13.5px] font-semibold mt-2">{errText(del.error)}</p>
-        )}
+        {del.isError && <FormError message={errText(del.error)} />}
       </div>
 
       <Button full variant="ghost" onClick={onClose} className="mt-3">

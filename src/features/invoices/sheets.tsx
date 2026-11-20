@@ -3,7 +3,7 @@ import { Sheet } from '../../components/ui/Sheet'
 import { MessageCircle, Printer, ReceiptText } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Logo } from '../../components/brand/Logo'
-import { Chip, ChipRow, Field, Select, TextArea, TextInput } from '../../components/ui/form'
+import { Chip, ChipRow, Field, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import { formatMoney, shortTime } from '../../lib/format'
 import type { AttendanceStatus, PaymentMethod, PaymentRow } from '../../types/database'
 import { todayStr } from '../home/api'
@@ -66,6 +66,18 @@ export function IssueInvoicesSheet({
       open
       title={studentId ? `إصدار فواتير ${monthLabel} — ${studentName ?? 'الطالب'}` : `إصدار فواتير ${monthLabel}`}
       onClose={onClose}
+      footer={
+        result ? undefined : (
+          <>
+            <Button full type="submit" form="issue-form" disabled={issue.isPending || !month}>
+              {issue.isPending ? 'بنصدر الفواتير…' : `إصدار فواتير ${monthLabel}`}
+            </Button>
+            <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
+              إلغاء
+            </Button>
+          </>
+        )
+      }
     >
       {result ? (
         <div>
@@ -91,6 +103,7 @@ export function IssueInvoicesSheet({
         </div>
       ) : (
         <form
+          id="issue-form"
           onSubmit={(e) => {
             e.preventDefault()
             issue.mutate(
@@ -136,15 +149,7 @@ export function IssueInvoicesSheet({
               : 'هيتصدر لكل طالب نشط مسجل في أي مجموعة، بسعره الفعلي (سعر المجموعة أو سعره الخاص) وحسب نظام فوترة مجموعته.'}{' '}
             فواتير «حسب الحضور» بتتحسب بعدد الحصص المحضورة لحد النهاردة.
           </p>
-          {issue.isError && (
-            <p className="text-bad-text text-[13.5px] font-semibold">{errText(issue.error)}</p>
-          )}
-          <Button full type="submit" disabled={issue.isPending || !month}>
-            {issue.isPending ? 'بنصدر الفواتير…' : `إصدار فواتير ${monthLabel}`}
-          </Button>
-          <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
-            إلغاء
-          </Button>
+          {issue.isError && <FormError message={errText(issue.error)} />}
         </form>
       )}
     </Sheet>
@@ -176,7 +181,21 @@ export function PaySheet({
   const amt = parseFloat(amount) || 0
 
   return (
-    <Sheet open title="تسجيل دفعة" onClose={onClose}>
+    <Sheet
+      open
+      title="تسجيل دفعة"
+      onClose={onClose}
+      footer={
+        <>
+          <Button full type="submit" form="pay-form" disabled={pay.isPending || !(amt > 0)}>
+            {pay.isPending ? 'بنسجل الدفعة…' : 'تسجيل الدفعة وإصدار الإيصال'}
+          </Button>
+          <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
+            إلغاء
+          </Button>
+        </>
+      }
+    >
       <div className="bg-soft rounded-xl px-3 py-2 mb-3 text-[13.5px]">
         <div className="font-bold">{invoice.student_name}</div>
         <div className="text-muted">
@@ -186,6 +205,7 @@ export function PaySheet({
         </div>
       </div>
       <form
+        id="pay-form"
         onSubmit={(e) => {
           e.preventDefault()
           pay.mutate(
@@ -247,13 +267,7 @@ export function PaySheet({
             المبلغ أكبر من المتبقي — الفاتورة هتتقفل والفرق هيظهر كرصيد مدفوع زيادة.
           </p>
         )}
-        {pay.isError && <p className="text-bad-text text-[13.5px] font-semibold">{errText(pay.error)}</p>}
-        <Button full type="submit" disabled={pay.isPending || !(amt > 0)}>
-          {pay.isPending ? 'بنسجل الدفعة…' : 'تسجيل الدفعة وإصدار الإيصال'}
-        </Button>
-        <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
-          إلغاء
-        </Button>
+        {pay.isError && <FormError message={errText(pay.error)} />}
       </form>
     </Sheet>
   )
@@ -460,7 +474,28 @@ export function AdjustSheet({
   const newStatus: AttendanceStatus = statusChoice ?? selected?.status ?? 'p'
 
   return (
-    <Sheet open title="تسوية حضور" onClose={onClose}>
+    <Sheet
+      open
+      title="تسوية حضور"
+      onClose={onClose}
+      footer={
+        sessions.length > 0 && !sessionsQ.isPending && !sessionsQ.isError ? (
+          <>
+            <Button
+              full
+              type="submit"
+              form="adjust-form"
+              disabled={adjust.isPending || !selected || !reason.trim()}
+            >
+              {adjust.isPending ? 'بنسجل التسوية…' : 'حفظ التسوية'}
+            </Button>
+            <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
+              إلغاء
+            </Button>
+          </>
+        ) : undefined
+      }
+    >
       {sessionsQ.isPending ? (
         <p className="text-muted text-[13.5px]">بنحمّل حصص شهر الفاتورة…</p>
       ) : sessionsQ.isError ? (
@@ -471,6 +506,7 @@ export function AdjustSheet({
         </p>
       ) : (
         <form
+          id="adjust-form"
           onSubmit={(e) => {
             e.preventDefault()
             if (!selected) return
@@ -527,19 +563,7 @@ export function AdjustSheet({
             الفاتورة الأصلية مش هتتعدل؛ الفرق بين الحالتين × السعر الفعلي هيتضاف كبند تسوية
             (موجب أو سالب)، وحالة الحضور نفسها هتتحدث.
           </p>
-          {adjust.isError && (
-            <p className="text-bad-text text-[13.5px] font-semibold">{errText(adjust.error)}</p>
-          )}
-          <Button
-            full
-            type="submit"
-            disabled={adjust.isPending || !selected || !reason.trim()}
-          >
-            {adjust.isPending ? 'بنسجل التسوية…' : 'حفظ التسوية'}
-          </Button>
-          <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
-            إلغاء
-          </Button>
+          {adjust.isError && <FormError message={errText(adjust.error)} />}
         </form>
       )}
     </Sheet>

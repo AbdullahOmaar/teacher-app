@@ -289,7 +289,7 @@ export function HomePage() {
               <div className="h-2 rounded-full bg-soft overflow-hidden">
                 <div className="h-full rounded-full bg-ok" style={{ width: `${goalPct}%` }} />
               </div>
-              <div className="text-muted text-[12px] mt-2">
+              <div className="text-muted text-[13.5px] mt-2">
                 محصّل {formatMoney(collectedMonth)} من إجمالي فواتير الشهر{' '}
                 {formatMoney(invoiceStats.monthIssuedTotal)}
               </div>
@@ -319,7 +319,7 @@ export function HomePage() {
           ) : null}
 
           {/* حصص اليوم */}
-          <h2 className="text-[15px] font-extrabold mb-2 mt-1">حصص اليوم</h2>
+          <h2 className="type-section mb-2 mt-1">حصص اليوم</h2>
           {todaySessions.length === 0 ? (
             <Card>
               <EmptyState

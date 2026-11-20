@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Sheet } from '../../components/ui/Sheet'
 import { Button } from '../../components/ui/Button'
-import { Field, Select, TextInput } from '../../components/ui/form'
+import { Field, FormError, Select, TextInput } from '../../components/ui/form'
 import type { ExpenseRow, RecurringExpenseRow } from '../../types/database'
 import { EXPENSE_CATEGORIES } from './api'
 import {
@@ -55,8 +55,23 @@ export function ExpenseFormSheet({
   const amt = parseFloat(amount) || 0
 
   return (
-    <Sheet open title={isEdit ? 'تعديل مصروف' : 'تسجيل مصروف'} onClose={onClose}>
+    <Sheet
+      open
+      title={isEdit ? 'تعديل مصروف' : 'تسجيل مصروف'}
+      onClose={onClose}
+      footer={
+        <>
+          <Button full type="submit" form="expense-form" disabled={busy || !(amt > 0) || !date}>
+            {busy ? 'بنسجل…' : isEdit ? 'حفظ التعديل' : 'تسجيل المصروف'}
+          </Button>
+          <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
+            إلغاء
+          </Button>
+        </>
+      }
+    >
       <form
+        id="expense-form"
         onSubmit={(e) => {
           e.preventDefault()
           setError(null)
@@ -139,13 +154,7 @@ export function ExpenseFormSheet({
             تثبيت كمصروف شهري متكرر
           </label>
         )}
-        {error && <p className="text-bad-text text-[13.5px] font-semibold">{error}</p>}
-        <Button full type="submit" disabled={busy || !(amt > 0) || !date}>
-          {busy ? 'بنسجل…' : isEdit ? 'حفظ التعديل' : 'تسجيل المصروف'}
-        </Button>
-        <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
-          إلغاء
-        </Button>
+        {error && <FormError message={error} />}
       </form>
     </Sheet>
   )
@@ -179,8 +188,23 @@ export function RecurringFormSheet({
   const busy = create.isPending || update.isPending
 
   return (
-    <Sheet open title={isEdit ? 'تعديل مصروف ثابت' : 'مصروف شهري ثابت جديد'} onClose={onClose}>
+    <Sheet
+      open
+      title={isEdit ? 'تعديل مصروف ثابت' : 'مصروف شهري ثابت جديد'}
+      onClose={onClose}
+      footer={
+        <>
+          <Button full type="submit" form="recurring-form" disabled={busy || !(amt > 0)}>
+            {busy ? 'بنسجل…' : isEdit ? 'حفظ التعديل' : 'إضافة القالب'}
+          </Button>
+          <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
+            إلغاء
+          </Button>
+        </>
+      }
+    >
       <form
+        id="recurring-form"
         onSubmit={(e) => {
           e.preventDefault()
           const input = {
@@ -231,16 +255,8 @@ export function RecurringFormSheet({
           معين من شاشة الفلوس، وكل قالب بيضاف مرة واحدة بس في الشهر (مفيش تكرار).
         </p>
         {(create.isError || update.isError) && (
-          <p className="text-bad-text text-[13.5px] font-semibold">
-            {errText(create.error ?? update.error)}
-          </p>
+          <FormError message={errText(create.error ?? update.error)} />
         )}
-        <Button full type="submit" disabled={busy || !(amt > 0)}>
-          {busy ? 'بنسجل…' : isEdit ? 'حفظ التعديل' : 'إضافة القالب'}
-        </Button>
-        <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
-          إلغاء
-        </Button>
       </form>
     </Sheet>
   )

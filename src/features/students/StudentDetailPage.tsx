@@ -53,8 +53,11 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
  * «البيانات» و«المجموعات» و«الحضور» و«المدفوعات» و«الدرجات» منفذة فعلياً
  * (المدفوعات للمالك فقط)؛ الملاحظات هيكل جاهز لوحدتها القادمة.
  */
-export function StudentDetailPage() {
-  const { id } = useParams()
+export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
+  const params = useParams()
+  // في نمط List-Detail (≥1024px) يمرَّر المعرّف من قائمة الطلاب؛
+  // وصفحة التفاصيل المستقلة تقرأه من الرابط كالمعتاد (الروابط العميقة كما هي)
+  const id = studentId ?? params.id
   const teacher = useCurrentTeacher()
   const [tab, setTab] = useState<TabKey>('data')
   const [editOpen, setEditOpen] = useState(false)
@@ -197,7 +200,7 @@ export function StudentDetailPage() {
             >
               {student.paused ? (<><Play size={20} /> استئناف الطالب</>) : (<><Pause size={20} /> إيقاف الطالب (أرشفة)</>)}
             </Button>
-            <p className="text-muted text-[12px] mt-2 mb-0">
+            <p className="text-muted text-[13.5px] mt-2 mb-0">
               الطالب الموقوف يُستبعد من إصدار الفواتير وقوائم الحضور، ويظهر فقط في فلتر «موقوف / أرشيف».
             </p>
           </div>

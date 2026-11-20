@@ -19,6 +19,7 @@ import {
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Chip, Field, TextInput } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
+import { Avatar } from '../../components/ui/Avatar'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { shortTime } from '../../lib/format'
 import type { AttendanceStatus } from '../../types/database'
@@ -28,7 +29,8 @@ import { useGeneration, useSetSessionStatus } from '../schedule/hooks'
 import {
   ATTENDANCE_STATUSES,
   EMPTY_VALUE,
-  STATUS_COLORS,
+  STATUS_ACTIVE_CLASS,
+  STATUS_FILL,
   absenceWaUrl,
   type AttendanceValue,
   type SessionWithGroup,
@@ -145,6 +147,13 @@ export function AttendancePage() {
     EMPTY_VALUE
   const done = roster.filter((s) => valueOf(s.id).status != null).length
   const total = roster.length
+  // عدّادات حية لكل حالة — تتحدث مع كل تعديل (شريط الملخص اللاصق)
+  const statusCounts: Record<'p' | 'a' | 'l' | 'm' | 'none', number> = { p: 0, a: 0, l: 0, m: 0, none: 0 }
+  for (const s of roster) {
+    const st = valueOf(s.id).status
+    if (st) statusCounts[st] += 1
+    else statusCounts.none += 1
+  }
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
   const anyNotPresent = roster.some((s) => valueOf(s.id).status !== 'p')
   const saving = saveMut.isPending || saveManyMut.isPending
@@ -382,9 +391,9 @@ export function AttendancePage() {
           {/* قائمة الطلاب والحالات */}
           {rosterQ.isPending || attQ.isPending || !rowsReady ? (
             <>
-              <Skeleton className="h-[64px] mb-3" />
-              <Skeleton className="h-[64px] mb-3" />
-              <Skeleton className="h-[64px]" />
+              <Skeleton className="h-[72px] mb-3" />
+              <Skeleton className="h-[72px] mb-3" />
+              <Skeleton className="h-[72px]" />
             </>
           ) : rosterQ.error || attQ.error ? (
             <ErrorState
@@ -408,6 +417,11 @@ export function AttendancePage() {
             </Card>
           ) : (
             <>
+              {/* صف الطالب التوقيعي: أفاتار 40 + اسم 15/600 + مبدّل 4 حالات
+                  بأهداف لمس 48px — سطر واحد بارتفاع 64–72px من عرض 480px،
+                  والمبدّل ينزل لسطر كامل تحت الاسم في الشاشات الأضيق.
+                  الافتراضي بصرياً «حاضر» أولاً، والنقر للاستثناءات فقط،
+                  و«الكل حاضر» في الشريط اللاصق يعلّم الجميع دفعة واحدة. */}
               <Card className="p-0 overflow-hidden">
                 {roster.map((st, i) => {
                   const v = valueOf(st.id)
@@ -417,73 +431,76 @@ export function AttendancePage() {
                   return (
                     <div
                       key={st.id}
-                      className={`px-[14px] py-3 ${i > 0 ? 'border-t border-border' : ''}`}
+                      className={`px-3 py-2 ${i > 0 ? 'border-t border-border' : ''}`}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0 flex items-center gap-2 flex-wrap">
-                          <Link
-                            to={`/students/${st.id}`}
-                            className="font-bold text-[15px] text-text no-underline"
-                          >
-                            {st.name}
-                          </Link>
-                          <span
-                            className="text-[12px] font-bold bg-soft text-muted rounded-full px-2 py-0.5"
-                            dir="ltr"
-                          >
-                            {st.public_code}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={cancelled}
-                          onClick={() => changeValue(st.id, { starred: !v.starred })}
-                          className="shrink-0 w-12 h-12 flex items-center justify-center bg-transparent border-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                          title={v.starred ? 'متميز — اضغط لإلغاء التمييز' : 'تمييز الطالب'}
-                          aria-label={v.starred ? 'إلغاء تمييز الطالب' : 'تمييز الطالب'}
-                        >
-                          <Star
-                            size={24}
-                            className={v.starred ? 'text-accent' : 'text-muted'}
-                            fill={v.starred ? 'currentColor' : 'none'}
-                          />
-                        </button>
-                      </div>
-                      <div className="flex gap-1 mt-2.5" role="radiogroup" aria-label={`حالة ${st.name}`}>
-                        {ATTENDANCE_STATUSES.map(({ code, label }) => {
-                          const active = v.status === code
-                          return (
-                            <button
-                              key={code}
-                              type="button"
-                              role="radio"
-                              aria-checked={active}
-                              disabled={cancelled}
-                              onClick={() => changeValue(st.id, { status: code })}
-                              className={`flex-1 min-h-[48px] rounded-xl text-[13.5px] font-bold border cursor-pointer disabled:cursor-not-allowed ${
-                                active ? 'text-white' : 'bg-card text-muted border-border hover:bg-soft'
-                              }`}
-                              style={
-                                active
-                                  ? { backgroundColor: STATUS_COLORS[code], borderColor: STATUS_COLORS[code] }
-                                  : undefined
-                              }
+                      <div className="min-[480px]:flex min-[480px]:items-center min-[480px]:gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0 min-[480px]:w-[196px] min-[480px]:shrink-0">
+                          <Avatar name={st.name} />
+                          <div className="flex-1 min-w-0">
+                            <Link
+                              to={`/students/${st.id}`}
+                              className="block font-semibold text-[15px] leading-[1.6] text-text no-underline truncate"
                             >
-                              {label}
-                            </button>
-                          )
-                        })}
+                              {st.name}
+                            </Link>
+                            <div className="text-muted text-[13.5px] leading-[1.5] flex items-center gap-1.5">
+                              <span dir="ltr">{st.public_code}</span>
+                              {v.homework_done && (
+                                <span className="inline-flex items-center gap-1 text-ok-text font-semibold">
+                                  <Check size={14} />
+                                  سلّم الواجب
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={cancelled}
+                            onClick={() => changeValue(st.id, { starred: !v.starred })}
+                            className="shrink-0 w-12 h-12 flex items-center justify-center bg-transparent border-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={v.starred ? 'متميز — اضغط لإلغاء التمييز' : 'تمييز الطالب'}
+                            aria-label={v.starred ? 'إلغاء تمييز الطالب' : 'تمييز الطالب'}
+                          >
+                            <Star
+                              size={24}
+                              className={v.starred ? 'text-accent' : 'text-muted'}
+                              fill={v.starred ? 'currentColor' : 'none'}
+                            />
+                          </button>
+                        </div>
+                        <div className="flex gap-1 mt-1.5 min-[480px]:mt-0 min-[480px]:flex-1" role="radiogroup" aria-label={`حالة ${st.name}`}>
+                          {ATTENDANCE_STATUSES.map(({ code, label }) => {
+                            const active = v.status === code
+                            return (
+                              <button
+                                key={code}
+                                type="button"
+                                role="radio"
+                                aria-checked={active}
+                                disabled={cancelled}
+                                onClick={() => changeValue(st.id, { status: code })}
+                                className={`flex-1 min-h-[48px] rounded-xl text-[13.5px] font-bold border cursor-pointer disabled:cursor-not-allowed whitespace-nowrap ${
+                                  active
+                                    ? STATUS_ACTIVE_CLASS[code]
+                                    : 'bg-card text-muted border-border hover:bg-soft'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
                       {v.status === 'a' &&
                         (wa ? (
-                          <a href={wa} target="_blank" rel="noreferrer" className="no-underline inline-block mt-2.5">
+                          <a href={wa} target="_blank" rel="noreferrer" className="no-underline inline-block mt-2">
                             <Button variant="soft" className="min-h-[48px] text-[13.5px] px-3">
                               <MessageCircle size={20} />
                               إبلاغ ولي الأمر بالغياب
                             </Button>
                           </a>
                         ) : (
-                          <div className="text-muted text-[12px] mt-2">
+                          <div className="text-muted text-[13.5px] mt-2">
                             لا يوجد رقم ولي أمر أو موبايل طالب مسجل لإبلاغ الغياب.
                           </div>
                         ))}
@@ -511,10 +528,41 @@ export function AttendancePage() {
                     )
                   })}
                 </div>
-                <p className="text-muted text-[12px] mt-2 mb-0">
+                <p className="text-muted text-[13.5px] mt-2 mb-0">
                   اضغط اسم الطالب لتبديل تسليم الواجب — بيتحفظ فوراً مع باقي بيانات حضوره.
                 </p>
               </Card>
+
+              {/* شريط ملخص لاصق: عدّادات حية لكل حالة + «الكل حاضر» —
+                  يطفو فوق الشريط السفلي أثناء تمرير القائمة ويتحدث مع كل تعديل */}
+              <div className="sticky bottom-[calc(84px+env(safe-area-inset-bottom,0px))] z-10 mt-1">
+                <div className="bg-card border border-border shadow-raised rounded-2xl px-3 py-2 flex items-center gap-x-3 gap-y-1 flex-wrap">
+                  {ATTENDANCE_STATUSES.map(({ code, label }) => (
+                    <span key={code} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: STATUS_FILL[code] }}
+                        aria-hidden="true"
+                      />
+                      {label} {statusCounts[code]}
+                    </span>
+                  ))}
+                  <span className="text-[13.5px] font-semibold text-muted">
+                    {statusCounts.none > 0 ? `باقي ${statusCounts.none} بلا حالة` : 'الكل اتحضّر'}
+                  </span>
+                  {!cancelled && anyNotPresent && (
+                    <Button
+                      variant="soft"
+                      className="ms-auto min-h-[48px] text-[13.5px] px-3"
+                      onClick={markAllPresent}
+                      disabled={saveManyMut.isPending}
+                    >
+                      <CheckCheck size={18} />
+                      الكل حاضر
+                    </Button>
+                  )}
+                </div>
+              </div>
             </>
           )}
         </>

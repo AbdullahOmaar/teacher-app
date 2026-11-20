@@ -6,7 +6,7 @@ import { ErrorState, LoadingState } from '../../components/ui/states'
 import { shortTime } from '../../lib/format'
 import type { EnrollmentRow, GroupRow } from '../../types/database'
 import { formatDateLabel } from '../schedule/api'
-import { STATUS_COLORS, STATUS_LABELS, isAttended } from './api'
+import { STATUS_BADGE_CLASS, STATUS_LABELS, isAttended } from './api'
 import { useStudentAttendance, useStudentAttendanceStats } from './hooks'
 
 /**
@@ -143,8 +143,7 @@ export function StudentAttendanceTab({
                   )}
                   {r.status ? (
                     <span
-                      className="text-[12px] font-bold text-white rounded-full px-2.5 py-0.5"
-                      style={{ backgroundColor: STATUS_COLORS[r.status] }}
+                      className={`type-badge rounded-full px-2.5 py-0.5 ${STATUS_BADGE_CLASS[r.status]}`}
                     >
                       {STATUS_LABELS[r.status]}
                     </span>

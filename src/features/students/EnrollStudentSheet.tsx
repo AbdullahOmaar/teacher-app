@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Sheet } from '../../components/ui/Sheet'
 import { Button } from '../../components/ui/Button'
-import { Field, Select, TextInput } from '../../components/ui/form'
+import { Field, FormError, Select, TextInput } from '../../components/ui/form'
 import type { GroupRow, StudentRow } from '../../types/database'
 import { useUpsertEnrollment } from './hooks'
 
@@ -74,7 +74,21 @@ export function EnrollStudentSheet({
   }
 
   return (
-    <Sheet open title="تسجيل في مجموعة" onClose={onClose}>
+    <Sheet
+      open
+      title="تسجيل في مجموعة"
+      onClose={onClose}
+      footer={
+        <div className="flex gap-2">
+          <Button full onClick={save} disabled={upsert.isPending}>
+            {upsert.isPending ? 'بنحفظ…' : 'تسجيل'}
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
+            إلغاء
+          </Button>
+        </div>
+      }
+    >
       {!fixedStudentId && (
         <Field label="الطالب">
           <Select value={studentId} onChange={(e) => setStudentId(e.target.value)}>
@@ -120,15 +134,7 @@ export function EnrollStudentSheet({
           />
         </Field>
       )}
-      {error && <p className="text-bad-text text-[13.5px] mb-3">{error}</p>}
-      <div className="flex gap-2">
-        <Button full onClick={save} disabled={upsert.isPending}>
-          {upsert.isPending ? 'بنحفظ…' : 'تسجيل'}
-        </Button>
-        <Button variant="ghost" onClick={onClose}>
-          إلغاء
-        </Button>
-      </div>
+      {error && <FormError message={error} />}
     </Sheet>
   )
 }

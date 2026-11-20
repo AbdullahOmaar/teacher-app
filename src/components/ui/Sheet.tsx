@@ -5,6 +5,8 @@ interface SheetProps {
   title?: string
   onClose: () => void
   children: ReactNode
+  /** تذييل مثبت أسفل الـ Sheet (زر الحفظ في النماذج — بحث §5) يبقى ظاهراً أثناء التمرير */
+  footer?: ReactNode
 }
 
 /** عتبة السحب للإغلاق (px) — بعدها يُغلق الـ Sheet عند الإفلات */
@@ -16,7 +18,7 @@ const DISMISS_THRESHOLD = 90
  * إغلاق بالسحب للأسفل من المقبض/الترويسة + النقر خارجاً + Escape،
  * وقفل تمرير الخلفية (body scroll lock) أثناء الفتح.
  */
-export function Sheet({ open, title, onClose, children }: SheetProps) {
+export function Sheet({ open, title, onClose, children, footer }: SheetProps) {
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const dragStart = useRef<number | null>(null)
@@ -88,6 +90,11 @@ export function Sheet({ open, title, onClose, children }: SheetProps) {
         </div>
         {title && <h3 className="type-section mb-3">{title}</h3>}
         {children}
+        {footer && (
+          <div className="sticky bottom-0 bg-card border-t border-border -mx-4 px-4 pt-3 pb-1 mt-2">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   )
