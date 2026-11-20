@@ -6,7 +6,13 @@ import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/AuthProvider'
 import { Logo } from '../../components/brand/Logo'
-import { ensureTeacherProfile, signInDemo, signInWithEmail, signUpWithEmail } from './api'
+import {
+  claimTeacherInvites,
+  ensureTeacherProfile,
+  signInDemo,
+  signInWithEmail,
+  signUpWithEmail,
+} from './api'
 
 type Mode = 'signin' | 'signup'
 
@@ -96,12 +102,25 @@ export function LoginPage() {
         phone: phone || undefined,
       })
       if (result.hasSession && result.userId) {
-        // أول تسجيل: إنشاء ملف المدرس + إعداداته (آمن التكرار،
-        // وإن فشل هنا تستكمله شاشة الإعداد بعد الدخول)
+        // دعوة بريد معلّقة؟ (migration ‏0006): إن ادّعى الحساب الجديد
+        // دعوة مساعد، فهو منضم لفريق مدرس آخر — لا ننشئ له ملف مدرس
+        // خاصاً هنا حتى يهبط داخل حساب المدرس مباشرة (وإن أُزيل من
+        // الفريق لاحقاً ستعرض له شاشة الإعداد إنشاء ملفه). فشل الادعاء
+        // لا يمنع المسار العادي.
+        let claimed = 0
         try {
-          await ensureTeacherProfile(result.userId, displayName, phone || null)
+          claimed = (await claimTeacherInvites()).claimed
         } catch {
-          // تجاهل: Onboarding سيعيد المحاولة
+          claimed = 0
+        }
+        if (claimed === 0) {
+          // أول تسجيل: إنشاء ملف المدرس + إعداداته (آمن التكرار،
+          // وإن فشل هنا تستكمله شاشة الإعداد بعد الدخول)
+          try {
+            await ensureTeacherProfile(result.userId, displayName, phone || null)
+          } catch {
+            // تجاهل: Onboarding سيعيد المحاولة
+          }
         }
       } else {
         setMode('signin')

@@ -42,7 +42,10 @@ export interface TeacherSettingsRow {
 export interface TeacherMemberRow {
   id: string
   teacher_id: string
-  user_id: string
+  /** null = دعوة معلّقة بالبريد لم تُدّعَ بعد (migration ‏0006) */
+  user_id: string | null
+  /** بريد الدعوة مُطبَّعاً (أحرف صغيرة) — يُضبط عند الدعوة بالبريد ويبقى بعد الادعاء كسجل للبريد الذي انضم به العضو */
+  invited_email: string | null
   role: MemberRole
   permissions: Record<string, unknown>
   status: MemberStatus

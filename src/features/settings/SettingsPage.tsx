@@ -13,10 +13,14 @@ import { useTheme, type ThemeMode } from '../../hooks/useTheme'
 import { getActiveTeacherId, setActiveTeacherId } from '../../lib/workspace'
 import {
   ASSISTANT_DEFAULT_PERMISSIONS,
+  INVITE_EMAIL_RE,
   PERMISSION_LABELS,
+  normalizeInviteEmail,
 } from '../auth/api'
 import {
+  useCancelTeamInvite,
   useInviteAssistant,
+  useInviteAssistantByEmail,
   useRemoveTeamMember,
   useTeamMembers,
   useUpdateMemberPermissions,
@@ -92,13 +96,18 @@ export function SettingsPage() {
   const isOwnerWorkspace = teacher.status === 'ready' && teacher.role === 'owner'
   const membersQ = useTeamMembers(ownId || undefined, Boolean(ownTeacher))
   const invite = useInviteAssistant(ownId)
+  const inviteByEmail = useInviteAssistantByEmail(ownId)
+  const cancelInvite = useCancelTeamInvite(ownId)
   const updatePerms = useUpdateMemberPermissions(ownId)
   const removeMember = useRemoveTeamMember(ownId)
   const [assistantId, setAssistantId] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
   const [perms, setPerms] = useState<Record<string, boolean>>({ ...ASSISTANT_DEFAULT_PERMISSIONS })
+  const [emailPerms, setEmailPerms] = useState<Record<string, boolean>>({ ...ASSISTANT_DEFAULT_PERMISSIONS })
   const [inviteMsg, setInviteMsg] = useState<string | null>(null)
+  const [emailInviteMsg, setEmailInviteMsg] = useState<string | null>(null)
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
 
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status !== 'ready') return <LoadingState label="بنجهّز الإعدادات…" />
@@ -106,6 +115,11 @@ export function SettingsPage() {
   const memberships = teacher.memberships
   const activeId = getActiveTeacherId()
   const inOwnWorkspace = !activeId || activeId === ownId
+
+  // صفوف الفريق: أعضاء مربوطون بحساب فعلياً + دعوات بريد معلّقة (بلا حساب بعد)
+  const teamRows = membersQ.data ?? []
+  const teamMembers = teamRows.filter((m) => m.user_id != null)
+  const pendingInvites = teamRows.filter((m) => m.user_id == null && m.status === 'invited')
 
   const copyMyId = async () => {
     try {
@@ -217,6 +231,33 @@ export function SettingsPage() {
         },
         onError: (err) =>
           setInviteMsg(err instanceof Error ? err.message : 'تعذّرت إضافة المساعد.'),
+      },
+    )
+  }
+
+  const handleEmailInvite = (e: FormEvent) => {
+    e.preventDefault()
+    setEmailInviteMsg(null)
+    const email = normalizeInviteEmail(inviteEmail)
+    if (!INVITE_EMAIL_RE.test(email)) {
+      setEmailInviteMsg('صيغة البريد الإلكتروني غير صحيحة — اتأكد من البريد وحاول تاني.')
+      return
+    }
+    if (user?.email && email === normalizeInviteEmail(user.email)) {
+      setEmailInviteMsg('ده بريدك إنت — اكتب بريد المساعد.')
+      return
+    }
+    inviteByEmail.mutate(
+      { email, permissions: emailPerms },
+      {
+        onSuccess: () => {
+          setInviteEmail('')
+          setEmailInviteMsg(
+            'تم إنشاء الدعوة — لما المساعد ينشئ حسابه بنفس البريد (أو يسجّل دخول لو عنده حساب أصلاً) هينضم لفريقك تلقائياً بالصلاحيات دي، من غير ما يبعت لك أي معرّف.',
+          )
+        },
+        onError: (err) =>
+          setEmailInviteMsg(err instanceof Error ? err.message : 'تعذّرت إنشاء الدعوة.'),
       },
     )
   }
@@ -463,34 +504,132 @@ export function SettingsPage() {
         <Card>
           <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><Handshake size={22} className="text-primary" /> فريق العمل (المساعدون)</h2>
           <p className="text-muted text-[13.5px] mt-0 mb-3">
-            المساعد لازم يكون عنده حساب في التطبيق الأول. اطلب منه «معرّف الحساب» من
-            إعدادات حسابه والصقه هنا — هيتضاف لفريقك فوراً بالصلاحيات اللي تختارها.
-            البيانات المالية (فواتير/أرباح) محجوبة عن المساعدين في قاعدة البيانات نفسها.
+            طريقتان لإضافة مساعد: بالبريد الإلكتروني (الدعوة بتتفعّل تلقائياً لما
+            صاحب البريد يدخل التطبيق)، أو بمعرّف الحساب لو المساعد عنده حساب
+            أصلاً وعايز تضيفه فوراً. البيانات المالية (فواتير/أرباح) محجوبة عن
+            المساعدين في قاعدة البيانات نفسها.
           </p>
 
-          <form onSubmit={handleInvite} className="mb-4">
-            <Field label="بريد المساعد (لإرسال دعوة إنشاء الحساب)">
+          <div className="text-[13.5px] text-muted font-semibold mb-2">دعوة بالبريد الإلكتروني</div>
+          <form onSubmit={handleEmailInvite} className="mb-4">
+            <Field label="بريد المساعد">
               <TextInput
                 type="email"
                 dir="ltr"
                 placeholder="assistant@example.com"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
+                required
               />
             </Field>
-            {inviteEmail.includes('@') && (
+            {INVITE_EMAIL_RE.test(normalizeInviteEmail(inviteEmail)) && (
               <a
                 className="inline-flex items-center gap-1.5 min-h-[48px] text-primary text-[13.5px] font-semibold mb-3 -mt-1"
-                href={`mailto:${inviteEmail.trim()}?subject=${encodeURIComponent(
+                href={`mailto:${normalizeInviteEmail(inviteEmail)}?subject=${encodeURIComponent(
                   'دعوة للانضمام كمساعد في تطبيق المدرس',
                 )}&body=${encodeURIComponent(
-                  'أهلاً،\n\nبدعوك تنضم لفريقي كمساعد في تطبيق المدرس.\nالخطوات:\n1) أنشئ حساباً جديداً في التطبيق ببريدك وكلمة مرور.\n2) افتح «الإعدادات» في حسابك وانسخ «معرّف الحساب».\n3) ابعت لي المعرّف علشان أضيفك للفريق بصلاحياتك.\n\nشكراً لك.',
+                  'أهلاً،\n\nبدعوك تنضم لفريقي كمساعد في تطبيق المدرس.\nالخطوات:\n1) أنشئ حساباً جديداً في التطبيق بنفس البريد ده وكلمة مرور (أو سجّل دخول لو عندك حساب بنفس البريد).\n2) هتلاقي نفسك منضم لفريقي تلقائياً بصلاحياتك — مش محتاج تبعت أي معرّف.\n\nشكراً لك.',
                 )}`}
               >
                 <Mail size={18} />
-                إرسال الدعوة لبريد المساعد
+                إخطار المساعد بالبريد (اختياري)
               </a>
             )}
+            <div className="mb-3">
+              <div className="text-[13.5px] text-muted font-semibold mb-2">صلاحيات المساعد</div>
+              <div className="flex flex-wrap gap-2">
+                {Object.keys(PERMISSION_LABELS).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setEmailPerms((p) => ({ ...p, [key]: !p[key] }))}
+                    className={`px-3 min-h-[48px] rounded-full border text-[13.5px] font-semibold cursor-pointer ${
+                      emailPerms[key]
+                        ? 'bg-primary text-on-primary border-primary'
+                        : 'bg-card text-muted border-border'
+                    }`}
+                  >
+                    {PERMISSION_LABELS[key]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {emailInviteMsg && (
+              <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{emailInviteMsg}</p>
+            )}
+            <Button full type="submit" disabled={inviteByEmail.isPending}>
+              {inviteByEmail.isPending ? 'جارٍ إنشاء الدعوة…' : 'إرسال الدعوة'}
+            </Button>
+          </form>
+
+          {pendingInvites.length > 0 && (
+            <div className="mb-4">
+              <div className="text-[13.5px] text-muted font-semibold mb-2">
+                دعوات معلّقة ({pendingInvites.length}) — بتتفعّل تلقائياً عند دخول صاحب البريد
+              </div>
+              {pendingInvites.map((inv) => {
+                const invPerms = (inv.permissions ?? {}) as Record<string, unknown>
+                return (
+                  <div key={inv.id} className="border border-border rounded-xl p-3 mb-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold text-[15px] flex-1" dir="ltr" style={{ textAlign: 'start' }}>
+                        {inv.invited_email}
+                      </span>
+                      <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
+                        معلّقة
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {Object.keys(PERMISSION_LABELS)
+                        .filter((key) => invPerms[key] === true)
+                        .map((key) => (
+                          <span
+                            key={key}
+                            className="px-2 py-1 rounded-full border border-border bg-soft text-[12px] font-semibold"
+                          >
+                            {PERMISSION_LABELS[key]}
+                          </span>
+                        ))}
+                    </div>
+                    {confirmCancelId === inv.id ? (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="danger"
+                          className="flex-1 min-h-[48px] text-[13.5px]"
+                          disabled={cancelInvite.isPending}
+                          onClick={() =>
+                            cancelInvite.mutate(inv.id, {
+                              onSuccess: () => setConfirmCancelId(null),
+                            })
+                          }
+                        >
+                          أيوه، إلغاء الدعوة
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="flex-1 min-h-[48px] text-[13.5px]"
+                          onClick={() => setConfirmCancelId(null)}
+                        >
+                          تراجع
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        className="min-h-[48px] text-[13.5px] text-bad-text"
+                        onClick={() => setConfirmCancelId(inv.id)}
+                      >
+                        إلغاء الدعوة
+                      </Button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="text-[13.5px] text-muted font-semibold mb-2">إضافة بمعرّف الحساب</div>
+          <form onSubmit={handleInvite} className="mb-4">
             <Field label="معرّف حساب المساعد (UUID)">
               <TextInput
                 dir="ltr"
@@ -535,16 +674,20 @@ export function SettingsPage() {
               message={membersQ.error instanceof Error ? membersQ.error.message : 'خطأ غير معروف'}
               onRetry={() => void membersQ.refetch()}
             />
-          ) : (membersQ.data ?? []).length === 0 ? (
-            <EmptyState icon={Handshake} title="لا يوجد مساعدون بعد" hint="أضف أول مساعد بمعرّف حسابه من النموذج بالأعلى" />
+          ) : teamMembers.length === 0 ? (
+            <EmptyState icon={Handshake} title="لا يوجد مساعدون بعد" hint="أضف أول مساعد بالبريد أو بمعرّف حسابه من النماذج بالأعلى" />
           ) : (
-            (membersQ.data ?? []).map((m) => {
+            teamMembers.map((m) => {
               const memberPerms = (m.permissions ?? {}) as Record<string, unknown>
               return (
                 <div key={m.id} className="border border-border rounded-xl p-3 mb-2">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-bold text-[15px] flex-1">
-                      مساعد — <span dir="ltr">{shortId(m.user_id)}</span>
+                      {m.invited_email ? (
+                        <>مساعد — <span dir="ltr">{m.invited_email}</span></>
+                      ) : (
+                        <>مساعد — <span dir="ltr">{shortId(m.user_id ?? '')}</span></>
+                      )}
                     </span>
                     <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
                       {m.status === 'active' ? 'فعّال' : m.status === 'invited' ? 'مدعو' : 'موقوف'}

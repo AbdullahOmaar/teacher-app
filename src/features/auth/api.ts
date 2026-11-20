@@ -107,7 +107,8 @@ export async function signInDemo(): Promise<void> {
 const TEACHER_COLS = 'id, display_name, avatar_url, phone, created_at, updated_at'
 const SETTINGS_COLS =
   'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, last_export_at, created_at, updated_at'
-const MEMBER_COLS = 'id, teacher_id, user_id, role, permissions, status, created_at, updated_at'
+const MEMBER_COLS =
+  'id, teacher_id, user_id, invited_email, role, permissions, status, created_at, updated_at'
 
 export async function fetchOwnTeacher(userId: string): Promise<TeacherRow | null> {
   const { data, error } = await db()
@@ -175,15 +176,26 @@ export async function fetchTeacherSettings(teacherId: string): Promise<TeacherSe
 // ---------------------------------------------------------------------------
 // عضويات الفريق — teacher_members
 //
-// ملحوظة مخطط مهمة: الجدول لا يحتوي عمود بريد إلكتروني، وuser_id إلزامي
-// ومفتاح خارجي إلى auth.users. لذلك لا يمكن إنشاء «دعوة معلّقة» بالبريد
-// وحده قبل أن يكون للمساعد حساب Auth، ولا يستطيع عميل المتصفح (anon key)
-// تحويل بريد إلى معرّف مستخدم. آلية الدعوة المنفذة والمتوافقة مع RLS:
-// المساعد ينشئ حسابه أولاً، ويشارك «معرّف حسابه» الظاهر في إعداداته،
-// والمدرس يضيفه بهذا المعرّف فتُنشأ العضوية فعّالة مباشرة (status=active)
-// لأن سياسات المساعد تشترط active ولا توجد سياسة تسمح للمساعد بتفعيل
-// عضويته بنفسه. الصلاحيات الافتراضية = مفاتيح المخطط التشغيلية كلها
-// مفعّلة وcan_view_money مقفلة (المالية محجوبة عن المساعد في RLS أصلاً).
+// مساران متوازيان لإضافة مساعد، ولا يكسر أيٌّ منهما الآخر:
+//
+// أ) بالمعرّف (الأصلي من Phase 1): المساعد ينشئ حسابه أولاً، ويشارك
+//    «معرّف حسابه» الظاهر في إعداداته، والمدرس يضيفه بهذا المعرّف
+//    فتُنشأ العضوية فعّالة مباشرة (status=active) لأن سياسات المساعد
+//    تشترط active.
+//
+// ب) بالبريد (migration ‏0006): المدرس ينشئ صف «دعوة معلّقة»
+//    (invited_email مُطبَّع + user_id خالٍ + status=invited) حتى قبل أن
+//    يكون للمساعد حساب. الدعوة المعلّقة لا تمنح أي وصول (سياسات
+//    المساعد تشترط user_id = auth.uid() وstatus='active'). عند دخول
+//    صاحب البريد — بحساب قائم أو جديد — تدّعي دالة
+//    claim_teacher_invites (security definer، تطابق بريد JWT فقط)
+//    الدعوة تلقائياً: تربط user_id وتفعّل العضوية. الاستدعاء يحدث
+//    مرة واحدة لكل جلسة من مسار حلّ الهوية (useCurrentTeacher) ومن
+//    تسجيل حساب جديد (LoginPage) قبل إنشاء ملف مدرس خاص، حتى يهبط
+//    المساعد المدعو داخل حساب المدرس مباشرة.
+//
+// الصلاحيات الافتراضية = مفاتيح المخطط التشغيلية كلها مفعّلة
+// وcan_view_money مقفلة (المالية محجوبة عن المساعد في RLS أصلاً).
 // ---------------------------------------------------------------------------
 
 export const ASSISTANT_DEFAULT_PERMISSIONS: Record<string, boolean> = {
@@ -247,6 +259,112 @@ export async function inviteAssistant(
     throw new Error(translateDbError(error))
   }
   return data as unknown as TeacherMemberRow
+}
+
+// ---------------------------------------------------------------------------
+// الدعوة بالبريد — صفوف معلّقة (user_id خالٍ) يديرها المالك بسياسة
+// members_owner_all القائمة، والادعاء عبر RPC فقط.
+// ---------------------------------------------------------------------------
+
+/** صيغة بريد مقبولة — نفس نمط قيد القاعدة في 0006 تقريباً */
+export const INVITE_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** تطبيع بريد الدعوة كما تفرضه القاعدة: قصّ + أحرف صغيرة */
+export function normalizeInviteEmail(raw: string): string {
+  return raw.trim().toLowerCase()
+}
+
+/**
+ * إنشاء دعوة معلّقة ببريد المساعد. الفحوصات الودودة أولاً (بريد عضو
+ * قائم / دعوة معلّقة مكررة) برسائل عربية واضحة، والقيد الفريد الجزئي
+ * في القاعدة هو الضمان الأخير ضد السباقات (23505 يُترجم لنفس الرسالة).
+ */
+export async function inviteAssistantByEmail(
+  teacherId: string,
+  emailRaw: string,
+  permissions: Record<string, boolean>,
+): Promise<TeacherMemberRow> {
+  const email = normalizeInviteEmail(emailRaw)
+  if (!INVITE_EMAIL_RE.test(email)) {
+    throw new Error('صيغة البريد الإلكتروني غير صحيحة — اتأكد من البريد وحاول تاني.')
+  }
+
+  const { data: existing, error: exErr } = await db()
+    .from('teacher_members')
+    .select(MEMBER_COLS)
+    .eq('teacher_id', teacherId)
+    .eq('invited_email', email)
+  if (exErr) throw new Error(translateDbError(exErr))
+  const rows = (existing ?? []) as unknown as TeacherMemberRow[]
+  if (rows.some((r) => r.user_id != null)) {
+    throw new Error('المساعد ده عضو في فريقك بالفعل بالبريد ده.')
+  }
+  if (rows.some((r) => r.user_id == null && r.status === 'invited')) {
+    throw new Error(
+      'في دعوة معلّقة بالفعل للبريد ده — هتلاقيها في قائمة الدعوات المعلّقة تحت، وتقدر تلغيها وتدعو من جديد.',
+    )
+  }
+
+  const { data, error } = await db()
+    .from('teacher_members')
+    .insert({
+      teacher_id: teacherId,
+      user_id: null,
+      invited_email: email,
+      role: 'assistant',
+      permissions,
+      status: 'invited',
+    })
+    .select(MEMBER_COLS)
+    .single()
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('في دعوة معلّقة بالفعل للبريد ده عندك.')
+    }
+    throw new Error(translateDbError(error))
+  }
+  return data as unknown as TeacherMemberRow
+}
+
+/** إلغاء دعوة معلّقة — حذف صفها، بشرط إضافي أنها لم تُدّعَ بعد */
+export async function cancelTeamInvite(teacherId: string, inviteId: string): Promise<void> {
+  const { error } = await db()
+    .from('teacher_members')
+    .delete()
+    .eq('teacher_id', teacherId)
+    .eq('id', inviteId)
+    .is('user_id', null)
+  if (error) throw new Error(translateDbError(error))
+}
+
+export interface ClaimInvitesResult {
+  /** عدد الدعوات التي رُبطت وفُعّلت في هذا الاستدعاء */
+  claimed: number
+  /** دعوات فائضة حُذفت (عضو قائم أصلاً عند نفس المدرس) */
+  skipped_duplicates: number
+  teacher_ids: string[]
+}
+
+/**
+ * ادعاء دعوات البريد المعلّقة للمستخدم الحالي — RPC ‏claim_teacher_invites
+ * تطابق بريد JWT وحده (لا معاملات)، فهي آمنة للاستدعاء التلقائي عند كل
+ * حلّ هوية. آمنة التكرار: استدعاء بلا دعوات مطابقة يعيد claimed = 0.
+ */
+export async function claimTeacherInvites(): Promise<ClaimInvitesResult> {
+  const { data, error } = await db().rpc('claim_teacher_invites')
+  if (error) throw new Error(translateDbError(error))
+  const raw = (data ?? {}) as {
+    claimed?: unknown
+    skipped_duplicates?: unknown
+    teacher_ids?: unknown
+  }
+  return {
+    claimed: Number(raw.claimed) || 0,
+    skipped_duplicates: Number(raw.skipped_duplicates) || 0,
+    teacher_ids: Array.isArray(raw.teacher_ids)
+      ? raw.teacher_ids.filter((t): t is string => typeof t === 'string')
+      : [],
+  }
 }
 
 export async function updateMemberPermissions(

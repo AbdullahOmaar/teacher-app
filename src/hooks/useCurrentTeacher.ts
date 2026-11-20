@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthProvider'
 import { useActiveTeacherId } from '../lib/workspace'
+import { claimTeacherInvites } from '../features/auth/api'
 import type { TeacherMemberRow, TeacherRow } from '../types/database'
 
 export type TeacherResolution =
@@ -22,10 +23,20 @@ export type TeacherResolution =
     }
 
 const TEACHER_COLS = 'id, display_name, avatar_url, phone, created_at, updated_at'
-const MEMBER_COLS = 'id, teacher_id, user_id, role, permissions, status, created_at, updated_at'
+const MEMBER_COLS =
+  'id, teacher_id, user_id, invited_email, role, permissions, status, created_at, updated_at'
+
+/**
+ * مستخدمون جرت محاولة ادعاء دعواتهم في جلسة التطبيق هذه — الادعاء يُستدعى
+ * مرة واحدة لكل مستخدم (الدالة نفسها آمنة التكرار، فهذا مجرد توفير
+ * لطلب شبكة عند كل إعادة حلّ للهوية).
+ */
+const claimAttemptedFor = new Set<string>()
 
 /**
  * يحلّ «المدرس الحالي» من جلسة Supabase:
+ * 0) ادعاء أي دعوات بريد معلّقة ببريد المستخدم (مرة واحدة لكل جلسة)
+ *    حتى تُقرأ العضويات بعد تفعيلها مباشرة.
  * 1) صف teachers حيث id = معرّف المستخدم (المدرس المالك).
  * 2) عضويات teacher_members الفعّالة (مساعد) — تُستخدم عند اختيار مساحة
  *    عمل مدرس آخر من الإعدادات (انظر lib/workspace).
@@ -52,6 +63,19 @@ export function useCurrentTeacher(): TeacherResolution {
     } | null> => {
       const db = supabase!
       const uid = user!.id
+
+      // ادعاء دعوات البريد المعلّقة (migration ‏0006) قبل قراءة العضويات:
+      // دعوة ببريد هذا المستخدم تتحول لعضوية فعّالة هنا، فتظهر في حلّ
+      // الهوية نفسه ويدخل المساعد حساب المدرس بلا أي خطوة يدوية.
+      // فشل الادعاء (شبكة/خادم) لا يكسر الحلّ — نكمل بالحالة الحالية.
+      if (!claimAttemptedFor.has(uid)) {
+        claimAttemptedFor.add(uid)
+        try {
+          await claimTeacherInvites()
+        } catch {
+          // تجاهل متعمّد: المحاولة التالية عند دخول جديد
+        }
+      }
 
       const { data: own, error: ownErr } = await db
         .from('teachers')

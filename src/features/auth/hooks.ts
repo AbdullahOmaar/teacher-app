@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  cancelTeamInvite,
   fetchMyMemberships,
   fetchTeamMembers,
   inviteAssistant,
+  inviteAssistantByEmail,
   removeTeamMember,
   updateMemberPermissions,
   updateOwnTeacherProfile,
@@ -44,6 +46,28 @@ export function useInviteAssistant(teacherId: string) {
       assistantUserId: string
       permissions: Record<string, boolean>
     }) => inviteAssistant(teacherId, assistantUserId, permissions),
+    onSuccess: invalidate,
+  })
+}
+
+export function useInviteAssistantByEmail(teacherId: string) {
+  const invalidate = useInvalidateTeam()
+  return useMutation({
+    mutationFn: ({
+      email,
+      permissions,
+    }: {
+      email: string
+      permissions: Record<string, boolean>
+    }) => inviteAssistantByEmail(teacherId, email, permissions),
+    onSuccess: invalidate,
+  })
+}
+
+export function useCancelTeamInvite(teacherId: string) {
+  const invalidate = useInvalidateTeam()
+  return useMutation({
+    mutationFn: (inviteId: string) => cancelTeamInvite(teacherId, inviteId),
     onSuccess: invalidate,
   })
 }
