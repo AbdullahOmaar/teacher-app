@@ -18,7 +18,9 @@ import { AttendanceSyncBridge } from '../../features/attendance/SyncBridge'
 import { LoadingState } from '../ui/states'
 import { Logo } from '../brand/Logo'
 
-/** عناوين الشاشات الـ16 (من جدول titles في المرجع) */
+/** عناوين الشاشات (من جدول titles في المرجع + شاشات المراحل اللاحقة:
+    التحليلات والواجبات وسجل النشاط — عناوينها بنفس صياغة قائمة «المزيد»
+    وعناوينها الداخلية حرفياً) */
 const TITLES: Record<string, string> = {
   home: 'الرئيسية',
   att: 'الحضور',
@@ -38,6 +40,9 @@ const TITLES: Record<string, string> = {
   settings: 'الإعدادات',
   portal: 'بوابة ولي الأمر',
   atrisk: 'معرّضون للفقد',
+  analytics: 'التحليلات',
+  homework: 'متابعة الواجبات',
+  activity: 'سجل النشاط',
 }
 
 type TabKey = 'home' | 'students' | 'invoices' | 'more'
@@ -63,6 +68,9 @@ function resolveRoute(pathname: string): { screen: string; tab: TabKey } {
   if (pathname.startsWith('/assessments/')) return { screen: 'assess', tab: 'more' }
   if (pathname.startsWith('/grades')) return { screen: 'grades', tab: 'more' }
   if (pathname.startsWith('/money')) return { screen: 'money', tab: 'more' }
+  if (pathname.startsWith('/analytics')) return { screen: 'analytics', tab: 'more' }
+  if (pathname.startsWith('/homework')) return { screen: 'homework', tab: 'more' }
+  if (pathname.startsWith('/activity-log')) return { screen: 'activity', tab: 'more' }
   if (pathname.startsWith('/export')) return { screen: 'export', tab: 'more' }
   if (pathname.startsWith('/backup')) return { screen: 'backup', tab: 'more' }
   if (pathname.startsWith('/settings')) return { screen: 'settings', tab: 'more' }
