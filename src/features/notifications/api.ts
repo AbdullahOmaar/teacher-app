@@ -114,6 +114,15 @@ export const SECTION_META: Record<AlertKind, { title: string }> = {
 export const ABSENCE_WINDOW_DAYS = 30
 export const ABSENCE_THRESHOLD = 3
 
+/**
+ * باقي باقة طالب (§5.7): prepaid_sessions − مرات الحضور الفعلي (p/l/m)،
+ * بحد أدنى صفر. تعريف حسابي مالي ثابت — موجة W4 (بحث R-7) غيّرت فقط متى
+ * وكيف يُعرَض تنبيهه، لا هذا الحساب.
+ */
+export function prepaidLeft(prepaidSessions: number, usedCount: number): number {
+  return Math.max(0, prepaidSessions - usedCount)
+}
+
 /** نص «تذكير عام» (§3.13: نص تذكير مهذب جاهز للنسخ — المرجع لا يقتبسه حرفياً) */
 export const GENERIC_REMINDER_TEXT =
   'أهلاً وسهلاً، نذكّركم بوجود اشتراك مستحق لم يُسدّد بعد. برجاء السداد في أقرب وقت ممكن، وشكراً لتعاونكم.'
@@ -297,7 +306,7 @@ export async function fetchAlerts(
         rows.map((r) => r.student_id),
       )
       for (const r of rows) {
-        const left = Math.max(0, r.prepaid_sessions - (used.get(`${r.student_id}|${r.group_id}`) ?? 0))
+        const left = prepaidLeft(r.prepaid_sessions, used.get(`${r.student_id}|${r.group_id}`) ?? 0)
         if (left <= 1) {
           const groupName = r.groups?.name ?? 'مجموعة'
           const st: ContactStudent = {

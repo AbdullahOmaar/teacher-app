@@ -81,7 +81,7 @@ export interface AtRiskStudent {
 }
 
 /** «4 حصص» / «12 حصة» — جمع عربي بسيط لأعداد الحصص */
-function sessionsWord(n: number): string {
+export function sessionsWord(n: number): string {
   return n >= 3 && n <= 10 ? `${n} حصص` : `${n} حصة`
 }
 
@@ -103,6 +103,108 @@ function monthDiff(fromMonthStart: string, toMonthStart: string): number {
 function nextMonthStartTs(monthStart: string): number {
   const [y, m] = monthStart.split('-').map(Number)
   return new Date(y, m, 1).getTime()
+}
+
+// ---------------------------------------------------------------------------
+// الاشتقاقات النقية (موجة W2 — مستخرجة حرفياً من fetchAtRisk حتى تُختبَر
+// قواعد الخطر بلا قاعدة بيانات؛ الجلب يمرّر لها البيانات جاهزة)
+// ---------------------------------------------------------------------------
+
+export interface SessionMarkInput {
+  /** ميعاد بداية الحصة (epoch ms) */
+  at: number
+  /** حالة الحضور المسجلة للطالب — null/undefined = غير مُعلَّمة (تُتخطّى ولا تكسر) */
+  mark: string | null | undefined
+}
+
+/**
+ * سلسلة الغياب المتتالي لحصص مرتبة بترتيبها الفعلي (الأقدم ← الأحدث):
+ * نمشي من الأحدث للأقدم، نتخطى غير المُعلَّمة، ونقف عند أول حالة غير
+ * غياب. lastAbsenceAt = ميعاد أحدث غياب في السلسلة (0 بلا سلسلة).
+ */
+export function absenceStreakOf(sessions: SessionMarkInput[]): {
+  streak: number
+  lastAbsenceAt: number
+} {
+  let streak = 0
+  let lastAbsenceAt = 0
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    const { mark, at } = sessions[i]
+    if (mark == null) continue // غير مُعلَّمة له — تُتخطّى ولا تكسر
+    if (mark !== 'a') break
+    streak += 1
+    if (lastAbsenceAt === 0) lastAbsenceAt = at
+  }
+  return { streak, lastAbsenceAt }
+}
+
+export interface OverdueBalanceInput {
+  invoice_id: string
+  period_month: string
+  balance: number | string
+}
+
+export interface OverdueDerivation {
+  monthsSpan: number
+  amount: number
+  eventAt: number
+}
+
+/**
+ * اشتقاق سبب المتأخرات لطالب واحد من صفوف أرصدته المتأخرة (الفواتير ذات
+ * period_month قبل الشهر الحالي فقط — الترشيح يحدث عند الجلب): الامتداد
+ * = عدد الشهور من أقدم شهر متأخر حتى الشهر الحالي شاملاً الطرفين، وتحت
+ * عتبة OVERDUE_SPAN_THRESHOLD يرجع null (لا سبب). eventAt = أحدث لحظة
+ * «أصبح فيها جزء من الرصيد متأخراً» (إنشاء فاتورة أو بداية شهر تأخرها).
+ */
+export function overdueDerivationOf(
+  rows: OverdueBalanceInput[],
+  createdByInvoiceId: Map<string, number>,
+  currentMonth: string,
+): OverdueDerivation | null {
+  if (rows.length === 0) return null
+  const oldest = rows.reduce(
+    (min, r) => (r.period_month < min ? r.period_month : min),
+    rows[0].period_month,
+  )
+  const span = monthDiff(oldest, currentMonth) + 1
+  if (span < OVERDUE_SPAN_THRESHOLD) return null
+  const amount = rows.reduce((sum, r) => sum + (Number(r.balance) || 0), 0)
+  const eventAt = Math.max(
+    ...rows.map((r) =>
+      Math.max(createdByInvoiceId.get(r.invoice_id) ?? 0, nextMonthStartTs(r.period_month)),
+    ),
+  )
+  return { monthsSpan: span, amount, eventAt }
+}
+
+/**
+ * هل تُخفي «آخر متابعة» الطالب؟ نعم فقط إن كانت أحدث من كل أحداث خطره
+ * الحالية — حدث أجدد واحد (غياب أحدث أو فاتورة أجدد) يعيد إظهاره.
+ */
+export function hiddenByFollowup(
+  eventAts: number[],
+  followedAt: number | null | undefined,
+): boolean {
+  return followedAt != null && eventAts.every((at) => at <= followedAt)
+}
+
+/** مفاتيح ترتيب قائمة المعرّضين (انظر ترويسة الوحدة) */
+export interface AtRiskSortKey {
+  reasonsCount: number
+  absenceStreak: number
+  overdueAmount: number
+  name: string
+}
+
+/** الترتيب: عدد الأسباب أكثر أولاً، ثم الغياب الأطول، ثم المتأخرات الأكبر، ثم الاسم */
+export function compareAtRisk(a: AtRiskSortKey, b: AtRiskSortKey): number {
+  return (
+    b.reasonsCount - a.reasonsCount ||
+    b.absenceStreak - a.absenceStreak ||
+    b.overdueAmount - a.overdueAmount ||
+    a.name.localeCompare(b.name, 'ar')
+  )
 }
 
 const STUDENT_COLS = 'id, name, public_code, phone, guardian_name, guardian_phone'
@@ -187,24 +289,16 @@ export async function fetchAtRisk(
       for (const row of (attData ?? []) as { session_id: string; student_id: string; status: string }[]) {
         markBySessionStudent.set(`${row.session_id}|${row.student_id}`, row.status)
       }
-      // لكل (طالب، مجموعة): امشِ من الأحدث للأقدم وعدّ الغيابات المتتالية
+      // لكل (طالب، مجموعة): سلسلة الغياب من الاشتقاق النقي absenceStreakOf
       for (const st of students) {
         for (const groupId of groupsByStudent.get(st.id) ?? []) {
           const groupSessions = sessionsByGroup.get(groupId) ?? []
-          let streak = 0
-          let lastAbsenceAt = 0
-          for (let i = groupSessions.length - 1; i >= 0; i--) {
-            const sess = groupSessions[i]
-            const mark = markBySessionStudent.get(`${sess.id}|${st.id}`)
-            if (mark == null) continue // غير مُعلَّمة له — تُتخطّى ولا تكسر
-            if (mark !== 'a') break
-            streak += 1
-            if (lastAbsenceAt === 0) {
-              lastAbsenceAt = new Date(
-                `${sess.session_date}T${sess.start_time.slice(0, 8)}`,
-              ).getTime()
-            }
-          }
+          const { streak, lastAbsenceAt } = absenceStreakOf(
+            groupSessions.map((sess) => ({
+              at: new Date(`${sess.session_date}T${sess.start_time.slice(0, 8)}`).getTime(),
+              mark: markBySessionStudent.get(`${sess.id}|${st.id}`),
+            })),
+          )
           if (streak >= ABSENCE_STREAK_THRESHOLD) {
             const prev = absenceReasonByStudent.get(st.id)
             if (!prev || streak > prev.streak) {
@@ -260,24 +354,14 @@ export async function fetchAtRisk(
       }
       for (const [studentId, rows] of byStudent) {
         if (!studentById.has(studentId)) continue // طالب موقوف — خارج النطاق
-        const oldest = rows.reduce(
-          (min, r) => (r.period_month < min ? r.period_month : min),
-          rows[0].period_month,
-        )
-        const span = monthDiff(oldest, currentMonth) + 1
-        if (span < OVERDUE_SPAN_THRESHOLD) continue
-        const amount = rows.reduce((sum, r) => sum + (Number(r.balance) || 0), 0)
-        const eventAt = Math.max(
-          ...rows.map((r) =>
-            Math.max(createdById.get(r.invoice_id) ?? 0, nextMonthStartTs(r.period_month)),
-          ),
-        )
+        const derived = overdueDerivationOf(rows, createdById, currentMonth)
+        if (!derived) continue
         overdueReasonByStudent.set(studentId, {
           kind: 'overdue',
-          text: `متأخر ${monthsSpanWord(span)} — ${formatMoney(amount)}`,
-          monthsSpan: span,
-          amount,
-          eventAt,
+          text: `متأخر ${monthsSpanWord(derived.monthsSpan)} — ${formatMoney(derived.amount)}`,
+          monthsSpan: derived.monthsSpan,
+          amount: derived.amount,
+          eventAt: derived.eventAt,
         })
       }
     }
@@ -314,7 +398,7 @@ export async function fetchAtRisk(
     if (ovd) reasons.push(ovd)
     const followedAt = lastFollowByStudent.get(id)
     // مخفي فقط إن كانت المتابعة أحدث من كل أحداث الخطر الحالية
-    if (followedAt != null && reasons.every((r) => r.eventAt <= followedAt)) continue
+    if (hiddenByFollowup(reasons.map((r) => r.eventAt), followedAt)) continue
     visibleIds.push(id)
     reasonsByStudent.set(id, reasons)
   }
@@ -331,12 +415,21 @@ export async function fetchAtRisk(
       contact: contacts.get(id),
     }
   })
-  result.sort(
-    (a, b) =>
-      b.reasons.length - a.reasons.length ||
-      b.absenceStreak - a.absenceStreak ||
-      b.overdueAmount - a.overdueAmount ||
-      a.student.name.localeCompare(b.student.name, 'ar'),
+  result.sort((a, b) =>
+    compareAtRisk(
+      {
+        reasonsCount: a.reasons.length,
+        absenceStreak: a.absenceStreak,
+        overdueAmount: a.overdueAmount,
+        name: a.student.name,
+      },
+      {
+        reasonsCount: b.reasons.length,
+        absenceStreak: b.absenceStreak,
+        overdueAmount: b.overdueAmount,
+        name: b.student.name,
+      },
+    ),
   )
   return result
 }
