@@ -69,6 +69,11 @@ const PortalPage = lazy(() =>
 const ExamPage = lazy(() =>
   import('./features/exams/ExamPage').then((m) => ({ default: m.ExamPage })),
 )
+const StudentPortalPage = lazy(() =>
+  import('./features/student-portal/StudentPortalPage').then((m) => ({
+    default: m.StudentPortalPage,
+  })),
+)
 const PortalManagePage = lazy(() =>
   import('./features/portal/PortalManagePage').then((m) => ({ default: m.PortalManagePage })),
 )
@@ -131,6 +136,16 @@ export default function App() {
               element={
                 <LazyRoute>
                   <ExamPage />
+                </LazyRoute>
+              }
+            />
+            {/* بوابة الطالب: صفحة عامة بلا جلسة — الاعتماد هو رابط
+                الطالب الموقّع (?t=) وحده عبر RPC قراءة فقط */}
+            <Route
+              path="/student-portal"
+              element={
+                <LazyRoute>
+                  <StudentPortalPage />
                 </LazyRoute>
               }
             />

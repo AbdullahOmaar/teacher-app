@@ -138,7 +138,7 @@ export function BackupPage() {
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><Download size={22} className="text-primary" /> عمل نسخة احتياطية الآن</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
           ملف JSON واحد فيه: {BACKUP_TABLES.map((t) => t.label).join('، ')}، وإعدادات المدرس.
-          مش داخل في النسخة: فريق المساعدين وروابط بوابة ولي الأمر (بتتعمل من جديد عند الحاجة) —
+          مش داخل في النسخة: فريق المساعدين وروابط بوابة ولي الأمر وبوابة الطالب والامتحانات الإلكترونية (بتتعمل من جديد عند الحاجة) —
           وبياناتك محفوظة سحابياً أصلاً، النسخة دي طبقة أمان إضافية في إيدك.
         </p>
         <p className="text-muted text-[13.5px] mt-0 mb-3">

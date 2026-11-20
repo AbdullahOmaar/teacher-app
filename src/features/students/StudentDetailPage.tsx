@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
-import { Archive, ArchiveRestore, Construction, IdCard, Link2, Lock, MessageCircle, Pencil, Phone, Trash2, TriangleAlert, UserRoundX, Users } from 'lucide-react'
+import { Archive, ArchiveRestore, Construction, GraduationCap, IdCard, Link2, Lock, MessageCircle, Pencil, Phone, Trash2, TriangleAlert, UserRoundX, Users } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { DangerConfirmSheet } from '../../components/ui/DangerConfirmSheet'
 import { useToast } from '../../components/ui/toast'
@@ -27,6 +27,7 @@ import { StudentFormSheet } from './StudentFormSheet'
 import { StudentCardSheet } from './StudentCardSheet'
 import { EnrollStudentSheet } from './EnrollStudentSheet'
 import { PortalLinkSheet } from '../portal/PortalLinkSheet'
+import { StudentPortalLinkSheet } from '../student-portal/StudentPortalLinkSheet'
 
 type TabKey = 'data' | 'groups' | 'att' | 'pay' | 'grades' | 'notes'
 
@@ -68,6 +69,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
   const [cardOpen, setCardOpen] = useState(false)
   const [enrollOpen, setEnrollOpen] = useState(false)
   const [portalOpen, setPortalOpen] = useState(false)
+  const [studentPortalOpen, setStudentPortalOpen] = useState(false)
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -198,6 +200,10 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
           <Button variant="soft" onClick={() => setPortalOpen(true)}>
             <Link2 size={20} />
             رابط ولي الأمر
+          </Button>
+          <Button variant="soft" onClick={() => setStudentPortalOpen(true)}>
+            <GraduationCap size={20} />
+            رابط بوابة الطالب
           </Button>
           <Button variant="ghost" onClick={() => setEditOpen(true)}>
             <Pencil size={20} />
@@ -401,6 +407,13 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
           teacherId={teacher.teacherId}
           student={student}
           onClose={() => setPortalOpen(false)}
+        />
+      )}
+      {studentPortalOpen && (
+        <StudentPortalLinkSheet
+          teacherId={teacher.teacherId}
+          student={student}
+          onClose={() => setStudentPortalOpen(false)}
         />
       )}
       {enrollOpen && (

@@ -156,6 +156,22 @@ export interface GuardianAccessTokenRow {
   created_at: string
 }
 
+/**
+ * رابط وصول موقّع لبوابة الطالب — جدول student_access_tokens (migration ‏0011) حرفياً.
+ * منفصل تماماً عن روابط ولي الأمر والامتحانات. token_hash موجود في الجدول
+ * (SHA-256 hex) لكنه لا يُقرأ للعميل أبداً: القائمة هنا بلا عمود الهاش،
+ * والهاش يُكتب عند الإنشاء فقط.
+ */
+export interface StudentAccessTokenRow {
+  id: string
+  teacher_id: string
+  student_id: string
+  expires_at: string
+  revoked_at: string | null
+  last_used_at: string | null
+  created_at: string
+}
+
 /** صف من view ‏student_balances — الرصيد محسوب دائماً، لا مخزّن */
 export interface StudentBalanceRow {
   teacher_id: string
