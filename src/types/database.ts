@@ -13,6 +13,11 @@ export type BillingType =
 export type MemberRole = 'owner' | 'assistant'
 export type MemberStatus = 'invited' | 'active' | 'suspended'
 
+export type AttendanceStatus = 'p' | 'a' | 'l' | 'm'
+export type SessionKind = 'regular' | 'extra' | 'moved'
+export type SessionStatus = 'scheduled' | 'cancelled'
+export type PaymentMethod = 'cash' | 'vodafone_cash' | 'instapay' | 'bank_transfer'
+
 export interface TeacherRow {
   id: string
   display_name: string
@@ -129,6 +134,58 @@ export interface StudentBalanceRow {
   teacher_id: string
   student_id: string
   balance: number
+}
+
+export interface SessionRow {
+  id: string
+  teacher_id: string
+  group_id: string
+  session_date: string // 'YYYY-MM-DD'
+  start_time: string // "HH:MM:SS" من Postgres
+  duration_minutes: number
+  kind: SessionKind
+  status: SessionStatus
+  origin_session_id: string | null
+  note: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AttendanceRow {
+  teacher_id: string
+  session_id: string
+  student_id: string
+  status: AttendanceStatus | null // null = لم يُسجّل بعد
+  homework_done: boolean
+  starred: boolean
+  created_at: string
+  updated_at: string
+}
+
+/** صف من view ‏invoice_balances — الإجمالي/المدفوع/المتبقي محسوب دائماً */
+export interface InvoiceBalanceRow {
+  invoice_id: string
+  teacher_id: string
+  student_id: string
+  group_id: string
+  period_month: string // أول يوم في الشهر 'YYYY-MM-DD'
+  total: number
+  paid: number
+  balance: number
+  is_paid: boolean
+}
+
+export interface PaymentRow {
+  id: string
+  teacher_id: string
+  invoice_id: string
+  amount: number // سالب = دفعة عكسية
+  method: PaymentMethod
+  paid_on: string // 'YYYY-MM-DD'
+  receipt_no: string
+  reverses_payment_id: string | null
+  voided: boolean
+  created_at: string
 }
 
 /** حقول إنشاء/تعديل طالب (public_code يُترك فارغاً عند الإنشاء فيولّده الـ trigger) */
