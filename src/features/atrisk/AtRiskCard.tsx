@@ -4,6 +4,7 @@ import { Card } from '../../components/ui/Card'
 import { Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { useAtRisk } from './hooks'
+import { t } from '../../i18n'
 
 /**
  * بطاقة «معرّضون للفقد» في الرئيسية (Phase 5 / خطوة 1): تظهر فقط عند
@@ -40,10 +41,10 @@ export function AtRiskCard() {
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <span className="font-bold text-[15px] flex items-center gap-2">
             <TriangleAlert size={20} className="text-warn-text" />
-            معرّضون للفقد
+            {t('atrisk.cardTitle')}
           </span>
           <span className="shrink-0 text-[13px] font-extrabold bg-warn/15 text-warn-text rounded-full px-2.5 py-0.5">
-            {items.length} طالب
+            {t('atrisk.cardCount', { count: items.length })}
           </span>
         </div>
         {items.slice(0, 2).map((item) => (
@@ -56,7 +57,7 @@ export function AtRiskCard() {
           </div>
         ))}
         <p className="text-muted text-[12px] mt-1.5 mb-0">
-          تابعهم بدري — طالب بيكمل معاك أرخص بكتير من طالب جديد.
+          {t('atrisk.cardHint')}
         </p>
       </Card>
     </Link>

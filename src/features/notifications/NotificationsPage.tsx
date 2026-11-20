@@ -345,7 +345,7 @@ export function NotificationsPage() {
         </>
       ) : alertsQ.isError ? (
         <ErrorState
-          message={alertsQ.error instanceof Error ? alertsQ.error.message : t('notifications.page.unknownError')}
+          message={alertsQ.error instanceof Error ? alertsQ.error.message : t('common.unknownError')}
           onRetry={() => void alertsQ.refetch()}
         />
       ) : alerts.length === 0 ? (

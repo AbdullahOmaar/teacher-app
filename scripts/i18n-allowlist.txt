@@ -6,7 +6,6 @@ src/components/brand/Logo.tsx
 src/components/ui/Avatar.tsx
 src/components/ui/DangerConfirmSheet.tsx
 src/features/activity/ActivityLogPage.tsx
-src/features/analytics/AnalyticsPage.tsx
 src/features/analytics/charts.tsx
 src/features/atrisk/AtRiskPage.tsx
 src/features/attendance/AttendancePage.tsx
@@ -27,7 +26,6 @@ src/features/grades/sheets.tsx
 src/features/groups/GroupDetailPage.tsx
 src/features/groups/GroupFormSheet.tsx
 src/features/groups/GroupsPage.tsx
-src/features/home/HomePage.tsx
 src/features/homework/HomeworkPage.tsx
 src/features/invoices/InvoiceDetailPage.tsx
 src/features/invoices/InvoicesPage.tsx

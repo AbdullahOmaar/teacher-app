@@ -50,7 +50,6 @@ export const notifications = {
     showLess: 'عرض أقل',
     showAll: 'عرض الكل ({count})',
     copyUnavailable: 'النسخ مش متاح في المتصفح ده',
-    unknownError: 'خطأ غير معروف',
     emptyTitle: 'مفيش أي تنبيهات حالياً',
     emptyHint:
       'كل حاجة تمام: الحضور متسجل، ومفيش متأخرات ولا باقات بتنفد ولا درجات منخفضة تحتاج متابعة.',

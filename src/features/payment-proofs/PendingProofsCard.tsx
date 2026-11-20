@@ -6,6 +6,7 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import { usePendingProofs } from './hooks'
+import { t } from '../../i18n'
 
 /** تاريخ رفع الإثبات بصيغة محلية مختصرة (يوم/شهر/سنة) */
 function proofDate(iso: string): string {
@@ -48,10 +49,10 @@ export function PendingProofsCard() {
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <span className="font-bold text-[15px] flex items-center gap-2">
             <SearchCheck size={20} className="text-primary" />
-            إثباتات دفع معلّقة
+            {t('home.proofs.title')}
           </span>
           <span className="shrink-0 text-[13px] font-extrabold bg-bad/15 text-bad-text rounded-full px-2.5 py-0.5">
-            {proofs.length} إثبات
+            {t('home.proofs.count', { count: proofs.length })}
           </span>
         </div>
         {proofs.slice(0, 2).map((p) => (
@@ -67,8 +68,7 @@ export function PendingProofsCard() {
           </div>
         ))}
         <p className="text-muted text-[12px] mt-1.5 mb-0">
-          أقدم إثبات في المقدمة — راجع واعتمد من صفحة الفواتير، والاعتماد
-          بيسجّل دفعة حقيقية بإيصال.
+          {t('home.proofs.hint')}
         </p>
       </Card>
     </Link>

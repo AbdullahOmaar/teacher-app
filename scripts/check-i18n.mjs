@@ -51,7 +51,19 @@ function flaggedLines(file) {
       }
       if (!ARABIC.test(code)) return
       // نص ظاهر محتمل: داخل اقتباس/قالب أو نص JSX مباشر أو «اقتباس عربي»
-      if (/['"`«]/.test(code) || />[^<]*[\u0600-\u06FF]/.test(code)) hits.push(i + 1)
+      if (/['"`«]/.test(code) || />[^<]*[\u0600-\u06FF]/.test(code)) {
+        hits.push(i + 1)
+        return
+      }
+      // سطر نص JSX مستقل (بلا أي رموز كود): نص ظاهر على سطر وحده
+      const trimmed = code.trim()
+      if (
+        trimmed.length > 0 &&
+        !/[=<>{}();]/.test(trimmed) &&
+        !/^(return|const|let|var|import|export|if|else|case|break|type|interface)\b/.test(trimmed)
+      ) {
+        hits.push(i + 1)
+      }
     })
   return hits
 }

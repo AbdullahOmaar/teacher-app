@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { t } from '../../i18n'
 import { formatMoney, waLink } from '../../lib/format'
 import {
   fetchGuardianContacts,
@@ -82,14 +83,14 @@ export interface AtRiskStudent {
 
 /** «4 حصص» / «12 حصة» — جمع عربي بسيط لأعداد الحصص */
 export function sessionsWord(n: number): string {
-  return n >= 3 && n <= 10 ? `${n} حصص` : `${n} حصة`
+  // صيغ CLDR من القاموس (W7): few = 3–10 «حصص»، وغيرها «حصة»
+  return t('atrisk.sessions', { count: n })
 }
 
 /** «شهرين» / «3 شهور» / «12 شهراً» — امتداد المتأخرات بالشهور */
 export function monthsSpanWord(n: number): string {
-  if (n === 2) return 'شهرين'
-  if (n >= 3 && n <= 10) return `${n} شهور`
-  return `${n} شهراً`
+  // صيغ CLDR من القاموس (W7): two «شهرين»، few «شهور»، وغيرها «شهراً»
+  return t('atrisk.monthsSpan', { count: n })
 }
 
 /** فرق الشهور بين شهري 'YYYY-MM-DD' (أولهما) — بلا أيام */
@@ -304,7 +305,7 @@ export async function fetchAtRisk(
             if (!prev || streak > prev.streak) {
               absenceReasonByStudent.set(st.id, {
                 kind: 'absence',
-                text: `غائب ${sessionsWord(streak)} متتالية`,
+                text: t('atrisk.reasonAbsence', { sessions: sessionsWord(streak) }),
                 streak,
                 groupName: groupNameById.get(groupId) ?? 'مجموعته',
                 eventAt: lastAbsenceAt,
@@ -358,7 +359,7 @@ export async function fetchAtRisk(
         if (!derived) continue
         overdueReasonByStudent.set(studentId, {
           kind: 'overdue',
-          text: `متأخر ${monthsSpanWord(derived.monthsSpan)} — ${formatMoney(derived.amount)}`,
+          text: t('atrisk.reasonOverdue', { span: monthsSpanWord(derived.monthsSpan), amount: formatMoney(derived.amount) }),
           monthsSpan: derived.monthsSpan,
           amount: derived.amount,
           eventAt: derived.eventAt,

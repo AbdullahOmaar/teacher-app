@@ -13,6 +13,7 @@ export const common = {
   noTeacherTitle: 'لا يوجد ملف مدرس مرتبط بحسابك',
   noTeacherBody:
     'حسابك مسجل دخوله، لكن لسه ما اتعملّوش ملف مدرس (أو عضوية فريق) في قاعدة البيانات.',
+  unknownError: 'خطأ غير معروف',
   filter: 'تصفية',
   filterAdvanced: 'تصفية متقدمة',
   close: 'إغلاق',

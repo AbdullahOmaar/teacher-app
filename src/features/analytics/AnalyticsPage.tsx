@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '../../i18n'
 import { Link } from 'react-router-dom'
 import { ChartColumn, Lock, Sparkles, TrendingDown, TrendingUp, UserX, Wallet } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
@@ -17,9 +18,9 @@ import { useAnalytics } from './hooks'
 import { AttendanceChart, CollectedChart, GrowthChart, OverdueChart } from './charts'
 
 const RANGES: { value: AnalyticsRange; label: string }[] = [
-  { value: 3, label: '3 شهور' },
-  { value: 6, label: '6 شهور' },
-  { value: 12, label: '12 شهر' },
+  { value: 3, label: t('analytics.range3') },
+  { value: 6, label: t('analytics.range6') },
+  { value: 12, label: t('analytics.range12') },
 ]
 
 function Kpi({
@@ -59,7 +60,7 @@ function ChartCard({
   )
 }
 
-/** صف رؤية واحدة داخل بطاقة «أهم 3 رؤى» — برابط حفر مباشر لوجهتها */
+/** صف رؤية واحدة داخل بطاقة «{t('analytics.insightsTitle')}» — برابط حفر مباشر لوجهتها */
 function InsightRow({
   icon: Icon,
   children,
@@ -110,10 +111,9 @@ export function AnalyticsPage() {
         <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
           <Lock size={28} />
         </div>
-        <div className="type-section mb-1">التحليلات للمالك فقط</div>
+        <div className="type-section mb-1">{t('analytics.ownerOnlyTitle')}</div>
         <p className="text-muted text-[13.5px] mb-0">
-          حساب المساعد لا يملك صلاحية مالية — التحليلات تعرض التحصيل والمتأخرات، وهي أقسام
-          محجوبة عن المساعد كما في شاشة المصروفات والأرباح.
+          {t('analytics.ownerOnlyBody')}
         </p>
       </Card>
     )
@@ -124,7 +124,7 @@ export function AnalyticsPage() {
   return (
     <div className="flex flex-col gap-3">
       {/* اختيار المدى */}
-      <div className="flex gap-2" role="group" aria-label="مدى التحليلات">
+      <div className="flex gap-2" role="group" aria-label={t('analytics.rangeAria')}>
         {RANGES.map((r) => (
           <button
             key={r.value}
@@ -146,20 +146,20 @@ export function AnalyticsPage() {
         <LoadingState />
       ) : analyticsQ.isError ? (
         <ErrorState
-          message={analyticsQ.error?.message ?? 'مشكلة غير معروفة'}
+          message={analyticsQ.error?.message ?? t('analytics.errorUnknown')}
           onRetry={() => void analyticsQ.refetch()}
         />
       ) : data && !data.hasAnyData ? (
         <Card className="p-0">
           <EmptyState
             icon={ChartColumn}
-            title="لسه مفيش بيانات للتحليل"
-            hint="أول ما تضيف طلاب وتسجّل حضور ودفعات، هتظهر هنا رسوم التحصيل والحضور والمتأخرات ونمو الطلاب."
+            title={t('analytics.emptyTitle')}
+            hint={t('analytics.emptyHint')}
           />
         </Card>
       ) : data ? (
         <>
-          {/* أهم 3 رؤى (W5 — R-14): حتمية من نفس البيانات، فوق الرسوم،
+          {/* {t('analytics.insightsTitle')} (W5 — R-14): حتمية من نفس البيانات، فوق الرسوم،
               كل رؤية برابط حفر لوجهة الإجراء */}
           {(data.insights.topOverdueGroup ||
             data.insights.biggestCollectionChange ||
@@ -167,13 +167,12 @@ export function AnalyticsPage() {
             <Card className="mb-0">
               <div className="flex items-center gap-2 font-extrabold text-[15px] mb-1">
                 <Sparkles size={20} className="text-primary" />
-                أهم 3 رؤى
+                {t('analytics.insightsTitle')}
               </div>
               {data.insights.topOverdueGroup && (
                 <InsightRow icon={Wallet} to="/invoices?filter=due">
-                  أعلى متأخرات في مجموعة <b>{data.insights.topOverdueGroup.name}</b>:{' '}
-                  {formatMoney(data.insights.topOverdueGroup.amount)} غير مسددة الآن
-                  (أرصدة حالية — كل الشهور).
+                  {t('analytics.insightOverduePre')} <b>{data.insights.topOverdueGroup.name}</b>
+                  {t('analytics.insightOverduePost', { amount: formatMoney(data.insights.topOverdueGroup.amount) })}
                 </InsightRow>
               )}
               {data.insights.biggestCollectionChange && (
@@ -181,19 +180,21 @@ export function AnalyticsPage() {
                   icon={data.insights.biggestCollectionChange.pct >= 0 ? TrendingUp : TrendingDown}
                   to="/money"
                 >
-                  أكبر تغيّر في التحصيل: {periodLabel(data.insights.biggestCollectionChange.toMonth)}{' '}
-                  {data.insights.biggestCollectionChange.pct >= 0 ? 'زاد' : 'قلّ'}{' '}
-                  {Math.abs(data.insights.biggestCollectionChange.pct)}% عن{' '}
-                  {periodLabel(data.insights.biggestCollectionChange.fromMonth)} (
-                  {formatMoney(Math.abs(data.insights.biggestCollectionChange.delta))}).
+                  {t('analytics.insightChange', {
+                    to: periodLabel(data.insights.biggestCollectionChange.toMonth),
+                    dir: data.insights.biggestCollectionChange.pct >= 0 ? t('analytics.changeUp') : t('analytics.changeDown'),
+                    pct: Math.abs(data.insights.biggestCollectionChange.pct),
+                    from: periodLabel(data.insights.biggestCollectionChange.fromMonth),
+                    delta: formatMoney(Math.abs(data.insights.biggestCollectionChange.delta)),
+                  })}
                 </InsightRow>
               )}
               {data.insights.mostAbsentGroup && (
                 <InsightRow icon={UserX} to="/at-risk" last>
-                  الأكثر غياباً: مجموعة <b>{data.insights.mostAbsentGroup.name}</b> (
-                  {data.insights.mostAbsentGroup.absences} غياب في المدى)
+                  {t('analytics.insightAbsencePre')} <b>{data.insights.mostAbsentGroup.name}</b>{' '}
+                  {t('analytics.insightAbsencePost', { count: data.insights.mostAbsentGroup.absences })}
                   {data.insights.mostAbsentStudent
-                    ? ` — وأكثر طالب: ${data.insights.mostAbsentStudent.name} (${data.insights.mostAbsentStudent.absences} مرات)`
+                    ? t('analytics.insightAbsenceStudent', { name: data.insights.mostAbsentStudent.name, count: data.insights.mostAbsentStudent.absences })
                     : ''}
                   .
                 </InsightRow>
@@ -203,42 +204,42 @@ export function AnalyticsPage() {
 
           {/* بطاقات KPI — إجمالي مدى الفترة المختار */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Kpi value={formatMoney(data.totalCollected)} label={`تحصيل آخر ${range} شهور`} />
+            <Kpi value={formatMoney(data.totalCollected)} label={t('analytics.kpiCollectedRange', { range })} />
             <Kpi
               value={data.avgAttendance == null ? '—' : `${data.avgAttendance}%`}
-              label="متوسط الحضور في المدى"
+              label={t('analytics.kpiAvgAttendance')}
             />
             <Kpi
               value={formatMoney(data.currentOverdue)}
-              label="المتأخرات الحالية (كل الشهور)"
+              label={t('analytics.kpiCurrentOverdue')}
               valueClass={data.currentOverdue > 0 ? 'text-bad-text' : ''}
             />
-            <Kpi value={data.activeStudents.toLocaleString('en-US')} label="طلاب نشطون الآن" />
+            <Kpi value={data.activeStudents.toLocaleString('en-US')} label={t('analytics.kpiActiveNow')} />
           </div>
 
           {/* الرسوم: عمودان على الشاشات الواسعة (R-16) — الأنواع كما هي */}
           <div className="grid gap-3 lg:grid-cols-2">
-            <ChartCard title="التحصيل الشهري" hint="مجموع الدفعات المسجلة في كل شهر (من ملخص الأرباح الشهري).">
+            <ChartCard title={t('analytics.chartCollectedTitle')} hint={t('analytics.chartCollectedHint')}>
               <CollectedChart months={data.months} />
             </ChartCard>
 
             <ChartCard
-              title="نسبة الحضور الشهرية"
-              hint="الحاضرون (حاضر/متأخر/بعذر) من إجمالي التسجيلات في حصص الشهر — الشهر بلا تسجيلات يظهر فجوة لا صفراً."
+              title={t('analytics.chartAttendanceTitle')}
+              hint={t('analytics.chartAttendanceHint')}
             >
               <AttendanceChart months={data.months} />
             </ChartCard>
 
             <ChartCard
-              title="المتأخرات عبر الأشهر"
-              hint="المتأخرات الحالية الآن موزعة على شهر استحقاق فواتيرها — فواتير أقدم من المدى تدخل في إجمالي البطاقة العليا فقط."
+              title={t('analytics.chartOverdueTitle')}
+              hint={t('analytics.chartOverdueHint')}
             >
               <OverdueChart months={data.months} />
             </ChartCard>
 
             <ChartCard
-              title="نمو الطلاب"
-              hint="أعمدة: طلاب جدد كل شهر. خط: إجمالي الطلاب التراكمي حتى نهاية الشهر."
+              title={t('analytics.chartGrowthTitle')}
+              hint={t('analytics.chartGrowthHint')}
             >
               <GrowthChart months={data.months} />
             </ChartCard>
