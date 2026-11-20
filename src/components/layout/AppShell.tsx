@@ -99,7 +99,9 @@ export function AppShell() {
   // الإشعارات (useHomeAlerts → fetchAlerts بنفس مفتاح [HOME,'alerts',…])
   // — لا مصدر موازٍ، فالعدد هنا يطابق الشاشتين دائماً.
   const alertsQ = useHomeAlerts(teacherId, isOwner)
-  const alertsCount = alertsQ.data?.length ?? 0
+  // الشارة تعدّ التنبيهات المعروضة بعد التجميع (W4 — R-8)، والتنبيهات
+  // الصامتة (النسخ الاحتياطي P3) لا ترفعها
+  const alertsCount = alertsQ.data?.filter((a) => !a.silent).length ?? 0
   const isDark =
     typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark'
   const avatarLetter =

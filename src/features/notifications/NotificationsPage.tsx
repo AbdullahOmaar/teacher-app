@@ -70,7 +70,8 @@ function AlertRow({ alert }: { alert: AppAlert }) {
   const [open, setOpen] = useState(false)
   const hasInvoices = alert.kind === 'fin' && (alert.invoices?.length ?? 0) > 0
   const hasLows = alert.kind === 'grade' && (alert.lowStudents?.length ?? 0) > 0
-  const expandable = hasInvoices || hasLows
+  const hasPrepaid = alert.kind === 'prepaid' && (alert.prepaidMembers?.length ?? 0) > 0
+  const expandable = hasInvoices || hasLows || hasPrepaid
 
   return (
     <Card className="mb-2">
@@ -94,7 +95,9 @@ function AlertRow({ alert }: { alert: AppAlert }) {
               ? 'إخفاء التفاصيل'
               : hasInvoices
                 ? `عرض الفواتير المستحقة (${alert.invoices!.length})`
-                : `عرض الطلاب (${alert.lowStudents!.length})`}
+                : hasPrepaid
+                  ? `عرض الطلاب (${alert.prepaidMembers!.length})`
+                  : `عرض الطلاب (${alert.lowStudents!.length})`}
           </button>
           {open && hasInvoices && (
             <div className="mt-2 border-t border-border pt-1">
@@ -111,6 +114,32 @@ function AlertRow({ alert }: { alert: AppAlert }) {
                     باقي {formatMoney(inv.balance)}
                   </span>
                 </Link>
+              ))}
+            </div>
+          )}
+          {open && hasPrepaid && (
+            <div className="mt-2 border-t border-border pt-1">
+              {alert.prepaidMembers!.map((s) => (
+                <div
+                  key={s.student_id}
+                  className="flex items-center gap-2 py-2 border-b border-border/60 last:border-0"
+                >
+                  <Link
+                    to={`/students/${s.student_id}`}
+                    className="flex-1 min-w-0 font-semibold text-[13.5px] text-text no-underline"
+                  >
+                    {s.student_name}
+                    <span className="text-muted font-normal">
+                      {' '}
+                      · متبقي {s.left} من {s.prepaid} حصة
+                    </span>
+                  </Link>
+                  {s.waUrl ? (
+                    <WaButton url={s.waUrl} label="تذكير واتساب" />
+                  ) : (
+                    <span className="shrink-0 text-muted text-[12px]">لا رقم ولي أمر</span>
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -351,6 +380,12 @@ export function NotificationsPage() {
               {sections
                 .map((s) => `${SECTION_META[s.kind].title}: ${s.items.length}`)
                 .join(' · ')}
+            </div>
+            {/* R-15: تعريف كل رقم بجانبه حتى لا تتضارب الأرقام بين الشاشات */}
+            <div className="text-muted text-[12.5px] mt-1">
+              تعريفات سريعة: «متأخرات الدفع» هنا = أي رصيد غير مسدد بكل الشهور ·
+              «متأخرات» شاشة الفواتير = شهور سابقة فقط · «المعرّضون للفقد» في
+              الرئيسية = غياب متكرر أو متأخرات ممتدة ≥ شهرين.
             </div>
             {isAssistant && (
               <div className="text-muted text-[13.5px] mt-1">

@@ -36,7 +36,9 @@ function db() {
 // • absence — غياب متكرر (خطة Phase 1 خطوة 8؛ المواصفات لا تعرّفه داخل
 //             getAlerts): طالب نشط غاب (status='a') ‏≥ 3 مرات في حصص
 //             آخر 30 يوماً — عتبة موثّقة هنا لأن المرجع لا يحدد رقماً.
-// • prepaid — باقي باقة الطالب ≤ 1 حصة (§5.7: prepaid − حضر فعلياً p/l/m)
+// • prepaid — باقي باقة الطالب (§5.7: prepaid − حضر فعلياً p/l/m)؛
+//             العرض منذ W4 (R-7): نفدت = فردي عاجل، باقٍ ≤ 25% =
+//             ملخّص واحد لكل مجموعة — الحساب نفسه لم يتغيّر
 // • fin     — طالب نشط رصيده في student_balances ‏> 0، تنبيه لكل طالب
 //             (§5.7) — مالك فقط. تفاصيل «الفواتير المستحقة» (خطة خطوة 8)
 //             مرفقة في invoices: فواتير الطالب غير المسددة من
@@ -96,6 +98,21 @@ export interface AppAlert {
   invoices?: AlertInvoiceRef[]
   /** الطلاب تحت 50% بتفاصيلهم — لتنبيهات grade فقط */
   lowStudents?: AlertLowStudent[]
+  /** طلاب ملخّص باقات مجموعة واحدة — لتنبيهات prepaid المجمّعة فقط (W4) */
+  prepaidMembers?: AlertPrepaidMember[]
+  /** صامت: يظهر في صفحة الإشعارات ولا يرفع شارة الجرس (W4 — R-8: backup) */
+  silent?: boolean
+}
+
+export interface AlertPrepaidMember {
+  student_id: string
+  student_name: string
+  /** الحصص المتبقية في الباقة */
+  left: number
+  /** حجم الباقة الكلي */
+  prepaid: number
+  /** رابط تذكير واتساب لولي الأمر — null إن لا رقم */
+  waUrl: string | null
 }
 
 export const ALERT_KINDS: AlertKind[] = ['att', 'absence', 'prepaid', 'fin', 'proof', 'grade', 'backup']
@@ -121,6 +138,18 @@ export const ABSENCE_THRESHOLD = 3
  */
 export function prepaidLeft(prepaidSessions: number, usedCount: number): number {
   return Math.max(0, prepaidSessions - usedCount)
+}
+
+/**
+ * تصنيف عرض تنبيه الباقة (W4 — R-7، مستوى العرض فقط):
+ * نفدت (left = 0) → تنبيه فردي عاجل · باقٍ ≥ 1 ونسبته من الباقة ≤ 25%
+ * → منطقة متابعة تُجمَّع في ملخّص واحد لكل مجموعة · فوق ذلك → لا تنبيه.
+ * الحساب المالي نفسه (prepaidLeft) لم يتغيّر.
+ */
+export function prepaidZone(left: number, prepaid: number): 'urgent' | 'follow' | null {
+  if (left <= 0) return 'urgent'
+  if (prepaid > 0 && left / prepaid <= 0.25) return 'follow'
+  return null
 }
 
 /** نص «تذكير عام» (§3.13: نص تذكير مهذب جاهز للنسخ — المرجع لا يقتبسه حرفياً) */
@@ -265,7 +294,7 @@ export async function fetchAlerts(
     }
   }
 
-  // prepaid: باقي باقة طالب ≤ 1 (عدّاد الباقة في المرجع §5.7)
+  // prepaid: عدّاد الباقة في المرجع §5.7 — العرض مجمّع منذ W4 (R-7)
   {
     const { data: enr, error } = await supa
       .from('enrollments')
@@ -305,31 +334,62 @@ export async function fetchAlerts(
         teacherId,
         rows.map((r) => r.student_id),
       )
+      // W4 (R-7): باقة نفدت = تنبيه فردي عاجل؛ منطقة المتابعة (باقٍ
+      // ≤ 25%) تُجمَّع في ملخّص واحد لكل مجموعة بأعضائه قابلين للفرد —
+      // كل الطلاب ما زالوا على بُعد ضغطة واحدة، والشارة تعدّ المعروض.
+      const followByGroup = new Map<string, { groupName: string; members: AlertPrepaidMember[] }>()
       for (const r of rows) {
         const left = prepaidLeft(r.prepaid_sessions, used.get(`${r.student_id}|${r.group_id}`) ?? 0)
-        if (left <= 1) {
-          const groupName = r.groups?.name ?? 'مجموعة'
-          const st: ContactStudent = {
-            id: r.student_id,
-            name: r.students?.name ?? '—',
-            public_code: r.students?.public_code ?? '',
-            phone: r.students?.phone ?? null,
-            guardian_name: r.students?.guardian_name ?? null,
-            guardian_phone: r.students?.guardian_phone ?? null,
-          }
+        const zone = prepaidZone(left, r.prepaid_sessions)
+        if (!zone) continue
+        const groupName = r.groups?.name ?? 'مجموعة'
+        const st: ContactStudent = {
+          id: r.student_id,
+          name: r.students?.name ?? '—',
+          public_code: r.students?.public_code ?? '',
+          phone: r.students?.phone ?? null,
+          guardian_name: r.students?.guardian_name ?? null,
+          guardian_phone: r.students?.guardian_phone ?? null,
+        }
+        if (zone === 'urgent') {
           alerts.push({
             kind: 'prepaid',
-            text: `(${groupName}): متبقي ${left} حصة فقط من الباقة`,
+            text: `(${groupName}): باقة ${st.name} نفدت`,
             to: `/students/${r.student_id}`,
             studentId: r.student_id,
             studentName: st.name,
             groupName,
             detail: `الطالب: ${st.name}`,
             waUrl: waUrlFor(st, contacts.get(r.student_id), (g) =>
+              `أهلاً ${g}، نذكّركم إن باقة الطالب ${st.name} في مجموعة ${groupName} خلصت، ونحتاج تجديدها قبل الحصة الجاية بإذن الله.`,
+            ),
+          })
+        } else {
+          const entry = followByGroup.get(r.group_id) ?? { groupName, members: [] }
+          entry.members.push({
+            student_id: r.student_id,
+            student_name: st.name,
+            left,
+            prepaid: r.prepaid_sessions,
+            waUrl: waUrlFor(st, contacts.get(r.student_id), (g) =>
               `أهلاً ${g}، نذكّركم إن باقة الطالب ${st.name} في مجموعة ${groupName} متبقي فيها ${left} حصة فقط.`,
             ),
           })
+          followByGroup.set(r.group_id, entry)
         }
+      }
+      for (const [groupId, entry] of followByGroup) {
+        entry.members.sort(
+          (a, b) => a.left - b.left || a.student_name.localeCompare(b.student_name, 'ar'),
+        )
+        alerts.push({
+          kind: 'prepaid',
+          text: `${entry.members.length} طالباً باقاتهم على وشك النفاد في ${entry.groupName}`,
+          to: `/students?group=${groupId}`,
+          groupName: entry.groupName,
+          detail: 'متبقٍّ لهم ≤ 25% من باقاتهم — افتح التفاصيل لتذكير كل ولي أمر',
+          prepaidMembers: entry.members,
+        })
       }
     }
   }
@@ -508,7 +568,8 @@ export async function fetchAlerts(
     const last = (data as unknown as { last_export_at: string | null } | null)?.last_export_at
     const due = !last || Date.now() - new Date(last).getTime() >= 30 * 24 * 60 * 60 * 1000
     if (due) {
-      alerts.push({ kind: 'backup', text: 'مفيش نسخة احتياطية من أكتر من 30 يوم', to: '/backup' })
+      // silent (R-8): معلومة P3 لا ترفع شارة الجرس
+      alerts.push({ kind: 'backup', text: 'مفيش نسخة احتياطية من أكتر من 30 يوم', to: '/backup', silent: true })
     }
   }
 
