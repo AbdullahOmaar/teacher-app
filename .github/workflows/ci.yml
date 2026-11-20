@@ -1,0 +1,21 @@
+name: CI
+
+# بوابة جودة دائمة (موجة التحسينات W2): كل push وكل PR يمرّ بـ
+# lint + typecheck (strict) + build ثم اختبارات Vitest — نفس ما يشغّله
+# المطوّر محلياً بـ npm run check && npm test.
+on:
+  push:
+  pull_request:
+
+jobs:
+  check-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
