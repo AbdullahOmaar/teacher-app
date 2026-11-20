@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import {
+  BookOpenCheck,
   CalendarDays,
   ChevronLeft,
   Download,
@@ -17,6 +18,7 @@ const MENU: { icon: LucideIcon; label: string; path: string }[] = [
   { icon: CalendarDays, label: 'الجدول والتقويم', path: '/schedule' },
   { icon: Users, label: 'المجموعات', path: '/groups' },
   { icon: NotebookPen, label: 'الامتحانات والدرجات', path: '/grades' },
+  { icon: BookOpenCheck, label: 'متابعة الواجبات', path: '/homework' },
   { icon: Landmark, label: 'المصروفات والأرباح', path: '/money' },
   { icon: UserSquare2, label: 'بوابة ولي الأمر', path: '/portal-links' },
   { icon: HardDriveDownload, label: 'النسخ الاحتياطي', path: '/backup' },

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Link2, MapPin, Pencil, Users } from 'lucide-react'
+import { BookOpenCheck, Link2, MapPin, Pencil, Users } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Field, FormError, TextInput } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -133,6 +133,12 @@ export function GroupDetailPage() {
             + إضافة طالب
           </Button>
         </div>
+        <Link to={`/homework?group=${group.id}`} className="no-underline block mt-2">
+          <Button variant="soft" full>
+            <BookOpenCheck size={20} />
+            متابعة واجبات المجموعة
+          </Button>
+        </Link>
       </Card>
 
       <h3 className="type-section mt-5 mb-2">الطلاب المسجلون ({roster.length})</h3>

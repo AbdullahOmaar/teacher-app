@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button'
 import {
   AlertTriangle,
   Ban,
+  BookOpenCheck,
   CalendarDays,
   CalendarX2,
   Check,
@@ -545,7 +546,16 @@ export function AttendancePage() {
 
               {/* تسليم الواجب — رقائق بأسماء الطلاب (المرجع §3.2) */}
               <Card>
-                <div className="font-bold text-[15px] mb-2">تسليم الواجب</div>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="font-bold text-[15px]">تسليم الواجب</div>
+                  <Link
+                    to={`/homework?group=${selected.group_id}&session=${selected.id}`}
+                    className="inline-flex items-center gap-1.5 text-primary text-[13.5px] font-bold no-underline min-h-[48px]"
+                  >
+                    <BookOpenCheck size={18} />
+                    متابعة منظمة
+                  </Link>
+                </div>
                 <div className="flex gap-2 flex-wrap">
                   {roster.map((st) => {
                     const v = valueOf(st.id)

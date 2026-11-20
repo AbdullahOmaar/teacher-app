@@ -5,6 +5,7 @@ import { ToastProvider } from './components/ui/Toast'
 import { AppShell } from './components/layout/AppShell'
 import { HomePage } from './features/home/HomePage'
 import { AttendancePage } from './features/attendance/AttendancePage'
+import { HomeworkPage } from './features/homework/HomeworkPage'
 import { StudentsPage } from './features/students/StudentsPage'
 import { StudentDetailPage } from './features/students/StudentDetailPage'
 import { GroupsPage } from './features/groups/GroupsPage'
@@ -43,6 +44,7 @@ export default function App() {
             <Route element={<AppShell />}>
               <Route index element={<HomePage />} />
               <Route path="attendance" element={<AttendancePage />} />
+              <Route path="homework" element={<HomeworkPage />} />
               <Route path="students" element={<StudentsPage />} />
               <Route path="students/:id" element={<StudentDetailPage />} />
               <Route path="invoices" element={<InvoicesPage />} />
