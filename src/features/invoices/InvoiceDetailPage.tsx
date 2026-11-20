@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
+import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
+import { Banknote, Lock, ReceiptText, UserRound } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
@@ -28,13 +30,7 @@ export function InvoiceDetailPage() {
   const [payOpen, setPayOpen] = useState(false)
   const [adjustOpen, setAdjustOpen] = useState(false)
   const [receipt, setReceipt] = useState<{ payment: PaymentRow } | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 3500)
-    return () => clearTimeout(t)
-  }, [toast])
+  const toast = useToast()
 
   const invoiceQ = useInvoice(teacherId, id, isOwner)
   const invoice = invoiceQ.data ?? null
@@ -53,9 +49,11 @@ export function InvoiceDetailPage() {
   if (!isOwner) {
     return (
       <Card className="text-center py-10">
-        <div className="text-[34px] mb-2">🔒</div>
-        <div className="font-extrabold mb-1">الفواتير والمالية للمالك فقط</div>
-        <p className="text-muted text-[13px] mb-0">
+        <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
+          <Lock size={28} />
+        </div>
+        <div className="type-section mb-1">الفواتير والمالية للمالك فقط</div>
+        <p className="text-muted text-[13.5px] mb-0">
           حساب المساعد لا يملك صلاحية مالية — البيانات محجوبة في قاعدة البيانات نفسها (RLS).
         </p>
       </Card>
@@ -65,10 +63,20 @@ export function InvoiceDetailPage() {
   if (invoiceQ.isPending || linesQ.isPending || paymentsQ.isPending)
     return <LoadingState label="بنحمّل تفاصيل الفاتورة…" />
   const error = invoiceQ.error ?? linesQ.error ?? paymentsQ.error
-  if (error) return <ErrorState message={error instanceof Error ? error.message : 'خطأ غير معروف'} />
+  if (error)
+    return (
+      <ErrorState
+        message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+        onRetry={() => {
+          void invoiceQ.refetch()
+          void linesQ.refetch()
+          void paymentsQ.refetch()
+        }}
+      />
+    )
   if (!invoice) {
     return (
-      <EmptyState icon="🧾" title="الفاتورة غير موجودة" hint="ممكن تكون اتحذفت أو الرابط غير صحيح" />
+      <EmptyState icon={ReceiptText} title="الفاتورة غير موجودة" hint="ممكن تكون اتحذفت أو الرابط غير صحيح" />
     )
   }
 
@@ -83,11 +91,11 @@ export function InvoiceDetailPage() {
           <div>
             <Link
               to={`/students/${invoice.student_id}`}
-              className="font-extrabold text-[17px] text-text no-underline"
+              className="font-extrabold text-[16px] text-text no-underline"
             >
               {invoice.student_name}
             </Link>
-            <div className="text-muted text-[13px] mt-0.5">
+            <div className="text-muted text-[13.5px] mt-0.5">
               {invoice.group_name} · {periodLabel(invoice.period_month)} (
               <span dir="ltr">{periodYm(invoice.period_month)}</span>)
               {invoice.student_code ? (
@@ -116,20 +124,20 @@ export function InvoiceDetailPage() {
         {/* جدول البنود */}
         <div className="mt-3 border-t border-border">
           {lines.length === 0 ? (
-            <p className="text-muted text-[13px] py-3 mb-0">مفيش بنود مسجلة على الفاتورة دي.</p>
+            <p className="text-muted text-[13.5px] py-3 mb-0">مفيش بنود مسجلة على الفاتورة دي.</p>
           ) : (
             lines.map((l) => (
               <div key={l.id} className="flex justify-between gap-3 py-2 border-b border-border/70">
                 <div className="min-w-0">
-                  <div className="text-[14px] font-semibold">
+                  <div className="text-[15px] font-semibold">
                     {l.description}
                     {l.line_type === 'discount' && (
-                      <span className="ms-2 text-[11px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5 align-middle">
+                      <span className="ms-2 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5 align-middle">
                         خصم
                       </span>
                     )}
                     {l.line_type === 'adjustment' && (
-                      <span className="ms-2 text-[11px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5 align-middle">
+                      <span className="ms-2 text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5 align-middle">
                         تسوية
                       </span>
                     )}
@@ -137,7 +145,7 @@ export function InvoiceDetailPage() {
                   {l.reason && <div className="text-muted text-[12px]">{l.reason}</div>}
                 </div>
                 <span
-                  className={`font-bold text-[14px] shrink-0 ${l.amount < 0 ? 'text-bad-text' : ''}`}
+                  className={`font-bold text-[15px] shrink-0 ${l.amount < 0 ? 'text-bad-text' : ''}`}
                   dir="ltr"
                 >
                   {formatMoney(l.amount)}
@@ -145,7 +153,7 @@ export function InvoiceDetailPage() {
               </div>
             ))
           )}
-          <div className="pt-2 space-y-1 text-[14px]">
+          <div className="pt-2 space-y-1 text-[15px]">
             <div className="flex justify-between">
               <span className="text-muted font-semibold">الإجمالي</span>
               <b dir="ltr">{formatMoney(invoice.total)}</b>
@@ -157,7 +165,7 @@ export function InvoiceDetailPage() {
             <div className="flex justify-between border-t border-border pt-1.5">
               <span className="font-extrabold">المتبقي</span>
               <b dir="ltr" className={invoice.balance > 0 ? 'text-warn-text' : 'text-ok-text'}>
-                {invoice.balance > 0 ? formatMoney(invoice.balance) : 'مسدد بالكامل ✓'}
+                {invoice.balance > 0 ? formatMoney(invoice.balance) : 'مسدد بالكامل'}
               </b>
             </div>
           </div>
@@ -165,14 +173,21 @@ export function InvoiceDetailPage() {
 
         <div className="flex flex-wrap gap-2 mt-3">
           <Link to={`/students/${invoice.student_id}`} className="no-underline">
-            <Button variant="soft">👤 ملف الطالب</Button>
+            <Button variant="soft">
+              <UserRound size={20} />
+              ملف الطالب
+            </Button>
           </Link>
           {invoice.balance > 0 && (
-            <Button onClick={() => setPayOpen(true)}>💵 تسجيل دفعة</Button>
+            <Button onClick={() => setPayOpen(true)}>
+              <Banknote size={20} />
+              تسجيل دفعة
+            </Button>
           )}
           {latestPayment && (
             <Button variant="ghost" onClick={() => setReceipt({ payment: latestPayment })}>
-              🧾 إيصال
+              <ReceiptText size={20} />
+              إيصال
             </Button>
           )}
           {isAttendedGroup && (
@@ -184,11 +199,11 @@ export function InvoiceDetailPage() {
       </Card>
 
       {/* سجل الدفعات */}
-      <h2 className="text-[15px] font-extrabold mb-2 mt-1">سجل الدفعات</h2>
+      <h2 className="type-section mb-2 mt-1">سجل الدفعات</h2>
       {payments.length === 0 ? (
         <Card>
           <EmptyState
-            icon="💵"
+            icon={Banknote}
             title="لسه مفيش دفعات"
             hint="أول دفعة هتتسجل هنا برقم إيصالها التسلسلي، والدفع الجزئي مدعوم."
           />
@@ -209,18 +224,18 @@ export function InvoiceDetailPage() {
                   </span>
                   <span className="flex items-center gap-1.5 shrink-0">
                     {isReversal && (
-                      <span className="text-[11px] font-bold bg-bad/10 text-bad-text border border-bad/30 rounded-full px-2 py-0.5">
+                      <span className="text-[12px] font-bold bg-bad/10 text-bad-text border border-bad/30 rounded-full px-2 py-0.5">
                         دفعة عكسية
                       </span>
                     )}
                     {p.voided && (
-                      <span className="text-[11px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">
+                      <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">
                         اتعكست
                       </span>
                     )}
                     <button
                       type="button"
-                      className="text-[12px] font-bold text-primary bg-transparent border-0 cursor-pointer"
+                      className="inline-flex items-center min-h-[48px] px-2 text-[13.5px] font-bold text-primary bg-transparent border-0 cursor-pointer"
                       onClick={() => setReceipt({ payment: p })}
                     >
                       الإيصال
@@ -229,7 +244,7 @@ export function InvoiceDetailPage() {
                       <button
                         type="button"
                         disabled={voidPay.isPending}
-                        className="text-[12px] font-bold text-bad-text bg-transparent border-0 cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center min-h-[48px] px-2 text-[13.5px] font-bold text-bad-text bg-transparent border-0 cursor-pointer disabled:opacity-50"
                         onClick={() => {
                           if (
                             window.confirm(
@@ -237,9 +252,9 @@ export function InvoiceDetailPage() {
                             )
                           ) {
                             voidPay.mutate(p, {
-                              onSuccess: () => setToast('اتعكست الدفعة واتحدث رصيد الفاتورة'),
+                              onSuccess: () => toast('اتعكست الدفعة واتحدث رصيد الفاتورة'),
                               onError: (e) =>
-                                setToast(e instanceof Error ? e.message : 'فشل عكس الدفعة'),
+                                toast(e instanceof Error ? e.message : 'فشل عكس الدفعة'),
                             })
                           }
                         }}
@@ -249,7 +264,7 @@ export function InvoiceDetailPage() {
                     )}
                   </span>
                 </div>
-                <div className="text-muted text-[12.5px] mt-0.5">
+                <div className="text-muted text-[13.5px] mt-0.5">
                   {p.paid_on} · {PAYMENT_METHOD_LABELS[p.method]} · إيصال{' '}
                   <span dir="ltr" className="font-semibold">{p.receipt_no}</span>
                 </div>
@@ -270,7 +285,7 @@ export function InvoiceDetailPage() {
             setReceipt({
               payment,
             })
-            setToast(`اتسجلت الدفعة — إيصال رقم ${payment.receipt_no}`)
+            toast(`اتسجلت الدفعة — إيصال رقم ${payment.receipt_no}`)
           }}
         />
       )}
@@ -303,15 +318,9 @@ export function InvoiceDetailPage() {
           onClose={() => setAdjustOpen(false)}
           onDone={(msg) => {
             setAdjustOpen(false)
-            setToast(msg)
+            toast(msg)
           }}
         />
-      )}
-
-      {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-text text-bg text-[13.5px] font-semibold rounded-full px-4 py-2 shadow-lg max-w-[92vw] text-center">
-          {toast}
-        </div>
       )}
     </div>
   )

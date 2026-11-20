@@ -1,6 +1,18 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import {
+  Bell,
+  ChevronRight,
+  Home,
+  LayoutGrid,
+  Moon,
+  ReceiptText,
+  Sun,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
 import { useTheme } from '../../hooks/useTheme'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
+import { useHomeAlerts } from '../../features/home/hooks'
 import { Onboarding } from '../../features/auth/Onboarding'
 import { LoadingState } from '../ui/states'
 import { Logo } from '../brand/Logo'
@@ -28,11 +40,11 @@ const TITLES: Record<string, string> = {
 
 type TabKey = 'home' | 'students' | 'invoices' | 'more'
 
-const TABS: { key: TabKey; path: string; icon: string; label: string }[] = [
-  { key: 'home', path: '/', icon: '🏠', label: 'الرئيسية' },
-  { key: 'students', path: '/students', icon: '👥', label: 'الطلاب' },
-  { key: 'invoices', path: '/invoices', icon: '🧾', label: 'الفواتير' },
-  { key: 'more', path: '/more', icon: '⋯', label: 'المزيد' },
+const TABS: { key: TabKey; path: string; icon: LucideIcon; label: string }[] = [
+  { key: 'home', path: '/', icon: Home, label: 'الرئيسية' },
+  { key: 'students', path: '/students', icon: Users, label: 'الطلاب' },
+  { key: 'invoices', path: '/invoices', icon: ReceiptText, label: 'الفواتير' },
+  { key: 'more', path: '/more', icon: LayoutGrid, label: 'المزيد' },
 ]
 
 /** تحديد الشاشة والتبويب النشط من المسار — ربط الشاشات الفرعية بتبويباتها كما في المرجع (§6.4) */
@@ -66,6 +78,15 @@ export function AppShell() {
   const teacher = useCurrentTeacher()
   const { screen, tab } = resolveRoute(location.pathname)
   const isRoot = TAB_ROOTS.has(screen)
+  const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
+  const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
+  // شارة التنبيهات: نفس استعلام وكاش بطاقة تنبيهات الرئيسية وشاشة
+  // الإشعارات (useHomeAlerts → fetchAlerts بنفس مفتاح [HOME,'alerts',…])
+  // — لا مصدر موازٍ، فالعدد هنا يطابق الشاشتين دائماً.
+  const alertsQ = useHomeAlerts(teacherId, isOwner)
+  const alertsCount = alertsQ.data?.length ?? 0
+  const isDark =
+    typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark'
   const avatarLetter =
     teacher.status === 'ready' && teacher.teacher?.display_name
       ? teacher.teacher.display_name.trim().charAt(0)
@@ -74,55 +95,63 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-bg text-text">
-      {/* الشريط العلوي — لاصق 52px (المرجع §6.3) */}
-      <header className="sticky top-0 z-20 h-[52px] bg-card border-b border-border">
-        <div className="mx-auto max-w-[640px] h-full px-4 flex items-center gap-2">
+      {/* الشريط العلوي — لاصق، أزراره أهداف لمس ≥48px (بحث §5) */}
+      <header className="sticky top-0 z-20 bg-card border-b border-border">
+        <div className="mx-auto max-w-[640px] px-2 flex items-center gap-1">
           {!isRoot ? (
             <button
               onClick={() => navigate(-1)}
-              className="text-[22px] leading-none px-2 cursor-pointer bg-transparent border-0 text-text"
+              className="w-12 h-12 shrink-0 flex items-center justify-center cursor-pointer bg-transparent border-0 text-text"
               aria-label="رجوع"
             >
-              ›
+              <ChevronRight size={24} />
             </button>
           ) : null}
-          <Logo size={26} />
-          <div className="font-extrabold text-[16px] flex-1">{TITLES[screen] ?? 'تطبيق المدرس'}</div>
+          <div className="ps-2">
+            <Logo size={26} />
+          </div>
+          <div className="type-section flex-1">{TITLES[screen] ?? 'تطبيق المدرس'}</div>
           {isRoot && (
             <>
               <button
                 onClick={() => navigate('/notifications')}
-                className="relative text-[19px] px-2 cursor-pointer bg-transparent border-0"
+                className="relative w-12 h-12 shrink-0 flex items-center justify-center cursor-pointer bg-transparent border-0 text-text"
                 aria-label="الإشعارات"
               >
-                🔔
-                {/* شارَة عدد التنبيهات تظهر هنا عند ربط getAlerts */}
+                <Bell size={24} />
+                {alertsCount > 0 && (
+                  <span className="absolute top-1 end-1 min-w-[20px] h-5 px-1 rounded-full bg-bad text-white type-badge flex items-center justify-center">
+                    {alertsCount > 99 ? '99+' : alertsCount}
+                  </span>
+                )}
               </button>
               <button
                 onClick={toggle}
-                className="text-[19px] px-2 cursor-pointer bg-transparent border-0"
+                className="w-12 h-12 shrink-0 flex items-center justify-center cursor-pointer bg-transparent border-0 text-text"
                 aria-label="تبديل المظهر"
               >
-                🌙
+                {isDark ? <Sun size={24} /> : <Moon size={24} />}
               </button>
               <button
                 onClick={() => navigate('/settings')}
-                className="w-8 h-8 rounded-full bg-primary text-white font-bold flex items-center justify-center cursor-pointer border-0 overflow-hidden p-0"
+                className="w-12 h-12 shrink-0 flex items-center justify-center cursor-pointer bg-transparent border-0"
                 aria-label="الإعدادات"
               >
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  avatarLetter
-                )}
+                <span className="w-9 h-9 rounded-full bg-primary text-on-primary font-bold flex items-center justify-center overflow-hidden">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    avatarLetter
+                  )}
+                </span>
               </button>
             </>
           )}
         </div>
       </header>
 
-      {/* المحتوى — حاوية 640px وحشوة سفلية تترك مكاناً للشريط السفلي (المرجع §6.2) */}
-      <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-[calc(84px+env(safe-area-inset-bottom,0px))]">
+      {/* المحتوى — حاوية 640px وحشوة سفلية تترك مكاناً للشريط السفلي (64px + safe-area) */}
+      <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-[calc(88px+env(safe-area-inset-bottom,0px))]">
         {teacher.status === 'loading' ? (
           <LoadingState />
         ) : teacher.status === 'no-teacher' ? (
@@ -132,20 +161,29 @@ export function AppShell() {
         )}
       </main>
 
-      {/* الشريط السفلي — ثابت، 4 تبويبات (المرجع §6.4) */}
+      {/* الشريط السفلي — أيقونة + نص دائماً، pill خلف النشط بأيقونة ممتلئة،
+          منطقة لمس 64px مع safe-area (بحث §5) */}
       <nav className="fixed bottom-0 inset-x-0 z-20 bg-card border-t border-border pb-[env(safe-area-inset-bottom,0px)]">
         <div className="mx-auto max-w-[640px] flex">
           {TABS.map((t) => {
             const active = tab === t.key
+            const Icon = t.icon
             return (
               <button
                 key={t.key}
                 onClick={() => navigate(t.path)}
-                className={`flex-1 min-h-[56px] flex flex-col items-center justify-center gap-0.5 border-0 bg-transparent cursor-pointer text-[12px] ${
-                  active ? 'text-primary font-bold' : 'text-muted'
+                aria-current={active ? 'page' : undefined}
+                className={`flex-1 min-h-[64px] py-1.5 flex flex-col items-center justify-center gap-1 border-0 bg-transparent cursor-pointer type-badge ${
+                  active ? 'text-primary' : 'text-muted'
                 }`}
               >
-                <span className="text-[19px] leading-none">{t.icon}</span>
+                <span
+                  className={`flex items-center justify-center rounded-full px-4 py-1 ${
+                    active ? 'bg-soft' : ''
+                  }`}
+                >
+                  <Icon size={24} fill={active ? 'currentColor' : 'none'} />
+                </span>
                 {t.label}
               </button>
             )

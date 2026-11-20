@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
+import { NotebookPen } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState } from '../../components/ui/states'
 import { formatDateLabel } from '../schedule/api'
@@ -39,6 +40,7 @@ export function StudentGradesTab({
     return (
       <ErrorState
         message={scoresQ.error instanceof Error ? scoresQ.error.message : 'خطأ غير معروف'}
+        onRetry={() => void scoresQ.refetch()}
       />
     )
   }
@@ -49,7 +51,7 @@ export function StudentGradesTab({
     return (
       <Card>
         <EmptyState
-          icon="📝"
+          icon={NotebookPen}
           title="لا يوجد درجات مسجلة بعد"
           hint="درجات الطالب في الامتحانات والواجبات هتظهر هنا بنسبتها ومتوسطه أول ما تتسجل من شاشة الدرجات."
         />
@@ -61,7 +63,7 @@ export function StudentGradesTab({
     <div>
       <Card>
         <div className="flex items-center justify-between gap-2">
-          <span className="font-bold text-[14.5px]">متوسط الدرجات</span>
+          <span className="font-bold text-[16px]">متوسط الدرجات</span>
           <span
             className={`text-[20px] font-extrabold ${
               average == null ? '' : average >= 50 ? 'text-ok-text' : 'text-bad-text'
@@ -70,17 +72,17 @@ export function StudentGradesTab({
             {average == null ? '—' : `${average}%`}
           </span>
         </div>
-        <div className="text-muted text-[13px] mt-1">
+        <div className="text-muted text-[13.5px] mt-1">
           متوسط النسب عبر {rows.length} تقييم مسجل له درجة
         </div>
       </Card>
 
       {rows.length >= 2 && (
         <Card>
-          <div className="font-bold text-[14.5px] mb-2">تطور المستوى عبر الامتحانات</div>
+          <div className="font-bold text-[16px] mb-2">تطور المستوى عبر الامتحانات</div>
           {chronological.map((r) => (
             <div key={r.assessment_id} className="flex items-center gap-2 mb-2 last:mb-0">
-              <span className="w-[38%] min-w-0 truncate text-[12.5px] font-semibold">
+              <span className="w-[38%] min-w-0 truncate text-[13.5px] font-semibold">
                 {r.title}
               </span>
               <div className="flex-1 h-2.5 rounded-full bg-soft overflow-hidden">
@@ -95,13 +97,13 @@ export function StudentGradesTab({
                   style={{ width: `${Math.min(100, r.pct)}%` }}
                 />
               </div>
-              <span className="w-[44px] text-left text-[12.5px] font-extrabold">{r.pct}%</span>
+              <span className="w-[44px] text-left text-[13.5px] font-extrabold">{r.pct}%</span>
             </div>
           ))}
         </Card>
       )}
 
-      <h3 className="text-[14.5px] font-extrabold mb-2 mt-1">الدرجات</h3>
+      <h3 className="text-[16px] font-extrabold mb-2 mt-1">الدرجات</h3>
       <Card className="p-0 overflow-hidden">
         {rows.map((r, i) => (
           <Link
@@ -111,18 +113,18 @@ export function StudentGradesTab({
           >
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <div className="font-bold text-[14.5px]">{r.title}</div>
-                <div className="text-muted text-[12.5px]">
+                <div className="font-bold text-[16px]">{r.title}</div>
+                <div className="text-muted text-[13.5px]">
                   {ASSESSMENT_TYPE_LABELS[r.type]} · {r.group_name} ·{' '}
                   {formatDateLabel(r.assess_date)}
                 </div>
               </div>
               <span className="flex items-center gap-2 shrink-0">
-                <span className="font-extrabold text-[14px]">
+                <span className="font-extrabold text-[15px]">
                   {fmtScore(r.score)} من {fmtScore(r.max_score)}
                 </span>
                 <span
-                  className={`min-w-[52px] text-center text-[12.5px] font-extrabold rounded-full px-2 py-1 ${TONE_BADGE[pctTone(r.pct, r)]}`}
+                  className={`min-w-[52px] text-center text-[13.5px] font-extrabold rounded-full px-2 py-1 ${TONE_BADGE[pctTone(r.pct, r)]}`}
                 >
                   {r.pct}%
                 </span>

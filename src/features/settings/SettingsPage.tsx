@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
+import { Check, FolderCog, GraduationCap, Handshake, Mail, SlidersHorizontal, UserRound } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Chip, Field, TextArea, TextInput } from '../../components/ui/form'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -133,7 +134,7 @@ export function SettingsPage() {
         avatar_url: (profileAvatar ?? ownTeacher.avatar_url ?? '').trim() || null,
       },
       {
-        onSuccess: () => setProfileMsg('تم حفظ بياناتك ✅'),
+        onSuccess: () => setProfileMsg('تم حفظ بياناتك'),
         onError: (err) =>
           setProfileMsg(err instanceof Error ? err.message : 'تعذّر حفظ البيانات.'),
       },
@@ -176,7 +177,7 @@ export function SettingsPage() {
       return
     }
     updateSettings.mutate(payload, {
-      onSuccess: () => setSettingsMsg('تم حفظ الإعدادات ✅'),
+      onSuccess: () => setSettingsMsg('تم حفظ الإعدادات'),
       onError: (err) =>
         setSettingsMsg(err instanceof Error ? err.message : 'تعذّر حفظ الإعدادات.'),
     })
@@ -212,7 +213,7 @@ export function SettingsPage() {
       {
         onSuccess: () => {
           setAssistantId('')
-          setInviteMsg('تمت إضافة المساعد لفريقك ✅ هيقدر يشتغل بصلاحياته فوراً.')
+          setInviteMsg('تمت إضافة المساعد لفريقك — هيقدر يشتغل بصلاحياته فوراً.')
         },
         onError: (err) =>
           setInviteMsg(err instanceof Error ? err.message : 'تعذّرت إضافة المساعد.'),
@@ -241,23 +242,23 @@ export function SettingsPage() {
     <div>
       {/* حسابي */}
       <Card>
-        <h2 className="text-[15px] font-extrabold mt-0 mb-3">👤 حسابي</h2>
-        <div className="text-[13px] text-muted mb-1">البريد الإلكتروني</div>
+        <h2 className="type-section mt-0 mb-3 flex items-center gap-2"><UserRound size={22} className="text-primary" /> حسابي</h2>
+        <div className="text-[13.5px] text-muted mb-1">البريد الإلكتروني</div>
         <div className="font-semibold mb-3" dir="ltr" style={{ textAlign: 'start' }}>
           {user?.email ?? '—'}
         </div>
-        <div className="text-[13px] text-muted mb-1">
+        <div className="text-[13.5px] text-muted mb-1">
           معرّف حسابي — شاركه مع مدرس لو عايز يضيفك كمساعد في فريقه
         </div>
         <div className="flex items-center gap-2 mb-1">
-          <code className="flex-1 text-[12px] bg-soft rounded-lg px-2 py-2 overflow-hidden text-ellipsis whitespace-nowrap" dir="ltr">
+          <code className="flex-1 text-[12px] bg-soft rounded-xl px-2 py-2 overflow-hidden text-ellipsis whitespace-nowrap" dir="ltr">
             {ownId}
           </code>
-          <Button variant="soft" onClick={copyMyId} className="min-h-[36px] px-3 text-[13px]">
-            {copied ? 'تم النسخ ✅' : 'نسخ'}
+          <Button variant="soft" onClick={copyMyId} className="min-h-[48px] px-3 text-[13.5px]">
+            {copied ? (<><Check size={18} /> تم النسخ</>) : 'نسخ'}
           </Button>
         </div>
-        <div className="text-[13px] text-muted mt-2 mb-0">
+        <div className="text-[13.5px] text-muted mt-2 mb-0">
           دورك الحالي:{' '}
           <b className="text-text">
             {teacher.role === 'owner' ? 'مدرس (مالك الحساب)' : 'مساعد عند مدرس آخر'}
@@ -268,8 +269,8 @@ export function SettingsPage() {
       {/* ملف المدرس — يظهر لمن له ملف خاص */}
       {ownTeacher && (
         <Card>
-          <h2 className="text-[15px] font-extrabold mt-0 mb-3">🧑‍🏫 ملف المدرس</h2>
-          {profileMsg && <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{profileMsg}</p>}
+          <h2 className="type-section mt-0 mb-3 flex items-center gap-2"><GraduationCap size={22} className="text-primary" /> ملف المدرس</h2>
+          {profileMsg && <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{profileMsg}</p>}
           <form onSubmit={handleProfileSave}>
             <Field label="اسم المدرس">
               <TextInput
@@ -316,7 +317,7 @@ export function SettingsPage() {
       {/* إعدادات التطبيق — teacher_settings كاملة (الخطوة 10) */}
       {ownTeacher && (
         <Card>
-          <h2 className="text-[15px] font-extrabold mt-0 mb-3">🎛️ إعدادات التطبيق</h2>
+          <h2 className="type-section mt-0 mb-3 flex items-center gap-2"><SlidersHorizontal size={22} className="text-primary" /> إعدادات التطبيق</h2>
           {settingsQ.isPending ? (
             <LoadingState label="بنحمّل إعداداتك…" />
           ) : settingsQ.isError ? (
@@ -324,6 +325,7 @@ export function SettingsPage() {
               message={
                 settingsQ.error instanceof Error ? settingsQ.error.message : 'خطأ غير معروف'
               }
+              onRetry={() => void settingsQ.refetch()}
             />
           ) : (
             <form onSubmit={handleSettingsSave}>
@@ -339,7 +341,7 @@ export function SettingsPage() {
                   <code
                     key={v}
                     dir="ltr"
-                    className="text-[11px] bg-soft text-primary rounded-full px-2 py-0.5 font-semibold"
+                    className="text-[12px] bg-soft text-primary rounded-full px-2 py-0.5 font-semibold"
                   >
                     {v}
                   </code>
@@ -361,7 +363,7 @@ export function SettingsPage() {
               </Field>
 
               <div className="mb-4">
-                <div className="text-[13px] text-muted font-semibold mb-2">
+                <div className="text-[13.5px] text-muted font-semibold mb-2">
                   التذكير قبل الحصة
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -378,7 +380,7 @@ export function SettingsPage() {
               </div>
 
               <div className="mb-4">
-                <div className="text-[13px] text-muted font-semibold mb-2">المظهر</div>
+                <div className="text-[13.5px] text-muted font-semibold mb-2">المظهر</div>
                 <div className="flex flex-wrap gap-2">
                   {THEME_MODES.map((opt) => (
                     <Chip
@@ -395,7 +397,7 @@ export function SettingsPage() {
                 </p>
               </div>
 
-              <div className="text-[13px] text-muted mb-3">
+              <div className="text-[13.5px] text-muted mb-3">
                 آخر تصدير/نسخة احتياطية:{' '}
                 <b className="text-text">
                   {settingsRow?.last_export_at
@@ -406,7 +408,7 @@ export function SettingsPage() {
               </div>
 
               {settingsMsg && (
-                <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{settingsMsg}</p>
+                <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{settingsMsg}</p>
               )}
               <Button full type="submit" disabled={updateSettings.isPending}>
                 {updateSettings.isPending ? 'جارٍ الحفظ…' : 'حفظ الإعدادات'}
@@ -419,8 +421,8 @@ export function SettingsPage() {
       {/* مساحة العمل — عند وجود عضويات فريق */}
       {(ownTeacher || memberships.length > 0) && (memberships.length > 0 || !inOwnWorkspace) && (
         <Card>
-          <h2 className="text-[15px] font-extrabold mt-0 mb-1">🗂️ مساحة العمل</h2>
-          <p className="text-muted text-[13px] mt-0 mb-3">
+          <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FolderCog size={22} className="text-primary" /> مساحة العمل</h2>
+          <p className="text-muted text-[13.5px] mt-0 mb-3">
             اختر الحساب اللي هتشتغل عليه دلوقتي — بيانات كل مساحة منفصلة تماماً.
           </p>
           {ownTeacher && (
@@ -432,7 +434,7 @@ export function SettingsPage() {
               }`}
             >
               <span className="flex-1">حسابي — {ownTeacher.display_name || 'مدرّسي'}</span>
-              {inOwnWorkspace && <span className="text-primary text-[13px]">الحالية</span>}
+              {inOwnWorkspace && <span className="text-primary text-[13.5px]">الحالية</span>}
             </button>
           )}
           {memberships.map((m) => {
@@ -449,7 +451,7 @@ export function SettingsPage() {
                 <span className="flex-1">
                   مساعد عند مدرس <span dir="ltr">{shortId(m.teacher_id)}</span>
                 </span>
-                {active && <span className="text-primary text-[13px]">الحالية</span>}
+                {active && <span className="text-primary text-[13.5px]">الحالية</span>}
               </button>
             )
           })}
@@ -459,8 +461,8 @@ export function SettingsPage() {
       {/* فريق العمل — للمالك في مساحته فقط */}
       {ownTeacher && isOwnerWorkspace && (
         <Card>
-          <h2 className="text-[15px] font-extrabold mt-0 mb-1">🤝 فريق العمل (المساعدون)</h2>
-          <p className="text-muted text-[13px] mt-0 mb-3">
+          <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><Handshake size={22} className="text-primary" /> فريق العمل (المساعدون)</h2>
+          <p className="text-muted text-[13.5px] mt-0 mb-3">
             المساعد لازم يكون عنده حساب في التطبيق الأول. اطلب منه «معرّف الحساب» من
             إعدادات حسابه والصقه هنا — هيتضاف لفريقك فوراً بالصلاحيات اللي تختارها.
             البيانات المالية (فواتير/أرباح) محجوبة عن المساعدين في قاعدة البيانات نفسها.
@@ -478,14 +480,15 @@ export function SettingsPage() {
             </Field>
             {inviteEmail.includes('@') && (
               <a
-                className="inline-block text-primary text-[13px] font-semibold mb-3 -mt-1"
+                className="inline-flex items-center gap-1.5 min-h-[48px] text-primary text-[13.5px] font-semibold mb-3 -mt-1"
                 href={`mailto:${inviteEmail.trim()}?subject=${encodeURIComponent(
                   'دعوة للانضمام كمساعد في تطبيق المدرس',
                 )}&body=${encodeURIComponent(
                   'أهلاً،\n\nبدعوك تنضم لفريقي كمساعد في تطبيق المدرس.\nالخطوات:\n1) أنشئ حساباً جديداً في التطبيق ببريدك وكلمة مرور.\n2) افتح «الإعدادات» في حسابك وانسخ «معرّف الحساب».\n3) ابعت لي المعرّف علشان أضيفك للفريق بصلاحياتك.\n\nشكراً لك.',
                 )}`}
               >
-                ✉️ إرسال الدعوة لبريد المساعد
+                <Mail size={18} />
+                إرسال الدعوة لبريد المساعد
               </a>
             )}
             <Field label="معرّف حساب المساعد (UUID)">
@@ -498,16 +501,16 @@ export function SettingsPage() {
               />
             </Field>
             <div className="mb-3">
-              <div className="text-[13px] text-muted font-semibold mb-2">صلاحيات المساعد</div>
+              <div className="text-[13.5px] text-muted font-semibold mb-2">صلاحيات المساعد</div>
               <div className="flex flex-wrap gap-2">
                 {Object.keys(PERMISSION_LABELS).map((key) => (
                   <button
                     key={key}
                     type="button"
                     onClick={() => setPerms((p) => ({ ...p, [key]: !p[key] }))}
-                    className={`px-3 min-h-[34px] rounded-full border text-[13px] font-semibold cursor-pointer ${
+                    className={`px-3 min-h-[48px] rounded-full border text-[13.5px] font-semibold cursor-pointer ${
                       perms[key]
-                        ? 'bg-primary text-white border-primary'
+                        ? 'bg-primary text-on-primary border-primary'
                         : 'bg-card text-muted border-border'
                     }`}
                   >
@@ -517,32 +520,33 @@ export function SettingsPage() {
               </div>
             </div>
             {inviteMsg && (
-              <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{inviteMsg}</p>
+              <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{inviteMsg}</p>
             )}
             <Button full type="submit" disabled={invite.isPending}>
               {invite.isPending ? 'جارٍ الإضافة…' : '+ إضافة مساعد للفريق'}
             </Button>
           </form>
 
-          <div className="text-[13px] text-muted font-semibold mb-2">أعضاء الفريق الحاليون</div>
+          <div className="text-[13.5px] text-muted font-semibold mb-2">أعضاء الفريق الحاليون</div>
           {membersQ.isPending ? (
             <LoadingState label="بنحمّل الفريق…" />
           ) : membersQ.isError ? (
             <ErrorState
               message={membersQ.error instanceof Error ? membersQ.error.message : 'خطأ غير معروف'}
+              onRetry={() => void membersQ.refetch()}
             />
           ) : (membersQ.data ?? []).length === 0 ? (
-            <EmptyState icon="🤝" title="لا يوجد مساعدون بعد" hint="أضف أول مساعد بمعرّف حسابه من النموذج بالأعلى" />
+            <EmptyState icon={Handshake} title="لا يوجد مساعدون بعد" hint="أضف أول مساعد بمعرّف حسابه من النموذج بالأعلى" />
           ) : (
             (membersQ.data ?? []).map((m) => {
               const memberPerms = (m.permissions ?? {}) as Record<string, unknown>
               return (
                 <div key={m.id} className="border border-border rounded-xl p-3 mb-2">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-[14px] flex-1">
+                    <span className="font-bold text-[15px] flex-1">
                       مساعد — <span dir="ltr">{shortId(m.user_id)}</span>
                     </span>
-                    <span className="text-[11px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
+                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
                       {m.status === 'active' ? 'فعّال' : m.status === 'invited' ? 'مدعو' : 'موقوف'}
                     </span>
                   </div>
@@ -555,9 +559,9 @@ export function SettingsPage() {
                           type="button"
                           disabled={updatePerms.isPending}
                           onClick={() => toggleMemberPerm(m, key)}
-                          className={`px-2 min-h-[28px] rounded-full border text-[11px] font-semibold cursor-pointer ${
+                          className={`px-2 min-h-[48px] rounded-full border text-[13.5px] font-semibold cursor-pointer ${
                             on
-                              ? 'bg-primary text-white border-primary'
+                              ? 'bg-primary text-on-primary border-primary'
                               : 'bg-card text-muted border-border'
                           }`}
                         >
@@ -570,7 +574,7 @@ export function SettingsPage() {
                     <div className="flex gap-2">
                       <Button
                         variant="danger"
-                        className="flex-1 min-h-[38px] text-[13px]"
+                        className="flex-1 min-h-[48px] text-[13.5px]"
                         disabled={removeMember.isPending}
                         onClick={() =>
                           removeMember.mutate(m.id, {
@@ -582,7 +586,7 @@ export function SettingsPage() {
                       </Button>
                       <Button
                         variant="ghost"
-                        className="flex-1 min-h-[38px] text-[13px]"
+                        className="flex-1 min-h-[48px] text-[13.5px]"
                         onClick={() => setConfirmRemoveId(null)}
                       >
                         إلغاء
@@ -591,7 +595,7 @@ export function SettingsPage() {
                   ) : (
                     <Button
                       variant="ghost"
-                      className="min-h-[38px] text-[13px] text-bad-text"
+                      className="min-h-[48px] text-[13.5px] text-bad-text"
                       onClick={() => setConfirmRemoveId(m.id)}
                     >
                       إزالة من الفريق

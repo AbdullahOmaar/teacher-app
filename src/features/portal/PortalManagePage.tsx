@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Card } from '../../components/ui/Card'
+import { Link2, Users } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -53,7 +54,7 @@ export function PortalManagePage() {
       </Card>
 
       {students.length === 0 ? (
-        <EmptyState icon="👨‍👩‍👦" title="مفيش طلاب نشطين" hint="ضيف طلاب الأول وبعدين ولّد روابط البوابة من هنا أو من ملف الطالب" />
+        <EmptyState icon={Users} title="مفيش طلاب نشطين" hint="ضيف طلاب الأول وبعدين ولّد روابط البوابة من هنا أو من ملف الطالب" />
       ) : (
         students.map((s) => {
           const expiresAt = activeByStudent.get(s.id)
@@ -62,7 +63,7 @@ export function PortalManagePage() {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-bold text-[15px] truncate">{s.name}</div>
-                  <div className="text-muted text-[12.5px] mt-0.5">
+                  <div className="text-muted text-[13.5px] mt-0.5">
                     الكود: <span dir="ltr">{s.public_code}</span>
                     {s.grade ? ` · ${s.grade}` : ''}
                     {s.guardian_phone ? (
@@ -75,18 +76,19 @@ export function PortalManagePage() {
                   </div>
                 </div>
                 {expiresAt ? (
-                  <span className="shrink-0 text-[11.5px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
+                  <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
                     رابط نشط حتى {expiresAt.slice(0, 10)}
                   </span>
                 ) : (
-                  <span className="shrink-0 text-[11.5px] font-bold bg-soft text-muted border border-border rounded-full px-2 py-0.5">
+                  <span className="shrink-0 text-[12px] font-bold bg-soft text-muted border border-border rounded-full px-2 py-0.5">
                     لا يوجد رابط
                   </span>
                 )}
               </div>
               <div className="mt-2.5">
                 <Button variant="soft" onClick={() => setSelected(s)}>
-                  🔗 إدارة الرابط
+                  <Link2 size={20} />
+                  إدارة الرابط
                 </Button>
               </div>
             </Card>

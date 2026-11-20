@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Sheet } from '../../components/ui/Sheet'
+import { AlertTriangle } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Chip, Field, Select, TextArea, TextInput } from '../../components/ui/form'
 import type { BillingType, GroupInput, GroupRow } from '../../types/database'
@@ -135,7 +136,7 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
       </div>
 
       <div className="mb-3">
-        <div className="text-[13px] text-muted font-semibold mb-1">أيام الجدول *</div>
+        <div className="text-[13.5px] text-muted font-semibold mb-1">أيام الجدول *</div>
         <div className="flex flex-wrap gap-2">
           {DAY_NAMES.map((label, d) => (
             <Chip key={d} active={days.includes(d)} onClick={() => toggleDay(d)}>
@@ -169,8 +170,8 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
       </Field>
 
       {conflicts.length > 0 && (
-        <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2 mb-3 text-[13px]">
-          <div className="font-bold text-warn-text mb-1">⚠️ تعارض في المواعيد</div>
+        <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2 mb-3 text-[13.5px]">
+          <div className="font-bold text-warn-text mb-1 flex items-center gap-2"><AlertTriangle size={20} /> تعارض في المواعيد</div>
           {conflicts.map((c, i) => (
             <div key={i}>
               مع مجموعة «{c.name}» — أيام مشتركة: {c.days}، ميعادها {c.time}
@@ -179,7 +180,7 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
         </div>
       )}
 
-      {error && <p className="text-bad-text text-[13px] mb-3">{error}</p>}
+      {error && <p className="text-bad-text text-[13.5px] mb-3">{error}</p>}
       <div className="flex gap-2">
         <Button full onClick={save} disabled={saving}>
           {saving ? 'بنحفظ…' : 'حفظ'}

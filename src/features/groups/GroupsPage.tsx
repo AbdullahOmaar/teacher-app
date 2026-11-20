@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
-import { Button } from '../../components/ui/Button'
+import { Users } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { Fab } from '../../components/ui/Fab'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { BILLING_LABELS, daysLabel, formatMoney, shortTime } from '../../lib/format'
@@ -30,18 +31,28 @@ export function GroupsPage() {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
   if (groupsQ.isPending || enrollmentsQ.isPending) return <LoadingState label="بنحمّل المجموعات…" />
   const error = groupsQ.error ?? enrollmentsQ.error
-  if (error) return <ErrorState message={error instanceof Error ? error.message : 'خطأ غير معروف'} />
+  if (error)
+    return (
+      <ErrorState
+        message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+        onRetry={() => {
+          void groupsQ.refetch()
+          void enrollmentsQ.refetch()
+        }}
+      />
+    )
 
   const groups = groupsQ.data ?? []
 
   return (
     <div>
-      <Button full className="mb-3" onClick={() => setFormOpen(true)}>
-        + مجموعة جديدة
-      </Button>
-
       {groups.length === 0 ? (
-        <EmptyState icon="👨‍👩‍👧‍👦" title="لا توجد مجموعات بعد" hint="أنشئ أول مجموعة وحدد جدولها ونظام الدفع" />
+        <EmptyState
+          icon={Users}
+          title="لا توجد مجموعات بعد"
+          hint="أنشئ أول مجموعة وحدد جدولها ونظام الدفع"
+          action={{ label: 'إنشاء مجموعة', onClick: () => setFormOpen(true) }}
+        />
       ) : (
         groups.map((g) => {
           const cnt = counts.get(g.id) ?? 0
@@ -50,14 +61,14 @@ export function GroupsPage() {
             <Link key={g.id} to={`/groups/${g.id}`} className="block no-underline text-text">
               <Card>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-[15.5px]">{g.name}</span>
+                  <span className="font-bold text-[16px]">{g.name}</span>
                   {g.assistant_name && (
-                    <span className="text-[11px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
+                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
                       مساعد: {g.assistant_name}
                     </span>
                   )}
                 </div>
-                <div className="text-muted text-[13px] mt-0.5">
+                <div className="text-muted text-[13.5px] mt-0.5">
                   {BILLING_LABELS[g.billing_type]} · {formatMoney(g.price)} · {daysLabel(g.days)} ·{' '}
                   {shortTime(g.start_time)} ({g.duration_minutes} د)
                   {g.room ? ` · ${g.room}` : ''}
@@ -78,13 +89,15 @@ export function GroupsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-muted text-[12.5px] mt-1">{cnt} طالب مسجل</div>
+                  <div className="text-muted text-[13.5px] mt-1">{cnt} طالب مسجل</div>
                 )}
               </Card>
             </Link>
           )
         })
       )}
+
+      <Fab onClick={() => setFormOpen(true)} ariaLabel="إنشاء مجموعة جديدة" label="مجموعة جديدة" />
 
       {formOpen && (
         <GroupFormSheet

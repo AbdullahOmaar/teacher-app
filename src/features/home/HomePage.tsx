@@ -1,8 +1,17 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  Bell,
+  CalendarDays,
+  ClipboardCheck,
+  Plus,
+  ReceiptText,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
+import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney, shortTime } from '../../lib/format'
 import {
@@ -23,10 +32,6 @@ import {
   useUpcomingSessions,
 } from './hooks'
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-soft rounded-2xl ${className}`} />
-}
-
 function KpiCard({
   to,
   value,
@@ -45,7 +50,7 @@ function KpiCard({
       <Card className="mb-0 text-center h-full">
         <b className={`block text-[21px] font-extrabold leading-tight ${valueClass}`}>{value}</b>
         <span className="block text-muted text-[12px] font-semibold">{label}</span>
-        {sub && <span className="block text-muted text-[11px] mt-0.5">{sub}</span>}
+        {sub && <span className="block text-muted text-[12px] mt-0.5">{sub}</span>}
       </Card>
     </Link>
   )
@@ -118,18 +123,18 @@ export function HomePage() {
   if (teacher.status === 'signed-out') return <SignInRequired />
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
 
-  const quickActions = isAssistant
+  const quickActions: { to: string; icon: LucideIcon; label: string }[] = isAssistant
     ? [
-        { to: '/students', icon: '➕', label: 'طالب جديد' },
-        { to: '/groups', icon: '👨‍👩‍👧‍👦', label: 'مجموعة جديدة' },
-        { to: '/attendance', icon: '✅', label: 'تسجيل حضور' },
-        { to: '/schedule', icon: '🗓️', label: 'الجدول' },
+        { to: '/students', icon: Plus, label: 'طالب جديد' },
+        { to: '/groups', icon: Users, label: 'مجموعة جديدة' },
+        { to: '/attendance', icon: ClipboardCheck, label: 'تسجيل حضور' },
+        { to: '/schedule', icon: CalendarDays, label: 'الجدول' },
       ]
     : [
-        { to: '/students', icon: '➕', label: 'طالب جديد' },
-        { to: '/groups', icon: '👨‍👩‍👧‍👦', label: 'مجموعة جديدة' },
-        { to: '/attendance', icon: '✅', label: 'تسجيل حضور' },
-        { to: '/invoices', icon: '🧾', label: 'الفواتير' },
+        { to: '/students', icon: Plus, label: 'طالب جديد' },
+        { to: '/groups', icon: Users, label: 'مجموعة جديدة' },
+        { to: '/attendance', icon: ClipboardCheck, label: 'تسجيل حضور' },
+        { to: '/invoices', icon: ReceiptText, label: 'الفواتير' },
       ]
 
   const primaryPending =
@@ -155,16 +160,19 @@ export function HomePage() {
     <div>
       {/* شبكة الإجراءات السريعة — وجهات حقيقية موجودة فقط (المرجع §3.1) */}
       <div className="grid grid-cols-4 gap-2 mb-3">
-        {quickActions.map((a) => (
-          <Link
-            key={a.label}
-            to={a.to}
-            className="bg-card border border-border rounded-2xl py-3 flex flex-col items-center gap-1 no-underline text-text"
-          >
-            <span className="text-[20px]">{a.icon}</span>
-            <span className="text-[11px] font-semibold">{a.label}</span>
-          </Link>
-        ))}
+        {quickActions.map((a) => {
+          const ActionIcon = a.icon
+          return (
+            <Link
+              key={a.label}
+              to={a.to}
+              className="bg-card border border-border rounded-2xl py-3 flex flex-col items-center gap-1.5 no-underline text-text"
+            >
+              <ActionIcon size={24} className="text-primary" />
+              <span className="text-[13.5px] font-semibold">{a.label}</span>
+            </Link>
+          )
+        })}
       </div>
 
       {primaryPending ? (
@@ -181,6 +189,15 @@ export function HomePage() {
       ) : primaryError ? (
         <ErrorState
           message={primaryError instanceof Error ? primaryError.message : 'خطأ غير معروف'}
+          onRetry={() => {
+            void activeStudentsQ.refetch()
+            void monthAttendanceQ.refetch()
+            void sessionsQ.refetch()
+            if (isOwner) {
+              void paymentsQ.refetch()
+              void balancesQ.refetch()
+            }
+          }}
         />
       ) : (
         <>
@@ -188,11 +205,11 @@ export function HomePage() {
           <div className="rounded-2xl p-4 mb-3 text-white bg-[linear-gradient(135deg,#4F46E5,#4338CA)] shadow-[0_8px_20px_rgba(79,70,229,0.35)]">
             {hero ? (
               <>
-                <div className="text-[13px] opacity-85 mb-1">
+                <div className="text-[13.5px] opacity-85 mb-1">
                   الحصة القادمة · {hero.session_date === today ? 'اليوم' : 'غداً'}
                 </div>
                 <div className="font-extrabold text-[19px]">{hero.group_name}</div>
-                <div className="text-[13px] opacity-90 mt-1">
+                <div className="text-[13.5px] opacity-90 mt-1">
                   {hero.session_date === today ? `${relLabel(hero, now)} · ` : ''}
                   الساعة {shortTime(hero.start_time)} · {hero.duration_minutes} دقيقة
                   {hero.group_room ? ` · ${hero.group_room}` : ''}
@@ -200,18 +217,18 @@ export function HomePage() {
                 </div>
                 <Link
                   to={`/attendance?session=${hero.id}`}
-                  className="inline-block mt-3 bg-white text-primary font-bold text-[13px] rounded-full px-4 py-2 no-underline"
+                  className="inline-flex items-center mt-3 bg-white text-primary font-bold text-[13.5px] rounded-full px-4 min-h-[48px] no-underline"
                 >
                   سجّل الحضور
                 </Link>
               </>
             ) : (
               <>
-                <div className="text-[13px] opacity-85 mb-1">الحصة القادمة</div>
-                <div className="font-extrabold text-[17px]">
+                <div className="text-[13.5px] opacity-85 mb-1">الحصة القادمة</div>
+                <div className="font-extrabold text-[16px]">
                   {todaySessions.length > 0 ? 'شكراً على تعبك اليوم' : 'استمتع بيومك'}
                 </div>
-                <div className="text-[13px] opacity-85 mt-1">
+                <div className="text-[13.5px] opacity-85 mt-1">
                   {sessions.length === 0
                     ? 'مفيش حصص مجدولة النهاردة أو بكرة — الحصص هتظهر هنا بعد توليدها من جدول المجموعات.'
                     : 'خلصت الحصص المجدولة ومفيش حصة قادمة النهاردة أو بكرة.'}
@@ -266,7 +283,7 @@ export function HomePage() {
           {isOwner && goalPct != null && (
             <Card>
               <div className="flex justify-between items-center mb-2">
-                <span className="font-bold text-[14px]">هدف تحصيل الشهر</span>
+                <span className="font-bold text-[15px]">هدف تحصيل الشهر</span>
                 <span className="font-extrabold text-ok-text">{goalPct}%</span>
               </div>
               <div className="h-2 rounded-full bg-soft overflow-hidden">
@@ -286,16 +303,16 @@ export function HomePage() {
             <Link to="/notifications" className="block no-underline text-text">
               <Card>
                 <div className="flex items-center gap-2">
-                  <span className="text-[18px]">🔔</span>
-                  <span className="font-bold text-[14px]">التنبيهات</span>
+                  <Bell size={24} className="text-primary" />
+                  <span className="font-bold text-[15px]">التنبيهات</span>
                   {(alertsQ.data.length ?? 0) > 0 && (
-                    <span className="text-[11px] font-bold bg-bad text-white rounded-full px-2 py-0.5">
+                    <span className="text-[12px] font-bold bg-bad text-white rounded-full px-2 py-0.5">
                       {alertsQ.data.length}
                     </span>
                   )}
                 </div>
-                <div className="text-muted text-[13px] mt-1">
-                  {alertsQ.data.length > 0 ? alertsQ.data[0].text : 'مفيش أي تنبيهات حالياً ✅'}
+                <div className="text-muted text-[13.5px] mt-1">
+                  {alertsQ.data.length > 0 ? alertsQ.data[0].text : 'مفيش أي تنبيهات حالياً'}
                 </div>
               </Card>
             </Link>
@@ -306,7 +323,7 @@ export function HomePage() {
           {todaySessions.length === 0 ? (
             <Card>
               <EmptyState
-                icon="📅"
+                icon={CalendarDays}
                 title="لا توجد حصص مجدولة اليوم"
                 hint="هتظهر هنا حصص اليوم وحالة تحضيرها بعد توليدها من جدول المجموعات."
               />
@@ -347,22 +364,22 @@ function TodaySessionCard({
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-bold text-[15px]">{s.group_name}</span>
             {s.kind === 'extra' && (
-              <span className="text-[11px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
+              <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
                 إضافية
               </span>
             )}
             {s.kind === 'moved' && (
-              <span className="text-[11px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
+              <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
                 منقولة
               </span>
             )}
             {cancelled && (
-              <span className="text-[11px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">
+              <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">
                 ملغاة
               </span>
             )}
           </div>
-          <div className="text-muted text-[13px] mt-0.5">
+          <div className="text-muted text-[13.5px] mt-0.5">
             {shortTime(s.start_time)} · {s.duration_minutes} دقيقة
             {s.group_room ? ` · ${s.group_room}` : ''}
           </div>
@@ -374,14 +391,14 @@ function TodaySessionCard({
             ) : done >= total ? (
               <Link
                 to={`/attendance?session=${s.id}`}
-                className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-3 py-1.5 no-underline"
+                className="shrink-0 inline-flex items-center text-[13.5px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-3 min-h-[48px] no-underline"
               >
                 تم ({done})
               </Link>
             ) : (
               <Link
                 to={`/attendance?session=${s.id}`}
-                className="shrink-0 text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-3 py-1.5 no-underline"
+                className="shrink-0 inline-flex items-center text-[13.5px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-3 min-h-[48px] no-underline"
               >
                 تحضير ({done}/{total})
               </Link>

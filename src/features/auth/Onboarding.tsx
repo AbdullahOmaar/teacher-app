@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { GraduationCap } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
@@ -43,14 +44,16 @@ export function Onboarding() {
 
   return (
     <Card className="text-center py-6">
-      <div className="text-[34px] mb-2">🧑‍🏫</div>
-      <div className="font-extrabold mb-1">أهلاً بيك — كمّل إعداد حسابك</div>
-      <p className="text-muted text-[13px] mb-4">
+      <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
+        <GraduationCap size={28} />
+      </div>
+      <div className="type-section mb-1">أهلاً بيك — كمّل إعداد حسابك</div>
+      <p className="text-muted text-[13.5px] mb-4">
         حسابك مسجل دخوله ({user?.email ?? ''})، فاضل خطوة واحدة: إنشاء ملف المدرس
         الخاص بيك وإعداداته الافتراضية.
       </p>
       {error && (
-        <p className="bg-[#FEF2F2] text-bad-text text-[13px] rounded-xl px-3 py-2 mb-3" role="alert">
+        <p className="bg-[#FEF2F2] text-bad-text text-[13.5px] rounded-xl px-3 py-2 mb-3" role="alert">
           {error}
         </p>
       )}
@@ -81,7 +84,7 @@ export function Onboarding() {
       <button
         type="button"
         onClick={() => void signOut()}
-        className="mt-4 bg-transparent border-0 text-muted text-[13px] cursor-pointer underline"
+        className="mt-2 inline-flex items-center min-h-[48px] bg-transparent border-0 text-muted text-[13.5px] cursor-pointer underline"
       >
         تسجيل الخروج
       </button>

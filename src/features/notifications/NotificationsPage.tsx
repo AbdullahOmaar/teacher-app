@@ -1,9 +1,23 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  AlertTriangle,
+  Bell,
+  CalendarCheck2,
+  Copy,
+  DatabaseBackup,
+  MessageCircle,
+  Repeat,
+  Ticket,
+  TrendingDown,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
+import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import { periodLabel } from '../invoices/api'
@@ -17,8 +31,13 @@ import {
 } from './api'
 import { useAlerts } from './hooks'
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-soft rounded-2xl ${className}`} />
+const KIND_ICONS: Record<AlertKind, LucideIcon> = {
+  att: CalendarCheck2,
+  absence: Repeat,
+  prepaid: Ticket,
+  fin: Wallet,
+  grade: TrendingDown,
+  backup: DatabaseBackup,
 }
 
 function WaButton({ url, label = 'واتساب' }: { url: string; label?: string }) {
@@ -27,9 +46,10 @@ function WaButton({ url, label = 'واتساب' }: { url: string; label?: string
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="shrink-0 inline-flex items-center justify-center gap-1.5 text-[12.5px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-3 py-1.5 no-underline"
+      className="shrink-0 inline-flex items-center justify-center gap-1.5 text-[13.5px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-3 min-h-[48px] no-underline"
     >
-      💬 {label}
+      <MessageCircle size={20} />
+      {label}
     </a>
   )
 }
@@ -50,9 +70,9 @@ function AlertRow({ alert }: { alert: AppAlert }) {
     <Card className="mb-2">
       <div className="flex items-start gap-2">
         <Link to={alert.to} className="flex-1 min-w-0 no-underline text-text">
-          <div className="font-semibold text-[14.5px] leading-snug">{alert.text}</div>
-          {alert.detail && <div className="text-muted text-[12.5px] mt-0.5">{alert.detail}</div>}
-          <div className="text-primary text-[12px] font-semibold mt-1">اضغط للانتقال ›</div>
+          <div className="font-semibold text-[16px] leading-[1.7]">{alert.text}</div>
+          {alert.detail && <div className="text-muted text-[13.5px] mt-0.5">{alert.detail}</div>}
+          <div className="text-primary text-[13.5px] font-semibold mt-1">اضغط للانتقال ›</div>
         </Link>
         {alert.waUrl && <WaButton url={alert.waUrl} label="تذكير واتساب" />}
       </div>
@@ -62,7 +82,7 @@ function AlertRow({ alert }: { alert: AppAlert }) {
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="mt-2 text-[12.5px] font-bold text-primary bg-soft border border-primary/20 rounded-full px-3 py-1.5 cursor-pointer"
+            className="mt-2 inline-flex items-center text-[13.5px] font-bold text-primary bg-soft border border-primary/20 rounded-full px-3 min-h-[48px] cursor-pointer"
           >
             {open
               ? 'إخفاء التفاصيل'
@@ -81,7 +101,7 @@ function AlertRow({ alert }: { alert: AppAlert }) {
                   <span className="text-[13.5px] font-semibold">
                     {inv.group_name} · {periodLabel(inv.period_month)}
                   </span>
-                  <span className="text-[12.5px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 shrink-0">
+                  <span className="text-[13.5px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 shrink-0">
                     باقي {formatMoney(inv.balance)}
                   </span>
                 </Link>
@@ -108,7 +128,7 @@ function AlertRow({ alert }: { alert: AppAlert }) {
                   {s.waUrl ? (
                     <WaButton url={s.waUrl} label="إرسال الدرجة" />
                   ) : (
-                    <span className="shrink-0 text-muted text-[11.5px]">لا رقم ولي أمر</span>
+                    <span className="shrink-0 text-muted text-[12px]">لا رقم ولي أمر</span>
                   )}
                 </div>
               ))}
@@ -134,12 +154,7 @@ export function NotificationsPage() {
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
   const isAssistant = teacher.status === 'ready' && teacher.role === 'assistant'
 
-  const [toast, setToast] = useState<string | null>(null)
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 3500)
-    return () => clearTimeout(t)
-  }, [toast])
+  const toast = useToast()
 
   const alertsQ = useAlerts(teacherId, isOwner)
   const alerts = useMemo(() => alertsQ.data ?? [], [alertsQ.data])
@@ -162,8 +177,8 @@ export function NotificationsPage() {
   const copy = (text: string, okMsg: string) => {
     void navigator.clipboard
       ?.writeText(text)
-      .then(() => setToast(okMsg))
-      .catch(() => setToast('النسخ مش متاح في المتصفح ده'))
+      .then(() => toast(okMsg))
+      .catch(() => toast('النسخ مش متاح في المتصفح ده'))
   }
 
   if (teacher.status === 'loading') return <LoadingState />
@@ -181,12 +196,13 @@ export function NotificationsPage() {
       ) : alertsQ.isError ? (
         <ErrorState
           message={alertsQ.error instanceof Error ? alertsQ.error.message : 'خطأ غير معروف'}
+          onRetry={() => void alertsQ.refetch()}
         />
       ) : alerts.length === 0 ? (
         <Card>
           <EmptyState
-            icon="🔔"
-            title="مفيش أي تنبيهات حالياً ✅"
+            icon={Bell}
+            title="مفيش أي تنبيهات حالياً"
             hint="كل حاجة تمام: الحضور متسجل، ومفيش متأخرات ولا باقات بتنفد ولا درجات منخفضة تحتاج متابعة."
           />
         </Card>
@@ -194,16 +210,16 @@ export function NotificationsPage() {
         <>
           <Card>
             <div className="flex items-center gap-2">
-              <span className="text-[18px]">🔔</span>
-              <span className="font-bold text-[14.5px]">عندك {alerts.length} تنبيه</span>
+              <Bell size={24} className="text-primary" />
+              <span className="font-bold text-[16px]">عندك {alerts.length} تنبيه</span>
             </div>
-            <div className="text-muted text-[12.5px] mt-1">
+            <div className="text-muted text-[13.5px] mt-1">
               {sections
                 .map((s) => `${SECTION_META[s.kind].title}: ${s.items.length}`)
                 .join(' · ')}
             </div>
             {isAssistant && (
-              <div className="text-muted text-[12.5px] mt-1">
+              <div className="text-muted text-[13.5px] mt-1">
                 أقسام المتأخرات والنسخ الاحتياطي مالية وتظهر للمالك فقط.
               </div>
             )}
@@ -212,19 +228,21 @@ export function NotificationsPage() {
           {/* بطاقة إجراءات سريعة للمتأخرات — للمالك فقط (§3.13) */}
           {isOwner && finCount > 0 && (
             <Card className="border-warn/50 bg-warn/5">
-              <div className="font-extrabold text-[14.5px] mb-1">⚠️ إجراءات المتأخرات</div>
-              <div className="text-muted text-[13px] mb-3">
+              <div className="font-extrabold text-[16px] mb-1 flex items-center gap-2"><AlertTriangle size={20} className="text-warn-text" /> إجراءات المتأخرات</div>
+              <div className="text-muted text-[13.5px] mb-3">
                 {finCount} طالب عليهم مستحقات — انسخ القائمة أو التذكير العام وابعته كما يناسبك.
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Button variant="soft" onClick={() => copy(overdueText, 'اتنسخت قائمة المتأخرات 📋')}>
-                  📋 نسخ قائمة المتأخرات
+                <Button variant="soft" onClick={() => copy(overdueText, 'اتنسخت قائمة المتأخرات')}>
+                  <Copy size={18} />
+                  نسخ قائمة المتأخرات
                 </Button>
                 <Button
                   variant="ghost"
-                  onClick={() => copy(GENERIC_REMINDER_TEXT, 'اتنسخ التذكير العام 📋')}
+                  onClick={() => copy(GENERIC_REMINDER_TEXT, 'اتنسخ التذكير العام')}
                 >
-                  📋 نسخ تذكير عام
+                  <Copy size={18} />
+                  نسخ تذكير عام
                 </Button>
               </div>
             </Card>
@@ -232,10 +250,13 @@ export function NotificationsPage() {
 
           {sections.map((s) => (
             <div key={s.kind} className="mb-4">
-              <h2 className="text-[15px] font-extrabold mb-2 mt-1 flex items-center gap-2">
-                <span>{SECTION_META[s.kind].icon}</span>
+              <h2 className="type-section mb-2 mt-1 flex items-center gap-2">
+                {(() => {
+                  const KindIcon = KIND_ICONS[s.kind]
+                  return <KindIcon size={24} className="text-primary" />
+                })()}
                 {SECTION_META[s.kind].title}
-                <span className="text-[11px] font-bold bg-bad text-white rounded-full px-2 py-0.5">
+                <span className="text-[12px] font-bold bg-bad text-white rounded-full px-2 py-0.5">
                   {s.items.length}
                 </span>
               </h2>
@@ -247,11 +268,6 @@ export function NotificationsPage() {
         </>
       )}
 
-      {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-text text-bg text-[13.5px] font-semibold rounded-full px-4 py-2 shadow-lg">
-          {toast}
-        </div>
-      )}
     </div>
   )
 }

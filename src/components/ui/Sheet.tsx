@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 interface SheetProps {
   open: boolean
@@ -7,22 +7,57 @@ interface SheetProps {
   children: ReactNode
 }
 
+/** عتبة السحب للإغلاق (px) — بعدها يُغلق الـ Sheet عند الإفلات */
+const DISMISS_THRESHOLD = 90
+
 /**
- * مودال بنمط Bottom Sheet كما في المرجع (§6.6):
- * overlay معتم، sheet يصعد من الأسفل بعرض أقصى 640px وانحناء علوي 22px،
- * إغلاق بالضغط خارجاً أو Escape.
+ * مودال بنمط Bottom Sheet (بحث §5):
+ * overlay معتم، sheet يصعد من الأسفل بعرض أقصى 640px وانحناء علوي 24px،
+ * إغلاق بالسحب للأسفل من المقبض/الترويسة + النقر خارجاً + Escape،
+ * وقفل تمرير الخلفية (body scroll lock) أثناء الفتح.
  */
 export function Sheet({ open, title, onClose, children }: SheetProps) {
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStart = useRef<number | null>(null)
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // قفل تمرير الخلفية أثناء فتح الـ Sheet
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
   }, [open, onClose])
 
   if (!open) return null
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    dragStart.current = e.clientY
+    setIsDragging(true)
+    setDragY(0)
+    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!isDragging || dragStart.current == null) return
+    const dy = e.clientY - dragStart.current
+    setDragY(Math.max(0, dy))
+  }
+  const endDrag = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > DISMISS_THRESHOLD) {
+      onClose()
+    }
+    setDragY(0)
+    dragStart.current = null
+  }
 
   return (
     <div
@@ -31,13 +66,27 @@ export function Sheet({ open, title, onClose, children }: SheetProps) {
       role="presentation"
     >
       <div
-        className="bg-card w-full max-w-[640px] max-h-[90vh] overflow-y-auto rounded-t-[22px] p-4"
+        className="bg-card w-full max-w-[640px] max-h-[90vh] overflow-y-auto rounded-t-[24px] p-4 shadow-raised"
+        style={{
+          transform: dragY ? `translateY(${dragY}px)` : undefined,
+          transition: isDragging ? 'none' : 'transform 200ms ease-out',
+        }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <div className="w-10 h-1 rounded-full bg-border mx-auto mb-3" />
-        {title && <h3 className="text-[17px] font-bold mb-3">{title}</h3>}
+        {/* منطقة المقبض: السحب منها للأسفل يُغلق الـ Sheet */}
+        <div
+          className="cursor-grab active:cursor-grabbing touch-none -mt-1 pt-1 pb-2"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          role="presentation"
+        >
+          <div className="w-11 h-1.5 rounded-full bg-border mx-auto" />
+        </div>
+        {title && <h3 className="type-section mb-3">{title}</h3>}
         {children}
       </div>
     </div>

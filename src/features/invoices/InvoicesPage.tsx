@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
+import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
+import { AlertTriangle, Lock, ReceiptText } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { Fab } from '../../components/ui/Fab'
 import { Chip, ChipRow, TextInput } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
@@ -50,7 +53,7 @@ export function InvoiceCard({ inv }: { inv: InvoiceListItem }) {
           <div className="font-bold text-[15px]">{inv.student_name}</div>
           {stateBadge(inv)}
         </div>
-        <div className="text-muted text-[13px] mt-0.5">
+        <div className="text-muted text-[13.5px] mt-0.5">
           {inv.group_name} · {periodLabel(inv.period_month)} (
           <span dir="ltr">{periodYm(inv.period_month)}</span>) · الإجمالي{' '}
           {formatMoney(inv.total)}
@@ -80,13 +83,7 @@ export function InvoicesPage() {
     filterChoice ?? (params.get('filter') === 'due' ? 'due' : 'all')
   const [issueOpen, setIssueOpen] = useState(false)
   const [showOverdue, setShowOverdue] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 3500)
-    return () => clearTimeout(t)
-  }, [toast])
+  const toast = useToast()
 
   const invoicesQ = useInvoices(teacherId, isOwner)
   const invoices = useMemo(() => invoicesQ.data ?? [], [invoicesQ.data])
@@ -128,9 +125,11 @@ export function InvoicesPage() {
   if (!isOwner) {
     return (
       <Card className="text-center py-10">
-        <div className="text-[34px] mb-2">🔒</div>
-        <div className="font-extrabold mb-1">الفواتير والمالية للمالك فقط</div>
-        <p className="text-muted text-[13px] mb-0">
+        <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
+          <Lock size={28} />
+        </div>
+        <div className="type-section mb-1">الفواتير والمالية للمالك فقط</div>
+        <p className="text-muted text-[13.5px] mb-0">
           حساب المساعد لا يملك صلاحية مالية — الفواتير والدفعات محجوبة في قاعدة البيانات نفسها
           (RLS) وليس في الواجهة فقط.
         </p>
@@ -152,10 +151,6 @@ export function InvoicesPage() {
         </div>
       </div>
 
-      <Button full onClick={() => setIssueOpen(true)} className="mb-3">
-        🧾 إصدار فواتير {currentMonthLabel}
-      </Button>
-
       <ChipRow>
         {FILTERS.map((f) => (
           <Chip key={f.key} active={filter === f.key} onClick={() => setFilter(f.key)}>
@@ -169,6 +164,7 @@ export function InvoicesPage() {
       ) : invoicesQ.isError ? (
         <ErrorState
           message={invoicesQ.error instanceof Error ? invoicesQ.error.message : 'خطأ غير معروف'}
+          onRetry={() => void invoicesQ.refetch()}
         />
       ) : (
         <>
@@ -176,8 +172,8 @@ export function InvoicesPage() {
             <Card className="border-warn/50 bg-warn/5">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <div className="font-extrabold text-[14.5px]">⚠️ متأخرات مستحقة</div>
-                  <div className="text-muted text-[13px]">
+                  <div className="font-extrabold text-[16px] flex items-center gap-2"><AlertTriangle size={20} className="text-warn-text" /> متأخرات مستحقة</div>
+                  <div className="text-muted text-[13.5px]">
                     {overdue.count} طالب · إجمالي {formatMoney(overdue.total)}
                   </div>
                 </div>
@@ -193,8 +189,8 @@ export function InvoicesPage() {
                         .join('\n')
                       void navigator.clipboard
                         ?.writeText(text)
-                        .then(() => setToast('اتنسخت قائمة المتأخرات 📋'))
-                        .catch(() => setToast('النسخ مش متاح في المتصفح ده'))
+                        .then(() => toast('اتنسخت قائمة المتأخرات'))
+                        .catch(() => toast('النسخ مش متاح في المتصفح ده'))
                     }}
                   >
                     نسخ المتأخرات
@@ -223,12 +219,17 @@ export function InvoicesPage() {
           {filtered.length === 0 ? (
             <Card>
               <EmptyState
-                icon="🧾"
+                icon={ReceiptText}
                 title={invoices.length === 0 ? 'لسه مفيش فواتير' : 'مفيش فواتير مطابقة'}
                 hint={
                   invoices.length === 0
-                    ? 'اصدر فواتير الشهر من الزر اللي فوق — لكل طالب نشط بسعره الفعلي وحسب نظام فوترة مجموعته.'
+                    ? 'اصدر فواتير الشهر من الزر العائم — لكل طالب نشط بسعره الفعلي وحسب نظام فوترة مجموعته.'
                     : 'جرّب كلمة بحث أو فلتر تاني.'
+                }
+                action={
+                  invoices.length === 0
+                    ? { label: 'إصدار فواتير الشهر', onClick: () => setIssueOpen(true) }
+                    : undefined
                 }
               />
             </Card>
@@ -238,14 +239,15 @@ export function InvoicesPage() {
         </>
       )}
 
+      <Fab
+        onClick={() => setIssueOpen(true)}
+        ariaLabel={`إصدار فواتير ${currentMonthLabel}`}
+        label={`إصدار فواتير ${currentMonthLabel}`}
+        icon={ReceiptText}
+      />
+
       {issueOpen && teacherId && (
         <IssueInvoicesSheet teacherId={teacherId} onClose={() => setIssueOpen(false)} />
-      )}
-
-      {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-text text-bg text-[13.5px] font-semibold rounded-full px-4 py-2 shadow-lg">
-          {toast}
-        </div>
       )}
     </div>
   )

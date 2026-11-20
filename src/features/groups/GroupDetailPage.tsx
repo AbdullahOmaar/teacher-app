@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
+import { Link2, MapPin, Pencil, Users } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Field, TextInput } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -44,10 +45,19 @@ export function GroupDetailPage() {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
   if (groupQ.isPending || rosterQ.isPending) return <LoadingState label="بنحمّل المجموعة…" />
   const error = groupQ.error ?? rosterQ.error
-  if (error) return <ErrorState message={error instanceof Error ? error.message : 'خطأ غير معروف'} />
+  if (error)
+    return (
+      <ErrorState
+        message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+        onRetry={() => {
+          void groupQ.refetch()
+          void rosterQ.refetch()
+        }}
+      />
+    )
 
   const group = groupQ.data
-  if (!group) return <EmptyState icon="👨‍👩‍👧‍👦" title="المجموعة غير موجودة" hint="ممكن تكون اتحذفت أو الرابط غير صحيح" />
+  if (!group) return <EmptyState icon={Users} title="المجموعة غير موجودة" hint="ممكن تكون اتحذفت أو الرابط غير صحيح" />
 
   const roster = rosterQ.data ?? []
   const waitlist = waitlistQ.data ?? []
@@ -74,9 +84,10 @@ export function GroupDetailPage() {
     <div>
       <Card>
         <div className="flex items-start justify-between gap-2">
-          <div className="text-[17px] font-extrabold">{group.name}</div>
+          <div className="text-[16px] font-extrabold">{group.name}</div>
           <Button variant="ghost" onClick={() => setEditOpen(true)}>
-            ✏️ تعديل
+            <Pencil size={20} />
+            تعديل
           </Button>
         </div>
         <div className="text-muted text-[13.5px] mt-1 leading-relaxed">
@@ -84,7 +95,7 @@ export function GroupDetailPage() {
           <br />
           {daysLabel(group.days)} · {shortTime(group.start_time)} ({group.duration_minutes} دقيقة)
           {group.room ? <br /> : null}
-          {group.room ? `📍 ${group.room}` : ''}
+          {group.room ? (<span className="inline-flex items-center gap-1"><MapPin size={16} /> {group.room}</span>) : ''}
           {group.assistant_name ? <><br />مساعد: {group.assistant_name}</> : null}
         </div>
         {group.capacity != null && pct != null && (
@@ -103,8 +114,9 @@ export function GroupDetailPage() {
         {group.links.length > 0 && (
           <div className="mt-2">
             {group.links.map((l, i) => (
-              <a key={i} href={l} target="_blank" rel="noreferrer" className="block text-primary text-[13px] break-all" dir="ltr">
-                🔗 {l}
+              <a key={i} href={l} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-primary text-[13.5px] break-all min-h-[48px]" dir="ltr">
+                <Link2 size={16} className="shrink-0" />
+                <span className="break-all">{l}</span>
               </a>
             ))}
           </div>
@@ -121,23 +133,23 @@ export function GroupDetailPage() {
         </div>
       </Card>
 
-      <h3 className="text-[15px] font-extrabold mt-4 mb-2">الطلاب المسجلون ({roster.length})</h3>
+      <h3 className="type-section mt-4 mb-2">الطلاب المسجلون ({roster.length})</h3>
       {roster.length === 0 ? (
-        <EmptyState icon="👥" title="لا طلاب مسجلين بعد" hint="أضف طلاباً من زر «+ إضافة طالب»" />
+        <EmptyState icon={Users} title="لا طلاب مسجلين بعد" hint="أضف طلاباً من زر «إضافة طالب»" />
       ) : (
         roster.map((r) => (
           <Link key={r.id} to={`/students/${r.student_id}`} className="block no-underline text-text">
             <Card className={r.student_paused ? 'opacity-60' : ''}>
               <div className="flex items-center justify-between gap-2">
-                <span className="font-bold text-[14.5px]">
+                <span className="font-bold text-[16px]">
                   {r.student_name}
                   {r.student_paused && <span className="text-warn-text text-[12px]"> (موقوف)</span>}
                 </span>
-                <span className="text-muted text-[12.5px]">
+                <span className="text-muted text-[13.5px]">
                   <span dir="ltr">{r.student_code}</span>
                 </span>
               </div>
-              <div className="text-muted text-[12.5px] mt-0.5">
+              <div className="text-muted text-[13.5px] mt-0.5">
                 السعر الفعلي: {formatMoney(r.price_override ?? group.price)}
                 {r.price_override != null ? ' (سعر خاص)' : ''}
                 {r.prepaid_sessions != null ? ` · مدفوع مسبقاً: ${r.prepaid_sessions} حصة` : ''}
@@ -147,21 +159,21 @@ export function GroupDetailPage() {
         ))
       )}
 
-      <h3 className="text-[15px] font-extrabold mt-4 mb-2">قائمة الانتظار ({waitlist.length})</h3>
+      <h3 className="type-section mt-4 mb-2">قائمة الانتظار ({waitlist.length})</h3>
       <Card>
         {waitlistQ.isPending ? (
           <LoadingState label="بنحمّل قائمة الانتظار…" />
         ) : waitlist.length === 0 ? (
-          <p className="text-muted text-[13px] mt-0">لا أحد في الانتظار حالياً.</p>
+          <p className="text-muted text-[13.5px] mt-0">لا أحد في الانتظار حالياً.</p>
         ) : (
           waitlist.map((w) => (
             <div key={w.id} className="flex justify-between gap-2 py-2 border-b border-border last:border-0">
               <div>
-                <div className="font-semibold text-[14px]">{w.name}</div>
-                {w.note && <div className="text-muted text-[12.5px]">{w.note}</div>}
+                <div className="font-semibold text-[15px]">{w.name}</div>
+                {w.note && <div className="text-muted text-[13.5px]">{w.note}</div>}
               </div>
               {w.phone && (
-                <a href={`tel:${w.phone}`} className="text-primary text-[13px] font-semibold shrink-0" dir="ltr">
+                <a href={`tel:${w.phone}`} className="text-primary text-[13.5px] font-semibold shrink-0" dir="ltr">
                   {w.phone}
                 </a>
               )}
@@ -180,7 +192,7 @@ export function GroupDetailPage() {
               <TextInput value={wlNote} onChange={(e) => setWlNote(e.target.value)} />
             </Field>
           </div>
-          {wlError && <p className="text-bad-text text-[13px] mb-2">{wlError}</p>}
+          {wlError && <p className="text-bad-text text-[13.5px] mb-2">{wlError}</p>}
           <Button full variant="soft" onClick={submitWaitlist} disabled={addWaitlist.isPending}>
             {addWaitlist.isPending ? 'بنضيف…' : '+ إضافة لقائمة الانتظار'}
           </Button>

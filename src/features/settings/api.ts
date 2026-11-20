@@ -184,13 +184,13 @@ export function toCsv(headers: string[], rows: unknown[][]): string {
 
 export type CsvKind = 'students' | 'invoices' | 'payments' | 'attendance' | 'scores' | 'expenses'
 
-export const CSV_KINDS: { kind: CsvKind; label: string; icon: string; hint: string }[] = [
-  { kind: 'students', label: 'الطلاب', icon: '👥', hint: 'كل الطلاب وبيانات التواصل والمجموعات' },
-  { kind: 'invoices', label: 'الفواتير', icon: '🧾', hint: 'الشهر، الطالب، المجموعة، الإجمالي والمدفوع والمتبقي' },
-  { kind: 'payments', label: 'الدفعات', icon: '💵', hint: 'التاريخ، رقم الإيصال، الطالب، المبلغ والطريقة' },
-  { kind: 'attendance', label: 'الحضور', icon: '✅', hint: 'كل حالات الحضور المسجلة بأسمائها العربية' },
-  { kind: 'scores', label: 'الدرجات', icon: '📝', hint: 'الامتحان، الطالب، الدرجة والنهائية والنسبة' },
-  { kind: 'expenses', label: 'المصروفات', icon: '🧮', hint: 'التاريخ، النوع، المبلغ والملاحظة' },
+export const CSV_KINDS: { kind: CsvKind; label: string; hint: string }[] = [
+  { kind: 'students', label: 'الطلاب', hint: 'كل الطلاب وبيانات التواصل والمجموعات' },
+  { kind: 'invoices', label: 'الفواتير', hint: 'الشهر، الطالب، المجموعة، الإجمالي والمدفوع والمتبقي' },
+  { kind: 'payments', label: 'الدفعات', hint: 'التاريخ، رقم الإيصال، الطالب، المبلغ والطريقة' },
+  { kind: 'attendance', label: 'الحضور', hint: 'كل حالات الحضور المسجلة بأسمائها العربية' },
+  { kind: 'scores', label: 'الدرجات', hint: 'الامتحان، الطالب، الدرجة والنهائية والنسبة' },
+  { kind: 'expenses', label: 'المصروفات', hint: 'التاريخ، النوع، المبلغ والملاحظة' },
 ]
 
 export interface CsvResult {

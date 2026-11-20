@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Sheet } from '../../components/ui/Sheet'
+import { MessageCircle, Printer, ReceiptText } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Logo } from '../../components/brand/Logo'
 import { Chip, ChipRow, Field, Select, TextArea, TextInput } from '../../components/ui/form'
@@ -69,13 +70,15 @@ export function IssueInvoicesSheet({
       {result ? (
         <div>
           <div className="text-center py-4">
-            <div className="text-[30px] mb-2">🧾</div>
+            <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
+              <ReceiptText size={28} />
+            </div>
             <div className="font-extrabold text-[16px]">
               {result.created > 0
                 ? `اتعمل ${result.created} فاتورة جديدة لشهر ${monthLabel}`
                 : 'كل فواتير الشهر صادرة بالفعل'}
             </div>
-            <p className="text-muted text-[13px] mt-1 mb-0">
+            <p className="text-muted text-[13.5px] mt-1 mb-0">
               {result.skipped > 0
                 ? `اتتخطى ${result.skipped} فاتورة موجودة من قبل (منع التكرار). `
                 : ''}
@@ -127,14 +130,14 @@ export function IssueInvoicesSheet({
               onChange={(e) => setNote(e.target.value)}
             />
           </Field>
-          <p className="text-muted text-[12.5px] mt-0">
+          <p className="text-muted text-[13.5px] mt-0">
             {studentId
               ? 'هيتصدر للطالب ده في كل مجموعاته المسجل فيها (وهو نشط).'
               : 'هيتصدر لكل طالب نشط مسجل في أي مجموعة، بسعره الفعلي (سعر المجموعة أو سعره الخاص) وحسب نظام فوترة مجموعته.'}{' '}
             فواتير «حسب الحضور» بتتحسب بعدد الحصص المحضورة لحد النهاردة.
           </p>
           {issue.isError && (
-            <p className="text-bad-text text-[13px] font-semibold">{errText(issue.error)}</p>
+            <p className="text-bad-text text-[13.5px] font-semibold">{errText(issue.error)}</p>
           )}
           <Button full type="submit" disabled={issue.isPending || !month}>
             {issue.isPending ? 'بنصدر الفواتير…' : `إصدار فواتير ${monthLabel}`}
@@ -240,11 +243,11 @@ export function PaySheet({
           />
         </Field>
         {amt > balance && balance > 0 && (
-          <p className="text-warn-text text-[12.5px] font-semibold">
+          <p className="text-warn-text text-[13.5px] font-semibold">
             المبلغ أكبر من المتبقي — الفاتورة هتتقفل والفرق هيظهر كرصيد مدفوع زيادة.
           </p>
         )}
-        {pay.isError && <p className="text-bad-text text-[13px] font-semibold">{errText(pay.error)}</p>}
+        {pay.isError && <p className="text-bad-text text-[13.5px] font-semibold">{errText(pay.error)}</p>}
         <Button full type="submit" disabled={pay.isPending || !(amt > 0)}>
           {pay.isPending ? 'بنسجل الدفعة…' : 'تسجيل الدفعة وإصدار الإيصال'}
         </Button>
@@ -366,7 +369,7 @@ export function ReceiptSheet({
               <tr key={l.id} className="border-b border-slate-100">
                 <td className="py-1.5">
                   {l.description}
-                  {l.reason && <div className="text-[11.5px] text-slate-500">{l.reason}</div>}
+                  {l.reason && <div className="text-[12px] text-slate-500">{l.reason}</div>}
                 </td>
                 <td
                   className={`py-1.5 text-left font-bold ${l.amount < 0 ? 'text-red-600' : ''}`}
@@ -394,11 +397,11 @@ export function ReceiptSheet({
           <div className="flex justify-between border-t border-slate-200 pt-1.5 font-extrabold">
             <span>المتبقي</span>
             <span dir="ltr">
-              {state === 'paid' ? 'مسدد بالكامل ✓' : formatMoney(invoice.balance)}
+              {state === 'paid' ? 'مسدد بالكامل' : formatMoney(invoice.balance)}
             </span>
           </div>
         </div>
-        <div className="text-center text-[12px] text-slate-500 mt-3">شكراً لك 🌹</div>
+        <div className="text-center text-[12px] text-slate-500 mt-3">شكراً لك</div>
       </div>
 
       <Field label="رسالة واتساب لولي الأمر (قابلة للتحرير)">
@@ -411,12 +414,14 @@ export function ReceiptSheet({
       </Field>
       <div className="flex gap-2">
         <Button className="flex-1" onClick={() => window.print()}>
-          🖨️ طباعة الإيصال
+          <Printer size={20} />
+          طباعة الإيصال
         </Button>
         {waUrl && (
           <a href={waUrl} target="_blank" rel="noreferrer" className="flex-1 no-underline">
             <Button variant="soft" className="w-full" type="button">
-              💬 إرسال واتساب
+              <MessageCircle size={20} />
+              إرسال واتساب
             </Button>
           </a>
         )}
@@ -459,7 +464,7 @@ export function AdjustSheet({
       {sessionsQ.isPending ? (
         <p className="text-muted text-[13.5px]">بنحمّل حصص شهر الفاتورة…</p>
       ) : sessionsQ.isError ? (
-        <p className="text-bad-text text-[13px] font-semibold">{errText(sessionsQ.error)}</p>
+        <p className="text-bad-text text-[13.5px] font-semibold">{errText(sessionsQ.error)}</p>
       ) : sessions.length === 0 ? (
         <p className="text-muted text-[13.5px]">
           مفيش حصص مسجلة لمجموعة الفاتورة في شهرها لحد النهاردة — التسوية محتاجة حصة قائمة.
@@ -518,12 +523,12 @@ export function AdjustSheet({
               placeholder="مثال: تصحيح غياب بالخطأ"
             />
           </Field>
-          <p className="text-muted text-[12.5px] mt-0">
+          <p className="text-muted text-[13.5px] mt-0">
             الفاتورة الأصلية مش هتتعدل؛ الفرق بين الحالتين × السعر الفعلي هيتضاف كبند تسوية
             (موجب أو سالب)، وحالة الحضور نفسها هتتحدث.
           </p>
           {adjust.isError && (
-            <p className="text-bad-text text-[13px] font-semibold">{errText(adjust.error)}</p>
+            <p className="text-bad-text text-[13.5px] font-semibold">{errText(adjust.error)}</p>
           )}
           <Button
             full

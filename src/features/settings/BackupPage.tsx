@@ -1,5 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { Card } from '../../components/ui/Card'
+import { AlertTriangle, Check, DatabaseBackup, Download, Lock, Upload } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, TextArea } from '../../components/ui/form'
 import { LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -57,9 +58,11 @@ export function BackupPage() {
   if (!isOwner) {
     return (
       <Card className="text-center py-10">
-        <div className="text-[34px] mb-2">🔒</div>
-        <div className="font-extrabold mb-1">النسخ الاحتياطي للمالك فقط</div>
-        <p className="text-muted text-[13px] mb-0">
+        <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
+          <Lock size={28} />
+        </div>
+        <div className="type-section mb-1">النسخ الاحتياطي للمالك فقط</div>
+        <p className="text-muted text-[13.5px] mb-0">
           النسخة الاحتياطية فيها كل بيانات الحساب بما فيها المالية، وهي محجوبة عن حساب المساعد في
           قاعدة البيانات نفسها (RLS) وليس في الواجهة فقط.
         </p>
@@ -104,7 +107,7 @@ export function BackupPage() {
     download.mutate(undefined, {
       onSuccess: (file) =>
         setDownloadMsg(
-          `تم تنزيل النسخة — ${file.rowCount} صف من ${file.tableCount} جدول + إعداداتك (${file.filename}) ✅ احفظ الملف في مكان آمن.`,
+          `تم تنزيل النسخة — ${file.rowCount} صف من ${file.tableCount} جدول + إعداداتك (${file.filename}) احفظ الملف في مكان آمن.`,
         ),
     })
   }
@@ -116,14 +119,14 @@ export function BackupPage() {
     <div>
       {/* حالة النسخ الاحتياطي */}
       <Card>
-        <h2 className="text-[15px] font-extrabold mt-0 mb-1">💾 حالة النسخ الاحتياطي</h2>
-        <p className="text-[13px] mt-0 mb-2">{lastExportLabel(lastExport)}</p>
+        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><DatabaseBackup size={22} className="text-primary" /> حالة النسخ الاحتياطي</h2>
+        <p className="text-[13.5px] mt-0 mb-2">{lastExportLabel(lastExport)}</p>
         {backupDue ? (
-          <p className="text-[13px] bg-warn/10 text-warn-text rounded-xl px-3 py-2 mb-0 mt-0 font-semibold">
-            ⚠️ مفيش نسخة احتياطية حديثة — اعمل نسخة دلوقتي واحفظها بره التطبيق (ملفاتك أو بريدك).
+          <p className="text-[13.5px] bg-warn/10 text-warn-text rounded-xl px-3 py-2 mb-0 mt-0 font-semibold">
+            <span className="flex items-start gap-2"><AlertTriangle size={20} className="shrink-0" /> مفيش نسخة احتياطية حديثة — اعمل نسخة دلوقتي واحفظها بره التطبيق (ملفاتك أو بريدك).</span>
           </p>
         ) : (
-          <p className="text-[13px] text-muted mb-0 mt-0">
+          <p className="text-[13.5px] text-muted mb-0 mt-0">
             النسخة حديثة (أقل من 30 يوم) — تنبيه النسخ الاحتياطي هيظهر تاني بعد 30 يوم من آخر
             تصدير.
           </p>
@@ -132,17 +135,17 @@ export function BackupPage() {
 
       {/* عمل نسخة */}
       <Card>
-        <h2 className="text-[15px] font-extrabold mt-0 mb-1">⬇️ عمل نسخة احتياطية الآن</h2>
-        <p className="text-muted text-[13px] mt-0 mb-3">
+        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><Download size={22} className="text-primary" /> عمل نسخة احتياطية الآن</h2>
+        <p className="text-muted text-[13.5px] mt-0 mb-3">
           ملف JSON واحد فيه: {BACKUP_TABLES.map((t) => t.label).join('، ')}، وإعدادات المدرس.
           مش داخل في النسخة: فريق المساعدين وروابط بوابة ولي الأمر (بتتعمل من جديد عند الحاجة) —
           وبياناتك محفوظة سحابياً أصلاً، النسخة دي طبقة أمان إضافية في إيدك.
         </p>
         {downloadMsg && (
-          <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{downloadMsg}</p>
+          <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{downloadMsg}</p>
         )}
         {download.isError && (
-          <p className="text-[13px] text-bad-text mb-3 mt-0">
+          <p className="text-[13.5px] text-bad-text mb-3 mt-0">
             {download.error instanceof Error ? download.error.message : 'تعذّر إنشاء النسخة.'}
           </p>
         )}
@@ -153,8 +156,8 @@ export function BackupPage() {
 
       {/* الاستعادة / الاستيراد */}
       <Card>
-        <h2 className="text-[15px] font-extrabold mt-0 mb-1">⬆️ استعادة من نسخة</h2>
-        <p className="text-muted text-[13px] mt-0 mb-3">
+        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><Upload size={22} className="text-primary" /> استعادة من نسخة</h2>
+        <p className="text-muted text-[13.5px] mt-0 mb-3">
           الاستيراد <b>بيضيف الجديد بس</b>: أي صف موجود عندك بنفس المعرّف بيتخطى، ومفيش أي حذف أو
           كتابة فوق بياناتك الحالية أو أي حساب تاني — كل حاجة بتتزرع في حسابك إنت بس. الأول
           بنتحقق من الملف ونوريك ملخصه، وبعدين بتأكد بنفسك قبل أي كتابة.
@@ -193,16 +196,19 @@ export function BackupPage() {
 
         {/* نتيجة التحقق */}
         {validation && !validation.ok && (
-          <div className="mt-4 text-[13px] bg-bad/5 text-bad-text rounded-xl px-3 py-2">
+          <div className="mt-4 text-[13.5px] bg-bad/5 text-bad-text rounded-xl px-3 py-2">
             {validation.errors.map((e, i) => (
-              <div key={i}>⚠️ {e}</div>
+              <div key={i} className="flex items-start gap-1.5">
+                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                {e}
+              </div>
             ))}
           </div>
         )}
         {validation?.ok && validation.backup && (
           <div className="mt-4">
-            <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">
-              النسخة سليمة ✅ إصدار {validation.backup.version} · صُدّرت{' '}
+            <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">
+              <span className="inline-flex items-center gap-1.5"><Check size={18} className="text-ok-text" /> النسخة سليمة — إصدار {validation.backup.version} · صُدّرت{' '}</span>
               {validation.backup.exported_at
                 ? formatDateLabel(validation.backup.exported_at.slice(0, 10))
                 : '—'}
@@ -210,7 +216,7 @@ export function BackupPage() {
                 ? ' · من حساب تاني — هتتزرع في حسابك الحالي بمعرّفاتها'
                 : ''}
             </p>
-            <div className="text-[13px] mb-3">
+            <div className="text-[13.5px] mb-3">
               {countedTables.map((t) => (
                 <div
                   key={t.key}
@@ -228,7 +234,7 @@ export function BackupPage() {
               )}
             </div>
             {importer.isError && (
-              <p className="text-[13px] text-bad-text mb-3 mt-0">
+              <p className="text-[13.5px] text-bad-text mb-3 mt-0">
                 {importer.error instanceof Error
                   ? importer.error.message
                   : 'تعذّر الاستيراد.'}
@@ -264,13 +270,13 @@ export function BackupPage() {
         {/* تقرير نتيجة الاستيراد */}
         {report && (
           <div className="mt-4">
-            <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0 font-semibold">
-              خلص الاستيراد ✅ أُضيف {report.totalImported} صف جديد · اتخطى {report.totalSkipped}{' '}
+            <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0 font-semibold">
+              خلص الاستيراد — أُضيف {report.totalImported} صف جديد · اتخطى {report.totalSkipped}{' '}
               موجود بالفعل
               {report.totalFailed > 0 ? ` · فشل ${report.totalFailed} صف` : ''}
               {report.settingsUpdated ? ' · إعدادات المدرس اتحدثت' : ''}
             </p>
-            <div className="text-[13px] mb-2">
+            <div className="text-[13.5px] mb-2">
               {report.tables
                 .filter((t) => t.imported + t.skipped + t.failed > 0)
                 .map((t) => (

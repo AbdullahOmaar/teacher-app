@@ -76,7 +76,7 @@ export function ExpenseFormSheet({
             setError(errText(err))
           }
           if (expense) {
-            update.mutate({ expenseId: expense.id, input }, { onSuccess: () => done('اتعدّل المصروف ✓'), onError: fail })
+            update.mutate({ expenseId: expense.id, input }, { onSuccess: () => done('اتعدّل المصروف'), onError: fail })
           } else {
             create.mutate(input, {
               onSuccess: () => {
@@ -84,12 +84,12 @@ export function ExpenseFormSheet({
                   createRecurring.mutate(
                     { category, amount: amt, note: input.note },
                     {
-                      onSuccess: () => done('اتسجل المصروف واتثبّت كمصروف شهري متكرر ✓'),
+                      onSuccess: () => done('اتسجل المصروف واتثبّت كمصروف شهري متكرر'),
                       onError: fail,
                     },
                   )
                 } else {
-                  done('اتسجل المصروف ✓')
+                  done('اتسجل المصروف')
                 }
               },
               onError: fail,
@@ -129,7 +129,7 @@ export function ExpenseFormSheet({
           />
         </Field>
         {!isEdit && (
-          <label className="flex items-center gap-2 mb-3 cursor-pointer text-[14px] font-semibold">
+          <label className="flex items-center gap-2 mb-3 cursor-pointer text-[15px] font-semibold">
             <input
               type="checkbox"
               className="w-5 h-5 accent-primary"
@@ -139,7 +139,7 @@ export function ExpenseFormSheet({
             تثبيت كمصروف شهري متكرر
           </label>
         )}
-        {error && <p className="text-bad-text text-[13px] font-semibold">{error}</p>}
+        {error && <p className="text-bad-text text-[13.5px] font-semibold">{error}</p>}
         <Button full type="submit" disabled={busy || !(amt > 0) || !date}>
           {busy ? 'بنسجل…' : isEdit ? 'حفظ التعديل' : 'تسجيل المصروف'}
         </Button>
@@ -191,10 +191,10 @@ export function RecurringFormSheet({
           if (template) {
             update.mutate(
               { recurringId: template.id, input },
-              { onSuccess: () => onSaved('اتعدّل المصروف الثابت ✓') },
+              { onSuccess: () => onSaved('اتعدّل المصروف الثابت') },
             )
           } else {
-            create.mutate(input, { onSuccess: () => onSaved('اتضاف المصروف الثابت ✓') })
+            create.mutate(input, { onSuccess: () => onSaved('اتضاف المصروف الثابت') })
           }
         }}
       >
@@ -226,12 +226,12 @@ export function RecurringFormSheet({
             placeholder="مثال: إيجار القاعة الشهري"
           />
         </Field>
-        <p className="text-muted text-[12.5px] mt-0">
+        <p className="text-muted text-[13.5px] mt-0">
           القالب نفسه مش مصروف فعلي؛ بيتحول لمصروفات حقيقية لما تضغط «إضافة الثوابت» في شهر
           معين من شاشة الفلوس، وكل قالب بيضاف مرة واحدة بس في الشهر (مفيش تكرار).
         </p>
         {(create.isError || update.isError) && (
-          <p className="text-bad-text text-[13px] font-semibold">
+          <p className="text-bad-text text-[13.5px] font-semibold">
             {errText(create.error ?? update.error)}
           </p>
         )}

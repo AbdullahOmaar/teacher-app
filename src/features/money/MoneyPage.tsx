@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Card } from '../../components/ui/Card'
+import { Building2, Lock, Pin, Wallet } from 'lucide-react'
+import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -55,7 +57,7 @@ function MonthBarRow({
       <div className="flex justify-between items-center gap-2 mb-1.5">
         <span className="font-bold text-[13.5px]">{periodLabel(row.month)}</span>
         <span
-          className={`text-[13px] font-extrabold ${row.net_profit < 0 ? 'text-bad-text' : 'text-ok-text'}`}
+          className={`text-[13.5px] font-extrabold ${row.net_profit < 0 ? 'text-bad-text' : 'text-ok-text'}`}
           dir="ltr"
         >
           {formatMoney(row.net_profit)}
@@ -67,7 +69,7 @@ function MonthBarRow({
       <div className="h-2 rounded-full bg-border/50 overflow-hidden">
         <div className="h-full rounded-full bg-bad" style={{ width: `${expensesPct}%` }} />
       </div>
-      <div className="flex justify-between text-[11.5px] text-muted mt-1">
+      <div className="flex justify-between text-[12px] text-muted mt-1">
         <span>
           محصّل <span dir="ltr">{formatMoney(row.collected)}</span>
         </span>
@@ -103,13 +105,7 @@ export function MoneyPage() {
   const [recurringSheet, setRecurringSheet] = useState<
     { mode: 'create' } | { mode: 'edit'; template: RecurringExpenseRow } | null
   >(null)
-  const [toast, setToast] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 3500)
-    return () => clearTimeout(t)
-  }, [toast])
+  const toast = useToast()
 
   const profitQ = useMonthlyProfit(teacherId, isOwner)
   const centerQ = useCenterSharePercent(teacherId, isOwner)
@@ -144,9 +140,11 @@ export function MoneyPage() {
   if (!isOwner) {
     return (
       <Card className="text-center py-10">
-        <div className="text-[34px] mb-2">🔒</div>
-        <div className="font-extrabold mb-1">المصروفات والأرباح للمالك فقط</div>
-        <p className="text-muted text-[13px] mb-0">
+        <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
+          <Lock size={28} />
+        </div>
+        <div className="type-section mb-1">المصروفات والأرباح للمالك فقط</div>
+        <p className="text-muted text-[13.5px] mb-0">
           حساب المساعد لا يملك صلاحية مالية — المصروفات والأرباح ونسبة السنتر محجوبة في قاعدة
           البيانات نفسها (RLS) وليس في الواجهة فقط.
         </p>
@@ -188,7 +186,14 @@ export function MoneyPage() {
       {pending ? (
         <LoadingState label="بنحمّل الملخص المالي…" />
       ) : error ? (
-        <ErrorState message={error instanceof Error ? error.message : 'خطأ غير معروف'} />
+        <ErrorState
+          message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+          onRetry={() => {
+            void profitQ.refetch()
+            void expensesQ.refetch()
+            void recurringQ.refetch()
+          }}
+        />
       ) : (
         <>
           {/* ملخص الفترة — من view ‏monthly_profit حرفياً */}
@@ -207,12 +212,12 @@ export function MoneyPage() {
             <Card className="border-primary/30 bg-soft/60">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <div className="font-extrabold text-[14.5px]">🏢 نسبة السنتر {centerPercent}%</div>
-                  <div className="text-muted text-[13px]">
+                  <div className="font-extrabold text-[16px] flex items-center gap-2"><Building2 size={22} className="text-primary" /> نسبة السنتر {centerPercent}%</div>
+                  <div className="text-muted text-[13.5px]">
                     خصم من محصّل {periodLabel(selectedMonth)} — اتحسبت واتخصمت من صافي الربح فوق
                   </div>
                 </div>
-                <b className="text-[17px] shrink-0" dir="ltr">
+                <b className="text-[16px] shrink-0" dir="ltr">
                   {formatMoney(summary.center_share_amount)}
                 </b>
               </div>
@@ -254,12 +259,12 @@ export function MoneyPage() {
                     { monthStart: selectedMonth, templates },
                     {
                       onSuccess: (r) =>
-                        setToast(
+                        toast(
                           r.created > 0
-                            ? `اتضاف ${r.created} مصروف ثابت لشهر ${periodLabel(selectedMonth)}${r.skipped > 0 ? `، و${r.skipped} كانوا موجودين فاتتخطوا` : ''} ✓`
-                            : 'الثوابت بتاعة الشهر ده مطبقة بالفعل — مفيش تكرار ✓',
+                            ? `اتضاف ${r.created} مصروف ثابت لشهر ${periodLabel(selectedMonth)}${r.skipped > 0 ? `، و${r.skipped} كانوا موجودين فاتتخطوا` : ''}`
+                            : 'الثوابت بتاعة الشهر ده مطبقة بالفعل — مفيش تكرار',
                         ),
-                      onError: () => setToast('حصل خطأ أثناء إضافة الثوابت'),
+                      onError: () => toast('حصل خطأ أثناء إضافة الثوابت'),
                     },
                   )
                 }
@@ -272,7 +277,7 @@ export function MoneyPage() {
           {expenses.length === 0 ? (
             <Card>
               <EmptyState
-                icon="💸"
+                icon={Wallet}
                 title="مفيش مصروفات في الشهر ده"
                 hint="سجّل أول مصروف من الزر اللي فوق، أو طبّق المصروفات الثابتة إن وجدت."
               />
@@ -283,7 +288,7 @@ export function MoneyPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-bold text-[15px]">{exp.category}</div>
-                    <div className="text-muted text-[13px] mt-0.5">
+                    <div className="text-muted text-[13.5px] mt-0.5">
                       {formatDateLabel(exp.expense_date)}
                       {exp.note ? ` · ${exp.note}` : ''}
                     </div>
@@ -295,19 +300,19 @@ export function MoneyPage() {
                 <div className="flex gap-2 mt-2">
                   <Button
                     variant="soft"
-                    className="flex-1 min-h-[38px] text-[13px]"
+                    className="flex-1 min-h-[48px] text-[13.5px]"
                     onClick={() => setExpenseSheet({ mode: 'edit', expense: exp })}
                   >
                     تعديل
                   </Button>
                   <Button
                     variant="ghost"
-                    className="flex-1 min-h-[38px] text-[13px] text-bad-text border-bad/40"
+                    className="flex-1 min-h-[48px] text-[13.5px] text-bad-text border-bad/40"
                     disabled={delExpense.isPending}
                     onClick={() =>
                       delExpense.mutate(exp.id, {
-                        onSuccess: () => setToast('اتحذف المصروف'),
-                        onError: () => setToast('حصل خطأ أثناء الحذف'),
+                        onSuccess: () => toast('اتحذف المصروف'),
+                        onError: () => toast('حصل خطأ أثناء الحذف'),
                       })
                     }
                   >
@@ -328,7 +333,7 @@ export function MoneyPage() {
           {templates.length === 0 ? (
             <Card>
               <EmptyState
-                icon="📌"
+                icon={Pin}
                 title="مفيش مصروفات ثابتة متسجلة"
                 hint="أضف قالب ثابت (زي إيجار القاعة الشهري) وبعدين طبّقه على أي شهر بزر «إضافة الثوابت» من غير ما يكرر نفسه."
               />
@@ -339,7 +344,7 @@ export function MoneyPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-bold text-[15px]">{t.category}</div>
-                    <div className="text-muted text-[13px] mt-0.5">
+                    <div className="text-muted text-[13.5px] mt-0.5">
                       شهرياً{t.note ? ` · ${t.note}` : ''}
                     </div>
                   </div>
@@ -350,19 +355,19 @@ export function MoneyPage() {
                 <div className="flex gap-2 mt-2">
                   <Button
                     variant="soft"
-                    className="flex-1 min-h-[38px] text-[13px]"
+                    className="flex-1 min-h-[48px] text-[13.5px]"
                     onClick={() => setRecurringSheet({ mode: 'edit', template: t })}
                   >
                     تعديل
                   </Button>
                   <Button
                     variant="ghost"
-                    className="flex-1 min-h-[38px] text-[13px] text-bad-text border-bad/40"
+                    className="flex-1 min-h-[48px] text-[13.5px] text-bad-text border-bad/40"
                     disabled={delRecurring.isPending}
                     onClick={() =>
                       delRecurring.mutate(t.id, {
-                        onSuccess: () => setToast('اتحذف المصروف الثابت'),
-                        onError: () => setToast('حصل خطأ أثناء الحذف'),
+                        onSuccess: () => toast('اتحذف المصروف الثابت'),
+                        onError: () => toast('حصل خطأ أثناء الحذف'),
                       })
                     }
                   >
@@ -387,7 +392,7 @@ export function MoneyPage() {
           onClose={() => setExpenseSheet(null)}
           onSaved={(msg) => {
             setExpenseSheet(null)
-            setToast(msg)
+            toast(msg)
           }}
         />
       )}
@@ -398,17 +403,9 @@ export function MoneyPage() {
           onClose={() => setRecurringSheet(null)}
           onSaved={(msg) => {
             setRecurringSheet(null)
-            setToast(msg)
+            toast(msg)
           }}
         />
-      )}
-
-      {toast && (
-        <div className="fixed bottom-[92px] inset-x-0 z-50 flex justify-center px-4 pointer-events-none">
-          <div className="bg-text text-bg text-[13.5px] font-semibold rounded-full px-4 py-2.5 shadow-lg max-w-[640px] text-center">
-            {toast}
-          </div>
-        </div>
       )}
     </div>
   )

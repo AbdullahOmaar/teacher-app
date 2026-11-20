@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
-import { Button } from '../../components/ui/Button'
+import { Search, Users } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { Fab } from '../../components/ui/Fab'
 import { Chip, ChipRow, TextInput } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
@@ -100,14 +101,14 @@ export function StudentsPage() {
 
   return (
     <div>
-      <div className="flex gap-2 mb-3">
+      <div className="relative mb-3">
+        <Search size={20} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
         <TextInput
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="🔍 ابحث بالاسم أو الكود أو الموبايل…"
-          className="flex-1"
+          placeholder="ابحث بالاسم أو الكود أو الموبايل…"
+          className="ps-10"
         />
-        <Button onClick={() => setFormOpen(true)}>+ طالب</Button>
       </div>
 
       <ChipRow>
@@ -141,15 +142,27 @@ export function StudentsPage() {
       {loading ? (
         <LoadingState label="بنحمّل الطلاب…" />
       ) : error ? (
-        <ErrorState message={error instanceof Error ? error.message : 'خطأ غير معروف'} />
+        <ErrorState
+          message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+          onRetry={() => {
+            void studentsQ.refetch()
+            void enrollmentsQ.refetch()
+            void groupsQ.refetch()
+          }}
+        />
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon="👥"
+          icon={Users}
           title={(studentsQ.data?.length ?? 0) === 0 ? 'لا يوجد طلاب بعد' : 'لا نتائج مطابقة'}
           hint={
             (studentsQ.data?.length ?? 0) === 0
-              ? 'ابدأ بإضافة أول طالب من زر «+ طالب»'
+              ? 'ابدأ بإضافة أول طالب من الزر العائم «طالب جديد»'
               : 'جرّب تغيير البحث أو الفلاتر'
+          }
+          action={
+            (studentsQ.data?.length ?? 0) === 0
+              ? { label: 'إضافة طالب', onClick: () => setFormOpen(true) }
+              : undefined
           }
         />
       ) : (
@@ -160,10 +173,10 @@ export function StudentsPage() {
             <Link key={s.id} to={`/students/${s.id}`} className="block no-underline text-text">
               <Card className={s.paused ? 'opacity-60' : ''}>
                 <div className="flex items-start justify-between gap-2">
-                  <div className="font-bold text-[15.5px]">
+                  <div className="font-bold text-[16px]">
                     {s.name}
                     {s.paused && (
-                      <span className="ms-2 text-[11px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
+                      <span className="ms-2 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
                         موقوف
                       </span>
                     )}
@@ -179,7 +192,7 @@ export function StudentsPage() {
                       </span>
                     ))}
                 </div>
-                <div className="text-muted text-[13px] mt-0.5">
+                <div className="text-muted text-[13.5px] mt-0.5">
                   <span dir="ltr">{s.public_code}</span>
                   {s.grade ? ` · ${s.grade}` : ''}
                   {names.length ? ` · ${names.join('، ')}` : ''}
@@ -189,6 +202,8 @@ export function StudentsPage() {
           )
         })
       )}
+
+      <Fab onClick={() => setFormOpen(true)} ariaLabel="إضافة طالب جديد" label="طالب جديد" />
 
       {formOpen && (
         <StudentFormSheet

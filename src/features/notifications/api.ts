@@ -100,13 +100,13 @@ export interface AppAlert {
 
 export const ALERT_KINDS: AlertKind[] = ['att', 'absence', 'prepaid', 'fin', 'grade', 'backup']
 
-export const SECTION_META: Record<AlertKind, { title: string; icon: string }> = {
-  att: { title: 'حضور اليوم لسه متسجلش', icon: '✅' },
-  absence: { title: 'غياب متكرر', icon: '🔁' },
-  prepaid: { title: 'باقات على وشك النفاد', icon: '🎟️' },
-  fin: { title: 'متأخرات الدفع', icon: '💰' },
-  grade: { title: 'درجات منخفضة', icon: '📉' },
-  backup: { title: 'النسخ الاحتياطي', icon: '💾' },
+export const SECTION_META: Record<AlertKind, { title: string }> = {
+  att: { title: 'حضور اليوم لسه متسجلش' },
+  absence: { title: 'غياب متكرر' },
+  prepaid: { title: 'باقات على وشك النفاد' },
+  fin: { title: 'متأخرات الدفع' },
+  grade: { title: 'درجات منخفضة' },
+  backup: { title: 'النسخ الاحتياطي' },
 }
 
 /** عتبة الغياب المتكرر: غيابات (a) خلال نافذة الأيام دي — انظر الترويسة */
@@ -115,7 +115,7 @@ export const ABSENCE_THRESHOLD = 3
 
 /** نص «تذكير عام» (§3.13: نص تذكير مهذب جاهز للنسخ — المرجع لا يقتبسه حرفياً) */
 export const GENERIC_REMINDER_TEXT =
-  'أهلاً وسهلاً 🌹 نذكّركم بوجود اشتراك مستحق لم يُسدّد بعد. برجاء السداد في أقرب وقت ممكن، وشكراً لتعاونكم.'
+  'أهلاً وسهلاً، نذكّركم بوجود اشتراك مستحق لم يُسدّد بعد. برجاء السداد في أقرب وقت ممكن، وشكراً لتعاونكم.'
 
 /** '2026-11-01' → 'نوفمبر 2026' — نفس periodLabel في وحدة الفواتير */
 function periodLabel(periodMonth: string): string {

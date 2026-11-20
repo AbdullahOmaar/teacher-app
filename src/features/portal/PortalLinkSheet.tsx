@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Sheet } from '../../components/ui/Sheet'
+import { AlertTriangle, Check, Copy, Link2, MessageCircle, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import type { GuardianAccessTokenRow, StudentRow } from '../../types/database'
 import {
@@ -53,13 +54,13 @@ function TokenRow({
               if (window.confirm('إلغاء الرابط ده؟ ولي الأمر مش هيقدر يفتح البوابة بيه تاني.'))
                 onRevoke()
             }}
-            className="text-bad-text text-[12.5px] font-semibold bg-transparent border-0 cursor-pointer disabled:opacity-50"
+            className="text-bad-text text-[13.5px] font-semibold bg-transparent border-0 cursor-pointer disabled:opacity-50"
           >
             إلغاء الرابط
           </button>
         )}
       </div>
-      <div className="text-muted text-[12.5px] mt-1.5 leading-relaxed">
+      <div className="text-muted text-[13.5px] mt-1.5 leading-relaxed">
         اتعمل: {fmtDateTime(token.created_at)} · بيخلص: {fmtDateTime(token.expires_at)}
         <br />
         آخر استخدام: {token.last_used_at ? fmtDateTime(token.last_used_at) : 'لسه ما اتفتحش'}
@@ -105,7 +106,7 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
 
   return (
     <Sheet open title={`رابط بوابة ولي الأمر — ${student.name}`} onClose={onClose}>
-      <p className="text-muted text-[13px] mt-0">
+      <p className="text-muted text-[13.5px] mt-0">
         ولي الأمر: <span className="font-semibold text-text">{guardian.name}</span>
         {guardian.phone ? (
           <>
@@ -117,28 +118,31 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
       </p>
 
       {!guardian.phone && (
-        <div className="rounded-xl border border-warn/40 bg-warn/10 text-[13px] p-3 mb-3">
-          ⚠️ الطالب مالوش رقم موبايل (لا لولي الأمر ولا للطالب نفسه) — ضيف رقم من «تعديل الطالب»
-          الأول علشان نقدر نعمل ولي أمر ونبعتله الرابط.
+        <div className="rounded-xl border border-warn/40 bg-warn/10 text-[13.5px] p-3 mb-3 flex items-start gap-2">
+          <AlertTriangle size={20} className="shrink-0 mt-0.5 text-warn-text" />
+          <span>الطالب مالوش رقم موبايل (لا لولي الأمر ولا للطالب نفسه) — ضيف رقم من «تعديل الطالب» الأول علشان نقدر نعمل ولي أمر ونبعتله الرابط.</span>
         </div>
       )}
 
       {freshLink && (
         <div className="rounded-xl border border-ok/40 bg-ok/5 p-3 mb-3">
-          <div className="font-bold text-[13.5px] mb-1.5">✅ الرابط الجديد جاهز — بيظهر هنا مرة واحدة بس</div>
+          <div className="font-bold text-[13.5px] mb-1.5 flex items-center gap-1.5"><Check size={18} className="text-ok-text" /> الرابط الجديد جاهز — بيظهر هنا مرة واحدة بس</div>
           <div
             dir="ltr"
-            className="text-left text-[11.5px] break-all bg-card border border-border rounded-lg p-2 select-all"
+            className="text-left text-[12px] break-all bg-card border border-border rounded-xl p-2 select-all"
           >
             {freshLink}
           </div>
           <div className="flex gap-2 mt-2.5">
             <Button variant="soft" onClick={copyLink}>
-              {copied ? '✅ اتنسخ' : '📋 نسخ الرابط'}
+              {copied ? (<><Check size={20} /> اتنسخ</>) : (<><Copy size={20} /> نسخ الرابط</>)}
             </Button>
             {waUrl && (
               <a href={waUrl} target="_blank" rel="noreferrer" className="no-underline">
-                <Button>💬 إرسال واتساب</Button>
+                <Button>
+                  <MessageCircle size={20} />
+                  إرسال واتساب
+                </Button>
               </a>
             )}
           </div>
@@ -159,25 +163,33 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
           })
         }}
       >
-        {createLink.isPending
-          ? 'بنولّد الرابط…'
-          : hasActive
-            ? '🔄 إعادة توليد رابط جديد (يبطل القديم)'
-            : '🔗 توليد رابط ولي الأمر'}
+        {createLink.isPending ? (
+          'بنولّد الرابط…'
+        ) : hasActive ? (
+          <>
+            <RefreshCw size={20} />
+            إعادة توليد رابط جديد (يبطل القديم)
+          </>
+        ) : (
+          <>
+            <Link2 size={20} />
+            توليد رابط ولي الأمر
+          </>
+        )}
       </Button>
       {createLink.isError && (
-        <p className="text-bad-text text-[13px] mt-2 mb-0">
+        <p className="text-bad-text text-[13.5px] mt-2 mb-0">
           {createLink.error instanceof Error ? createLink.error.message : 'حصلت مشكلة في توليد الرابط'}
         </p>
       )}
 
-      <h4 className="text-[14px] font-bold mt-4 mb-2">روابط الطالب</h4>
+      <h4 className="type-section mt-4 mb-2">روابط الطالب</h4>
       {tokensQ.isPending ? (
-        <div className="text-muted text-[13px]">بنحمّل الروابط…</div>
+        <div className="text-muted text-[13.5px]">بنحمّل الروابط…</div>
       ) : tokensQ.isError ? (
-        <div className="text-bad-text text-[13px]">ماقدرناش نحمّل الروابط</div>
+        <div className="text-bad-text text-[13.5px]">ماقدرناش نحمّل الروابط</div>
       ) : tokens.length === 0 ? (
-        <div className="text-muted text-[13px]">مفيش روابط معمولة للطالب ده لسه.</div>
+        <div className="text-muted text-[13.5px]">مفيش روابط معمولة للطالب ده لسه.</div>
       ) : (
         tokens.map((t) => (
           <TokenRow

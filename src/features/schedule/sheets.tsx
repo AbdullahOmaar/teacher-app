@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Sheet } from '../../components/ui/Sheet'
+import { AlertTriangle, CalendarCheck2, MoveHorizontal, NotebookPen, Undo2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, Select, TextInput } from '../../components/ui/form'
 import { shortTime } from '../../lib/format'
@@ -17,17 +18,17 @@ export function KindBadge({ session }: { session: { kind: string; status: string
   return (
     <>
       {session.kind === 'extra' && (
-        <span className="text-[11px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
+        <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
           إضافية
         </span>
       )}
       {session.kind === 'moved' && (
-        <span className="text-[11px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
+        <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
           منقولة
         </span>
       )}
       {session.status === 'cancelled' && (
-        <span className="text-[11px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">
+        <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">
           ملغاة
         </span>
       )}
@@ -107,8 +108,8 @@ export function SessionDetailSheet({
         <span className="font-extrabold text-[16px]">{session.group_name}</span>
         <KindBadge session={session} />
         {isHoliday && (
-          <span className="text-[11px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-            🏖️ يوم إجازة
+          <span className="text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
+            يوم إجازة
           </span>
         )}
       </div>
@@ -118,28 +119,35 @@ export function SessionDetailSheet({
         {session.group_room ? ` · ${session.group_room}` : ''}
       </div>
       {session.kind === 'moved' && (
-        <div className="text-muted text-[13px] mb-1">
+        <div className="text-muted text-[13.5px] mb-1">
           {originLabel ? `منقولة من حصة ${originLabel}` : 'حصة منقولة من موعد أصلي آخر'}
         </div>
       )}
-      {session.note && <div className="text-[13.5px] mb-1">📝 {session.note}</div>}
+      {session.note && (
+        <div className="text-[13.5px] mb-1 flex items-center gap-1.5">
+          <NotebookPen size={16} className="text-muted shrink-0" />
+          {session.note}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2 mt-4">
         {!cancelled && (
           <Link to={`/attendance?session=${session.id}`} className="no-underline">
             <Button full variant="soft">
-              ✅ فتح الحضور
+              <CalendarCheck2 size={20} />
+              فتح الحضور
             </Button>
           </Link>
         )}
         {!cancelled && !showMove && (
           <Button full onClick={() => setShowMove(true)}>
-            🔀 نقل الحصة لموعد تاني
+            <MoveHorizontal size={20} />
+            نقل الحصة لموعد تاني
           </Button>
         )}
         {showMove && (
           <div className="border border-border rounded-xl p-3">
-            <div className="font-bold text-[14px] mb-2">نقل الحصة</div>
+            <div className="font-bold text-[15px] mb-2">نقل الحصة</div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="التاريخ الجديد">
                 <TextInput
@@ -179,11 +187,11 @@ export function SessionDetailSheet({
           onClick={toggleStatus}
           disabled={busy}
         >
-          {statusMut.isPending ? 'بنحفظ…' : cancelled ? '↩️ استرجاع الحصة' : 'إلغاء الحصة'}
+          {statusMut.isPending ? 'بنحفظ…' : cancelled ? (<><Undo2 size={20} /> استرجاع الحصة</>) : 'إلغاء الحصة'}
         </Button>
       </div>
 
-      {error && <p className="text-bad-text text-[13px] mt-3">{error}</p>}
+      {error && <p className="text-bad-text text-[13.5px] mt-3">{error}</p>}
     </Sheet>
   )
 }
@@ -290,17 +298,17 @@ export function ExtraSessionSheet({
             </Field>
           </div>
           {selectedGroup && (
-            <p className="text-muted text-[12.5px] mb-3">
+            <p className="text-muted text-[13.5px] mb-3">
               حصة لمرة واحدة لمجموعة «{selectedGroup.name}» — مش هتغيّر جدولها الأسبوعي الثابت.
             </p>
           )}
           {onHoliday && (
-            <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2 mb-3 text-[13px]">
-              ⚠️ اليوم المختار إجازة رسمية — الحصة هتتنشأ بحالة «ملغاة» زي ما المخطط بيعامل حصص
-              أيام الإجازات.
+            <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2 mb-3 text-[13.5px] flex items-start gap-2">
+              <AlertTriangle size={20} className="shrink-0 mt-0.5 text-warn-text" />
+              <span>اليوم المختار إجازة رسمية — الحصة هتتنشأ بحالة «ملغاة» زي ما المخطط بيعامل حصص أيام الإجازات.</span>
             </div>
           )}
-          {error && <p className="text-bad-text text-[13px] mb-3">{error}</p>}
+          {error && <p className="text-bad-text text-[13.5px] mb-3">{error}</p>}
           <div className="flex gap-2">
             <Button full onClick={save} disabled={createMut.isPending}>
               {createMut.isPending ? 'بنحفظ…' : 'إضافة الحصة'}
@@ -372,12 +380,12 @@ export function HolidaySheet({ teacherId, onClose, onDone }: HolidaySheetProps) 
           <TextInput type="date" dir="ltr" value={to} onChange={(e) => setTo(e.target.value)} />
         </Field>
       </div>
-      <p className="text-muted text-[12.5px] mb-3">
+      <p className="text-muted text-[13.5px] mb-3">
         {dates.length > 0
           ? `${dates.length} ${dates.length === 1 ? 'يوم' : 'يوم'} — حصص كل المجموعات في الأيام دي هتتعلّم «ملغاة» (مش هتتمسح)، وحذف الإجازة بعد كده بيرجّعها.`
           : 'اختار نطاقاً صحيحاً — ليوم واحد بس خلّي البداية والنهاية نفس اليوم.'}
       </p>
-      {error && <p className="text-bad-text text-[13px] mb-3">{error}</p>}
+      {error && <p className="text-bad-text text-[13.5px] mb-3">{error}</p>}
       <div className="flex gap-2">
         <Button full onClick={save} disabled={addMut.isPending}>
           {addMut.isPending ? 'بنحفظ…' : 'حفظ الإجازة'}

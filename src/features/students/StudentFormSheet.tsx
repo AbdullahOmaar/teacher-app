@@ -157,19 +157,19 @@ export function StudentFormSheet({
 
       {groups.length > 0 && (
         <div className="mb-3">
-          <div className="text-[13px] text-muted font-semibold mb-2">المجموعات المسجل بها</div>
+          <div className="text-[13.5px] text-muted font-semibold mb-2">المجموعات المسجل بها</div>
           {groups.map((g) => {
             const draft = drafts[g.id] ?? { checked: false, price: '', prepaid: '' }
             return (
               <div key={g.id} className="border border-border rounded-xl px-3 py-2 mb-2">
-                <label className="flex items-center gap-2 cursor-pointer min-h-[36px]">
+                <label className="flex items-center gap-2 cursor-pointer min-h-[48px]">
                   <input
                     type="checkbox"
                     checked={draft.checked}
                     onChange={(e) => patchDraft(g.id, { checked: e.target.checked })}
                     className="w-5 h-5 accent-[#4f46e5]"
                   />
-                  <span className="font-semibold text-[14px]">{g.name}</span>
+                  <span className="font-semibold text-[15px]">{g.name}</span>
                   <span className="text-muted text-[12px]">سعر المجموعة: {g.price} ج</span>
                 </label>
                 {draft.checked && (
@@ -200,7 +200,7 @@ export function StudentFormSheet({
         </div>
       )}
 
-      {error && <p className="text-bad-text text-[13px] mb-3">{error}</p>}
+      {error && <p className="text-bad-text text-[13.5px] mb-3">{error}</p>}
       <div className="flex gap-2">
         <Button full onClick={save} disabled={saving}>
           {saving ? 'بنحفظ…' : 'حفظ'}

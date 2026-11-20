@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
+import { FlaskConical } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
@@ -107,7 +108,7 @@ export function LoginPage() {
         setPassword('')
         setPasswordConfirm('')
         setNotice(
-          'تم إنشاء حسابك 🎉 افتح رسالة التأكيد في بريدك الإلكتروني، وبعدين سجّل دخولك من هنا.',
+          'تم إنشاء حسابك — افتح رسالة التأكيد في بريدك الإلكتروني، وبعدين سجّل دخولك من هنا.',
         )
       }
     } catch (err) {
@@ -124,8 +125,8 @@ export function LoginPage() {
           <div className="flex justify-center mb-3">
             <Logo size={76} />
           </div>
-          <h1 className="text-[20px] font-extrabold m-0">تطبيق المدرس</h1>
-          <p className="text-muted text-[13px] mt-1">
+          <h1 className="type-screen m-0">تطبيق المدرس</h1>
+          <p className="text-muted text-[13.5px] mt-1">
             {mode === 'signin' ? 'سجّل دخولك علشان تكمل' : 'أنشئ حساب مدرس جديد'}
           </p>
         </div>
@@ -136,8 +137,8 @@ export function LoginPage() {
             role="tab"
             aria-selected={mode === 'signin'}
             onClick={() => switchMode('signin')}
-            className={`flex-1 min-h-[40px] rounded-lg border-0 cursor-pointer font-bold text-[14px] ${
-              mode === 'signin' ? 'bg-card text-primary shadow-sm' : 'bg-transparent text-muted'
+            className={`flex-1 min-h-[48px] rounded-xl border-0 cursor-pointer font-bold text-[15px] ${
+              mode === 'signin' ? 'bg-card text-primary shadow-card' : 'bg-transparent text-muted'
             }`}
           >
             تسجيل الدخول
@@ -147,8 +148,8 @@ export function LoginPage() {
             role="tab"
             aria-selected={mode === 'signup'}
             onClick={() => switchMode('signup')}
-            className={`flex-1 min-h-[40px] rounded-lg border-0 cursor-pointer font-bold text-[14px] ${
-              mode === 'signup' ? 'bg-card text-primary shadow-sm' : 'bg-transparent text-muted'
+            className={`flex-1 min-h-[48px] rounded-xl border-0 cursor-pointer font-bold text-[15px] ${
+              mode === 'signup' ? 'bg-card text-primary shadow-card' : 'bg-transparent text-muted'
             }`}
           >
             حساب جديد
@@ -157,10 +158,10 @@ export function LoginPage() {
 
         <Card>
           {notice && (
-            <p className="bg-soft text-primary text-[13px] rounded-xl px-3 py-2 mb-3 mt-0">{notice}</p>
+            <p className="bg-soft text-primary text-[13.5px] rounded-xl px-3 py-2 mb-3 mt-0">{notice}</p>
           )}
           {error && (
-            <p className="bg-[#FEF2F2] text-bad-text text-[13px] rounded-xl px-3 py-2 mb-3 mt-0" role="alert">
+            <p className="bg-[#FEF2F2] text-bad-text text-[13.5px] rounded-xl px-3 py-2 mb-3 mt-0" role="alert">
               {error}
             </p>
           )}
@@ -262,14 +263,21 @@ export function LoginPage() {
             <span className="flex-1 h-px bg-border" />
           </div>
           <Button full variant="soft" type="button" onClick={handleDemo} disabled={demoBusy || busy || !configured}>
-            {demoBusy ? 'جارٍ الدخول التجريبي…' : '🧪 دخول تجريبي — جرّب التطبيق فوراً'}
+            {demoBusy ? (
+              'جارٍ الدخول التجريبي…'
+            ) : (
+              <>
+                <FlaskConical size={20} />
+                دخول تجريبي — جرّب التطبيق فوراً
+              </>
+            )}
           </Button>
           <p className="text-muted text-[12px] mt-2 mb-0 text-center">
             الحساب التجريبي مشترك ومفتوح للكل — ما تدخّلش فيه بيانات حقيقية.
           </p>
 
           {!configured && (
-            <p className="text-warn-text text-[13px] mt-3 mb-0 text-center">
+            <p className="text-warn-text text-[13.5px] mt-3 mb-0 text-center">
               وضع تجريبي: لسه Supabase مش مربوط — عبّي قيم .env علشان الدخول يشتغل.
             </p>
           )}

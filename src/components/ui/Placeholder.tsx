@@ -1,8 +1,8 @@
 import { Card } from './Card'
-import { EmptyState } from './EmptyState'
+import { EmptyState, type IconComponent } from './EmptyState'
 
 interface PlaceholderProps {
-  icon: string
+  icon: IconComponent
   title: string
   hint?: string
 }

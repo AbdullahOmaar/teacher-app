@@ -2,10 +2,23 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
+import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
+import {
+  AlertTriangle,
+  Ban,
+  CalendarDays,
+  CalendarX2,
+  Check,
+  CheckCheck,
+  MessageCircle,
+  Star,
+  Undo2,
+  Users,
+} from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Chip, Field, TextInput } from '../../components/ui/form'
-import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
+import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { shortTime } from '../../lib/format'
 import type { AttendanceStatus } from '../../types/database'
@@ -32,10 +45,6 @@ import {
   useSessionRoster,
 } from './hooks'
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-soft rounded-2xl ${className}`} />
-}
-
 /**
  * الحضور (المواصفات §3.2): تسجيل حضور حصة واحدة من جدول sessions الحقيقي —
  * اختيار حصة (افتراضياً حصة اليوم، أو الحصة الممرّرة برابط ?session=)،
@@ -54,13 +63,7 @@ export function AttendancePage() {
   const today = todayStr()
   const [date, setDate] = useState(today)
   const [pickedId, setPickedId] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 3500)
-    return () => clearTimeout(t)
-  }, [toast])
+  const toast = useToast()
 
   // الحصة الممرّرة من رابط (الرئيسية/الجدول): تُختار تلقائياً ويُضبط تاريخها
   const paramQ = useSessionById(teacherId, paramSessionId ?? undefined)
@@ -169,7 +172,7 @@ export function AttendancePage() {
       { sessionId: selected.id, studentId, value: next },
       {
         onError: () => {
-          setToast('حصلت مشكلة في حفظ الحضور — رجّعنا آخر حالة محفوظة')
+          toast('حصلت مشكلة في حفظ الحضور — رجّعنا آخر حالة محفوظة')
           resyncAfterError()
         },
       },
@@ -187,7 +190,7 @@ export function AttendancePage() {
       { sessionId: selected.id, entries },
       {
         onError: () => {
-          setToast('حصلت مشكلة في حفظ الحضور — رجّعنا آخر حالة محفوظة')
+          toast('حصلت مشكلة في حفظ الحضور — رجّعنا آخر حالة محفوظة')
           resyncAfterError()
         },
       },
@@ -200,10 +203,10 @@ export function AttendancePage() {
       { sessionId: selected.id, status: cancelled ? 'scheduled' : 'cancelled' },
       {
         onSuccess: () => {
-          setToast(cancelled ? 'تم استرجاع الحصة' : 'تم إلغاء الحصة')
+          toast(cancelled ? 'تم استرجاع الحصة' : 'تم إلغاء الحصة')
           void qc.invalidateQueries({ queryKey: [ATT] })
         },
-        onError: () => setToast('حصلت مشكلة — حاول تاني'),
+        onError: () => toast('حصلت مشكلة — حاول تاني'),
       },
     )
   }
@@ -227,25 +230,25 @@ export function AttendancePage() {
           />
         </Field>
         {paramSessionId && paramQ.isSuccess && !paramQ.data && (
-          <p className="text-warn-text text-[12.5px] mb-2">
+          <p className="text-warn-text text-[13.5px] mb-2">
             الحصة المطلوبة من الرابط غير موجودة — اختر حصة من حصص اليوم المختار.
           </p>
         )}
         {pickerPending ? (
           <Skeleton className="h-[44px]" />
         ) : pickerError ? (
-          <p className="text-bad-text text-[13px] mb-0">
+          <p className="text-bad-text text-[13.5px] mb-0">
             {pickerError instanceof Error ? pickerError.message : 'خطأ غير معروف'}
           </p>
         ) : groups.length === 0 ? (
           <EmptyState
-            icon="🗓️"
+            icon={CalendarDays}
             title="لا توجد مجموعات بعد — فلا حصص تُولّد"
             hint="أنشئ مجموعة وحدد أيامها وميعادها، وحصصها هتتولّد تلقائياً وتظهر هنا للتحضير."
           />
         ) : daySessions.length === 0 ? (
           <EmptyState
-            icon="📅"
+            icon={CalendarX2}
             title="لا توجد حصص في اليوم ده"
             hint="جرّب تاريخاً تاني، أو راجع جدول المجموعات من شاشة الجدول."
           />
@@ -258,25 +261,25 @@ export function AttendancePage() {
                   key={s.id}
                   type="button"
                   onClick={() => setPickedId(s.id)}
-                  className={`text-start border rounded-xl px-3 py-2.5 cursor-pointer ${
+                  className={`text-start border rounded-xl px-3 py-2.5 min-h-[48px] cursor-pointer ${
                     active
                       ? 'border-primary bg-soft'
                       : 'border-border bg-card hover:bg-soft'
                   } ${s.status === 'cancelled' ? 'opacity-70' : ''}`}
                 >
                   <span className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-[14.5px]">{s.group_name}</span>
+                    <span className="font-bold text-[16px]">{s.group_name}</span>
                     {s.kind === 'extra' && (
-                      <span className="text-[11px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">إضافية</span>
+                      <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">إضافية</span>
                     )}
                     {s.kind === 'moved' && (
-                      <span className="text-[11px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">منقولة</span>
+                      <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">منقولة</span>
                     )}
                     {s.status === 'cancelled' && (
-                      <span className="text-[11px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">ملغاة</span>
+                      <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">ملغاة</span>
                     )}
                   </span>
-                  <span className="block text-muted text-[12.5px] mt-0.5">
+                  <span className="block text-muted text-[13.5px] mt-0.5">
                     الساعة {shortTime(s.start_time)} · {s.duration_minutes} دقيقة
                     {s.group_room ? ` · ${s.group_room}` : ''}
                   </span>
@@ -294,14 +297,21 @@ export function AttendancePage() {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="font-extrabold text-[16px]">{selected.group_name}</div>
-                <div className="text-muted text-[13px]">
+                <div className="text-muted text-[13.5px]">
                   {formatDateLabel(selected.session_date)} · الساعة {shortTime(selected.start_time)} ·{' '}
                   {selected.duration_minutes} دقيقة
                   {selected.group_room ? ` · ${selected.group_room}` : ''}
                 </div>
               </div>
-              <span className="shrink-0 text-[12px] font-bold text-muted">
-                {saving ? 'بنحفظ…' : 'الحفظ فوري ✓'}
+              <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
+                {saving ? (
+                  'بنحفظ…'
+                ) : (
+                  <>
+                    <Check size={14} className="text-ok-text" />
+                    الحفظ فوري
+                  </>
+                )}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-3">
@@ -311,14 +321,15 @@ export function AttendancePage() {
                   style={{ width: `${pct}%` }}
                 />
               </div>
-              <span className="text-[13px] font-extrabold">
+              <span className="text-[13.5px] font-extrabold">
                 {rowsReady ? `${done}/${total}` : '…'} محضّر
               </span>
             </div>
             <div className="flex gap-2 mt-3 flex-wrap">
               {!cancelled && anyNotPresent && rowsReady && (
                 <Button variant="soft" onClick={markAllPresent} disabled={saveManyMut.isPending}>
-                  ✓ حاضر للكل
+                  <CheckCheck size={20} />
+                  حاضر للكل
                 </Button>
               )}
               <Button
@@ -326,7 +337,7 @@ export function AttendancePage() {
                 onClick={toggleSessionStatus}
                 disabled={statusMut.isPending}
               >
-                {cancelled ? '↩️ استرجاع الحصة' : 'إلغاء الحصة'}
+                {cancelled ? (<><Undo2 size={20} /> استرجاع الحصة</>) : 'إلغاء الحصة'}
               </Button>
               <Link to="/schedule" className="no-underline">
                 <Button variant="ghost">نقل الحصة من الجدول</Button>
@@ -335,21 +346,22 @@ export function AttendancePage() {
           </Card>
 
           {cancelled && (
-            <div className="border border-border bg-soft rounded-xl px-3 py-2.5 mb-3 text-[13.5px] font-semibold text-muted">
-              🚫 الحصة دي ملغاة — الحضور مقفول ومش هيتسجل لها أي حالة. استرجع الحصة الأول لو عايز
-              تحضّرها.
+            <div className="border border-border bg-soft rounded-xl px-3 py-2.5 mb-3 text-[13.5px] font-semibold text-muted flex items-start gap-2">
+              <Ban size={20} className="shrink-0 mt-0.5" />
+              <span>الحصة دي ملغاة — الحضور مقفول ومش هيتسجل لها أي حالة. استرجع الحصة الأول لو عايز تحضّرها.</span>
             </div>
           )}
 
           {invoicesQ.data && (
-            <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2 mb-3 text-[13px]">
-              ⚠️ تم إصدار فواتير هذا الشهر؛ أي تعديل في الحضور سيسجل كتسوية مالية.
+            <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2 mb-3 text-[13.5px] flex items-start gap-2">
+              <AlertTriangle size={20} className="shrink-0 mt-0.5 text-warn-text" />
+              <span>تم إصدار فواتير هذا الشهر؛ أي تعديل في الحضور سيسجل كتسوية مالية.</span>
             </div>
           )}
 
           {group && group.links.length > 0 && (
             <Card>
-              <div className="font-bold text-[14px] mb-2">روابط الملازم والواجبات</div>
+              <div className="font-bold text-[15px] mb-2">روابط الملازم والواجبات</div>
               <div className="flex flex-col gap-1.5">
                 {group.links.map((l) => (
                   <a
@@ -381,11 +393,15 @@ export function AttendancePage() {
                   ? ((rosterQ.error ?? attQ.error) as Error).message
                   : 'خطأ غير معروف'
               }
+              onRetry={() => {
+                void rosterQ.refetch()
+                void attQ.refetch()
+              }}
             />
           ) : roster.length === 0 ? (
             <Card>
               <EmptyState
-                icon="👥"
+                icon={Users}
                 title="لا يوجد طلاب نشطون مسجلون في المجموعة دي"
                 hint="سجّل طلاباً في المجموعة من ملفاتهم أو من صفحة المجموعة، وهيظهروا هنا للتحضير."
               />
@@ -412,7 +428,7 @@ export function AttendancePage() {
                             {st.name}
                           </Link>
                           <span
-                            className="text-[11px] font-bold bg-soft text-muted rounded-full px-2 py-0.5"
+                            className="text-[12px] font-bold bg-soft text-muted rounded-full px-2 py-0.5"
                             dir="ltr"
                           >
                             {st.public_code}
@@ -422,10 +438,15 @@ export function AttendancePage() {
                           type="button"
                           disabled={cancelled}
                           onClick={() => changeValue(st.id, { starred: !v.starred })}
-                          className="shrink-0 text-[20px] leading-none bg-transparent border-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed px-1"
+                          className="shrink-0 w-12 h-12 flex items-center justify-center bg-transparent border-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                           title={v.starred ? 'متميز — اضغط لإلغاء التمييز' : 'تمييز الطالب'}
+                          aria-label={v.starred ? 'إلغاء تمييز الطالب' : 'تمييز الطالب'}
                         >
-                          {v.starred ? '⭐' : '☆'}
+                          <Star
+                            size={24}
+                            className={v.starred ? 'text-accent' : 'text-muted'}
+                            fill={v.starred ? 'currentColor' : 'none'}
+                          />
                         </button>
                       </div>
                       <div className="flex gap-1 mt-2.5" role="radiogroup" aria-label={`حالة ${st.name}`}>
@@ -439,7 +460,7 @@ export function AttendancePage() {
                               aria-checked={active}
                               disabled={cancelled}
                               onClick={() => changeValue(st.id, { status: code })}
-                              className={`flex-1 min-h-[38px] rounded-lg text-[13px] font-bold border cursor-pointer disabled:cursor-not-allowed ${
+                              className={`flex-1 min-h-[48px] rounded-xl text-[13.5px] font-bold border cursor-pointer disabled:cursor-not-allowed ${
                                 active ? 'text-white' : 'bg-card text-muted border-border hover:bg-soft'
                               }`}
                               style={
@@ -456,8 +477,9 @@ export function AttendancePage() {
                       {v.status === 'a' &&
                         (wa ? (
                           <a href={wa} target="_blank" rel="noreferrer" className="no-underline inline-block mt-2.5">
-                            <Button variant="soft" className="min-h-[36px] text-[12.5px] px-3">
-                              💬 إبلاغ ولي الأمر بالغياب
+                            <Button variant="soft" className="min-h-[48px] text-[13.5px] px-3">
+                              <MessageCircle size={20} />
+                              إبلاغ ولي الأمر بالغياب
                             </Button>
                           </a>
                         ) : (
@@ -472,7 +494,7 @@ export function AttendancePage() {
 
               {/* تسليم الواجب — رقائق بأسماء الطلاب (المرجع §3.2) */}
               <Card>
-                <div className="font-bold text-[14px] mb-2">تسليم الواجب</div>
+                <div className="font-bold text-[15px] mb-2">تسليم الواجب</div>
                 <div className="flex gap-2 flex-wrap">
                   {roster.map((st) => {
                     const v = valueOf(st.id)
@@ -484,7 +506,7 @@ export function AttendancePage() {
                           if (!cancelled) changeValue(st.id, { homework_done: !v.homework_done })
                         }}
                       >
-                        {v.homework_done ? '✓ ' : ''}{st.name}
+                        {v.homework_done && <Check size={16} />}{st.name}
                       </Chip>
                     )
                   })}
@@ -496,14 +518,6 @@ export function AttendancePage() {
             </>
           )}
         </>
-      )}
-
-      {toast && (
-        <div className="fixed bottom-[92px] inset-x-0 z-50 flex justify-center px-4 pointer-events-none">
-          <div className="bg-text text-bg text-[13.5px] font-semibold rounded-full px-4 py-2.5 shadow-lg max-w-[640px] text-center">
-            {toast}
-          </div>
-        </div>
       )}
     </div>
   )

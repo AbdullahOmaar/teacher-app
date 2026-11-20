@@ -1,9 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
+import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
+import {
+  AlertTriangle,
+  Check,
+  ListChecks,
+  MessageCircle,
+  NotebookPen,
+  Pencil,
+  Printer,
+  Save,
+  Trophy,
+  Users,
+} from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
+import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatDateLabel } from '../schedule/api'
 import { useGuardianContacts, useSessionRoster } from '../attendance/hooks'
@@ -26,11 +39,18 @@ import {
 } from './hooks'
 import { AssessmentFormSheet, ExamBuilderSheet, ExamSheetSheet } from './sheets'
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-soft rounded-2xl ${className}`} />
+/** شارة رتبة لوحة الشرف: دائرة مرقّمة (الأول بلون اللهجة الكهرمانية) بدل ميداليات الإيموجي */
+function RankBadge({ rank }: { rank: number }) {
+  return (
+    <span
+      className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-[13.5px] font-extrabold shrink-0 ${
+        rank === 1 ? 'bg-accent text-white' : 'bg-soft text-primary'
+      }`}
+    >
+      {rank}
+    </span>
+  )
 }
-
-const MEDALS = ['🥇', '🥈', '🥉']
 
 /**
  * تفاصيل الامتحان (المواصفات §3.11): شريط ملخص (المجموعة والتاريخ وعدّاد
@@ -47,16 +67,10 @@ export function AssessmentDetailPage() {
   const teacher = useCurrentTeacher()
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
 
-  const [toast, setToast] = useState<string | null>(null)
+  const toast = useToast()
   const [editOpen, setEditOpen] = useState(false)
   const [builderOpen, setBuilderOpen] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
-
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 3500)
-    return () => clearTimeout(t)
-  }, [toast])
 
   const assessmentQ = useAssessment(teacherId, id)
   const assessment = assessmentQ.data ?? null
@@ -94,12 +108,13 @@ export function AssessmentDetailPage() {
     return (
       <ErrorState
         message={assessmentQ.error instanceof Error ? assessmentQ.error.message : 'خطأ غير معروف'}
+        onRetry={() => void assessmentQ.refetch()}
       />
     )
   }
   if (!assessment) {
     return (
-      <EmptyState icon="📝" title="التقييم غير موجود" hint="ممكن يكون اتحذف أو الرابط غير صحيح" />
+      <EmptyState icon={NotebookPen} title="التقييم غير موجود" hint="ممكن يكون اتحذف أو الرابط غير صحيح" />
     )
   }
 
@@ -155,9 +170,9 @@ export function AssessmentDetailPage() {
             for (const e of entries) values.delete(e.studentId)
             return { assessmentId: assessment.id, values }
           })
-          if (successMsg) setToast(successMsg)
+          if (successMsg) toast(successMsg)
         },
-        onError: () => setToast('حصلت مشكلة في حفظ الدرجات — راجع القيم وحاول تاني'),
+        onError: () => toast('حصلت مشكلة في حفظ الدرجات — راجع القيم وحاول تاني'),
       },
     )
   }
@@ -166,7 +181,7 @@ export function AssessmentDetailPage() {
     if (!drafts.has(studentId)) return
     const { valid } = parseRaw(drafts.get(studentId) ?? '')
     if (!valid) {
-      setToast('الدرجة لازم تكون رقماً صفر أو أكبر')
+      toast('الدرجة لازم تكون رقماً صفر أو أكبر')
       return
     }
     saveEntries(changedEntries().filter((e) => e.studentId === studentId))
@@ -203,14 +218,21 @@ export function AssessmentDetailPage() {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="font-extrabold text-[16px]">{assessment.title}</div>
-            <div className="text-muted text-[13px]">
+            <div className="text-muted text-[13.5px]">
               {ASSESSMENT_TYPE_LABELS[assessment.type]} · {assessment.group_name} ·{' '}
               {formatDateLabel(assessment.assess_date)} · النهائية {fmtScore(assessment.max_score)}{' '}
               · النجاح {fmtScore(assessment.pass_score)}
             </div>
           </div>
-          <span className="shrink-0 text-[12px] font-bold text-muted">
-            {saveMut.isPending ? 'بنحفظ…' : 'الحفظ عند الخروج من الحقل ✓'}
+          <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
+            {saveMut.isPending ? (
+              'بنحفظ…'
+            ) : (
+              <>
+                <Check size={14} className="text-ok-text" />
+                الحفظ عند الخروج من الحقل
+              </>
+            )}
           </span>
         </div>
         <div className="flex items-center gap-2 mt-3">
@@ -220,7 +242,7 @@ export function AssessmentDetailPage() {
               style={{ width: `${progressPct}%` }}
             />
           </div>
-          <span className="text-[13px] font-extrabold">
+          <span className="text-[13.5px] font-extrabold">
             {rowsReady ? `${done}/${total}` : '…'} درجة مسجلة
           </span>
         </div>
@@ -234,40 +256,46 @@ export function AssessmentDetailPage() {
         </div>
         <div className="flex gap-2 mt-3 flex-wrap">
           <Button variant="soft" onClick={() => setBuilderOpen(true)}>
-            📋 الأسئلة ({questions.length})
+            <ListChecks size={20} />
+            الأسئلة ({questions.length})
           </Button>
           <Button
             variant="soft"
             onClick={() => setSheetOpen(true)}
             disabled={questionsQ.isPending}
           >
-            🖨️ ورقة الامتحان
+            <Printer size={20} />
+            ورقة الامتحان
           </Button>
           <Button variant="ghost" onClick={() => setEditOpen(true)}>
-            ✏️ تعديل بيانات الامتحان
+            <Pencil size={20} />
+            تعديل بيانات الامتحان
           </Button>
         </div>
       </Card>
 
       {maxMismatch && (
-        <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2.5 mb-3 text-[13px] flex items-center justify-between gap-2 flex-wrap">
-          <span>
-            ⚠️ مجموع درجات الأسئلة ({fmtScore(questionsTotal)}) لا يساوي الدرجة النهائية (
-            {fmtScore(assessment.max_score)}).
+        <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2.5 mb-3 text-[13.5px] flex items-center justify-between gap-2 flex-wrap">
+          <span className="flex items-start gap-2">
+            <AlertTriangle size={20} className="shrink-0 mt-0.5 text-warn-text" />
+            <span>
+              مجموع درجات الأسئلة ({fmtScore(questionsTotal)}) لا يساوي الدرجة النهائية (
+              {fmtScore(assessment.max_score)}).
+            </span>
           </span>
           <Button
             variant="soft"
-            className="min-h-[36px] text-[12.5px] px-3"
+            className="min-h-[48px] text-[13.5px] px-3"
             disabled={syncMut.isPending}
             onClick={() =>
               syncMut.mutate(
                 { assessment, questionsTotal },
                 {
                   onSuccess: () =>
-                    setToast(
+                    toast(
                       `اتحدثت النهائية إلى ${fmtScore(questionsTotal)} ودرجة النجاح إلى ${fmtScore(Math.round(questionsTotal / 2))}`,
                     ),
-                  onError: () => setToast('حصلت مشكلة في المزامنة — حاول تاني'),
+                  onError: () => toast('حصلت مشكلة في المزامنة — حاول تاني'),
                 },
               )
             }
@@ -291,11 +319,15 @@ export function AssessmentDetailPage() {
               ? ((rosterQ.error ?? scoresQ.error) as Error).message
               : 'خطأ غير معروف'
           }
+          onRetry={() => {
+            void rosterQ.refetch()
+            void scoresQ.refetch()
+          }}
         />
       ) : roster.length === 0 ? (
         <Card>
           <EmptyState
-            icon="👥"
+            icon={Users}
             title="لا يوجد طلاب نشطون مسجلون في مجموعة التقييم دي"
             hint="سجّل طلاباً في المجموعة من ملفاتهم أو من صفحة المجموعة، وهيظهروا هنا لإدخال درجاتهم."
           />
@@ -328,7 +360,7 @@ export function AssessmentDetailPage() {
                           {st.name}
                         </Link>
                         <span
-                          className="text-[11px] font-bold bg-soft text-muted rounded-full px-2 py-0.5"
+                          className="text-[12px] font-bold bg-soft text-muted rounded-full px-2 py-0.5"
                           dir="ltr"
                         >
                           {st.public_code}
@@ -339,9 +371,10 @@ export function AssessmentDetailPage() {
                           href={wa}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-primary text-[12px] font-semibold no-underline"
+                          className="text-primary text-[13.5px] font-semibold no-underline inline-flex items-center gap-1 min-h-[48px]"
                         >
-                          💬 إرسال الدرجة لولي الأمر
+                          <MessageCircle size={18} />
+                          إرسال الدرجة لولي الأمر
                         </a>
                       ) : effScore != null ? (
                         <span className="text-muted text-[12px]">
@@ -350,7 +383,7 @@ export function AssessmentDetailPage() {
                       ) : null}
                     </div>
                     <span
-                      className={`shrink-0 min-w-[52px] text-center text-[12.5px] font-extrabold rounded-full px-2 py-1 ${TONE_BADGE[tone]}`}
+                      className={`shrink-0 min-w-[52px] text-center text-[13.5px] font-extrabold rounded-full px-2 py-1 ${TONE_BADGE[tone]}`}
                     >
                       {pct == null ? '—' : `${pct}%`}
                     </span>
@@ -375,7 +408,7 @@ export function AssessmentDetailPage() {
                           if (next) next.focus()
                           else e.currentTarget.blur()
                         }}
-                        className={`w-full border rounded-xl px-3 min-h-[46px] bg-card text-text text-[15px] outline-none focus:border-primary ${!valid ? 'border-bad' : 'border-border'}`}
+                        className={`w-full border rounded-xl px-3 min-h-[52px] bg-card text-text text-[15px] outline-none focus:border-primary ${!valid ? 'border-bad' : 'border-border'}`}
                       />
                     </div>
                   </div>
@@ -388,15 +421,18 @@ export function AssessmentDetailPage() {
             full
             disabled={saveMut.isPending || pendingChanges === 0}
             onClick={() =>
-              saveEntries(changedEntries(), `اتحفظت ${pendingChanges} درجة ✓`)
+              saveEntries(changedEntries(), `اتحفظت ${pendingChanges} درجة`)
             }
             className="mb-3"
           >
-            {saveMut.isPending
-              ? 'بنحفظ…'
-              : pendingChanges > 0
-                ? `💾 حفظ كل الدرجات (${pendingChanges} تعديل)`
-                : '💾 كل الدرجات محفوظة'}
+            {saveMut.isPending ? (
+              'بنحفظ…'
+            ) : (
+              <>
+                <Save size={20} />
+                {pendingChanges > 0 ? `حفظ كل الدرجات (${pendingChanges} تعديل)` : 'كل الدرجات محفوظة'}
+              </>
+            )}
           </Button>
           <p className="text-muted text-[12px] mt-0 mb-3">
             الدرجة بتتحفظ تلقائياً لما تخرج من الحقل أو تدوس Enter (اللي بينقلك للي بعده)، وزر
@@ -409,19 +445,19 @@ export function AssessmentDetailPage() {
       {honor.length > 0 && (
         <Card>
           <div className="flex items-center justify-between gap-2 mb-2">
-            <span className="font-bold text-[14.5px]">🏆 لوحة الشرف</span>
+            <span className="font-bold text-[16px] flex items-center gap-2"><Trophy size={22} className="text-accent" /> لوحة الشرف</span>
             <Button
               variant="ghost"
-              className="min-h-[36px] text-[12.5px] px-3"
+              className="min-h-[48px] text-[13.5px] px-3"
               onClick={() => {
                 const lines = honor
-                  .map((h, i) => `${MEDALS[i]} ${h.student.name} — ${h.pct}%`)
+                  .map((h, i) => `${i + 1}. ${h.student.name} — ${h.pct}%`)
                   .join('\n')
-                const text = `🏆 لوحة الشرف في ${assessment.title}:\n${lines}\nألف مبروك للأوائل! 🎉`
+                const text = `لوحة الشرف في ${assessment.title}:\n${lines}\nألف مبروك للأوائل!`
                 void navigator.clipboard
                   ?.writeText(text)
-                  .then(() => setToast('اتنسخت تهنئة الأوائل 📋'))
-                  .catch(() => setToast('النسخ مش متاح في المتصفح ده'))
+                  .then(() => toast('اتنسخت تهنئة الأوائل'))
+                  .catch(() => toast('النسخ مش متاح في المتصفح ده'))
               }}
             >
               نسخ تهنئة الأوائل
@@ -432,8 +468,9 @@ export function AssessmentDetailPage() {
               key={h.student.id}
               className="flex items-center justify-between gap-2 py-1.5 border-b border-border/60 last:border-0"
             >
-              <span className="font-semibold text-[14px]">
-                {MEDALS[i]} {h.student.name}
+              <span className="font-semibold text-[15px] flex items-center gap-2">
+                <RankBadge rank={i + 1} />
+                {h.student.name}
               </span>
               <span className="font-extrabold text-[13.5px]">
                 {fmtScore(h.score ?? 0)} من {fmtScore(assessment.max_score)} · {h.pct}%
@@ -467,14 +504,6 @@ export function AssessmentDetailPage() {
           questions={questions}
           onClose={() => setSheetOpen(false)}
         />
-      )}
-
-      {toast && (
-        <div className="fixed bottom-[92px] inset-x-0 z-50 flex justify-center px-4 pointer-events-none">
-          <div className="bg-text text-bg text-[13.5px] font-semibold rounded-full px-4 py-2.5 shadow-lg max-w-[640px] text-center">
-            {toast}
-          </div>
-        </div>
       )}
     </div>
   )

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
-import { Button } from '../../components/ui/Button'
+import { NotebookPen } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { Fab } from '../../components/ui/Fab'
 import { Chip, ChipRow } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
@@ -24,12 +25,12 @@ function AssessmentCard({ item }: { item: AssessmentListItem }) {
             </span>
           )}
         </div>
-        <div className="text-muted text-[13px] mt-0.5">
+        <div className="text-muted text-[13.5px] mt-0.5">
           {ASSESSMENT_TYPE_LABELS[item.type]} · {item.group_name} ·{' '}
           {formatDateLabel(item.assess_date)} · النهائية {item.max_score}
           {item.questions_count > 0 ? ` · ${item.questions_count} سؤال` : ''}
         </div>
-        <div className="text-muted text-[12.5px] mt-1">
+        <div className="text-muted text-[13.5px] mt-1">
           {item.scored_count > 0
             ? `درجات مسجلة: ${item.scored_count} طالب`
             : 'لسه مفيش درجات مسجلة — اضغط لإدخال الدرجات'}
@@ -52,13 +53,6 @@ export function GradesPage() {
 
   const [groupFilter, setGroupFilter] = useState<string>('all')
   const [createOpen, setCreateOpen] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 3500)
-    return () => clearTimeout(t)
-  }, [toast])
 
   const assessmentsQ = useAssessments(teacherId)
   const groupsQ = useGroups(teacherId)
@@ -82,10 +76,6 @@ export function GradesPage() {
 
   return (
     <div>
-      <Button full onClick={() => setCreateOpen(true)} className="mb-3">
-        + امتحان أو واجب
-      </Button>
-
       {groups.length > 1 && (
         <ChipRow>
           <Chip active={groupFilter === 'all'} onClick={() => setGroupFilter('all')}>
@@ -106,16 +96,27 @@ export function GradesPage() {
       {pending ? (
         <LoadingState label="بنحمّل التقييمات…" />
       ) : error ? (
-        <ErrorState message={error instanceof Error ? error.message : 'خطأ غير معروف'} />
+        <ErrorState
+          message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+          onRetry={() => {
+            void assessmentsQ.refetch()
+            void groupsQ.refetch()
+          }}
+        />
       ) : filtered.length === 0 ? (
         <Card>
           <EmptyState
-            icon="📝"
+            icon={NotebookPen}
             title={assessments.length === 0 ? 'لسه مفيش امتحانات أو واجبات' : 'مفيش تقييمات للمجموعة دي'}
             hint={
               assessments.length === 0
-                ? 'أنشئ أول امتحان أو واجب من الزر اللي فوق، وبعدين سجّل درجات الطلاب وأضف أسئلته من بنك الأسئلة.'
+                ? 'أنشئ أول امتحان أو واجب من الزر العائم، وبعدين سجّل درجات الطلاب وأضف أسئلته من بنك الأسئلة.'
                 : 'جرّب مجموعة تانية أو أنشئ تقييماً جديداً لها.'
+            }
+            action={
+              assessments.length === 0
+                ? { label: 'إنشاء امتحان أو واجب', onClick: () => setCreateOpen(true) }
+                : undefined
             }
           />
         </Card>
@@ -123,20 +124,14 @@ export function GradesPage() {
         filtered.map((a) => <AssessmentCard key={a.id} item={a} />)
       )}
 
+      <Fab onClick={() => setCreateOpen(true)} ariaLabel="إنشاء امتحان أو واجب جديد" label="امتحان جديد" />
+
       {createOpen && teacherId && (
         <AssessmentFormSheet
           teacherId={teacherId}
           groups={groups}
           onClose={() => setCreateOpen(false)}
         />
-      )}
-
-      {toast && (
-        <div className="fixed bottom-[92px] inset-x-0 z-50 flex justify-center px-4 pointer-events-none">
-          <div className="bg-text text-bg text-[13.5px] font-semibold rounded-full px-4 py-2.5 shadow-lg max-w-[640px] text-center">
-            {toast}
-          </div>
-        </div>
       )}
     </div>
   )

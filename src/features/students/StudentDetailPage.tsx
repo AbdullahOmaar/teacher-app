@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
+import { Construction, IdCard, Link2, Lock, MessageCircle, Pause, Pencil, Phone, Play, UserRoundX, Users } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Chip, ChipRow } from '../../components/ui/form'
@@ -41,8 +42,8 @@ const UPCOMING: Record<string, string> = {
 function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div className="flex justify-between gap-3 py-2 border-b border-border last:border-0">
-      <span className="text-muted text-[13px] font-semibold">{label}</span>
-      <span className="text-[14px] font-semibold text-left">{value?.trim() ? value : '—'}</span>
+      <span className="text-muted text-[13.5px] font-semibold">{label}</span>
+      <span className="text-[15px] font-semibold text-left">{value?.trim() ? value : '—'}</span>
     </div>
   )
 }
@@ -80,12 +81,22 @@ export function StudentDetailPage() {
   if (studentQ.isPending || enrollmentsQ.isPending || groupsQ.isPending)
     return <LoadingState label="بنحمّل ملف الطالب…" />
   const error = studentQ.error ?? enrollmentsQ.error ?? groupsQ.error
-  if (error) return <ErrorState message={error instanceof Error ? error.message : 'خطأ غير معروف'} />
+  if (error)
+    return (
+      <ErrorState
+        message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+        onRetry={() => {
+          void studentQ.refetch()
+          void enrollmentsQ.refetch()
+          void groupsQ.refetch()
+        }}
+      />
+    )
 
   const student = studentQ.data
   if (!student) {
     return (
-      <EmptyState icon="🧑‍🎓" title="الطالب غير موجود" hint="ممكن يكون اتحذف أو الرابط غير صحيح" />
+      <EmptyState icon={UserRoundX} title="الطالب غير موجود" hint="ممكن يكون اتحذف أو الرابط غير صحيح" />
     )
   }
 
@@ -102,10 +113,10 @@ export function StudentDetailPage() {
       {/* الترويسة */}
       <Card>
         <div className="flex items-start justify-between gap-2">
-          <div className="text-[18px] font-extrabold">
+          <div className="type-screen">
             {student.name}
             {student.paused && (
-              <span className="ms-2 text-[11px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
+              <span className="ms-2 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
                 موقوف
               </span>
             )}
@@ -121,7 +132,7 @@ export function StudentDetailPage() {
               </span>
             ))}
         </div>
-        <div className="text-muted text-[13px] mt-0.5">
+        <div className="text-muted text-[13.5px] mt-0.5">
           الكود: <span dir="ltr">{student.public_code}</span>
           {student.grade ? ` · ${student.grade}` : ''}
           {student.school ? ` · ${student.school}` : ''}
@@ -129,22 +140,31 @@ export function StudentDetailPage() {
         <div className="flex flex-wrap gap-2 mt-3">
           {student.phone && (
             <a href={`tel:${student.phone}`} className="no-underline">
-              <Button variant="soft">📞 اتصال</Button>
+              <Button variant="soft">
+                <Phone size={20} />
+                اتصال
+              </Button>
             </a>
           )}
           {wa && (
             <a href={wa} target="_blank" rel="noreferrer" className="no-underline">
-              <Button variant="soft">💬 واتساب</Button>
+              <Button variant="soft">
+                <MessageCircle size={20} />
+                واتساب
+              </Button>
             </a>
           )}
           <Button variant="soft" onClick={() => setCardOpen(true)}>
-            🪪 الكارت الرقمي
+            <IdCard size={20} />
+            الكارت الرقمي
           </Button>
           <Button variant="soft" onClick={() => setPortalOpen(true)}>
-            🔗 رابط ولي الأمر
+            <Link2 size={20} />
+            رابط ولي الأمر
           </Button>
           <Button variant="ghost" onClick={() => setEditOpen(true)}>
-            ✏️ تعديل
+            <Pencil size={20} />
+            تعديل
           </Button>
         </div>
       </Card>
@@ -175,7 +195,7 @@ export function StudentDetailPage() {
                 setPaused.mutate({ studentId: student.id, paused: !student.paused })
               }
             >
-              {student.paused ? '▶️ استئناف الطالب' : '⏸️ إيقاف الطالب (أرشفة)'}
+              {student.paused ? (<><Play size={20} /> استئناف الطالب</>) : (<><Pause size={20} /> إيقاف الطالب (أرشفة)</>)}
             </Button>
             <p className="text-muted text-[12px] mt-2 mb-0">
               الطالب الموقوف يُستبعد من إصدار الفواتير وقوائم الحضور، ويظهر فقط في فلتر «موقوف / أرشيف».
@@ -187,7 +207,7 @@ export function StudentDetailPage() {
       {tab === 'groups' && (
         <div>
           {enrollments.length === 0 ? (
-            <EmptyState icon="👨‍👩‍👧‍👦" title="غير مسجل في أي مجموعة" hint="سجّله في مجموعة علشان يبدأ الحضور والفوترة" />
+            <EmptyState icon={Users} title="غير مسجل في أي مجموعة" hint="سجّله في مجموعة علشان يبدأ الحضور والفوترة" />
           ) : (
             enrollments.map((e) => {
               const g = groupById.get(e.group_id)
@@ -201,7 +221,7 @@ export function StudentDetailPage() {
                     </Link>
                     <button
                       type="button"
-                      className="text-bad-text text-[12.5px] font-semibold bg-transparent border-0 cursor-pointer"
+                      className="text-bad-text text-[13.5px] font-semibold bg-transparent border-0 cursor-pointer"
                       onClick={() => {
                         if (window.confirm(`إلغاء تسجيل «${student.name}» من مجموعة «${g.name}»؟`))
                           deleteEnrollment.mutate(e.id)
@@ -210,7 +230,7 @@ export function StudentDetailPage() {
                       إلغاء التسجيل
                     </button>
                   </div>
-                  <div className="text-muted text-[13px] mt-0.5">
+                  <div className="text-muted text-[13.5px] mt-0.5">
                     {BILLING_LABELS[g.billing_type]} · السعر الفعلي: {formatMoney(effective)}
                     {e.price_override != null ? ' (سعر خاص)' : ''}
                     {e.prepaid_sessions != null ? ` · مدفوع مسبقاً: ${e.prepaid_sessions} حصة` : ''}
@@ -237,7 +257,7 @@ export function StudentDetailPage() {
       {tab === 'pay' &&
         (isAssistant ? (
           <EmptyState
-            icon="🔒"
+            icon={Lock}
             title="المدفوعات للمالك فقط"
             hint="تبويب المدفوعات مخفي في وضع المساعد — المالية محجوبة بـ RLS أيضاً."
           />
@@ -254,7 +274,7 @@ export function StudentDetailPage() {
       )}
 
       {tab === 'notes' && (
-        <EmptyState icon="🚧" title="قريباً" hint={UPCOMING[tab]} />
+        <EmptyState icon={Construction} title="قريباً" hint={UPCOMING[tab]} />
       )}
 
       {editOpen && (

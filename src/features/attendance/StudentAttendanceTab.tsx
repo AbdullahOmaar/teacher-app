@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Card } from '../../components/ui/Card'
+import { CalendarCheck2, Check, Star } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState } from '../../components/ui/states'
 import { shortTime } from '../../lib/format'
@@ -54,7 +55,15 @@ export function StudentAttendanceTab({
     return <LoadingState label="بنحمّل سجل الحضور…" />
   const error = recordsQ.error ?? statsQ.error
   if (error)
-    return <ErrorState message={error instanceof Error ? error.message : 'خطأ غير معروف'} />
+    return (
+      <ErrorState
+        message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+        onRetry={() => {
+          void recordsQ.refetch()
+          void statsQ.refetch()
+        }}
+      />
+    )
 
   const stats = statsQ.data ?? { marked: 0, attended: 0, rate: null }
   const records = recordsQ.data ?? []
@@ -63,7 +72,7 @@ export function StudentAttendanceTab({
     <div>
       <Card>
         <div className="flex items-center justify-between gap-2">
-          <span className="font-bold text-[14.5px]">نسبة الالتزام</span>
+          <span className="font-bold text-[16px]">نسبة الالتزام</span>
           <span
             className={`text-[20px] font-extrabold ${
               stats.rate == null ? '' : stats.rate >= 80 ? 'text-ok-text' : 'text-warn-text'
@@ -72,7 +81,7 @@ export function StudentAttendanceTab({
             {stats.rate == null ? '—' : `${stats.rate}%`}
           </span>
         </div>
-        <div className="text-muted text-[13px] mt-1">
+        <div className="text-muted text-[13.5px] mt-1">
           {stats.marked > 0
             ? `حضر ${stats.attended} من ${stats.marked} حصة مسجلة`
             : 'لسه مفيش حصص مسجلة للطالب ده'}
@@ -90,24 +99,24 @@ export function StudentAttendanceTab({
       {prepaidCards.map((c) => (
         <Card key={c.enrollment.id}>
           <div className="flex items-center justify-between gap-2">
-            <span className="font-bold text-[14.5px]">باقة {c.groupName}</span>
+            <span className="font-bold text-[16px]">باقة {c.groupName}</span>
             <span
-              className={`text-[13px] font-extrabold ${c.left <= 1 ? 'text-bad-text' : 'text-ok-text'}`}
+              className={`text-[13.5px] font-extrabold ${c.left <= 1 ? 'text-bad-text' : 'text-ok-text'}`}
             >
               متبقي {c.left}
             </span>
           </div>
-          <div className="text-muted text-[13px] mt-1">
+          <div className="text-muted text-[13.5px] mt-1">
             حضر {c.used} من {c.total} حصة مدفوعة مسبقاً
           </div>
         </Card>
       ))}
 
-      <h3 className="text-[14.5px] font-extrabold mb-2 mt-1">سجل الحصص</h3>
+      <h3 className="text-[16px] font-extrabold mb-2 mt-1">سجل الحصص</h3>
       {records.length === 0 ? (
         <Card>
           <EmptyState
-            icon="✅"
+            icon={CalendarCheck2}
             title="لا يوجد سجل حضور بعد"
             hint="هيظهر هنا كل حصة اتسجلت للطالب بحالتها وواجبها وتمييزها."
           />
@@ -121,30 +130,42 @@ export function StudentAttendanceTab({
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="font-bold text-[14px]">{r.group_name}</div>
-                  <div className="text-muted text-[12.5px]">
+                  <div className="font-bold text-[15px]">{r.group_name}</div>
+                  <div className="text-muted text-[13.5px]">
                     {formatDateLabel(r.session_date)} · {shortTime(r.start_time)}
                   </div>
                 </div>
                 <span className="flex items-center gap-1.5 shrink-0">
-                  {r.starred && <span title="متميز">⭐</span>}
+                  {r.starred && (
+                    <span title="متميز" className="inline-flex">
+                      <Star size={20} className="text-accent" fill="currentColor" />
+                    </span>
+                  )}
                   {r.status ? (
                     <span
-                      className="text-[11.5px] font-bold text-white rounded-full px-2.5 py-0.5"
+                      className="text-[12px] font-bold text-white rounded-full px-2.5 py-0.5"
                       style={{ backgroundColor: STATUS_COLORS[r.status] }}
                     >
                       {STATUS_LABELS[r.status]}
                     </span>
                   ) : (
-                    <span className="text-[11.5px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2.5 py-0.5">
+                    <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2.5 py-0.5">
                       بلا حالة
                     </span>
                   )}
                 </span>
               </div>
-              <div className="text-muted text-[12.5px] mt-1">
-                الواجب: {r.homework_done ? '✓ سلّم الواجب' : 'لم يسلّم'}
-                {r.starred ? ' · ⭐ متميز في الحصة' : ''}
+              <div className="text-muted text-[13.5px] mt-1 flex items-center gap-1 flex-wrap">
+                <span>الواجب:</span>
+                {r.homework_done ? (
+                  <span className="inline-flex items-center gap-1 text-ok-text font-semibold">
+                    <Check size={16} />
+                    سلّم الواجب
+                  </span>
+                ) : (
+                  <span>لم يسلّم</span>
+                )}
+                {r.starred && <span>· متميز في الحصة</span>}
               </div>
             </div>
           ))}

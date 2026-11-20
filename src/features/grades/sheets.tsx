@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Sheet } from '../../components/ui/Sheet'
+import { Check, Printer, Trash2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Chip, ChipRow, Field, Select, TextArea, TextInput } from '../../components/ui/form'
 import type {
@@ -157,11 +158,11 @@ export function AssessmentFormSheet({
           </Field>
         </div>
         {pass > max && (
-          <p className="text-warn-text text-[12.5px] font-semibold">
+          <p className="text-warn-text text-[13.5px] font-semibold">
             درجة النجاح أكبر من النهائية — كل الطلاب هيظهروا تحت النجاح.
           </p>
         )}
-        {mut.isError && <p className="text-bad-text text-[13px] font-semibold">{errText(mut.error)}</p>}
+        {mut.isError && <p className="text-bad-text text-[13.5px] font-semibold">{errText(mut.error)}</p>}
         <Button full type="submit" disabled={mut.isPending || !valid}>
           {mut.isPending ? 'بنحفظ…' : initial ? 'حفظ التعديلات' : 'إنشاء التقييم'}
         </Button>
@@ -173,7 +174,7 @@ export function AssessmentFormSheet({
       {initial && (
         <div className="mt-4 border-t border-border pt-3">
           {del.isError && (
-            <p className="text-bad-text text-[13px] font-semibold">{errText(del.error)}</p>
+            <p className="text-bad-text text-[13.5px] font-semibold">{errText(del.error)}</p>
           )}
           <Button
             full
@@ -194,7 +195,7 @@ export function AssessmentFormSheet({
               }
             }}
           >
-            {del.isPending ? 'بنحذف…' : '🗑️ حذف الامتحان'}
+            {del.isPending ? 'بنحذف…' : (<><Trash2 size={20} /> حذف الامتحان</>)}
           </Button>
         </div>
       )}
@@ -314,7 +315,7 @@ export function ExamBuilderSheet({
             />
           </Field>
         </div>
-        {add.isError && <p className="text-bad-text text-[13px] font-semibold">{errText(add.error)}</p>}
+        {add.isError && <p className="text-bad-text text-[13.5px] font-semibold">{errText(add.error)}</p>}
         <Button full type="submit" disabled={add.isPending || !valid}>
           {add.isPending ? 'بنضيف…' : '+ إضافة السؤال'}
         </Button>
@@ -322,17 +323,17 @@ export function ExamBuilderSheet({
 
       <div className="mt-4 border-t border-border pt-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-bold text-[14px]">أسئلة التقييم ({questions.length})</span>
-          <span className="text-muted text-[12.5px] font-semibold">
+          <span className="font-bold text-[15px]">أسئلة التقييم ({questions.length})</span>
+          <span className="text-muted text-[13.5px] font-semibold">
             مجموع الدرجات: {fmtScore(totalPts)} من {fmtScore(assessment.max_score)}
           </span>
         </div>
         {questionsQ.isPending ? (
-          <p className="text-muted text-[13px]">بنحمّل الأسئلة…</p>
+          <p className="text-muted text-[13.5px]">بنحمّل الأسئلة…</p>
         ) : questionsQ.isError ? (
-          <p className="text-bad-text text-[13px] font-semibold">{errText(questionsQ.error)}</p>
+          <p className="text-bad-text text-[13.5px] font-semibold">{errText(questionsQ.error)}</p>
         ) : questions.length === 0 ? (
-          <p className="text-muted text-[13px] mb-0">
+          <p className="text-muted text-[13.5px] mb-0">
             لسه مفيش أسئلة — أضف أول سؤال من النموذج اللي فوق.
           </p>
         ) : (
@@ -341,14 +342,14 @@ export function ExamBuilderSheet({
               <div key={q.id} className="py-2.5 border-b border-border last:border-0">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <span className="font-bold text-[14px]">
+                    <span className="font-bold text-[15px]">
                       س{i + 1}: {q.text}
                     </span>
                     <span className="text-muted text-[12px] font-bold"> ({fmtScore(q.points)} د)</span>
                   </div>
                   <button
                     type="button"
-                    className="shrink-0 text-bad-text text-[12.5px] font-semibold bg-transparent border-0 cursor-pointer"
+                    className="shrink-0 text-bad-text text-[13.5px] font-semibold bg-transparent border-0 cursor-pointer"
                     disabled={del.isPending}
                     onClick={() => del.mutate(q.id)}
                   >
@@ -356,13 +357,14 @@ export function ExamBuilderSheet({
                   </button>
                 </div>
                 {q.type === 'mcq' && q.options && q.options.length > 0 && (
-                  <div className="text-muted text-[12.5px] mt-1">
+                  <div className="text-muted text-[13.5px] mt-1">
                     {q.options.map((o, j) => `${OPTION_LETTERS[j]}) ${o}`).join(' · ')}
                   </div>
                 )}
                 {q.correct_answer && (
-                  <div className="text-ok-text text-[12.5px] font-semibold mt-0.5">
-                    ✓ الإجابة: {q.correct_answer}
+                  <div className="text-ok-text text-[13.5px] font-semibold mt-0.5 flex items-center gap-1">
+                    <Check size={16} />
+                    الإجابة: {q.correct_answer}
                   </div>
                 )}
               </div>
@@ -370,7 +372,7 @@ export function ExamBuilderSheet({
           </div>
         )}
         {del.isError && (
-          <p className="text-bad-text text-[13px] font-semibold mt-2">{errText(del.error)}</p>
+          <p className="text-bad-text text-[13.5px] font-semibold mt-2">{errText(del.error)}</p>
         )}
       </div>
 
@@ -386,7 +388,7 @@ export function ExamBuilderSheet({
 // «نموذج الإجابة»، منطقة طباعة .print-area بيضاء دائماً: ترويسة باسم
 // المدرس والمجموعة والعنوان والنهائية والتاريخ، سطر اسم الطالب والكود،
 // أسئلة مرقمة بدرجاتها، اختيارات MCQ بحروف أ/ب/ج/د أو سطر إجابة منقّط
-// للمقالي، وفي نموذج الإجابة تظهر «✓ الإجابة:» خضراء.
+// للمقالي، وفي نموذج الإجابة تظهر «الإجابة:» خضراء بعلامة صح.
 // ---------------------------------------------------------------------------
 
 export function ExamSheetSheet({
@@ -421,10 +423,10 @@ export function ExamSheetSheet({
           <div className="font-extrabold text-[16px]">
             {teacherNameQ.data ? teacherNameQ.data : 'ورقة الامتحان'}
           </div>
-          <div className="text-[13px] text-slate-600">
+          <div className="text-[13.5px] text-slate-600">
             {assessment.title} · {groupName}
           </div>
-          <div className="text-[12.5px] text-slate-500">
+          <div className="text-[13.5px] text-slate-500">
             الدرجة النهائية: {fmtScore(assessment.max_score)} · التاريخ:{' '}
             {formatDateLabel(assessment.assess_date)}
           </div>
@@ -445,7 +447,7 @@ export function ExamSheetSheet({
           <div>
             {questions.map((q, i) => (
               <div key={q.id} className="mb-3">
-                <div className="font-bold text-[14px]">
+                <div className="font-bold text-[15px]">
                   س{i + 1}: {q.text}{' '}
                   <span className="text-slate-500 font-semibold">({fmtScore(q.points)} درجة)</span>
                 </div>
@@ -461,8 +463,9 @@ export function ExamSheetSheet({
                   <div className="border-b border-dotted border-slate-300 h-6" />
                 )}
                 {showAns && q.correct_answer && (
-                  <div className="text-green-700 font-semibold text-[13px] mt-1">
-                    ✓ الإجابة: {q.correct_answer}
+                  <div className="text-green-700 font-semibold text-[13.5px] mt-1 flex items-center gap-1">
+                    <Check size={16} />
+                    الإجابة: {q.correct_answer}
                   </div>
                 )}
               </div>
@@ -472,7 +475,8 @@ export function ExamSheetSheet({
       </div>
 
       <Button full onClick={() => window.print()} disabled={questions.length === 0}>
-        🖨️ طباعة الورقة
+        <Printer size={20} />
+        طباعة الورقة
       </Button>
       <Button full variant="ghost" onClick={onClose} className="mt-2">
         إغلاق

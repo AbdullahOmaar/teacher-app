@@ -1,5 +1,18 @@
 import { useParams, useSearchParams } from 'react-router-dom'
+import {
+  CalendarCheck2,
+  CalendarDays,
+  Check,
+  Clock,
+  Link2,
+  Link2Off,
+  NotebookPen,
+  NotebookText,
+  Users,
+} from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { SkeletonCards } from '../../components/ui/states'
+import type { IconComponent } from '../../components/ui/EmptyState'
 import { daysLabel, formatMoney, shortTime } from '../../lib/format'
 import { fmtScore, pctOf } from '../grades/api'
 import { PORTAL_ATT_META, portalErrorInfo } from './api'
@@ -24,8 +37,10 @@ function PortalShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-bg text-text">
       <header className="sticky top-0 z-20 h-[52px] bg-card border-b border-border">
         <div className="mx-auto max-w-[640px] h-full px-4 flex items-center gap-2">
-          <span className="text-[19px]">👨‍👩‍👦</span>
-          <div className="font-extrabold text-[16px]">بوابة ولي الأمر</div>
+          <span className="w-9 h-9 rounded-full bg-soft text-primary flex items-center justify-center">
+            <Users size={20} />
+          </span>
+          <div className="type-section">بوابة ولي الأمر</div>
         </div>
       </header>
       <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-10">{children}</main>
@@ -33,20 +48,27 @@ function PortalShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function PortalMessage({ icon, title, hint }: { icon: string; title: string; hint: string }) {
+function PortalMessage({ icon: Icon, title, hint }: { icon: IconComponent; title: string; hint: string }) {
   return (
     <PortalShell>
       <Card className="text-center py-8">
-        <div className="text-[34px] mb-2">{icon}</div>
-        <div className="font-extrabold mb-1">{title}</div>
-        <p className="text-muted text-[13px] mb-0">{hint}</p>
+        <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
+          <Icon size={28} />
+        </div>
+        <div className="type-section mb-1">{title}</div>
+        <p className="text-muted type-secondary mb-0">{hint}</p>
       </Card>
     </PortalShell>
   )
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-[15px] font-extrabold mt-5 mb-2 first:mt-0">{children}</h3>
+function SectionTitle({ icon: Icon, children }: { icon: IconComponent; children: React.ReactNode }) {
+  return (
+    <h3 className="type-section mt-5 mb-2 first:mt-0 flex items-center gap-2">
+      <Icon size={22} className="text-primary" />
+      {children}
+    </h3>
+  )
 }
 
 export function PortalPage() {
@@ -60,7 +82,7 @@ export function PortalPage() {
   if (!studentId || !rawToken) {
     return (
       <PortalMessage
-        icon="🔗"
+        icon={Link2Off}
         title="الرابط غير مكتمل"
         hint="الرابط اللي فتحته ناقص. افتح الرابط زي ما وصلك من المدرس بالظبط على واتساب، أو اطلب منه يبعته تاني."
       />
@@ -70,14 +92,14 @@ export function PortalPage() {
   if (overviewQ.isPending) {
     return (
       <PortalShell>
-        <div className="text-center text-muted py-10 text-[14px]">بنفتح البوابة…</div>
+        <SkeletonCards cards={3} />
       </PortalShell>
     )
   }
 
   if (overviewQ.isError || !overviewQ.data) {
     const info = portalErrorInfo(overviewQ.error)
-    return <PortalMessage icon="⏰" title={info.title} hint={info.hint} />
+    return <PortalMessage icon={Clock} title={info.title} hint={info.hint} />
   }
 
   const o = overviewQ.data
@@ -87,8 +109,8 @@ export function PortalPage() {
     <PortalShell>
       {/* البانر: الاسم + KPI الحضور + KPI الموقف المالي (§3.17) */}
       <Card>
-        <div className="text-[19px] font-extrabold leading-snug">{o.student.name}</div>
-        <div className="text-muted text-[13px] mt-0.5">
+        <div className="text-[19px] font-extrabold leading-[1.7]">{o.student.name}</div>
+        <div className="text-muted text-[13.5px] mt-0.5">
           الكود: <span dir="ltr">{o.student.code}</span>
           {o.student.grade ? ` · ${o.student.grade}` : ''}
         </div>
@@ -96,7 +118,7 @@ export function PortalPage() {
           <div className="rounded-xl border border-border bg-bg p-3 text-center">
             <div className="text-muted text-[12px] font-semibold mb-0.5">نسبة الحضور</div>
             {rate == null ? (
-              <div className="text-[14px] font-bold text-muted">لسه مفيش حصص متسجلة</div>
+              <div className="text-[15px] font-bold text-muted">لسه مفيش حصص متسجلة</div>
             ) : (
               <div className={`text-[20px] font-extrabold ${rate >= 80 ? 'text-ok-text' : 'text-warn-text'}`}>
                 {rate}%
@@ -108,7 +130,7 @@ export function PortalPage() {
             {o.balance > 0 ? (
               <div className="text-[20px] font-extrabold text-bad-text">{formatMoney(o.balance)}</div>
             ) : (
-              <div className="text-[20px] font-extrabold text-ok-text">مسدد ✅</div>
+              <div className="text-[20px] font-extrabold text-ok-text flex items-center justify-center gap-1.5">مسدد <Check size={22} /></div>
             )}
           </div>
         </div>
@@ -120,16 +142,16 @@ export function PortalPage() {
       </Card>
 
       {/* مواعيد الحصص */}
-      <SectionTitle>🗓️ مواعيد الحصص</SectionTitle>
+      <SectionTitle icon={CalendarDays}>مواعيد الحصص</SectionTitle>
       {o.groups.length === 0 ? (
         <Card>
-          <p className="text-muted text-[13px] mb-0">الطالب غير مسجل في أي مجموعة حالياً.</p>
+          <p className="text-muted text-[13.5px] mb-0">الطالب غير مسجل في أي مجموعة حالياً.</p>
         </Card>
       ) : (
         o.groups.map((g) => (
           <Card key={g.name}>
             <div className="font-bold text-[15px]">{g.name}</div>
-            <div className="text-muted text-[13px] mt-0.5">
+            <div className="text-muted text-[13.5px] mt-0.5">
               {daysLabel(g.days)} · الساعة {shortTime(g.start_time)}
               {g.room ? ` · ${g.room}` : ''}
             </div>
@@ -141,10 +163,11 @@ export function PortalPage() {
                     href={link}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[12.5px] font-semibold bg-soft text-primary rounded-full px-3 py-1.5 no-underline max-w-full truncate"
+                    className="inline-flex items-center gap-1.5 min-h-[48px] text-[13.5px] font-semibold bg-soft text-primary rounded-full px-3 no-underline max-w-full"
                     dir="ltr"
                   >
-                    🔗 {link}
+                    <Link2 size={16} className="shrink-0" />
+                    <span className="truncate">{link}</span>
                   </a>
                 ))}
               </div>
@@ -154,10 +177,10 @@ export function PortalPage() {
       )}
 
       {/* آخر الدرجات */}
-      <SectionTitle>📝 آخر الدرجات</SectionTitle>
+      <SectionTitle icon={NotebookPen}>آخر الدرجات</SectionTitle>
       {o.latest_scores.length === 0 ? (
         <Card>
-          <p className="text-muted text-[13px] mb-0">لسه مفيش درجات مسجلة.</p>
+          <p className="text-muted text-[13.5px] mb-0">لسه مفيش درجات مسجلة.</p>
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden">
@@ -169,10 +192,10 @@ export function PortalPage() {
                 className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.latest_scores.length - 1 ? 'border-b border-border' : ''}`}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[14px] truncate">{s.title}</div>
+                  <div className="font-semibold text-[15px] truncate">{s.title}</div>
                   <div className="text-muted text-[12px]">{s.date}</div>
                 </div>
-                <div className="text-[13px] font-semibold whitespace-nowrap">
+                <div className="text-[13.5px] font-semibold whitespace-nowrap">
                   {fmtScore(s.score)} من {fmtScore(s.max_score)}
                 </div>
                 {pct != null && (
@@ -191,17 +214,17 @@ export function PortalPage() {
       {/* ملاحظات المدرس */}
       {o.notes.length > 0 && (
         <>
-          <SectionTitle>🗒️ ملاحظات المدرس</SectionTitle>
+          <SectionTitle icon={NotebookText}>ملاحظات المدرس</SectionTitle>
           <Card className="p-0 overflow-hidden">
             {o.notes.map((n, i) => (
               <div
                 key={`${n.date}-${i}`}
                 className={`px-[14px] py-2.5 ${i < o.notes.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <span className="text-[11px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
+                <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
                   {n.date}
                 </span>
-                <p className="text-[14px] mt-1 mb-0">{n.text}</p>
+                <p className="text-[15px] mt-1 mb-0">{n.text}</p>
               </div>
             ))}
           </Card>
@@ -209,10 +232,10 @@ export function PortalPage() {
       )}
 
       {/* سجل الحضور الأخير */}
-      <SectionTitle>✅ سجل الحضور الأخير</SectionTitle>
+      <SectionTitle icon={CalendarCheck2}>سجل الحضور الأخير</SectionTitle>
       {o.recent_attendance.length === 0 ? (
         <Card>
-          <p className="text-muted text-[13px] mb-0">لسه مفيش حضور متسجل.</p>
+          <p className="text-muted text-[13.5px] mb-0">لسه مفيش حضور متسجل.</p>
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden">
@@ -224,7 +247,7 @@ export function PortalPage() {
                 className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.recent_attendance.length - 1 ? 'border-b border-border' : ''}`}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[14px] truncate">{a.group_name}</div>
+                  <div className="font-semibold text-[15px] truncate">{a.group_name}</div>
                   <div className="text-muted text-[12px]">{a.date}</div>
                 </div>
                 <span className={`text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>

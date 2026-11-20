@@ -22,6 +22,7 @@
   --color-muted: var(--muted);
   --color-primary: var(--primary);
   --color-primary-d: var(--primary-d);
+  --color-on-primary: var(--on-primary);
   --color-soft: var(--soft);
   --color-accent: var(--accent);
   --color-ok: var(--ok);
@@ -44,8 +45,13 @@
   --muted: #5b6478;
   --primary: #4f46e5;
   --primary-d: #4338ca;
+  /* نص الزر الأساسي في الفاتح: أبيض (5.9:1 على #4F46E5) */
+  --on-primary: #ffffff;
   --soft: #eef2ff;
   --accent: #f59e0b;
+  /* ظلال موحدة (بحث §5): بطاقة واحد + مرتفع واحد فقط */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-raised: 0 8px 24px rgba(15, 23, 42, 0.16);
   /* حالات فاتح: حشوة #0E9F6E (3.39:1 كنص — للحشوات فقط)،
      نصية #047857 (5.48:1 على الأبيض، 5.21:1 على خلفيتها) */
   --ok: #0e9f6e;
@@ -69,7 +75,12 @@
   --muted: #a3aac2;
   --primary: #8b85f7;
   --primary-d: #a09bf8;
+  /* إصلاح تباين الداكن (خطوة 2): الأبيض على #8B85F7 كان 3.09:1 فقط —
+     نص داكن #141A2E عليه = 5.58:1 (≥ AA) */
+  --on-primary: #141a2e;
   --soft: #232046;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.5);
   --accent: #fbbf24;
   /* حالات داكن مفتّحة: تصلح حشوةً ونصاً على الأسطح الداكنة (≥5.9:1) */
   --ok: #34d399;
@@ -81,6 +92,42 @@
   --bad: #f87171;
   --bad-text: #f87171;
   --bad-soft: #33161a;
+}
+
+/*
+ * سلم الخط الموحد (بحث §5) كأدوات Tailwind:
+ * شاشة 20/800 · قسم 16/700 · جسم 15–16 بسطر 1.75 · ثانوي 13.5 بسطر 1.7 · شارة 12/600.
+ * حظر نص تفاعلي تحت 13.5px — الشارة (12px) للعرض غير التفاعلي فقط.
+ */
+@utility type-screen {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.6;
+}
+@utility type-section {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.7;
+}
+@utility type-body {
+  font-size: 15px;
+  line-height: 1.75;
+}
+@utility type-secondary {
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+@utility type-badge {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+/* ظلال التوكنز الموحدة */
+@utility shadow-card {
+  box-shadow: var(--shadow-card);
+}
+@utility shadow-raised {
+  box-shadow: var(--shadow-raised);
 }
 
 * {

@@ -120,7 +120,7 @@ export function EnrollStudentSheet({
           />
         </Field>
       )}
-      {error && <p className="text-bad-text text-[13px] mb-3">{error}</p>}
+      {error && <p className="text-bad-text text-[13.5px] mb-3">{error}</p>}
       <div className="flex gap-2">
         <Button full onClick={save} disabled={upsert.isPending}>
           {upsert.isPending ? 'بنحفظ…' : 'تسجيل'}

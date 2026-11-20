@@ -13,7 +13,7 @@ export function RequireAuth() {
   if (loading) {
     return (
       <div className="min-h-screen bg-bg text-text flex items-center justify-center">
-        <div className="text-muted text-[14px]">بنحمّل…</div>
+        <div className="text-muted text-[15px]">بنحمّل…</div>
       </div>
     )
   }

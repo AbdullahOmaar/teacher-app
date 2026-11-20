@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
+import { Banknote, Calculator, CalendarCheck2, DatabaseBackup, FileDown, FileUp, Lock, NotebookPen, ReceiptText, Users, type LucideIcon } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, TextArea } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -19,6 +20,15 @@ import { useExportCsv, useQuickImportStudents } from './hooks'
  * الشاشة للمالك فقط بنمط قفل شاشة الفلوس: جداول التصدير تشمل المالية
  * (فواتير/دفعات/مصروفات) المحجوبة عن المساعد في RLS نفسها.
  */
+const KIND_ICONS: Record<CsvKind, LucideIcon> = {
+  students: Users,
+  invoices: ReceiptText,
+  payments: Banknote,
+  attendance: CalendarCheck2,
+  scores: NotebookPen,
+  expenses: Calculator,
+}
+
 export function ExportPage() {
   const teacher = useCurrentTeacher()
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
@@ -26,6 +36,7 @@ export function ExportPage() {
 
   const exportCsv = useExportCsv(teacherId)
   const [exportMsg, setExportMsg] = useState<string | null>(null)
+  const [lastKind, setLastKind] = useState<{ kind: CsvKind; label: string } | null>(null)
   const [exportErr, setExportErr] = useState<string | null>(null)
 
   const [importText, setImportText] = useState('')
@@ -48,9 +59,11 @@ export function ExportPage() {
   if (!isOwner) {
     return (
       <Card className="text-center py-10">
-        <div className="text-[34px] mb-2">🔒</div>
-        <div className="font-extrabold mb-1">التصدير والاستيراد للمالك فقط</div>
-        <p className="text-muted text-[13px] mb-0">
+        <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
+          <Lock size={28} />
+        </div>
+        <div className="type-section mb-1">التصدير والاستيراد للمالك فقط</div>
+        <p className="text-muted text-[13.5px] mb-0">
           الجداول المُصدَّرة تشمل بيانات مالية (فواتير ودفعات ومصروفات) محجوبة عن حساب المساعد في
           قاعدة البيانات نفسها (RLS) وليس في الواجهة فقط.
         </p>
@@ -59,11 +72,12 @@ export function ExportPage() {
   }
 
   const handleExport = (kind: CsvKind, label: string) => {
+    setLastKind({ kind, label })
     setExportMsg(null)
     setExportErr(null)
     exportCsv.mutate(kind, {
       onSuccess: (file) =>
-        setExportMsg(`تم تنزيل «${label}» — ${file.rowCount} صف (${file.filename}) ✅`),
+        setExportMsg(`تم تنزيل «${label}» — ${file.rowCount} صف (${file.filename})`),
       onError: (err) =>
         setExportErr(err instanceof Error ? err.message : 'تعذّر إنشاء ملف التصدير.'),
     })
@@ -77,7 +91,7 @@ export function ExportPage() {
         if (res.enrolled > 0) parts.push(`وتسجيل ${res.enrolled} منهم في مجموعات`)
         if (res.skippedLines > 0) parts.push(`وتخطّي ${res.skippedLines} سطر بلا اسم`)
         if (res.errors.length > 0) parts.push(`وتعذّر ${res.errors.length} سطر`)
-        setImportMsg(parts.join('، ') + ' ✅')
+        setImportMsg(parts.join('، '))
         if (res.created > 0) setImportText('')
       },
     })
@@ -88,17 +102,22 @@ export function ExportPage() {
   return (
     <div>
       <Card>
-        <h2 className="text-[15px] font-extrabold mt-0 mb-1">📤 تصدير CSV</h2>
-        <p className="text-muted text-[13px] mt-0 mb-3">
+        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileUp size={22} className="text-primary" /> تصدير CSV</h2>
+        <p className="text-muted text-[13.5px] mt-0 mb-3">
           كل جدول بينزل كملف CSV جاهز لـ Excel أو Google Sheets (بترميز عربي سليم). المبالغ أرقام
           خام تقدر تحسب عليها، وتاريخ اليوم بيتحط في اسم الملف.
         </p>
         {exportMsg && (
-          <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{exportMsg}</p>
+          <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{exportMsg}</p>
         )}
         {exportErr && (
           <div className="mb-3">
-            <ErrorState message={exportErr} />
+            <ErrorState
+              message={exportErr}
+              onRetry={
+                lastKind ? () => handleExport(lastKind.kind, lastKind.label) : undefined
+              }
+            />
           </div>
         )}
         {CSV_KINDS.map((item) => (
@@ -106,16 +125,19 @@ export function ExportPage() {
             key={item.kind}
             className="flex items-center gap-3 py-2.5 border-b border-border last:border-b-0"
           >
-            <span className="w-[38px] h-[38px] rounded-xl bg-soft flex items-center justify-center text-[18px] shrink-0">
-              {item.icon}
+            <span className="w-10 h-10 rounded-xl bg-soft text-primary flex items-center justify-center shrink-0">
+              {(() => {
+                const KindIcon = KIND_ICONS[item.kind]
+                return <KindIcon size={24} />
+              })()}
             </span>
             <span className="flex-1 min-w-0">
-              <span className="block font-bold text-[14px]">{item.label}</span>
+              <span className="block font-bold text-[15px]">{item.label}</span>
               <span className="block text-muted text-[12px]">{item.hint}</span>
             </span>
             <Button
               variant="soft"
-              className="min-h-[38px] px-3 text-[13px] shrink-0"
+              className="min-h-[48px] px-3 text-[13.5px] shrink-0"
               disabled={exportCsv.isPending}
               onClick={() => handleExport(item.kind, item.label)}
             >
@@ -126,8 +148,8 @@ export function ExportPage() {
       </Card>
 
       <Card>
-        <h2 className="text-[15px] font-extrabold mt-0 mb-1">📥 استيراد طلاب سريع</h2>
-        <p className="text-muted text-[13px] mt-0 mb-3">
+        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileDown size={22} className="text-primary" /> استيراد طلاب سريع</h2>
+        <p className="text-muted text-[13.5px] mt-0 mb-3">
           سطر لكل طالب بالصيغة: <b>الاسم, الموبايل, المجموعة</b> — الموبايل والمجموعة اختياريان.
           اسم المجموعة بيتمطابق بالاحتواء، ولو ما اتلقاش تطابق بيتحط الطالب في أول مجموعة. ولي
           الأمر بيتبني افتراضياً «ولي أمر + أول اسم»، وبقية البيانات تتكمل بعدين من ملف الطالب.
@@ -142,10 +164,10 @@ export function ExportPage() {
           />
         </Field>
         {importMsg && (
-          <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{importMsg}</p>
+          <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{importMsg}</p>
         )}
         {quickImport.isError && (
-          <p className="text-[13px] text-bad-text mb-3 mt-0">
+          <p className="text-[13.5px] text-bad-text mb-3 mt-0">
             {quickImport.error instanceof Error ? quickImport.error.message : 'تعذّر الاستيراد.'}
           </p>
         )}
@@ -166,8 +188,8 @@ export function ExportPage() {
       </Card>
 
       <Card>
-        <h2 className="text-[15px] font-extrabold mt-0 mb-1">💾 النسخة الاحتياطية الكاملة</h2>
-        <p className="text-muted text-[13px] mt-0 mb-3">
+        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><DatabaseBackup size={22} className="text-primary" /> النسخة الاحتياطية الكاملة</h2>
+        <p className="text-muted text-[13.5px] mt-0 mb-3">
           نسخة JSON فيها كل بياناتك (طلاب ومجموعات وفواتير وحضور ودرجات…) تقدر تحفظها وترجع
           تستوردها في أي وقت — من شاشة النسخ الاحتياطي.
         </p>

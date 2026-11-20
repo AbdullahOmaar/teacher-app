@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
+import { Banknote, Check, ReceiptText } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState } from '../../components/ui/states'
 import { formatMoney } from '../../lib/format'
@@ -59,10 +60,10 @@ export function StudentPaymentsTab({
                   مستحق <span className="text-warn-text" dir="ltr">{formatMoney(summary.dueTotal)}</span>
                 </>
               ) : (
-                <span className="text-ok-text">لا توجد مستحقات ✓</span>
+                <span className="text-ok-text inline-flex items-center gap-1">لا توجد مستحقات <Check size={18} /></span>
               )}
             </div>
-            <div className="text-muted text-[12.5px] mt-0.5">
+            <div className="text-muted text-[13.5px] mt-0.5">
               {summary.dueCount > 0
                 ? `${summary.dueCount} فاتورة غير مسددة · `
                 : ''}
@@ -71,7 +72,8 @@ export function StudentPaymentsTab({
           </div>
         </div>
         <Button full className="mt-3" onClick={() => setIssueOpen(true)}>
-          🧾 إصدار فواتير {currentMonthLabel}
+          <ReceiptText size={20} />
+          إصدار فواتير {currentMonthLabel}
         </Button>
         <p className="text-muted text-[12px] mt-2 mb-0">
           الإصدار لهذا الطالب في كل مجموعاته، وآمن التكرار — الفواتير الصادرة من قبل لنفس الشهر
@@ -79,11 +81,11 @@ export function StudentPaymentsTab({
         </p>
       </Card>
 
-      <h3 className="text-[14.5px] font-extrabold mb-2 mt-1">فواتير الطالب</h3>
+      <h3 className="text-[16px] font-extrabold mb-2 mt-1">فواتير الطالب</h3>
       {invoices.length === 0 ? (
         <Card>
           <EmptyState
-            icon="🧾"
+            icon={ReceiptText}
             title="لسه مفيش فواتير للطالب ده"
             hint="اصدر فواتير الشهر من الزر اللي فوق وهتظهر هنا بحالتها."
           />
@@ -99,7 +101,7 @@ export function StudentPaymentsTab({
             >
               <Card>
                 <div className="flex items-start justify-between gap-2">
-                  <div className="font-bold text-[14.5px]">
+                  <div className="font-bold text-[16px]">
                     {periodLabel(inv.period_month)}{' '}
                     <span className="text-muted font-semibold" dir="ltr">
                       {periodYm(inv.period_month)}
@@ -119,7 +121,7 @@ export function StudentPaymentsTab({
                     </span>
                   )}
                 </div>
-                <div className="text-muted text-[13px] mt-0.5">
+                <div className="text-muted text-[13.5px] mt-0.5">
                   {inv.group_name} · الإجمالي {formatMoney(inv.total)}
                   {inv.paid > 0 ? ` · مدفوع ${formatMoney(inv.paid)}` : ''}
                 </div>
@@ -129,11 +131,11 @@ export function StudentPaymentsTab({
         })
       )}
 
-      <h3 className="text-[14.5px] font-extrabold mb-2 mt-4">دفعات الطالب</h3>
+      <h3 className="text-[16px] font-extrabold mb-2 mt-4">دفعات الطالب</h3>
       {payments.length === 0 ? (
         <Card>
           <EmptyState
-            icon="💵"
+            icon={Banknote}
             title="لسه مفيش دفعات مسجلة"
             hint="الدفعات بتتسجل من صفحة الفاتورة وهتظهر هنا برقم الإيصال."
           />
@@ -148,17 +150,17 @@ export function StudentPaymentsTab({
             >
               <div className="flex items-center justify-between gap-2">
                 <span
-                  className={`font-extrabold text-[14.5px] ${p.amount < 0 ? 'text-bad-text' : 'text-ok-text'}`}
+                  className={`font-extrabold text-[16px] ${p.amount < 0 ? 'text-bad-text' : 'text-ok-text'}`}
                   dir="ltr"
                 >
                   {formatMoney(p.amount)}
                 </span>
-                <span className="text-muted text-[12.5px]">
+                <span className="text-muted text-[13.5px]">
                   {p.period_month ? `${periodLabel(p.period_month)} · ` : ''}
                   {p.group_name}
                 </span>
               </div>
-              <div className="text-muted text-[12.5px] mt-0.5">
+              <div className="text-muted text-[13.5px] mt-0.5">
                 {p.paid_on} · {PAYMENT_METHOD_LABELS[p.method]} · إيصال{' '}
                 <span dir="ltr" className="font-semibold">{p.receipt_no}</span>
                 {p.voided ? ' · اتعكست' : ''}
