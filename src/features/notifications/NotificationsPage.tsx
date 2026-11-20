@@ -4,6 +4,8 @@ import {
   AlertTriangle,
   Bell,
   CalendarCheck2,
+  ChevronDown,
+  ChevronUp,
   Copy,
   DatabaseBackup,
   MessageCircle,
@@ -142,6 +144,67 @@ function AlertRow({ alert }: { alert: AppAlert }) {
   )
 }
 
+/** عدد العناصر الظاهرة ابتداءً داخل كل قسم قبل «عرض الكل» */
+const SECTION_PREVIEW = 5
+
+/**
+ * قسم تنبيهات قابل للطي (طلب المالك: التنبيهات «كتير وتلخبط»): ترويسة
+ * واحدة لكل نوع بعدّاده، مطوية افتراضياً عدا أول قسم، وداخل القسم
+ * المفتوح تظهر أول 5 عناصر فقط مع زر «عرض الكل» — فالصفحة تبدأ ملخصاً
+ * هادئاً بدل عشرات البطاقات المفتوحة دفعة واحدة.
+ */
+function SectionBlock({
+  kind,
+  items,
+  defaultOpen,
+}: {
+  kind: AlertKind
+  items: AppAlert[]
+  defaultOpen: boolean
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  const [showAll, setShowAll] = useState(false)
+  const KindIcon = KIND_ICONS[kind]
+  const visible = showAll ? items : items.slice(0, SECTION_PREVIEW)
+  return (
+    <div className="mb-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full flex items-center gap-2 bg-card border border-border rounded-2xl px-3 min-h-[52px] cursor-pointer text-text"
+      >
+        <KindIcon size={22} className="text-primary shrink-0" />
+        <span className="font-bold text-[15px] flex-1 text-start">{SECTION_META[kind].title}</span>
+        <span className="text-[12px] font-bold bg-bad text-white rounded-full px-2 py-0.5">
+          {items.length}
+        </span>
+        {open ? (
+          <ChevronUp size={20} className="text-muted shrink-0" />
+        ) : (
+          <ChevronDown size={20} className="text-muted shrink-0" />
+        )}
+      </button>
+      {open && (
+        <div className="mt-2">
+          {visible.map((a, i) => (
+            <AlertRow key={`${a.kind}-${a.to}-${i}`} alert={a} />
+          ))}
+          {items.length > SECTION_PREVIEW && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="w-full text-[13.5px] font-bold text-primary bg-soft border border-primary/20 rounded-full px-3 min-h-[44px] cursor-pointer"
+            >
+              {showAll ? 'عرض أقل' : `عرض الكل (${items.length})`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /**
  * الإشعارات (المواصفات §3.13 + §5.7 وخطة Phase 1 خطوة 8): قوائم مشتقة
  * حقيقية من قاعدة البيانات عبر fetchAlerts — نفس مصدر بطاقة تنبيهات
@@ -250,22 +313,8 @@ export function NotificationsPage() {
             </Card>
           )}
 
-          {sections.map((s) => (
-            <div key={s.kind} className="mb-4">
-              <h2 className="type-section mb-2 mt-1 flex items-center gap-2">
-                {(() => {
-                  const KindIcon = KIND_ICONS[s.kind]
-                  return <KindIcon size={24} className="text-primary" />
-                })()}
-                {SECTION_META[s.kind].title}
-                <span className="text-[12px] font-bold bg-bad text-white rounded-full px-2 py-0.5">
-                  {s.items.length}
-                </span>
-              </h2>
-              {s.items.map((a, i) => (
-                <AlertRow key={`${a.kind}-${a.to}-${i}`} alert={a} />
-              ))}
-            </div>
+          {sections.map((s, idx) => (
+            <SectionBlock key={s.kind} kind={s.kind} items={s.items} defaultOpen={idx === 0} />
           ))}
         </>
       )}

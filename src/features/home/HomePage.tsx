@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Bell,
   CalendarDays,
   ClipboardCheck,
   Plus,
@@ -26,7 +25,6 @@ import {
   useActiveCountsByGroup,
   useActiveStudentsCount,
   useAttendanceForSessions,
-  useHomeAlerts,
   useInvoiceBalances,
   useMonthPayments,
   useMonthlyAttendance,
@@ -59,7 +57,7 @@ function KpiCard({
 
 /**
  * الرئيسية (المواصفات §3.1): إجراءات سريعة + Hero الحصة القادمة + KPIs حقيقية
- * + هدف تحصيل الشهر + بطاقة تنبيهات مختصرة + حصص اليوم.
+ * + هدف تحصيل الشهر + حصص اليوم. (التنبيهات في الشريط العلوي فقط.)
  * كل رقم من استعلام فعلي على جداول المخطط (students/attendance/payments/
  * invoice_balances/sessions) — غياب البيانات = حالة فارغة صادقة.
  * البطاقات المالية وهدف التحصيل مخفية في وضع المساعد (RLS تحجبها أصلاً).
@@ -78,7 +76,6 @@ export function HomePage() {
   const paymentsQ = useMonthPayments(teacherId, isOwner)
   const balancesQ = useInvoiceBalances(teacherId, isOwner)
   const sessionsQ = useUpcomingSessions(teacherId)
-  const alertsQ = useHomeAlerts(teacherId, isOwner)
 
   const sessions = useMemo(() => sessionsQ.data ?? [], [sessionsQ.data])
   const groupIds = useMemo(() => [...new Set(sessions.map((s) => s.group_id))], [sessions])
@@ -127,14 +124,14 @@ export function HomePage() {
   const quickActions: { to: string; icon: LucideIcon; label: string }[] = isAssistant
     ? [
         { to: '/students', icon: Plus, label: 'طالب جديد' },
-        { to: '/groups', icon: Users, label: 'مجموعة جديدة' },
-        { to: '/attendance', icon: ClipboardCheck, label: 'تسجيل حضور' },
+        { to: '/groups', icon: Users, label: 'المجموعات' },
+        { to: '/attendance', icon: ClipboardCheck, label: 'الحضور' },
         { to: '/schedule', icon: CalendarDays, label: 'الجدول' },
       ]
     : [
         { to: '/students', icon: Plus, label: 'طالب جديد' },
-        { to: '/groups', icon: Users, label: 'مجموعة جديدة' },
-        { to: '/attendance', icon: ClipboardCheck, label: 'تسجيل حضور' },
+        { to: '/groups', icon: Users, label: 'المجموعات' },
+        { to: '/attendance', icon: ClipboardCheck, label: 'الحضور' },
         { to: '/invoices', icon: ReceiptText, label: 'الفواتير' },
       ]
 
@@ -167,12 +164,12 @@ export function HomePage() {
             <Link
               key={a.label}
               to={a.to}
-              className="bg-card border border-border rounded-2xl py-3 flex flex-col items-center gap-1.5 no-underline text-text"
+              className="bg-card border border-border rounded-2xl py-2.5 px-0.5 flex flex-col items-center gap-1 no-underline text-text"
             >
-              <ActionIcon size={24} className="text-primary" />
-              {/* ارتفاع موحّد للتسميات الأربع (سطرين محجوزين ومتمركزين) —
-                  «مجموعة جديدة» كانت تلتف لسطرين فتكسر تساوي البطاقات */}
-              <span className="text-[13.5px] font-semibold leading-[1.45] min-h-[2.9em] flex items-center justify-center text-center">
+              <ActionIcon size={22} className="text-primary" />
+              {/* تسميات قصيرة من سطر واحد دائماً (طلب المالك: «الكلام مش
+                  مظبوط» لما التسميات الطويلة كانت تلتف على شاشات 360px) */}
+              <span className="text-[12px] font-semibold leading-[1.4] whitespace-nowrap text-center">
                 {a.label}
               </span>
             </Link>
@@ -218,8 +215,8 @@ export function HomePage() {
                 <div className="text-[13.5px] opacity-85 mb-1">
                   الحصة القادمة · {hero.session_date === today ? 'اليوم' : 'غداً'}
                 </div>
-                <div className="font-extrabold text-[19px]">{hero.group_name}</div>
-                <div className="text-[13.5px] opacity-90 mt-1">
+                <div className="font-extrabold text-[19px] leading-[1.6]">{hero.group_name}</div>
+                <div className="text-[13.5px] opacity-90 mt-1 leading-[1.7]">
                   {hero.session_date === today ? `${relLabel(hero, now)} · ` : ''}
                   الساعة {formatTime12(hero.start_time)} · {hero.duration_minutes} دقيقة
                   {hero.group_room ? ` · ${hero.group_room}` : ''}
@@ -307,27 +304,8 @@ export function HomePage() {
             </Card>
           )}
 
-          {/* بطاقة التنبيهات المختصرة */}
-          {alertsQ.isPending ? (
-            <Skeleton className="h-[64px] mb-3" />
-          ) : alertsQ.data ? (
-            <Link to="/notifications" className="block no-underline text-text">
-              <Card>
-                <div className="flex items-center gap-2">
-                  <Bell size={24} className="text-primary" />
-                  <span className="font-bold text-[15px]">التنبيهات</span>
-                  {(alertsQ.data.length ?? 0) > 0 && (
-                    <span className="text-[12px] font-bold bg-bad text-white rounded-full px-2 py-0.5">
-                      {alertsQ.data.length}
-                    </span>
-                  )}
-                </div>
-                <div className="text-muted text-[13.5px] mt-1">
-                  {alertsQ.data.length > 0 ? alertsQ.data[0].text : 'مفيش أي تنبيهات حالياً'}
-                </div>
-              </Card>
-            </Link>
-          ) : null}
+          {/* التنبيهات ليست هنا عمداً (طلب المالك): مكانها الوحيد زر الجرس
+              في الشريط العلوي بعدّاده، وشاشة الإشعارات خلفه */}
 
           {/* حصص اليوم */}
           <h2 className="type-section mb-2 mt-1">حصص اليوم</h2>
