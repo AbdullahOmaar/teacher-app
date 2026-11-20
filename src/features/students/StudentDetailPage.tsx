@@ -48,7 +48,7 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
   return (
     <div className="flex justify-between gap-3 py-2 border-b border-border last:border-0">
       <span className="text-muted text-[13.5px] font-semibold">{label}</span>
-      <span className="text-[15px] font-semibold text-left">{value?.trim() ? value : '—'}</span>
+      <span className="text-[15px] font-semibold text-left"><bdi>{value?.trim() ? value : '—'}</bdi></span>
     </div>
   )
 }

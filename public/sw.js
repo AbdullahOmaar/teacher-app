@@ -149,10 +149,13 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const target =
+  const rawTarget =
     event.notification.data && typeof event.notification.data.url === 'string'
       ? event.notification.data.url
       : '/'
+  // وجهات داخلية فقط: مسار يبدأ بـ / (لا // بروتوكول-نسبي ولا روابط خارجية) —
+  // حتى لو وصلت حمولة إشعار شاذة لا تفتح رابطاً خارجياً (مراجعة أمان C-07)
+  const target = rawTarget.startsWith('/') && !rawTarget.startsWith('//') ? rawTarget : '/'
   event.waitUntil(
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
