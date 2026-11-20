@@ -74,6 +74,9 @@ const StudentPortalPage = lazy(() =>
     default: m.StudentPortalPage,
   })),
 )
+const EnrolPage = lazy(() =>
+  import('./features/enrol/EnrolPage').then((m) => ({ default: m.EnrolPage })),
+)
 const PortalManagePage = lazy(() =>
   import('./features/portal/PortalManagePage').then((m) => ({ default: m.PortalManagePage })),
 )
@@ -149,6 +152,17 @@ export default function App() {
               element={
                 <LazyRoute>
                   <StudentPortalPage />
+                </LazyRoute>
+              }
+            />
+            {/* صفحة الحجز العامة: بلا جلسة — الاعتماد هو رابط السنتر
+                (?t=) وحده عبر دالتي RPC مقيدتين، والطلبات تهبط في
+                قوائم انتظار المجموعات بمصدر «صفحة الحجز» (0019) */}
+            <Route
+              path="/book"
+              element={
+                <LazyRoute>
+                  <EnrolPage />
                 </LazyRoute>
               }
             />

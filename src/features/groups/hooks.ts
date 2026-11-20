@@ -1,10 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { GroupInput, GroupRow, WaitlistInput } from '../../types/database'
+import type {
+  GroupInput,
+  GroupRow,
+  GroupWaitlistRow,
+  WaitlistInput,
+} from '../../types/database'
 import { SG } from '../students/hooks'
 import {
+  acceptWaitlistEntry,
   addWaitlistEntry,
   createGroup,
   deleteGroup,
+  deleteWaitlistEntry,
   fetchGroup,
   fetchGroupFootprint,
   fetchGroupRoster,
@@ -128,5 +135,25 @@ export function useAddWaitlistEntry(teacherId: string, groupId: string) {
   return useMutation({
     mutationFn: (input: WaitlistInput) => addWaitlistEntry(teacherId, groupId, input),
     onSuccess: invalidate,
+  })
+}
+
+/** حذف طلب انتظار (رفض) — يبطل وحدة الطلاب والمجموعات فقط */
+export function useDeleteWaitlistEntry(teacherId: string) {
+  const invalidate = useInvalidateModule()
+  return useMutation({
+    mutationFn: (entryId: string) => deleteWaitlistEntry(teacherId, entryId),
+    onSuccess: invalidate,
+  })
+}
+
+/** قبول طلب انتظار → طالب مسجل في نفس المجموعة — إبطال شامل لظهور الطالب الجديد في كل القوائم */
+export function useAcceptWaitlistEntry(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (entry: GroupWaitlistRow) => acceptWaitlistEntry(teacherId, entry),
+    onSuccess: () => {
+      void qc.invalidateQueries()
+    },
   })
 }

@@ -29,6 +29,7 @@ import {
 } from '../auth/hooks'
 import { DEFAULT_WA_TEMPLATE } from '../invoices/api'
 import { InstallAppCard } from './InstallAppCard'
+import { EnrolLinkCard } from '../enrol/EnrolLinkCard'
 import { PushNotificationsCard } from './PushNotificationsCard'
 import { formatDateLabel } from '../schedule/api'
 import { REMINDER_OPTIONS, THEME_MODES, type TeacherSettingsInput } from './api'
@@ -1052,6 +1053,9 @@ export function SettingsPage() {
 
       {/* إشعارات Push (Phase 4 — الخطوة 1: اشتراك المتصفح، والخطوة 3: الملخص اليومي) */}
       <PushNotificationsCard />
+
+      {/* صفحة الحجز العامة (Phase 5 — خطوة 2): البطاقة نفسها مالك فقط */}
+      <EnrolLinkCard />
 
       {/* تسجيل الخروج */}
       <Card>

@@ -15,8 +15,10 @@ import { BILLING_LABELS, daysLabel, formatMoney, formatTime12 } from '../../lib/
 import { useStudents } from '../students/hooks'
 import { EnrollStudentSheet } from '../students/EnrollStudentSheet'
 import {
+  useAcceptWaitlistEntry,
   useAddWaitlistEntry,
   useDeleteGroup,
+  useDeleteWaitlistEntry,
   useGroup,
   useGroupFootprint,
   useGroupRoster,
@@ -53,6 +55,10 @@ export function GroupDetailPage() {
   const waitlistQ = useWaitlist(teacherId, id)
   const studentsQ = useStudents(teacherId)
   const addWaitlist = useAddWaitlistEntry(teacherId ?? '', id ?? '')
+  const acceptWaitlist = useAcceptWaitlistEntry(teacherId ?? '')
+  const deleteWaitlist = useDeleteWaitlistEntry(teacherId ?? '')
+  const [wlActionId, setWlActionId] = useState<string | null>(null)
+  const [wlActionError, setWlActionError] = useState<string | null>(null)
   const setGroupArchived = useSetGroupArchived(teacherId ?? '')
   const deleteGroup = useDeleteGroup(teacherId ?? '')
   // بصمة المجموعة للمالك فقط (الفواتير محجوبة عن المساعد بـ RLS) — الحذف قرار مالك
@@ -106,6 +112,32 @@ export function GroupDetailPage() {
     }
   }
   const pct = group.capacity ? Math.min(100, Math.round((roster.length / group.capacity) * 100)) : null
+
+  const acceptWl = async (entry: (typeof waitlist)[number]) => {
+    setWlActionError(null)
+    setWlActionId(entry.id)
+    try {
+      await acceptWaitlist.mutateAsync(entry)
+      toast(`تم تسجيل «${entry.name}» طالباً في المجموعة`)
+    } catch (e) {
+      setWlActionError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء القبول')
+    } finally {
+      setWlActionId(null)
+    }
+  }
+
+  const removeWl = async (entry: (typeof waitlist)[number]) => {
+    setWlActionError(null)
+    setWlActionId(entry.id)
+    try {
+      await deleteWaitlist.mutateAsync(entry.id)
+      toast(`تم حذف طلب «${entry.name}» من قائمة الانتظار`)
+    } catch (e) {
+      setWlActionError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء الحذف')
+    } finally {
+      setWlActionId(null)
+    }
+  }
 
   const submitWaitlist = async () => {
     setWlError(null)
@@ -244,19 +276,52 @@ export function GroupDetailPage() {
           <p className="text-muted text-[13.5px] mt-0">لا أحد في الانتظار حالياً.</p>
         ) : (
           waitlist.map((w) => (
-            <div key={w.id} className="flex justify-between gap-2 py-2 border-b border-border last:border-0">
-              <div>
-                <div className="font-semibold text-[15px]">{w.name}</div>
-                {w.note && <div className="text-muted text-[13.5px]">{w.note}</div>}
+            <div key={w.id} className="py-2 border-b border-border last:border-0">
+              <div className="flex justify-between gap-2">
+                <div>
+                  <div className="font-semibold text-[15px] flex items-center gap-2 flex-wrap">
+                    {w.name}
+                    {w.source === 'booking_page' && (
+                      <span className="text-[12px] font-bold bg-primary/10 text-primary border border-primary/30 rounded-full px-2 py-0.5">
+                        صفحة الحجز
+                      </span>
+                    )}
+                    {w.wants_trial && (
+                      <span className="text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
+                        يريد حصة تجريبية
+                      </span>
+                    )}
+                  </div>
+                  {w.note && <div className="text-muted text-[13.5px]">{w.note}</div>}
+                </div>
+                {w.phone && (
+                  <a href={`tel:${w.phone}`} className="text-primary text-[13.5px] font-semibold shrink-0" dir="ltr">
+                    {w.phone}
+                  </a>
+                )}
               </div>
-              {w.phone && (
-                <a href={`tel:${w.phone}`} className="text-primary text-[13.5px] font-semibold shrink-0" dir="ltr">
-                  {w.phone}
-                </a>
-              )}
+              <div className="flex gap-2 mt-2">
+                <Button
+                  variant="soft"
+                  className="min-h-[40px] text-[13.5px] px-3"
+                  onClick={() => void acceptWl(w)}
+                  disabled={wlActionId === w.id}
+                >
+                  {wlActionId === w.id && acceptWaitlist.isPending ? 'بنسجّل…' : 'قبول وتسجيل في المجموعة'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="min-h-[40px] text-[13.5px] px-3"
+                  onClick={() => void removeWl(w)}
+                  disabled={wlActionId === w.id}
+                >
+                  حذف الطلب
+                </Button>
+              </div>
             </div>
           ))
         )}
+        {wlActionError && <FormError message={wlActionError} />}
         {isArchived ? (
           <p className="text-muted text-[13.5px] border-t border-border mt-2 pt-3 mb-0">
             الإضافة لقائمة الانتظار متوقفة لأن المجموعة مؤرشفة.

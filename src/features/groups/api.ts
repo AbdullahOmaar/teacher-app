@@ -17,7 +17,7 @@ function db() {
 const GROUP_COLS =
   'id, teacher_id, name, billing_type, price, days, start_time, duration_minutes, room, capacity, assistant_name, links, archived_at, created_at, updated_at'
 const ENROLLMENT_COLS = 'id, teacher_id, student_id, group_id, price_override, prepaid_sessions, created_at'
-const WAITLIST_COLS = 'id, teacher_id, group_id, name, phone, note, created_at'
+const WAITLIST_COLS = 'id, teacher_id, group_id, name, phone, note, source, wants_trial, created_at'
 
 export async function fetchGroups(teacherId: string): Promise<GroupRow[]> {
   const { data, error } = await db()
@@ -112,6 +112,52 @@ export async function addWaitlistEntry(
     .single()
   if (error) throw error
   return data as unknown as GroupWaitlistRow
+}
+
+/** حذف طلب انتظار (رفض طلب حجز أو إزالة اسم يدوياً) */
+export async function deleteWaitlistEntry(teacherId: string, entryId: string): Promise<void> {
+  const { error } = await db()
+    .from('group_waitlist')
+    .delete()
+    .eq('teacher_id', teacherId)
+    .eq('id', entryId)
+  if (error) throw error
+}
+
+/**
+ * قبول طلب انتظار: يتحول لطالب مسجل في مجموعة الطلب نفسها — يُنشأ الطالب
+ * (رقم الانتظار هو موبايل ولي الأمر)، يُسجَّل في المجموعة، ثم يُحذف طلب
+ * الانتظار. طلب الحصة التجريبية وملاحظة ولي الأمر تنتقلان لملاحظة مستوى
+ * الطالب حتى لا تضيعا. عند فشل أي خطوة بعد إنشاء الطالب يبقى الطلب في
+ * مكانه ليعيد المدرس المحاولة (التسجيل upsert آمن التكرار).
+ */
+export async function acceptWaitlistEntry(
+  teacherId: string,
+  entry: GroupWaitlistRow,
+): Promise<{ studentId: string }> {
+  const { createStudent, upsertEnrollment } = await import('../students/api')
+  const levelBits = [
+    entry.wants_trial ? 'طلب حصة تجريبية من صفحة الحجز' : null,
+    entry.source === 'booking_page' && entry.note ? `ملاحظة الحجز: ${entry.note}` : entry.note,
+  ].filter(Boolean)
+  const student = await createStudent(teacherId, {
+    name: entry.name,
+    grade: null,
+    school: null,
+    phone: null,
+    guardian_name: null,
+    guardian_phone: entry.phone,
+    level_note: levelBits.length ? levelBits.join(' — ') : null,
+    paused: false,
+  })
+  await upsertEnrollment(teacherId, {
+    student_id: student.id,
+    group_id: entry.group_id,
+    price_override: null,
+    prepaid_sessions: null,
+  })
+  await deleteWaitlistEntry(teacherId, entry.id)
+  return { studentId: student.id }
 }
 
 // ---------------------------------------------------------------------------

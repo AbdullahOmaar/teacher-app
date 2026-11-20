@@ -676,6 +676,8 @@ export async function quickImportStudents(
 //   والاستيراد يفرض حساب المستورِد الحالي ولا يكتب فوق حساب آخر أبداً)
 // • teacher_members (عضويات مرتبطة بحسابات Auth لأشخاص آخرين)
 // • guardian_access_tokens + online_exam_tokens + student_access_tokens
+//   + enrolment_links (0019 — هاش رابط صفحة الحجز العامة، يُعاد توليده
+//   من بطاقة «صفحة الحجز العامة» في الإعدادات)
 //   (رموز وصول أمنية — القاعدة تخزن هاشاتها فقط أصلاً، والروابط تُعاد
 //   توليدها من شاشات بوابة ولي الأمر / التقييم / ملف الطالب عند الحاجة.
 //   جدول بوابة الطالب student_access_tokens أُضيف في migration ‏0011
@@ -708,7 +710,7 @@ export const BACKUP_TABLES: BackupTableSpec[] = [
   { key: 'groups', table: 'groups', label: 'المجموعات', pk: ['id'], columns: ['id', 'teacher_id', 'name', 'billing_type', 'price', 'days', 'start_time', 'duration_minutes', 'room', 'capacity', 'assistant_name', 'links', 'archived_at', 'created_at', 'updated_at'] },
   { key: 'students', table: 'students', label: 'الطلاب', pk: ['id'], columns: ['id', 'teacher_id', 'public_code', 'name', 'grade', 'school', 'paused', 'phone', 'guardian_name', 'guardian_phone', 'level_note', 'created_at', 'updated_at'] },
   { key: 'guardians', table: 'guardians', label: 'أولياء الأمور', pk: ['id'], columns: ['id', 'teacher_id', 'user_id', 'display_name', 'phone', 'created_at', 'updated_at'] },
-  { key: 'group_waitlist', table: 'group_waitlist', label: 'قوائم الانتظار', pk: ['id'], columns: ['id', 'teacher_id', 'group_id', 'name', 'phone', 'note', 'created_at'] },
+  { key: 'group_waitlist', table: 'group_waitlist', label: 'قوائم الانتظار', pk: ['id'], columns: ['id', 'teacher_id', 'group_id', 'name', 'phone', 'note', 'source', 'wants_trial', 'created_at'] },
   { key: 'student_notes', table: 'student_notes', label: 'ملاحظات الطلاب', pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'note_date', 'text', 'created_at'] },
   { key: 'enrollments', table: 'enrollments', label: 'تسجيلات الطلاب', pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'group_id', 'price_override', 'prepaid_sessions', 'created_at'] },
   { key: 'holidays', table: 'holidays', label: 'الإجازات', pk: ['id'], columns: ['id', 'teacher_id', 'holiday_date', 'name', 'created_at'] },

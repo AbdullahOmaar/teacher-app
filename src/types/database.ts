@@ -111,6 +111,9 @@ export interface EnrollmentRow {
   created_at: string
 }
 
+/** مصدر طلب الانتظار: يدوي من المدرس، أو صفحة الحجز العامة (0019) */
+export type WaitlistSource = 'manual' | 'booking_page'
+
 export interface GroupWaitlistRow {
   id: string
   teacher_id: string
@@ -118,7 +121,18 @@ export interface GroupWaitlistRow {
   name: string
   phone: string | null
   note: string | null
+  source: WaitlistSource
+  wants_trial: boolean
   created_at: string
+}
+
+/** رابط الحجز العام للسنتر (0019) — الهاش لا يصل للعميل أبداً */
+export interface EnrolmentLinkRow {
+  teacher_id: string
+  enabled: boolean
+  last_used_at: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface StudentNoteRow {
