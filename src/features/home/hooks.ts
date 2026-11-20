@@ -6,7 +6,6 @@ import {
   fetchActiveCountsByGroup,
   fetchActiveStudentsCount,
   fetchAttendanceForSessions,
-  fetchHomeAlerts,
   fetchInvoiceBalances,
   fetchMonthPayments,
   fetchMonthlyAttendance,
@@ -15,6 +14,7 @@ import {
   monthStartStr,
   todayStr,
 } from './api'
+import { fetchAlerts } from '../notifications/api'
 
 /** كل مفاتيح وحدة الرئيسية تبدأ بـ 'home' */
 export const HOME = 'home'
@@ -104,12 +104,17 @@ export function useActiveCountsByGroup(teacherId: string | undefined, groupIds: 
   })
 }
 
-/** التنبيهات المختصرة (getAlerts) — بطاقة الإشعارات في الرئيسية */
+/**
+ * التنبيهات المختصرة (getAlerts) — بطاقة الإشعارات في الرئيسية.
+ * مصدر الاشتقاق واحد مع شاشة الإشعارات (الخطوة 8): fetchAlerts في
+ * features/notifications/api بنفس مفتاح الكاش هنا، فعدد التنبيهات
+ * وأول تنبيه في البطاقة يطابقان شاشة الإشعارات دائماً.
+ */
 export function useHomeAlerts(teacherId: string | undefined, isOwner: boolean) {
   const today = todayStr()
   return useQuery({
     queryKey: [HOME, 'alerts', teacherId, today, isOwner],
     enabled: Boolean(teacherId),
-    queryFn: () => fetchHomeAlerts(teacherId!, today, isOwner),
+    queryFn: () => fetchAlerts(teacherId!, today, isOwner),
   })
 }
