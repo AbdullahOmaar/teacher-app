@@ -288,7 +288,7 @@ function OnlineExamSettings({
             type="checkbox"
             checked={shuffleQ}
             onChange={(e) => setShuffleQ(e.target.checked)}
-            className="w-5 h-5 accent-[#4f46e5]"
+            className="w-5 h-5 accent-primary"
           />
           خلط ترتيب الأسئلة لكل طالب
         </label>
@@ -297,7 +297,7 @@ function OnlineExamSettings({
             type="checkbox"
             checked={shuffleO}
             onChange={(e) => setShuffleO(e.target.checked)}
-            className="w-5 h-5 accent-[#4f46e5]"
+            className="w-5 h-5 accent-primary"
           />
           خلط ترتيب الاختيارات
         </label>

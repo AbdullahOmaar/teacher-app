@@ -72,7 +72,7 @@ export function PageToolBar({
             type="button"
             onClick={onFilter}
             aria-label="تصفية متقدمة"
-            className="relative shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-3 rounded-full border border-border bg-card text-text text-[13.5px] font-semibold cursor-pointer hover:bg-soft"
+            className="relative shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-3 rounded-full border border-border-interactive bg-card text-text text-[13.5px] font-semibold cursor-pointer hover:bg-soft"
           >
             <SlidersHorizontal size={19} />
             <span className="hidden min-[420px]:inline">تصفية</span>

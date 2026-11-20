@@ -55,7 +55,7 @@ export function Onboarding() {
         واحدة: إنشاء ملف المدرس الخاص بيك وإعداداته الافتراضية.
       </p>
       {error && (
-        <p className="bg-[#FEF2F2] text-bad-text text-[13.5px] rounded-xl px-3 py-2 mb-3" role="alert">
+        <p className="bg-bad-soft text-bad-text text-[13.5px] rounded-xl px-3 py-2 mb-3" role="alert">
           {error}
         </p>
       )}

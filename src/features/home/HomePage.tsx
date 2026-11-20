@@ -367,7 +367,7 @@ export function HomePage() {
 
           {/* Hero: الحصة القادمة بتدرّج نيلي — وبصمة الهوية: علامة
               الكتاب/الصح مائية بيضاء خفيفة جداً على التدرّج نفسه */}
-          <div className="relative overflow-hidden rounded-2xl p-4 mb-3 text-white bg-[linear-gradient(135deg,#4F46E5,#4338CA)] shadow-[0_8px_20px_rgba(79,70,229,0.35)]">
+          <div className="relative overflow-hidden rounded-2xl p-4 mb-3 text-white bg-[linear-gradient(135deg,var(--primary),var(--primary-d))] shadow-raised">
             <div className="absolute -bottom-10 -end-10 pointer-events-none" aria-hidden="true">
               <Logo mono decorative size={190} className="text-white opacity-[0.09]" />
             </div>

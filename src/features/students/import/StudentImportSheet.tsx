@@ -294,7 +294,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
                                 [c.row.rowNumber]: e.target.checked,
                               }))
                             }
-                            className="w-5 h-5 accent-[#4f46e5]"
+                            className="w-5 h-5 accent-primary"
                           />
                         </label>
                       </td>

@@ -190,7 +190,7 @@ export function StudentFormSheet({
                     type="checkbox"
                     checked={draft.checked}
                     onChange={(e) => patchDraft(g.id, { checked: e.target.checked })}
-                    className="w-5 h-5 accent-[#4f46e5]"
+                    className="w-5 h-5 accent-primary"
                   />
                   <span className="font-semibold text-[15px]">{g.name}</span>
                   {g.archived_at != null && (

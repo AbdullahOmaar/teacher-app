@@ -113,13 +113,16 @@ export function AtRiskPage() {
                 ))}
               </div>
 
+              {/* زر الواتساب موحّد اللون مع زر الإشعارات (W6 — R-3):
+                  أخضر ناعم بنص ok-text المضمون التباين في الثيمين، بدل
+                  الحشوة الخضراء الكاملة بنص أبيض (3.39:1 فقط) */}
               <div className="flex flex-wrap gap-2">
                 {waUrl ? (
                   <a
                     href={waUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 min-h-[48px] text-[15px] font-semibold bg-ok text-white no-underline hover:opacity-90"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 min-h-[48px] text-[15px] font-semibold bg-ok/10 text-ok-text border border-ok/30 no-underline hover:bg-ok/15"
                   >
                     متابعة واتساب
                   </a>
