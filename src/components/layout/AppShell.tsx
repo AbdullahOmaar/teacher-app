@@ -37,6 +37,7 @@ const TITLES: Record<string, string> = {
   backup: 'النسخ الاحتياطي',
   settings: 'الإعدادات',
   portal: 'بوابة ولي الأمر',
+  atrisk: 'معرّضون للفقد',
 }
 
 type TabKey = 'home' | 'students' | 'invoices' | 'more'
@@ -66,6 +67,7 @@ function resolveRoute(pathname: string): { screen: string; tab: TabKey } {
   if (pathname.startsWith('/backup')) return { screen: 'backup', tab: 'more' }
   if (pathname.startsWith('/settings')) return { screen: 'settings', tab: 'more' }
   if (pathname.startsWith('/portal')) return { screen: 'portal', tab: 'more' }
+  if (pathname.startsWith('/at-risk')) return { screen: 'atrisk', tab: 'home' }
   if (pathname.startsWith('/more')) return { screen: 'more', tab: 'more' }
   return { screen: 'home', tab: 'home' }
 }

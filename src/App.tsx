@@ -95,6 +95,9 @@ const ActivityLogPage = lazy(() =>
 const AnalyticsPage = lazy(() =>
   import('./features/analytics/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })),
 )
+const AtRiskPage = lazy(() =>
+  import('./features/atrisk/AtRiskPage').then((m) => ({ default: m.AtRiskPage })),
+)
 
 /** غلاف Suspense بسقوط Skeleton الموحّد — يُستخدم لكل مسار كسول */
 function LazyRoute({ children }: { children: ReactNode }) {
@@ -309,6 +312,14 @@ export default function App() {
                 element={
                   <LazyRoute>
                     <AnalyticsPage />
+                  </LazyRoute>
+                }
+              />
+              <Route
+                path="at-risk"
+                element={
+                  <LazyRoute>
+                    <AtRiskPage />
                   </LazyRoute>
                 }
               />

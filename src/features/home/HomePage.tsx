@@ -35,6 +35,7 @@ import {
   useMonthlyAttendance,
   useUpcomingSessions,
 } from './hooks'
+import { AtRiskCard } from '../atrisk/AtRiskCard'
 import { useGroups } from '../groups/hooks'
 import { useAuth } from '../../lib/AuthProvider'
 import { DEMO_EMAIL } from '../auth/api'
@@ -439,6 +440,10 @@ export function HomePage() {
               </div>
             </Card>
           )}
+
+          {/* «معرّضون للفقد» (Phase 5 خطوة 1): بطاقة ملخص تظهر فقط عند
+              وجود حالات — ليست تنبيهاً عاماً بل قائمة عمل بمتابعات */}
+          <AtRiskCard />
 
           {/* التنبيهات ليست هنا عمداً (طلب المالك): مكانها الوحيد زر الجرس
               في الشريط العلوي بعدّاده، وشاشة الإشعارات خلفه */}
