@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { fetchGroups } from '../groups/api'
+import { ensureSessionsGenerated, generationWindowMonths } from '../schedule/api'
 import {
   addDaysStr,
   fetchActiveCountsByGroup,
@@ -58,14 +60,26 @@ export function useInvoiceBalances(teacherId: string | undefined, enabled: boole
   })
 }
 
-/** حصص اليوم وغداً — تغذي Hero الحصة القادمة وقائمة حصص اليوم */
+/**
+ * حصص اليوم وغداً — تغذي Hero الحصة القادمة وقائمة حصص اليوم.
+ * قبل القراءة نضمن توليد حصص نافذة الجدول (ماضٍ/حالي/قادم — وحدة الجدول)
+ * من جداول المجموعات؛ فشل التوليد لا يمنع القراءة ولا يكسر عقد الحصص هنا.
+ */
 export function useUpcomingSessions(teacherId: string | undefined) {
   const today = todayStr()
   const tomorrow = addDaysStr(today, 1)
   return useQuery({
     queryKey: [HOME, 'sessions-range', teacherId, today],
     enabled: Boolean(teacherId),
-    queryFn: () => fetchSessionsInRange(teacherId!, today, tomorrow),
+    queryFn: async () => {
+      try {
+        const groups = await fetchGroups(teacherId!)
+        await ensureSessionsGenerated(teacherId!, groups, generationWindowMonths(today))
+      } catch {
+        // التوليد خطوة مساعدة — نعرض ما هو موجود في الجدول على أي حال
+      }
+      return fetchSessionsInRange(teacherId!, today, tomorrow)
+    },
   })
 }
 

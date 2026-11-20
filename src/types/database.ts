@@ -151,6 +151,23 @@ export interface SessionRow {
   updated_at: string
 }
 
+export interface HolidayRow {
+  id: string
+  teacher_id: string
+  holiday_date: string // 'YYYY-MM-DD' — صف لكل يوم (قيد فريد teacher_id + holiday_date)
+  name: string | null
+  created_at: string
+}
+
+/** حقول إنشاء حصة إضافية (kind = 'extra') */
+export interface ExtraSessionInput {
+  group_id: string
+  session_date: string // 'YYYY-MM-DD'
+  start_time: string // 'HH:MM'
+  duration_minutes: number
+  note: string | null
+}
+
 export interface AttendanceRow {
   teacher_id: string
   session_id: string
