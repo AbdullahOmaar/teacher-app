@@ -39,6 +39,12 @@ export interface TeacherSettingsRow {
   brand_name: string | null
   brand_logo_path: string | null
   brand_accent: string | null
+  // ملخص Push اليومي للمدرس (migration ‏0015): التفعيل + وقت الإرسال
+  // (بتوقيت القاهرة) يحرّرهما المدرس من بطاقة Push في الإعدادات، أما
+  // last_sent_on فيديره نظام الإرسال فقط كعلامة منع تكرار (لا يُحرَّر)
+  push_daily_digest_enabled: boolean
+  push_daily_digest_time: string // 'HH:MM:SS' (time في القاعدة)
+  push_daily_digest_last_sent_on: string | null
   last_export_at: string | null
   created_at: string
   updated_at: string

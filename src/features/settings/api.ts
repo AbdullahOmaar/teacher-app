@@ -35,7 +35,7 @@ function db() {
 // ===========================================================================
 
 const SETTINGS_COLS =
-  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, last_export_at, created_at, updated_at'
+  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, last_export_at, created_at, updated_at'
 
 export const THEME_MODES: { code: ThemeMode; label: string }[] = [
   { code: 'auto', label: 'تلقائي' },
@@ -69,6 +69,19 @@ export interface TeacherSettingsInput {
   brand_name: string | null
   brand_logo_path: string | null
   brand_accent: string | null
+  /**
+   * ملخص Push اليومي (0015) — اختياريان هنا لأن الحفظ الكامل للإعدادات
+   * قد يأتي من شاشات لا تعرفهما؛ غيابهما = إبقاء قيم القاعدة كما هي
+   * (انظر updateTeacherSettings)، وبطاقة Push تحفظهما منفصلين عبر
+   * updatePushDigestSettings. الوقت بصيغة 'HH:MM' بتوقيت القاهرة.
+   */
+  push_daily_digest_enabled?: boolean
+  push_daily_digest_time?: string
+}
+
+/** وقت ملخص صالح؟ 'HH:MM' (24 ساعة) — نفس ما يقبله عمود time في القاعدة */
+export function isValidDigestTime(v: unknown): v is string {
+  return typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)
 }
 
 /** حفظ الإعدادات القابلة للتحرير — upsert آمن التكرار على مفتاح teacher_id */
@@ -110,6 +123,13 @@ export async function updateTeacherSettings(
     throw new Error('مسار الشعار غير صالح')
   }
 
+  if (
+    input.push_daily_digest_time !== undefined &&
+    !isValidDigestTime(input.push_daily_digest_time)
+  ) {
+    throw new Error('وقت الملخص اليومي غير صالح — لازم يكون بصيغة HH:MM')
+  }
+
   const { data, error } = await db()
     .from('teacher_settings')
     .upsert(
@@ -122,6 +142,44 @@ export async function updateTeacherSettings(
         brand_name: brandName,
         brand_logo_path: brandLogoPath,
         brand_accent: brandAccent,
+        // ملخص Push اليومي (0015): يُكتب فقط إن مرّره المستدعي صراحة —
+        // غيابه يبقي قيمة القاعدة (upsert يكتب الأعمدة الممرّرة فقط)
+        ...(input.push_daily_digest_enabled !== undefined
+          ? { push_daily_digest_enabled: input.push_daily_digest_enabled }
+          : {}),
+        ...(input.push_daily_digest_time !== undefined
+          ? { push_daily_digest_time: input.push_daily_digest_time }
+          : {}),
+      },
+      { onConflict: 'teacher_id' },
+    )
+    .select(SETTINGS_COLS)
+    .single()
+  if (error) throw error
+  const row = data as unknown as TeacherSettingsRow
+  return { ...row, center_share_percent: Number(row.center_share_percent) || 0 }
+}
+
+/**
+ * حفظ إعدادات ملخص Push اليومي وحدها (0015) — upsert جزئي بنمط
+ * touchLastExportAt: يكتب التفعيل والوقت فقط ولا يمسّ أي عمود آخر،
+ * وpush_daily_digest_last_sent_on لا يُكتب من العميل أبداً (علامة
+ * ادعاء يديرها مرسِل الملخص في القاعدة لمنع التكرار).
+ */
+export async function updatePushDigestSettings(
+  teacherId: string,
+  input: { enabled: boolean; time: string },
+): Promise<TeacherSettingsRow> {
+  if (!isValidDigestTime(input.time)) {
+    throw new Error('وقت الملخص اليومي غير صالح — لازم يكون بصيغة HH:MM')
+  }
+  const { data, error } = await db()
+    .from('teacher_settings')
+    .upsert(
+      {
+        teacher_id: teacherId,
+        push_daily_digest_enabled: input.enabled,
+        push_daily_digest_time: input.time,
       },
       { onConflict: 'teacher_id' },
     )
@@ -594,7 +652,10 @@ export async function quickImportStudents(
 
 // ===========================================================================
 // النسخة الاحتياطية JSON — نطاقها: كل جداول بيانات المدرس التشغيلية في
-// المخطط (25 جدولاً أدناه بترتيب اعتماد الاستيراد) + صف إعداداته.
+// المخطط (27 جدولاً أدناه بترتيب اعتماد الاستيراد) + صف إعداداته.
+// (أُضيف push_digest_log في Phase 4 خطوة 3 كقسم اختياري أخير — نفس
+// قاعدة توافق الإصدار 1؛ وأعمدة ملخص Push اليومي على teacher_settings
+// تنتقل ضمن صف الإعدادات نفسه عبر SETTINGS_COLS.)
 // (أُضيف activity_log في Phase 3 خطوة 2 كقسم اختياري أخير — نفس قاعدة
 // توافق الإصدار 1: ملف قديم بلا القسم يُستورد بنجاح، والتطبيق القديم
 // يتجاهل القسم الجديد.)
@@ -696,6 +757,11 @@ export const BACKUP_TABLES: BackupTableSpec[] = [
   // (مرجع auth.users)، وportal_token_id لقطة بلا قيد فتنتقل كما هي.
   // سجل الإرسال push_delivery_log تشخيصي عابر فلا يدخل النسخة.
   { key: 'push_subscriptions', table: 'push_subscriptions', label: 'اشتراكات إشعارات Push', pk: ['id'], columns: ['id', 'teacher_id', 'subscriber_kind', 'user_id', 'portal_token_id', 'guardian_id', 'student_id', 'endpoint', 'p256dh', 'auth', 'user_agent', 'is_active', 'disabled_at', 'disabled_reason', 'failure_count', 'last_success_at', 'last_failure_at', 'created_at', 'updated_at'] },
+  // Phase 4 (الخطوة 3): سجل إرسال الملخص اليومي (migration ‏0015) آخر
+  // الترتيب — يعتمد على teachers فقط داخل نطاق النسخة، وقيدُه الفريد
+  // (teacher_id, digest_date) مع تخطّي الموجود بالهوية (pk مركّب هنا)
+  // يجعل إعادة الاستيراد آمنة ولا تكسر منع تكرار الملخص في نفس اليوم.
+  { key: 'push_digest_log', table: 'push_digest_log', label: 'سجل ملخص Push اليومي', pk: ['digest_date'], columns: ['id', 'teacher_id', 'digest_date', 'sessions_count', 'overdue_count', 'overdue_amount', 'sent_at'] },
 ]
 
 export interface BackupFile {
@@ -1007,6 +1073,20 @@ export async function importBackup(
         brand_accent: isValidAccent(s.brand_accent)
           ? s.brand_accent
           : (cur?.brand_accent ?? null),
+        // ملخص Push اليومي (0015): التفعيل والوقت ينتقلان مع النسخة ضمن
+        // صف الإعدادات (يُصدَّران تلقائياً عبر SETTINGS_COLS)، أما
+        // push_daily_digest_last_sent_on فعلامة ادعاء تشغيلية ليوم
+        // الإرسال في بيئة المصدر — لا تُستورد أبداً حتى لا يُحرم
+        // الحساب المستورِد من ملخص يوم الاستيراد نفسه.
+        push_daily_digest_enabled:
+          typeof s.push_daily_digest_enabled === 'boolean'
+            ? s.push_daily_digest_enabled
+            : (cur?.push_daily_digest_enabled ?? true),
+        push_daily_digest_time: isValidDigestTime(s.push_daily_digest_time)
+          ? s.push_daily_digest_time
+          : isValidDigestTime(cur?.push_daily_digest_time?.slice(0, 5))
+            ? cur!.push_daily_digest_time.slice(0, 5)
+            : '07:30',
       })
       report.settingsUpdated = true
     } catch (err) {

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Bell, BellOff, CheckCircle2 } from 'lucide-react'
+import { Bell, BellOff, CheckCircle2, Newspaper } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
+import { TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/AuthProvider'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import {
@@ -10,21 +11,30 @@ import {
   unsubscribeTeacherPush,
   type BrowserPushState,
 } from '../../lib/push'
+import { useTeacherSettings, useUpdatePushDigestSettings } from './hooks'
+import { isValidDigestTime } from './api'
 
 /**
- * بطاقة «إشعارات Push» في الإعدادات (Phase 4 — الخطوة 1: البنية).
+ * بطاقة «إشعارات Push» في الإعدادات (Phase 4 — الخطوة 1: البنية،
+ * والخطوة 3: الملخص اليومي).
  *
- * ربط تجريبي/أساسي مقصود في هذه الخطوة: تفعيل/إيقاف اشتراك متصفح
- * المدرس الحالي عبر lib/push (يُحفظ في push_subscriptions كاشتراك
- * teacher). التنبيهات الفعلية للمدرس (إثبات دفع/امتحان/ملخص يومي)
- * تُبنى على هذا الاشتراك في الخطوة 3 — البطاقة نفسها لا ترسل شيئاً.
+ * قسم الاشتراك: تفعيل/إيقاف اشتراك متصفح المدرس الحالي عبر lib/push
+ * (يُحفظ في push_subscriptions كاشتراك teacher) — عليه تصل التنبيهات
+ * الفورية (إثبات دفع جديد/امتحان مُسلَّم، مشغّلات 0015 خادمياً).
  * بنفس نمط بطاقة التثبيت: لا طلب إذن تلقائي أبداً، التفعيل بضغطة
  * صريحة فقط.
+ *
+ * قسم الملخص اليومي (الخطوة 3، migration ‏0015): مفتاح تفعيل + وقت
+ * إرسال (بتوقيت القاهرة) محفوظان في teacher_settings — الإرسال نفسه
+ * خادمي بالكامل (pg_cron يفحص كل 15 دقيقة من حان وقته)، والبطاقة هنا
+ * تحفظ التفضيل فقط. القسم يظهر للمالك فقط لأن teacher_settings
+ * بسياسة مالك فقط أصلاً.
  */
 export function PushNotificationsCard() {
   const { user } = useAuth()
   const teacher = useCurrentTeacher()
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : ''
+  const isOwner = teacher.status === 'ready' && Boolean(teacher.ownTeacher) && teacherId === user?.id
   const [state, setState] = useState<BrowserPushState | 'loading'>('loading')
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -136,6 +146,95 @@ export function PushNotificationsCard() {
       {msg && (
         <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-0 mt-3">{msg}</p>
       )}
+      {isOwner && teacherId && <DailyDigestSection teacherId={teacherId} />}
     </Card>
+  )
+}
+
+/**
+ * إعدادات الملخص اليومي — تفضيل محفوظ في teacher_settings (تفعيل +
+ * وقت بتوقيت القاهرة). الحفظ فوري عند تغيير المفتاح أو الوقت معاً
+ * عبر updatePushDigestSettings الجزئي (لا يمسّ بقية الإعدادات).
+ */
+function DailyDigestSection({ teacherId }: { teacherId: string }) {
+  const settingsQ = useTeacherSettings(teacherId, true)
+  const updateDigest = useUpdatePushDigestSettings(teacherId)
+  const [enabled, setEnabled] = useState<boolean | null>(null)
+  const [time, setTime] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  const row = settingsQ.data ?? null
+  const effEnabled = enabled ?? row?.push_daily_digest_enabled ?? true
+  const effTime = time ?? row?.push_daily_digest_time?.slice(0, 5) ?? '07:30'
+
+  const save = (next: { enabled: boolean; time: string }) => {
+    setMsg(null)
+    if (!isValidDigestTime(next.time)) {
+      setMsg('اختار وقتاً صالحاً للملخص اليومي.')
+      return
+    }
+    updateDigest.mutate(next, {
+      onSuccess: () => setMsg('تم حفظ إعدادات الملخص اليومي.'),
+      onError: (err) =>
+        setMsg(err instanceof Error ? err.message : 'تعذّر حفظ إعدادات الملخص — حاول تاني.'),
+    })
+  }
+
+  return (
+    <div className="mt-5 border-t border-border pt-4">
+      <h3 className="type-section mt-0 mb-2 flex items-center gap-2 text-[15px]">
+        <Newspaper size={20} className="text-primary" /> الملخص اليومي
+      </h3>
+      <p className="text-muted text-[13.5px] mt-0 mb-3">
+        Push واحد كل يوم فيه حصص اليوم وعدد المتأخرات وقيمتها — بيتبعت
+        في الوقت اللي تختاره (بتوقيت القاهرة) لأجهزتك المشتركة فوق.
+      </p>
+      {settingsQ.isPending ? (
+        <p className="text-muted text-[13.5px] mb-0">جارٍ تحميل إعدادات الملخص…</p>
+      ) : settingsQ.isError ? (
+        <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-0">
+          تعذّر تحميل إعدادات الملخص اليومي دلوقتي — حدّث الصفحة وحاول تاني.
+        </p>
+      ) : (
+        <>
+          <label className="flex items-center justify-between gap-3 mb-3 cursor-pointer">
+            <span className="text-[14px] font-semibold">تفعيل الملخص اليومي</span>
+            <input
+              type="checkbox"
+              className="h-6 w-6 shrink-0 accent-primary"
+              checked={effEnabled}
+              disabled={updateDigest.isPending}
+              onChange={(e) => {
+                setEnabled(e.target.checked)
+                save({ enabled: e.target.checked, time: effTime })
+              }}
+            />
+          </label>
+          <label className="block mb-1 text-[13.5px] font-semibold" htmlFor="digest-time">
+            وقت إرسال الملخص
+          </label>
+          <TextInput
+            id="digest-time"
+            type="time"
+            value={effTime}
+            disabled={!effEnabled || updateDigest.isPending}
+            onChange={(e) => {
+              setTime(e.target.value)
+              if (isValidDigestTime(e.target.value)) {
+                save({ enabled: effEnabled, time: e.target.value })
+              }
+            }}
+          />
+          {row?.push_daily_digest_last_sent_on && (
+            <p className="text-muted text-[12.5px] mb-0 mt-2">
+              آخر ملخص اتبعت بتاريخ {row.push_daily_digest_last_sent_on}.
+            </p>
+          )}
+        </>
+      )}
+      {msg && (
+        <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-0 mt-3">{msg}</p>
+      )}
+    </div>
   )
 }

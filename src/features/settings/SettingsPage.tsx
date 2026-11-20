@@ -989,7 +989,7 @@ export function SettingsPage() {
       {/* تثبيت التطبيق (PWA — خطوة 11) */}
       <InstallAppCard />
 
-      {/* إشعارات Push (Phase 4 — الخطوة 1: تفعيل اشتراك المتصفح) */}
+      {/* إشعارات Push (Phase 4 — الخطوة 1: اشتراك المتصفح، والخطوة 3: الملخص اليومي) */}
       <PushNotificationsCard />
 
       {/* تسجيل الخروج */}

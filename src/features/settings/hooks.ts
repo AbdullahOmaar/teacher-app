@@ -13,6 +13,7 @@ import {
   quickImportStudents,
   removeBrandLogo,
   touchLastExportAt,
+  updatePushDigestSettings,
   updateTeacherSettings,
   uploadBrandLogo,
   type BackupFile,
@@ -48,6 +49,22 @@ export function useUpdateTeacherSettings(teacherId: string) {
       void qc.invalidateQueries({ queryKey: [HOME] })
       // الهوية البيضاء قد تتغير مع الحفظ — أسطح العرض تقرأ ['brand-identity']
       void qc.invalidateQueries({ queryKey: ['brand-identity'] })
+    },
+  })
+}
+
+/**
+ * حفظ إعدادات ملخص Push اليومي (0015) من بطاقة Push — تحديث جزئي
+ * (تفعيل + وقت فقط) يحدّث كاش إعدادات الوحدة بصف القاعدة الجديد.
+ */
+export function useUpdatePushDigestSettings(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { enabled: boolean; time: string }) =>
+      updatePushDigestSettings(teacherId, input),
+    onSuccess: (row: TeacherSettingsRow) => {
+      qc.setQueryData([SETTINGS, 'teacher-settings', teacherId], row)
+      void qc.invalidateQueries({ queryKey: [SETTINGS] })
     },
   })
 }
