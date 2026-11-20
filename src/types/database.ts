@@ -656,3 +656,18 @@ export interface ActivityLogRow {
   details: Record<string, unknown>
   created_at: string
 }
+
+// ---------------------------------------------------------------------------
+// متابعات «معرّضون للفقد» — جدول at_risk_followups (migration ‏0018،
+// Phase 5 خطوة 1): صف لكل ضغطة «تمت المتابعة»؛ القائمة نفسها مشتقّة
+// في العميل، والجدول مرجع إخفاء الطالب حتى حدث خطر أحدث من followed_at.
+// ---------------------------------------------------------------------------
+
+export interface AtRiskFollowupRow {
+  id: string
+  teacher_id: string
+  student_id: string
+  followed_by: string | null // يُصفَّر عند حذف حساب الفاعل
+  followed_at: string
+  note: string | null
+}

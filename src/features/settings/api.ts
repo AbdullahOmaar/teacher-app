@@ -652,7 +652,9 @@ export async function quickImportStudents(
 
 // ===========================================================================
 // النسخة الاحتياطية JSON — نطاقها: كل جداول بيانات المدرس التشغيلية في
-// المخطط (27 جدولاً أدناه بترتيب اعتماد الاستيراد) + صف إعداداته.
+// المخطط (28 جدولاً أدناه بترتيب اعتماد الاستيراد) + صف إعداداته.
+// (أُضيف at_risk_followups في Phase 5 خطوة 1 كقسم اختياري أخير — نفس
+// قاعدة توافق الإصدار 1.)
 // (أُضيف push_digest_log في Phase 4 خطوة 3 كقسم اختياري أخير — نفس
 // قاعدة توافق الإصدار 1؛ وأعمدة ملخص Push اليومي على teacher_settings
 // تنتقل ضمن صف الإعدادات نفسه عبر SETTINGS_COLS.)
@@ -762,6 +764,11 @@ export const BACKUP_TABLES: BackupTableSpec[] = [
   // (teacher_id, digest_date) مع تخطّي الموجود بالهوية (pk مركّب هنا)
   // يجعل إعادة الاستيراد آمنة ولا تكسر منع تكرار الملخص في نفس اليوم.
   { key: 'push_digest_log', table: 'push_digest_log', label: 'سجل ملخص Push اليومي', pk: ['digest_date'], columns: ['id', 'teacher_id', 'digest_date', 'sessions_count', 'overdue_count', 'overdue_amount', 'sent_at'] },
+  // Phase 5 (الخطوة 1): متابعات «معرّضون للفقد» (migration ‏0018) آخر
+  // الترتيب — تعتمد على students (قبلها) فقط داخل نطاق النسخة،
+  // وfollowed_by مرجع auth.users يُعاد ربطه بالمستورِد في toInsertRow
+  // (نفس معالجة activity_log.actor_id) حتى لا يفشل قيده في بيئة جديدة.
+  { key: 'at_risk_followups', table: 'at_risk_followups', label: 'متابعات الطلاب المعرّضين للفقد', pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'followed_by', 'followed_at', 'note'] },
 ]
 
 export interface BackupFile {
@@ -1012,6 +1019,12 @@ function toInsertRow(
   // خالٍ بطبيعتها فلا تُمسّ.
   if (spec.table === 'push_subscriptions' && out.subscriber_kind === 'teacher') {
     out.user_id = teacherId
+  }
+  // متابعات «معرّضون للفقد» (0018): followed_by مرجع auth.users وسياسة
+  // إدراجه تشترط followed_by = auth.uid() — تُعاد نسبته للمستورِد
+  // (نفس معالجة activity_log أعلاه) حتى يمر الإدراج في بيئة جديدة.
+  if (spec.table === 'at_risk_followups') {
+    out.followed_by = teacherId
   }
   return out
 }
