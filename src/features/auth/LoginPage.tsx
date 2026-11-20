@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useLocation } from 'react-router-dom'
 import { FlaskConical } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
@@ -24,6 +25,7 @@ type Mode = 'signin' | 'signup'
  */
 export function LoginPage() {
   const { session, loading, configured } = useAuth()
+  const qc = useQueryClient()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
@@ -122,6 +124,13 @@ export function LoginPage() {
             // تجاهل: Onboarding سيعيد المحاولة
           }
         }
+        // إصلاح جذري (تدقيق أول استخدام — M1): تغيّر الجلسة يعيد توجيه
+        // المستخدم فوراً، فتُحلّ الهوية في AppShell غالباً قبل انتهاء
+        // إنشاء الملف هنا، وتُخزَّن نتيجة «لا مدرس» في الكاش — وبلا هذا
+        // الإبطال يعلق المسجّل الجديد على شاشة «كمّل إعداد حسابك» رغم
+        // أن التسجيل جمع بياناته والملف صار موجوداً. الإبطال يجبر حلّ
+        // الهوية على إعادة القراءة بعد اكتمال الإنشاء/الادعاء.
+        await qc.invalidateQueries({ queryKey: ['current-teacher'] })
       } else {
         setMode('signin')
         setPassword('')

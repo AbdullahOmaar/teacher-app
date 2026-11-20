@@ -53,13 +53,32 @@ const claimAttemptedFor = new Set<string>()
  * (teacher = null) بينما يبقى teacherId صالحاً لاستعلامات البيانات
  * بفضل سياسات المساعد — كما كان قبل 0016.
  */
+/**
+ * نافذة سماح الحساب الجديد (تدقيق أول استخدام — M1/H1): إنشاء ملف
+ * المدرس عند التسجيل يحدث في معالج نموذج التسجيل بالتوازي مع أول حلّ
+ * هوية (الذي يبدأ فور تغيّر الجلسة)، فقد يقرأ الحلّ «لا ملف بعد» قبل
+ * اكتمال الإنشاء بلحظات. لحساب عُمره أقل من النافذة لا نعتبر القراءة
+ * الفارغة نهائية: نعيد الاستطلاع دورياً ونبقي الحالة «تحميل» حتى يظهر
+ * الملف أو تنقضي النافذة — فلا يرى المسجّل الجديد شاشة إعداد زائدة،
+ * ولا تتأثر الحسابات القديمة إطلاقاً (النافذة منقضية لها دائماً).
+ */
+const NEW_ACCOUNT_GRACE_MS = 45_000
+const GRACE_POLL_MS = 1_200
+
 export function useCurrentTeacher(): TeacherResolution {
   const { user, loading: authLoading, configured } = useAuth()
   const activeTeacherId = useActiveTeacherId()
 
+  const createdAtMs = user?.created_at ? new Date(user.created_at).getTime() : NaN
+  const inGrace =
+    Number.isFinite(createdAtMs) && Date.now() - createdAtMs < NEW_ACCOUNT_GRACE_MS
+
   const query = useQuery({
     queryKey: ['current-teacher', user?.id ?? null, activeTeacherId],
     enabled: Boolean(supabase && user),
+    // داخل نافذة السماح: إعادة استطلاع ما دامت النتيجة فارغة، حتى
+    // يلحق الحلّ بإنشاء الملف الجارٍ في الخلفية (أو تنقضي النافذة).
+    refetchInterval: (q) => (q.state.data === null && inGrace ? GRACE_POLL_MS : false),
     queryFn: async (): Promise<{
       teacherId: string
       teacher: TeacherRow | null
@@ -161,6 +180,12 @@ export function useCurrentTeacher(): TeacherResolution {
   if (authLoading) return { status: 'loading' }
   if (!configured || !user) return { status: 'signed-out' }
   if (query.isPending) return { status: 'loading' }
-  if (query.isError || !query.data) return { status: 'no-teacher' }
+  if (query.isError) return { status: 'no-teacher' }
+  if (!query.data) {
+    // قراءة فارغة داخل نافذة سماح حساب جديد = غالباً سباق إنشاء ملف
+    // لم يكتمل بعد — «تحميل» مؤقتاً (الاستطلاع أعلاه يعيد المحاولة)،
+    // وخارج النافذة هي «لا مدرس» الحقيقية (شاشة الإعداد شبكة الأمان).
+    return inGrace ? { status: 'loading' } : { status: 'no-teacher' }
+  }
   return { status: 'ready', ...query.data }
 }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { GroupInput, WaitlistInput } from '../../types/database'
+import type { GroupInput, GroupRow, WaitlistInput } from '../../types/database'
 import { SG } from '../students/hooks'
 import {
   addWaitlistEntry,
@@ -54,19 +54,36 @@ function useInvalidateModule() {
 }
 
 export function useCreateGroup(teacherId: string) {
+  const qc = useQueryClient()
   const invalidate = useInvalidateModule()
   return useMutation({
     mutationFn: (input: GroupInput) => createGroup(teacherId, input),
-    onSuccess: invalidate,
+    onSuccess: (created) => {
+      // كتابة فورية في الكاش (تدقيق أول استخدام — H1): المجموعة المنشأة
+      // للتوّ تظهر في القائمة في نفس اللحظة من صف الإدراج نفسه، حتى لو
+      // تأخرت إعادة الجلب التالية للإبطال (شبكة بطيئة/جلسة أولى مزدحمة
+      // بالطلبات) — الاعتماد على الإبطال وحده جعل أول مجموعة تبدو
+      // «ضائعة» حتى إعادة الدخول. الإبطال يبقى لمزامنة بقية الوحدة.
+      qc.setQueryData<GroupRow[]>([SG, 'groups', teacherId], (old) =>
+        old && !old.some((g) => g.id === created.id) ? [...old, created] : old,
+      )
+      invalidate()
+    },
   })
 }
 
 export function useUpdateGroup(teacherId: string) {
+  const qc = useQueryClient()
   const invalidate = useInvalidateModule()
   return useMutation({
     mutationFn: ({ groupId, input }: { groupId: string; input: GroupInput }) =>
       updateGroup(teacherId, groupId, input),
-    onSuccess: invalidate,
+    onSuccess: (updated) => {
+      qc.setQueryData<GroupRow[]>([SG, 'groups', teacherId], (old) =>
+        old ? old.map((g) => (g.id === updated.id ? updated : g)) : old,
+      )
+      invalidate()
+    },
   })
 }
 
