@@ -16,6 +16,7 @@ import { AssessmentDetailPage } from './features/grades/AssessmentDetailPage'
 import { MoneyPage } from './features/money/MoneyPage'
 import { NotificationsPage } from './features/notifications/NotificationsPage'
 import { PortalPage } from './features/portal/PortalPage'
+import { PortalManagePage } from './features/portal/PortalManagePage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { ExportPage } from './features/settings/ExportPage'
 import { BackupPage } from './features/settings/BackupPage'
@@ -32,6 +33,10 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            {/* بوابة ولي الأمر: صفحة عامة بلا جلسة مدرس — الاعتماد هو
+                الرابط الموقّع في الاستعلام (?student=&t=) عبر RPC فقط */}
+            <Route path="/portal" element={<PortalPage />} />
+            <Route path="/portal/:studentId" element={<PortalPage />} />
             <Route element={<RequireAuth />}>
             <Route element={<AppShell />}>
               <Route index element={<HomePage />} />
@@ -51,7 +56,7 @@ export default function App() {
               <Route path="export" element={<ExportPage />} />
               <Route path="backup" element={<BackupPage />} />
               <Route path="settings" element={<SettingsPage />} />
-              <Route path="portal" element={<PortalPage />} />
+              <Route path="portal-links" element={<PortalManagePage />} />
             </Route>
             </Route>
           </Routes>

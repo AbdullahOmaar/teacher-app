@@ -130,6 +130,22 @@ export interface GuardianStudentRow {
   created_at: string
 }
 
+/**
+ * رابط وصول موقّع لبوابة ولي الأمر — جدول guardian_access_tokens حرفياً.
+ * token_hash موجود في الجدول (SHA-256 hex) لكنه لا يُقرأ للعميل أبداً:
+ * القائمة هنا بلا عمود الهاش، والهاش يُكتب عند الإنشاء فقط.
+ */
+export interface GuardianAccessTokenRow {
+  id: string
+  teacher_id: string
+  guardian_id: string
+  student_id: string | null // null في المخطط = كل أولاد ولي الأمر؛ روابطنا دائماً لطالب واحد
+  expires_at: string
+  revoked_at: string | null
+  last_used_at: string | null
+  created_at: string
+}
+
 /** صف من view ‏student_balances — الرصيد محسوب دائماً، لا مخزّن */
 export interface StudentBalanceRow {
   teacher_id: string

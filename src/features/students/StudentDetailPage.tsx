@@ -21,6 +21,7 @@ import { StudentGradesTab } from '../grades/StudentGradesTab'
 import { StudentFormSheet } from './StudentFormSheet'
 import { StudentCardSheet } from './StudentCardSheet'
 import { EnrollStudentSheet } from './EnrollStudentSheet'
+import { PortalLinkSheet } from '../portal/PortalLinkSheet'
 
 type TabKey = 'data' | 'groups' | 'att' | 'pay' | 'grades' | 'notes'
 
@@ -58,6 +59,7 @@ export function StudentDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [cardOpen, setCardOpen] = useState(false)
   const [enrollOpen, setEnrollOpen] = useState(false)
+  const [portalOpen, setPortalOpen] = useState(false)
 
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
   const studentQ = useStudent(teacherId, id)
@@ -137,6 +139,9 @@ export function StudentDetailPage() {
           )}
           <Button variant="soft" onClick={() => setCardOpen(true)}>
             🪪 الكارت الرقمي
+          </Button>
+          <Button variant="soft" onClick={() => setPortalOpen(true)}>
+            🔗 رابط ولي الأمر
           </Button>
           <Button variant="ghost" onClick={() => setEditOpen(true)}>
             ✏️ تعديل
@@ -263,6 +268,13 @@ export function StudentDetailPage() {
       )}
       {cardOpen && (
         <StudentCardSheet student={student} groupNames={groupNames} onClose={() => setCardOpen(false)} />
+      )}
+      {portalOpen && (
+        <PortalLinkSheet
+          teacherId={teacher.teacherId}
+          student={student}
+          onClose={() => setPortalOpen(false)}
+        />
       )}
       {enrollOpen && (
         <EnrollStudentSheet

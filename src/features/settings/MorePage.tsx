@@ -6,7 +6,7 @@ const MENU = [
   { icon: '👨‍👩‍👧‍👦', label: 'المجموعات', path: '/groups' },
   { icon: '📝', label: 'الامتحانات والدرجات', path: '/grades' },
   { icon: '💰', label: 'المصروفات والأرباح', path: '/money' },
-  { icon: '👨‍👩‍👦', label: 'بوابة ولي الأمر', path: '/portal' },
+  { icon: '👨‍👩‍👦', label: 'بوابة ولي الأمر', path: '/portal-links' },
   { icon: '💾', label: 'النسخ الاحتياطي', path: '/backup' },
   { icon: '📤', label: 'تصدير واستيراد', path: '/export' },
   { icon: '⚙️', label: 'الإعدادات', path: '/settings' },
