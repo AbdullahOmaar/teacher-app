@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { AlertTriangle, GraduationCap, Lock, RotateCcw } from 'lucide-react'
 import { Card } from './Card'
 import { Button } from './Button'
+import { t } from '../../i18n'
 
 /** هيكل تحميل بشكل المحتوى (Skeleton) — نبض موحد بلون الحاويات */
 export function Skeleton({ className = '' }: { className?: string }) {
@@ -11,7 +12,7 @@ export function Skeleton({ className = '' }: { className?: string }) {
 /** هيكل صفوف قائمة (أفاتار + سطران) */
 export function SkeletonRows({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="flex flex-col gap-3" role="status" aria-label="بنحمّل…">
+    <div className="flex flex-col gap-3" role="status" aria-label={t('common.loading')}>
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex items-center gap-3">
           <Skeleton className="w-10 h-10 rounded-full shrink-0" />
@@ -28,7 +29,7 @@ export function SkeletonRows({ rows = 4 }: { rows?: number }) {
 /** هيكل بطاقات */
 export function SkeletonCards({ cards = 3 }: { cards?: number }) {
   return (
-    <div className="flex flex-col gap-3" role="status" aria-label="بنحمّل…">
+    <div className="flex flex-col gap-3" role="status" aria-label={t('common.loading')}>
       {Array.from({ length: cards }).map((_, i) => (
         <Skeleton key={i} className="h-[88px]" />
       ))}
@@ -43,12 +44,12 @@ export function SignInRequired() {
       <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
         <Lock size={28} />
       </div>
-      <div className="type-section mb-1">سجل الدخول أولاً</div>
+      <div className="type-section mb-1">{t('common.signInFirst')}</div>
       <p className="text-muted type-secondary mb-4">
-        البيانات دي خاصة بحسابك ومحمية — لازم تسجل دخول علشان تظهر.
+        {t('common.signInFirstBody')}
       </p>
       <Link to="/login">
-        <Button>تسجيل الدخول</Button>
+        <Button>{t('common.signIn')}</Button>
       </Link>
     </Card>
   )
@@ -61,16 +62,16 @@ export function NoTeacherProfile() {
       <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
         <GraduationCap size={28} />
       </div>
-      <div className="type-section mb-1">لا يوجد ملف مدرس مرتبط بحسابك</div>
+      <div className="type-section mb-1">{t('common.noTeacherTitle')}</div>
       <p className="text-muted type-secondary mb-0">
-        حسابك مسجل دخوله، لكن لسه ما اتعملّوش ملف مدرس (أو عضوية فريق) في قاعدة البيانات.
+        {t('common.noTeacherBody')}
       </p>
     </Card>
   )
 }
 
 /** تحميل موحد: Skeleton بشكل المحتوى بدل النص وحده */
-export function LoadingState({ label = 'بنحمّل…' }: { label?: string }) {
+export function LoadingState({ label = t('common.loading') }: { label?: string }) {
   return (
     <div role="status" aria-label={label}>
       <SkeletonCards cards={3} />
@@ -91,12 +92,12 @@ export function ErrorState({
       <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-bad-soft text-bad-text flex items-center justify-center">
         <AlertTriangle size={28} />
       </div>
-      <div className="type-section text-bad-text mb-1">حصلت مشكلة في التحميل</div>
+      <div className="type-section text-bad-text mb-1">{t('common.errorTitle')}</div>
       <p className="text-muted type-secondary mb-4 break-words">{message}</p>
       {onRetry && (
         <Button variant="soft" onClick={onRetry}>
           <RotateCcw size={18} />
-          إعادة المحاولة
+          {t('common.retry')}
         </Button>
       )}
     </Card>

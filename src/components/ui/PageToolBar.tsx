@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { t } from '../../i18n'
 import { Search, SlidersHorizontal } from 'lucide-react'
 import { TextInput } from './form'
 
@@ -64,18 +65,18 @@ export function PageToolBar({
         )}
         {resultCount != null && (
           <span className="shrink-0 text-muted text-[12.5px] font-semibold whitespace-nowrap">
-            {resultCount} نتيجة
+            {t('common.resultsCount', { count: resultCount })}
           </span>
         )}
         {onFilter && (
           <button
             type="button"
             onClick={onFilter}
-            aria-label="تصفية متقدمة"
+            aria-label={t('common.filterAdvanced')}
             className="relative shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-3 rounded-full border border-border-interactive bg-card text-text text-[13.5px] font-semibold cursor-pointer hover:bg-soft"
           >
             <SlidersHorizontal size={19} />
-            <span className="hidden min-[420px]:inline">تصفية</span>
+            <span className="hidden min-[420px]:inline">{t('common.filter')}</span>
             {activeFilterCount > 0 && (
               <span className="absolute -top-1 -end-1 min-w-[20px] h-5 px-1 rounded-full bg-primary text-on-primary text-[11px] font-bold flex items-center justify-center">
                 {activeFilterCount}
