@@ -1,22 +1,30 @@
+import { useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
   CalendarCheck2,
   CalendarDays,
   Check,
+  CheckCircle2,
   Clock,
+  ImagePlus,
   Link2,
   Link2Off,
   NotebookPen,
   NotebookText,
+  Send,
   Users,
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { Button } from '../../components/ui/Button'
+import { Chip, ChipRow, Field, FormError, TextInput } from '../../components/ui/form'
 import { SkeletonCards } from '../../components/ui/states'
 import type { IconComponent } from '../../components/ui/EmptyState'
 import { daysLabel, formatMoney, shortTime } from '../../lib/format'
+import type { PaymentMethod } from '../../types/database'
 import { fmtScore, pctOf } from '../grades/api'
-import { PORTAL_ATT_META, portalErrorInfo } from './api'
-import { usePortalOverview } from './hooks'
+import { PAYMENT_METHOD_LABELS } from '../invoices/api'
+import { PORTAL_ATT_META, PROOF_METHODS, PROOF_STATUS_META, portalErrorInfo } from './api'
+import { usePortalOverview, usePortalProofs, useSubmitPortalProof } from './hooks'
 
 /**
  * بوابة ولي الأمر العامة — الخطوة 9 (المواصفات §3.17).
@@ -68,6 +76,162 @@ function SectionTitle({ icon: Icon, children }: { icon: IconComponent; children:
       <Icon size={22} className="text-primary" />
       {children}
     </h3>
+  )
+}
+
+/**
+ * قسم «إثبات دفع» (Phase 2 خطوة 7): ولي الأمر يرفع لقطة التحويل من نفس
+ * جلسة توكن البوابة — الصفحة مرتبطة بطالب واحد (طالب الرابط) فالإثبات
+ * له حصراً. الإرسال عبر submitPaymentProof (RPC إنشاء بالتوكن ← رفع
+ * لStorage خاص ← RPC تأكيد)، وتحت النموذج تظهر إثباتاته السابقة
+ * بحالاتها: قيد مراجعة المدرس / معتمد / مرفوض مع السبب.
+ */
+function PaymentProofSection({
+  studentId,
+  rawToken,
+  balance,
+}: {
+  studentId: string
+  rawToken: string
+  balance: number
+}) {
+  const proofsQ = usePortalProofs(studentId, rawToken)
+  const submit = useSubmitPortalProof(studentId, rawToken)
+
+  const [amount, setAmount] = useState(() => (balance > 0 ? String(balance) : ''))
+  const [method, setMethod] = useState<PaymentMethod>('vodafone_cash')
+  const [file, setFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [sent, setSent] = useState(false)
+
+  const amt = parseFloat(amount) || 0
+  const proofs = proofsQ.data ?? []
+
+  return (
+    <>
+      <SectionTitle icon={Send}>إثبات دفع</SectionTitle>
+      <Card>
+        <p className="text-muted text-[13.5px] mt-0">
+          حوّلت بالمحفظة أو إنستاباي؟ ابعت لقطة التحويل هنا والمدرس هيعتمدها فتتسجل دفعة
+          رسمية بإيصال — هتلاقي حالتها هنا «قيد مراجعة المدرس» لحد ما يراجعها.
+        </p>
+
+        {sent && (
+          <p className="flex items-start gap-2 bg-ok-soft text-ok-text text-[13.5px] font-semibold rounded-xl px-3 py-2.5 mb-3 mt-0" role="status">
+            <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
+            <span>وصل الإثبات للمدرس وهو دلوقتي قيد مراجعته. الاعتماد هيظهر هنا وهيتخصم من المستحق.</span>
+          </p>
+        )}
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!file) return
+            submit.mutate(
+              { amount: amt, method, file },
+              {
+                onSuccess: () => {
+                  setSent(true)
+                  setFile(null)
+                  setPreviewUrl(null)
+                },
+              },
+            )
+          }}
+        >
+          <Field label="مبلغ التحويل (ج) — زي ما هو في اللقطة بالظبط">
+            <TextInput
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              required
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="مثال: 400"
+            />
+          </Field>
+
+          <div className="block mb-3">
+            <span className="block text-[13.5px] leading-[1.7] text-muted font-semibold mb-1">
+              طريقة التحويل
+            </span>
+            <ChipRow>
+              {PROOF_METHODS.map((m) => (
+                <Chip key={m.code} active={method === m.code} onClick={() => setMethod(m.code)}>
+                  {m.label}
+                </Chip>
+              ))}
+            </ChipRow>
+          </div>
+
+          <div className="block mb-3">
+            <span className="block text-[13.5px] leading-[1.7] text-muted font-semibold mb-1">
+              لقطة التحويل (صورة JPG أو PNG أو WebP — لحد 5 ميجا)
+            </span>
+            <label className="flex items-center justify-center gap-2 min-h-[52px] rounded-xl border border-dashed border-border bg-bg px-3 cursor-pointer text-[15px] font-semibold text-primary">
+              <ImagePlus size={20} />
+              {file ? file.name : 'اختار صورة التحويل'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null
+                  setFile(f)
+                  setSent(false)
+                  setPreviewUrl(f ? URL.createObjectURL(f) : null)
+                }}
+              />
+            </label>
+            {previewUrl && (
+              <img
+                src={previewUrl}
+                alt="معاينة لقطة التحويل"
+                className="w-full max-h-[260px] object-contain rounded-xl border border-border bg-bg mt-2"
+              />
+            )}
+          </div>
+
+          {submit.isError && (
+            <FormError message={submit.error instanceof Error ? submit.error.message : 'حصل خطأ غير متوقع'} />
+          )}
+
+          <Button full type="submit" disabled={submit.isPending || !file || !(amt > 0)}>
+            {submit.isPending ? 'بنبعت الإثبات…' : 'إرسال الإثبات للمدرس'}
+          </Button>
+        </form>
+      </Card>
+
+      {proofs.length > 0 && (
+        <Card className="p-0 overflow-hidden mt-3">
+          {proofs.map((p, i) => {
+            const meta = PROOF_STATUS_META[p.status]
+            return (
+              <div
+                key={p.id}
+                className={`px-[14px] py-2.5 ${i < proofs.length - 1 ? 'border-b border-border' : ''}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-[15px]">
+                      {formatMoney(p.amount)} · {PAYMENT_METHOD_LABELS[p.method]}
+                    </div>
+                    <div className="text-muted text-[12px]">{p.created_at.slice(0, 10)}</div>
+                  </div>
+                  <span className={`text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
+                    {meta.label}
+                  </span>
+                </div>
+                {p.status === 'rejected' && p.rejection_reason && (
+                  <p className="text-bad-text text-[13.5px] mt-1 mb-0">سبب الرفض: {p.rejection_reason}</p>
+                )}
+              </div>
+            )
+          })}
+        </Card>
+      )}
+    </>
   )
 }
 
@@ -140,6 +304,9 @@ export function PortalPage() {
           </p>
         )}
       </Card>
+
+      {/* إثبات دفع — رفع لقطة تحويل ومراجعة المدرس (خطوة 7) */}
+      <PaymentProofSection studentId={studentId} rawToken={rawToken} balance={o.balance} />
 
       {/* مواعيد الحصص */}
       <SectionTitle icon={CalendarDays}>مواعيد الحصص</SectionTitle>
@@ -260,7 +427,7 @@ export function PortalPage() {
       )}
 
       <p className="text-center text-muted text-[12px] mt-5 mb-0">
-        صفحة قراءة فقط لولي الأمر — الرابط صالح لمدة 30 يوم من إنشائه.
+        بوابة ولي الأمر — الرابط صالح لمدة 30 يوم من إنشائه.
       </p>
     </PortalShell>
   )

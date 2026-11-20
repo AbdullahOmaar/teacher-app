@@ -17,6 +17,7 @@ import { payStateOf, periodLabel, periodYm, type InvoiceListItem } from './api'
 import { useInvoices } from './hooks'
 import { InvoiceDetailPage } from './InvoiceDetailPage'
 import { IssueInvoicesSheet } from './sheets'
+import { ProofsReviewSection } from '../payment-proofs/components'
 
 type FilterKey = 'all' | 'due' | 'partial' | 'paid'
 
@@ -191,6 +192,10 @@ export function InvoicesPage() {
           </Chip>
         ))}
       </ChipRow>
+
+      {teacherId && (
+        <ProofsReviewSection teacherId={teacherId} reviewerId={teacherId} />
+      )}
 
       {invoicesQ.isPending ? (
         <LoadingState label="بنحمّل الفواتير…" />

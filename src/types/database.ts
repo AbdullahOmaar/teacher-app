@@ -229,6 +229,28 @@ export interface InvoiceBalanceRow {
   is_paid: boolean
 }
 
+export type PaymentProofStatus = 'pending' | 'approved' | 'rejected'
+
+/** إثبات دفع رفعه ولي الأمر من البوابة — جدول payment_proofs (migration ‏0005) حرفياً */
+export interface PaymentProofRow {
+  id: string
+  teacher_id: string
+  guardian_id: string
+  student_id: string
+  invoice_id: string | null // اختياري وقت الرفع؛ يُربط فعلياً عبر payment عند الاعتماد
+  amount: number // المبلغ كما ادّعاه ولي الأمر
+  method: PaymentMethod // check في المخطط: ليس 'cash' أبداً
+  storage_path: string // داخل bucket ‏payment-proofs — «<teacher_id>/<proof_id>.<ext>»
+  status: PaymentProofStatus
+  rejection_reason: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  payment_id: string | null // الدفعة الحقيقية التي أنشأها الاعتماد
+  uploaded_at: string | null // null = رفع لم يكتمل — لا يظهر للمدرس
+  created_at: string
+  updated_at: string
+}
+
 export interface PaymentRow {
   id: string
   teacher_id: string

@@ -58,7 +58,7 @@ function db() {
 // أسلوب رسائل §5.6 وموثّقتان كامتداد للخطوة.
 // ---------------------------------------------------------------------------
 
-export type AlertKind = 'att' | 'absence' | 'prepaid' | 'fin' | 'grade' | 'backup'
+export type AlertKind = 'att' | 'absence' | 'prepaid' | 'fin' | 'proof' | 'grade' | 'backup'
 
 export interface AlertInvoiceRef {
   invoice_id: string
@@ -98,13 +98,14 @@ export interface AppAlert {
   lowStudents?: AlertLowStudent[]
 }
 
-export const ALERT_KINDS: AlertKind[] = ['att', 'absence', 'prepaid', 'fin', 'grade', 'backup']
+export const ALERT_KINDS: AlertKind[] = ['att', 'absence', 'prepaid', 'fin', 'proof', 'grade', 'backup']
 
 export const SECTION_META: Record<AlertKind, { title: string }> = {
   att: { title: 'حضور اليوم لسه متسجلش' },
   absence: { title: 'غياب متكرر' },
   prepaid: { title: 'باقات على وشك النفاد' },
   fin: { title: 'متأخرات الدفع' },
+  proof: { title: 'إثباتات دفع بانتظار المراجعة' },
   grade: { title: 'درجات منخفضة' },
   backup: { title: 'النسخ الاحتياطي' },
 }
@@ -462,6 +463,28 @@ export async function fetchAlerts(
           lowStudents,
         })
       }
+    }
+  }
+
+  // proof (مالك فقط — Phase 2 خطوة 7): إثباتات دفع رفعها أولياء الأمور
+  // من البوابة ومكتملة الرفع، لسه بلا مراجعة. تنبيه مجمّع واحد بعدّادها
+  // (لا تنبيه لكل إثبات) ووجهته قسم المراجعة في شاشة الفواتير، فيغذّي
+  // شارة التنبيهات من نفس المصدر الواحد بلا عدّاد موازٍ.
+  if (isOwner) {
+    const { count, error } = await supa
+      .from('payment_proofs')
+      .select('id', { count: 'exact', head: true })
+      .eq('teacher_id', teacherId)
+      .eq('status', 'pending')
+      .not('uploaded_at', 'is', null)
+    if (error) throw error
+    if ((count ?? 0) > 0) {
+      alerts.push({
+        kind: 'proof',
+        text: `عندك ${count} إثبات دفع مستني المراجعة`,
+        to: '/invoices',
+        detail: 'راجع اللقطات واعتمدها فتتحول لدفعات مسجلة — من قسم «إثباتات دفع قيد المراجعة» في شاشة الفواتير',
+      })
     }
   }
 

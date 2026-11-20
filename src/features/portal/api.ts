@@ -3,6 +3,8 @@ import { waLink } from '../../lib/format'
 import type {
   GuardianAccessTokenRow,
   GuardianRow,
+  PaymentMethod,
+  PaymentProofStatus,
   StudentRow,
 } from '../../types/database'
 
@@ -355,6 +357,177 @@ export function portalErrorInfo(error: unknown): { title: string; hint: string }
     title: 'الرابط غير صالح',
     hint: 'ماقدرناش نفتح البوابة بالرابط ده. تأكد إنك فتحته زي ما وصلك بالظبط، أو اطلب من المدرس رابط جديد.',
   }
+}
+
+// ---------------------------------------------------------------------------
+// إثبات الدفع من البوابة — Phase 2 خطوة 7 (migration ‏0005).
+//
+// البوابة مرتبطة بطبيعتها بطالب واحد (الطالب في الرابط نفسه)، فالإثبات
+// يُرفع لهذا الطالب حصراً — لا اختيار طالب هنا لأن الصفحة كلها عنه.
+//
+// التدفق (لا كتابة مباشرة لأي جدول من anon — نفس نموذج البوابة كله):
+// 1) RPC ‏portal_create_payment_proof بالتوكن: تتحقق من التوكن بنفس
+//    آلية العرض، تنشئ صف إثبات pending، وتعيد المسار المتوقع للصورة
+//    «<teacher_id>/<proof_id>.<ext>» — المسار من الخادم دائماً.
+// 2) رفع الصورة نفسها إلى bucket خاص payment-proofs بهذا المسار فقط
+//    (سياسة Storage: إدراج فقط لمسارات إثباتات pending قائمة).
+// 3) RPC ‏portal_confirm_payment_proof تضبط uploaded_at — قبلها لا
+//    يرى المدرس الإثبات أصلاً، فرفع فاشل/منقطع لا يرمي له صفاً يتيماً.
+// عند فشل الخطوة 2 نستدعي RPC الحذف (best-effort) لمسح الصف اليتيم؛
+// وعند فشل الخطوة 3 وحدها الصورة موجودة والصف بلا تأكيد — الرسالة
+// تطلب إعادة الإرسال (إثبات جديد)، والقديم يبقى غير مرئي للمدرس.
+// ---------------------------------------------------------------------------
+
+/** طرق إثبات الدفع في البوابة — تحويلات إلكترونية فقط (لا «كاش») */
+export const PROOF_METHODS: { code: PaymentMethod; label: string }[] = [
+  { code: 'vodafone_cash', label: 'فودافون كاش' },
+  { code: 'instapay', label: 'إنستاباي' },
+  { code: 'bank_transfer', label: 'تحويل بنكي' },
+]
+
+export const PROOF_BUCKET = 'payment-proofs'
+
+/** حد حجم الصورة على الخادم (bucket) — العميل يضغط قبل الرفع لاحترام الحد */
+export const PROOF_MAX_BYTES = 5 * 1024 * 1024
+
+export interface PortalProof {
+  id: string
+  amount: number
+  method: PaymentMethod
+  status: PaymentProofStatus
+  rejection_reason: string | null
+  created_at: string
+  reviewed_at: string | null
+}
+
+/** شارات حالة الإثبات في البوابة — بنسخ ألوان الحالات النصية المضمونة التباين */
+export const PROOF_STATUS_META: Record<
+  PaymentProofStatus,
+  { label: string; badge: string }
+> = {
+  pending: { label: 'قيد مراجعة المدرس', badge: 'bg-warn-soft text-warn-text border-warn/40' },
+  approved: { label: 'تم الاعتماد وتسجيل الدفعة', badge: 'bg-ok-soft text-ok-text border-ok/30' },
+  rejected: { label: 'مرفوض', badge: 'bg-bad-soft text-bad-text border-bad/30' },
+}
+
+function proofErrorMessage(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error ?? '')
+  if (msg.includes('invalid or expired') || msg.includes('not authorized') || msg.includes('token not valid')) {
+    return 'رابط البوابة منتهي أو مش صالح — اطلب من المدرس رابط جديد قبل ما تبعت الإثبات.'
+  }
+  if (msg.includes('too many pending proofs')) {
+    return 'عندك إثباتات كتير لسه مستنية مراجعة المدرس — استنى مراجعتها قبل ما تبعت إثبات جديد.'
+  }
+  if (msg.includes('invalid amount')) return 'المبلغ مش صحيح — اكتب مبلغ التحويل زي ما هو في اللقطة.'
+  if (msg.includes('invalid file type')) return 'اختار صورة بصيغة JPG أو PNG أو WebP.'
+  return 'ماقدرناش نبعت الإثبات — اتأكد من النت وحاول تاني.'
+}
+
+export interface PreparedProofImage {
+  blob: Blob
+  ext: 'jpg' | 'png' | 'webp'
+  contentType: string
+}
+
+const PROOF_MIME_EXT: Record<string, 'jpg' | 'png' | 'webp'> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+}
+
+/**
+ * تجهيز صورة الإثبات: الصور الصغيرة (≤ 2MB) تُرفع كما هي، والأكبر
+ * تُعاد مقاسها من Canvas لأقصى بُعد 1600px وتُصدَّر JPEG بجودة 0.85
+ * (لقطات التحويل نصية فتتحمل JPEG جيداً) حتى تحترم حد الـ bucket ‏5MB.
+ * فشل الضغط يرجع للأصل إن كان داخل الحد، وإلا خطأ واضح.
+ */
+export async function prepareProofImage(file: File): Promise<PreparedProofImage> {
+  const ext = PROOF_MIME_EXT[file.type]
+  if (!ext) throw new Error('اختار صورة بصيغة JPG أو PNG أو WebP.')
+  if (file.size <= 2 * 1024 * 1024) {
+    return { blob: file, ext, contentType: file.type }
+  }
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('no canvas context')
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.85),
+    )
+    if (blob && blob.size <= PROOF_MAX_BYTES) {
+      return { blob, ext: 'jpg', contentType: 'image/jpeg' }
+    }
+  } catch {
+    // بنكمل للبديل: الأصل داخل الحد أو خطأ واضح
+  }
+  if (file.size <= PROOF_MAX_BYTES) return { blob: file, ext, contentType: file.type }
+  throw new Error('الصورة كبيرة أوي (أكتر من 5 ميجا) — جرّب لقطة أصغر أو قلّل جودتها.')
+}
+
+/** إرسال إثبات دفع كامل: إنشاء بالتوكن ← رفع الصورة ← تأكيد الاكتمال */
+export async function submitPaymentProof(
+  rawToken: string,
+  studentId: string,
+  input: { amount: number; method: PaymentMethod },
+  file: File,
+): Promise<void> {
+  if (!(input.amount > 0)) throw new Error('اكتب مبلغ التحويل زي ما هو في اللقطة.')
+  const prepared = await prepareProofImage(file)
+  const supa = db()
+
+  const { data, error } = await supa.rpc('portal_create_payment_proof', {
+    p_token: rawToken,
+    p_student_id: studentId,
+    p_amount: input.amount,
+    p_method: input.method,
+    p_file_ext: prepared.ext,
+  })
+  if (error) throw new Error(proofErrorMessage(error))
+  const created = data as unknown as { proof_id: string; storage_path: string }
+
+  const { error: upErr } = await supa.storage
+    .from(PROOF_BUCKET)
+    .upload(created.storage_path, prepared.blob, {
+      contentType: prepared.contentType,
+      upsert: false,
+    })
+  if (upErr && !/already exists/i.test(upErr.message)) {
+    // تنظيف الصف اليتيم best-effort — فشله لا يخفي خطأ الرفع الأصلي
+    await supa
+      .rpc('portal_delete_payment_proof', { p_token: rawToken, p_proof_id: created.proof_id })
+      .then(() => {}, () => {})
+    throw new Error('ماقدرناش نرفع الصورة — اتأكد من النت وحاول تاني.')
+  }
+
+  const { error: confErr } = await supa.rpc('portal_confirm_payment_proof', {
+    p_token: rawToken,
+    p_proof_id: created.proof_id,
+  })
+  if (confErr) {
+    throw new Error(
+      'الصورة اترفعت لكن تأكيد الإرسال فشل — ابعت الإثبات تاني، ولو اتكررت المشكلة كلّم المدرس.',
+    )
+  }
+}
+
+/** إثباتات ولي الأمر لهذا الطالب — عبر RPC بالتوكن فقط، المرفوعة فعلياً فقط */
+export async function fetchPortalProofs(
+  rawToken: string,
+  studentId: string,
+): Promise<PortalProof[]> {
+  const { data, error } = await db().rpc('portal_list_payment_proofs', {
+    p_token: rawToken,
+    p_student_id: studentId,
+  })
+  if (error) throw new Error(proofErrorMessage(error))
+  const rows = (data ?? []) as unknown as PortalProof[]
+  return rows.map((r) => ({ ...r, amount: num(r.amount) }))
 }
 
 /** حالات الحضور الأربع في البوابة (§2.4) — الاسم وشارة اللون */

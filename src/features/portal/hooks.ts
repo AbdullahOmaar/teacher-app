@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { StudentRow } from '../../types/database'
+import type { PaymentMethod, StudentRow } from '../../types/database'
 import {
   createPortalLink,
   fetchPortalOverview,
+  fetchPortalProofs,
   fetchStudentTokens,
   fetchTeacherTokens,
   revokePortalToken,
+  submitPaymentProof,
 } from './api'
 
 /** كل مفاتيح وحدة البوابة تبدأ بـ 'portal' */
@@ -67,5 +69,28 @@ export function usePortalOverview(studentId: string | null, rawToken: string | n
     queryFn: () => fetchPortalOverview(rawToken!, studentId!),
     retry: false,
     staleTime: 60_000,
+  })
+}
+
+/** إثباتات ولي الأمر لهذا الطالب — بنفس قواعد قراءة البوابة (بلا إعادة محاولة، والرمز لا يدخل المفتاح) */
+export function usePortalProofs(studentId: string | null, rawToken: string | null) {
+  return useQuery({
+    queryKey: [PORTAL, 'proofs', studentId],
+    enabled: Boolean(studentId && rawToken),
+    queryFn: () => fetchPortalProofs(rawToken!, studentId!),
+    retry: false,
+    staleTime: 30_000,
+  })
+}
+
+/** إرسال إثبات دفع من البوابة — يبطل قائمة إثباتات البوابة بعد النجاح */
+export function useSubmitPortalProof(studentId: string | null, rawToken: string | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { amount: number; method: PaymentMethod; file: File }) =>
+      submitPaymentProof(rawToken!, studentId!, input, input.file),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [PORTAL, 'proofs', studentId] })
+    },
   })
 }

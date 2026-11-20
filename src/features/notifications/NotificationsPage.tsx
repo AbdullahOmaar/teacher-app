@@ -7,6 +7,7 @@ import {
   Copy,
   DatabaseBackup,
   MessageCircle,
+  ReceiptText,
   Repeat,
   Ticket,
   TrendingDown,
@@ -36,6 +37,7 @@ const KIND_ICONS: Record<AlertKind, LucideIcon> = {
   absence: Repeat,
   prepaid: Ticket,
   fin: Wallet,
+  proof: ReceiptText,
   grade: TrendingDown,
   backup: DatabaseBackup,
 }
