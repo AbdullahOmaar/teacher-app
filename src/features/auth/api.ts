@@ -137,12 +137,15 @@ export async function ensureTeacherProfile(
 
 export async function updateOwnTeacherProfile(
   userId: string,
-  input: { display_name: string; phone: string | null },
+  input: { display_name: string; phone: string | null; avatar_url?: string | null },
 ): Promise<void> {
-  const { error } = await db()
-    .from('teachers')
-    .update({ display_name: input.display_name.trim(), phone: input.phone })
-    .eq('id', userId)
+  const patch: { display_name: string; phone: string | null; avatar_url?: string | null } = {
+    display_name: input.display_name.trim(),
+    phone: input.phone,
+  }
+  // avatar_url اختياري في النداء: لا يُمسّ إلا عندما يمرّره النموذج صراحة
+  if ('avatar_url' in input) patch.avatar_url = input.avatar_url
+  const { error } = await db().from('teachers').update(patch).eq('id', userId)
   if (error) throw new Error(translateDbError(error))
 }
 

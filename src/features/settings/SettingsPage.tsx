@@ -1,13 +1,14 @@
-import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Field, TextInput } from '../../components/ui/form'
+import { Chip, Field, TextArea, TextInput } from '../../components/ui/form'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState } from '../../components/ui/states'
 import { useAuth } from '../../lib/AuthProvider'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
+import { useTheme, type ThemeMode } from '../../hooks/useTheme'
 import { getActiveTeacherId, setActiveTeacherId } from '../../lib/workspace'
 import {
   ASSISTANT_DEFAULT_PERMISSIONS,
@@ -20,7 +21,14 @@ import {
   useUpdateMemberPermissions,
   useUpdateOwnProfile,
 } from '../auth/hooks'
+import { DEFAULT_WA_TEMPLATE } from '../invoices/api'
+import { formatDateLabel } from '../schedule/api'
+import { REMINDER_OPTIONS, THEME_MODES, type TeacherSettingsInput } from './api'
+import { useTeacherSettings, useUpdateTeacherSettings } from './hooks'
 import type { TeacherMemberRow } from '../../types/database'
+
+/** متغيرات قالب رسالة واتساب المتاحة في الإيصال (المرجع §3.16) */
+const WA_TEMPLATE_VARS = ['{guardian}', '{name}', '{period}', '{paid}', '{total}', '{balance}']
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -29,11 +37,14 @@ function shortId(id: string) {
 }
 
 /**
- * الإعدادات — نطاق خطوة Auth + Onboarding فقط:
- * حسابي (البريد + معرّف الحساب + تعديل اسم المدرس وموبايله)، تبديل
- * مساحة العمل (مالك/مساعد)، إدارة فريق المساعدين عبر teacher_members،
- * وتسجيل الخروج. بقية الإعدادات (قالب واتساب/نسبة السنتر/المظهر في
- * teacher_settings) مكانها خطوة الإعدادات اللاحقة في الخطة.
+ * الإعدادات — من خطوة Auth: حسابي (البريد + معرّف الحساب)، ملف المدرس
+ * (teachers: الاسم/الموبايل/الصورة)، تبديل مساحة العمل، فريق المساعدين
+ * عبر teacher_members، وتسجيل الخروج.
+ * والخطوة 10 أكملتها بـ«إعدادات التطبيق»: كل أعمدة teacher_settings
+ * القابلة للتحرير (whatsapp_template لقالب إيصال الواتساب،
+ * center_share_percent لنسبة السنتر في شاشة الفلوس، reminder_minutes،
+ * وtheme مربوطاً بخطاف useTheme القائم ومحفوظاً في القاعدة معاً) +
+ * عرض last_export_at الذي تحدّثه شاشتا التصدير والنسخ الاحتياطي.
  */
 export function SettingsPage() {
   const { user, signOut } = useAuth()
@@ -48,8 +59,32 @@ export function SettingsPage() {
   const ownTeacher = teacher.status === 'ready' ? teacher.ownTeacher : null
   const [profileName, setProfileName] = useState<string | null>(null)
   const [profilePhone, setProfilePhone] = useState<string | null>(null)
+  const [profileAvatar, setProfileAvatar] = useState<string | null>(null)
   const [profileMsg, setProfileMsg] = useState<string | null>(null)
   const updateProfile = useUpdateOwnProfile(user?.id ?? '')
+
+  // إعدادات التطبيق — teacher_settings لحساب المدرس نفسه (RLS للمالك فقط)
+  const theme = useTheme()
+  const settingsQ = useTeacherSettings(user?.id || undefined, Boolean(ownTeacher))
+  const updateSettings = useUpdateTeacherSettings(user?.id ?? '')
+  const [waTpl, setWaTpl] = useState<string | null>(null)
+  const [centerShare, setCenterShare] = useState<string | null>(null)
+  const [reminder, setReminder] = useState<number | null>(null)
+  const [settingsMsg, setSettingsMsg] = useState<string | null>(null)
+
+  // مزامنة الثيم من القاعدة مرة واحدة عند تحميل الإعدادات: عمود
+  // teacher_settings.theme هو المحفوظ حسابياً وخطاف useTheme هو آلية
+  // التطبيق — عند اختلافهما عند الفتح تسود قيمة القاعدة.
+  const themeSyncedRef = useRef(false)
+  const dbTheme = settingsQ.data?.theme
+  useEffect(() => {
+    if (themeSyncedRef.current) return
+    if (dbTheme === 'light' || dbTheme === 'dark' || dbTheme === 'auto') {
+      themeSyncedRef.current = true
+      if (dbTheme !== theme.mode) theme.setMode(dbTheme)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbTheme])
 
   // نموذج دعوة مساعد
   const ownId = user?.id ?? ''
@@ -95,6 +130,7 @@ export function SettingsPage() {
       {
         display_name: (profileName ?? ownTeacher.display_name).trim(),
         phone: (profilePhone ?? ownTeacher.phone ?? '').trim() || null,
+        avatar_url: (profileAvatar ?? ownTeacher.avatar_url ?? '').trim() || null,
       },
       {
         onSuccess: () => setProfileMsg('تم حفظ بياناتك ✅'),
@@ -102,6 +138,61 @@ export function SettingsPage() {
           setProfileMsg(err instanceof Error ? err.message : 'تعذّر حفظ البيانات.'),
       },
     )
+  }
+
+  // حمولة إعدادات كاملة من حالة النموذج مع سقوط لقيم القاعدة/الافتراضي —
+  // الحفظ في teacher_settings دائماً بكل الحقول القابلة للتحرير معاً.
+  const settingsRow = settingsQ.data ?? null
+  const settingsPayload = (overrides: Partial<TeacherSettingsInput> = {}): TeacherSettingsInput => ({
+    whatsapp_template:
+      overrides.whatsapp_template ??
+      waTpl ??
+      settingsRow?.whatsapp_template ??
+      DEFAULT_WA_TEMPLATE,
+    center_share_percent:
+      overrides.center_share_percent ??
+      (centerShare != null && centerShare.trim() !== ''
+        ? Number(centerShare)
+        : Number(settingsRow?.center_share_percent) || 0),
+    reminder_minutes:
+      overrides.reminder_minutes ?? reminder ?? settingsRow?.reminder_minutes ?? 0,
+    theme: overrides.theme ?? theme.mode,
+  })
+
+  const handleSettingsSave = (e: FormEvent) => {
+    e.preventDefault()
+    setSettingsMsg(null)
+    const payload = settingsPayload()
+    if (
+      !Number.isFinite(payload.center_share_percent) ||
+      payload.center_share_percent < 0 ||
+      payload.center_share_percent > 100
+    ) {
+      setSettingsMsg('نسبة السنتر لازم تكون رقم بين 0 و 100.')
+      return
+    }
+    if (!payload.whatsapp_template.trim()) {
+      setSettingsMsg('قالب رسالة الواتساب لا يمكن أن يكون فارغاً.')
+      return
+    }
+    updateSettings.mutate(payload, {
+      onSuccess: () => setSettingsMsg('تم حفظ الإعدادات ✅'),
+      onError: (err) =>
+        setSettingsMsg(err instanceof Error ? err.message : 'تعذّر حفظ الإعدادات.'),
+    })
+  }
+
+  // اختيار المظهر يطبّق فوراً عبر خطاف الثيم ويُحفظ في القاعدة معه
+  const handleThemePick = (mode: ThemeMode) => {
+    theme.setMode(mode)
+    if (!ownTeacher) return
+    setSettingsMsg(null)
+    updateSettings.mutate(settingsPayload({ theme: mode }), {
+      onError: (err) =>
+        setSettingsMsg(
+          err instanceof Error ? err.message : 'اتطبّق المظهر هنا بس تعذّر حفظه في حسابك.',
+        ),
+    })
   }
 
   const handleInvite = (e: FormEvent) => {
@@ -196,10 +287,132 @@ export function SettingsPage() {
                 placeholder="01xxxxxxxxx"
               />
             </Field>
+            <Field label="رابط صورة شخصية (اختياري — يظهر في الشريط العلوي)">
+              <TextInput
+                type="url"
+                dir="ltr"
+                value={profileAvatar ?? ownTeacher.avatar_url ?? ''}
+                onChange={(e) => setProfileAvatar(e.target.value)}
+                placeholder="https://…"
+              />
+            </Field>
+            {(profileAvatar ?? ownTeacher.avatar_url) && (
+              <div className="flex items-center gap-2 mb-3">
+                <img
+                  src={profileAvatar ?? ownTeacher.avatar_url ?? ''}
+                  alt="صورة المدرس"
+                  className="w-10 h-10 rounded-full object-cover border border-border"
+                />
+                <span className="text-muted text-[12px]">معاينة الصورة الحالية</span>
+              </div>
+            )}
             <Button full type="submit" disabled={updateProfile.isPending}>
               {updateProfile.isPending ? 'جارٍ الحفظ…' : 'حفظ'}
             </Button>
           </form>
+        </Card>
+      )}
+
+      {/* إعدادات التطبيق — teacher_settings كاملة (الخطوة 10) */}
+      {ownTeacher && (
+        <Card>
+          <h2 className="text-[15px] font-extrabold mt-0 mb-3">🎛️ إعدادات التطبيق</h2>
+          {settingsQ.isPending ? (
+            <LoadingState label="بنحمّل إعداداتك…" />
+          ) : settingsQ.isError ? (
+            <ErrorState
+              message={
+                settingsQ.error instanceof Error ? settingsQ.error.message : 'خطأ غير معروف'
+              }
+            />
+          ) : (
+            <form onSubmit={handleSettingsSave}>
+              <Field label="قالب رسالة واتساب للإيصال (بيستخدم في زر إرسال الإيصال)">
+                <TextArea
+                  rows={3}
+                  value={waTpl ?? settingsRow?.whatsapp_template ?? DEFAULT_WA_TEMPLATE}
+                  onChange={(e) => setWaTpl(e.target.value)}
+                />
+              </Field>
+              <div className="flex flex-wrap gap-1.5 mb-4 -mt-1">
+                {WA_TEMPLATE_VARS.map((v) => (
+                  <code
+                    key={v}
+                    dir="ltr"
+                    className="text-[11px] bg-soft text-primary rounded-full px-2 py-0.5 font-semibold"
+                  >
+                    {v}
+                  </code>
+                ))}
+              </div>
+
+              <Field label="نسبة السنتر % (بتتخصم من محصّل الشهر في شاشة الفلوس)">
+                <TextInput
+                  type="number"
+                  dir="ltr"
+                  min={0}
+                  max={100}
+                  step="0.5"
+                  value={
+                    centerShare ?? String(Number(settingsRow?.center_share_percent) || 0)
+                  }
+                  onChange={(e) => setCenterShare(e.target.value)}
+                />
+              </Field>
+
+              <div className="mb-4">
+                <div className="text-[13px] text-muted font-semibold mb-2">
+                  التذكير قبل الحصة
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {REMINDER_OPTIONS.map((opt) => (
+                    <Chip
+                      key={opt.minutes}
+                      active={(reminder ?? settingsRow?.reminder_minutes ?? 0) === opt.minutes}
+                      onClick={() => setReminder(opt.minutes)}
+                    >
+                      {opt.label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <div className="text-[13px] text-muted font-semibold mb-2">المظهر</div>
+                <div className="flex flex-wrap gap-2">
+                  {THEME_MODES.map((opt) => (
+                    <Chip
+                      key={opt.code}
+                      active={theme.mode === opt.code}
+                      onClick={() => handleThemePick(opt.code)}
+                    >
+                      {opt.label}
+                    </Chip>
+                  ))}
+                </div>
+                <p className="text-muted text-[12px] mb-0 mt-2">
+                  المظهر بيطبّق فوراً وبيتحفظ في حسابك — «تلقائي» بيتبع إعدادات جهازك.
+                </p>
+              </div>
+
+              <div className="text-[13px] text-muted mb-3">
+                آخر تصدير/نسخة احتياطية:{' '}
+                <b className="text-text">
+                  {settingsRow?.last_export_at
+                    ? formatDateLabel(settingsRow.last_export_at.slice(0, 10))
+                    : 'لسه معملتش أي تصدير'}
+                </b>{' '}
+                — <Link to="/backup" className="text-primary font-semibold">النسخ الاحتياطي</Link>
+              </div>
+
+              {settingsMsg && (
+                <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{settingsMsg}</p>
+              )}
+              <Button full type="submit" disabled={updateSettings.isPending}>
+                {updateSettings.isPending ? 'جارٍ الحفظ…' : 'حفظ الإعدادات'}
+              </Button>
+            </form>
+          )}
         </Card>
       )}
 

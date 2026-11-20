@@ -69,6 +69,7 @@ export function AppShell() {
     teacher.status === 'ready' && teacher.teacher?.display_name
       ? teacher.teacher.display_name.trim().charAt(0)
       : 'م'
+  const avatarUrl = teacher.status === 'ready' ? teacher.teacher?.avatar_url : null
 
   return (
     <div className="min-h-screen bg-bg text-text">
@@ -104,10 +105,14 @@ export function AppShell() {
               </button>
               <button
                 onClick={() => navigate('/settings')}
-                className="w-8 h-8 rounded-full bg-primary text-white font-bold flex items-center justify-center cursor-pointer border-0"
+                className="w-8 h-8 rounded-full bg-primary text-white font-bold flex items-center justify-center cursor-pointer border-0 overflow-hidden p-0"
                 aria-label="الإعدادات"
               >
-                {avatarLetter}
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  avatarLetter
+                )}
               </button>
             </>
           )}

@@ -73,7 +73,7 @@ export function useRemoveTeamMember(teacherId: string) {
 export function useUpdateOwnProfile(userId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (input: { display_name: string; phone: string | null }) =>
+    mutationFn: (input: { display_name: string; phone: string | null; avatar_url?: string | null }) =>
       updateOwnTeacherProfile(userId, input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['current-teacher'] })
