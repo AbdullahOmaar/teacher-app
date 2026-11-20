@@ -23,6 +23,27 @@ export function shortTime(t: string): string {
   return t.slice(0, 5)
 }
 
+/**
+ * عرض الوقت بصيغة 12 ساعة موحّدة في كل الواجهات: "16:00" → "4:00 م"،
+ * "09:30" → "9:30 ص"، "00:15" → "12:15 ص". الأرقام لاتينية دائماً
+ * (تتسق مع tabular-nums في بقية الشاشات المالية).
+ */
+export function formatTime12(t: string): string {
+  const [hRaw, mRaw] = shortTime(t).split(':').map(Number)
+  const h = Number.isFinite(hRaw) ? hRaw : 0
+  const m = Number.isFinite(mRaw) ? mRaw : 0
+  const suffix = h < 12 ? 'ص' : 'م'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${suffix}`
+}
+
+/** نفس صيغة formatTime12 لكن من كائن Date (أوقات لحظية مثل الانصراف) */
+export function formatClock12(d: Date): string {
+  return formatTime12(
+    `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+  )
+}
+
 export function timeToMin(t: string): number {
   const [h, m] = shortTime(t).split(':').map(Number)
   return h * 60 + (m || 0)

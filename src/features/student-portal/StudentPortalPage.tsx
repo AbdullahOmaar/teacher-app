@@ -17,7 +17,7 @@ import {
 import { Card } from '../../components/ui/Card'
 import { SkeletonCards } from '../../components/ui/states'
 import type { IconComponent } from '../../components/ui/EmptyState'
-import { daysLabel, formatMoney, shortTime } from '../../lib/format'
+import { daysLabel, formatMoney, formatTime12 } from '../../lib/format'
 import { darken } from '../../lib/brand'
 import { fmtScore, pctOf, ASSESSMENT_TYPE_LABELS } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
@@ -229,7 +229,7 @@ export function StudentPortalPage() {
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-[15px] truncate">{s.group_name}</div>
                 <div className="text-muted text-[12px]">
-                  {formatDateLabel(s.date)} · الساعة {shortTime(s.start_time)} · {s.duration_minutes} دقيقة
+                  {formatDateLabel(s.date)} · الساعة {formatTime12(s.start_time)} · {s.duration_minutes} دقيقة
                   {s.room ? ` · ${s.room}` : ''}
                   {s.kind === 'extra' ? ' · حصة إضافية' : s.kind === 'moved' ? ' · حصة منقولة' : ''}
                 </div>
@@ -250,7 +250,7 @@ export function StudentPortalPage() {
             <Card key={g.name}>
               <div className="font-bold text-[15px]">{g.name}</div>
               <div className="text-muted text-[13.5px] mt-0.5">
-                {daysLabel(g.days)} · الساعة {shortTime(g.start_time)}
+                {daysLabel(g.days)} · الساعة {formatTime12(g.start_time)}
                 {g.room ? ` · ${g.room}` : ''}
               </div>
               {g.links.length > 0 && (

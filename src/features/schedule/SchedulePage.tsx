@@ -8,7 +8,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
-import { DAY_NAMES, shortTime } from '../../lib/format'
+import { DAY_NAMES, formatTime12 } from '../../lib/format'
 import { useGroups } from '../groups/hooks'
 import { addDaysStr } from '../home/api'
 import {
@@ -639,7 +639,7 @@ function SessionCard({
             <KindBadge session={s} />
           </div>
           <div className="text-muted text-[13.5px] mt-0.5">
-            {shortTime(s.start_time)} · {s.duration_minutes} دقيقة
+            {formatTime12(s.start_time)} · {s.duration_minutes} دقيقة
             {s.group_room ? ` · ${s.group_room}` : ''}
             {s.note ? ` · ${s.note}` : ''}
           </div>

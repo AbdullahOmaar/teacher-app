@@ -3,7 +3,7 @@ import { Card } from '../../components/ui/Card'
 import { CalendarCheck2, Check, Star } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState } from '../../components/ui/states'
-import { shortTime } from '../../lib/format'
+import { formatTime12 } from '../../lib/format'
 import type { EnrollmentRow, GroupRow } from '../../types/database'
 import { formatDateLabel } from '../schedule/api'
 import { STATUS_BADGE_CLASS, STATUS_LABELS, isAttended } from './api'
@@ -132,7 +132,7 @@ export function StudentAttendanceTab({
                 <div className="min-w-0">
                   <div className="font-bold text-[15px]">{r.group_name}</div>
                   <div className="text-muted text-[13.5px]">
-                    {formatDateLabel(r.session_date)} · {shortTime(r.start_time)}
+                    {formatDateLabel(r.session_date)} · {formatTime12(r.start_time)}
                   </div>
                 </div>
                 <span className="flex items-center gap-1.5 shrink-0">

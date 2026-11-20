@@ -226,6 +226,16 @@ body {
   display: none;
 }
 
+/*
+ * تدرّج تلاشٍ عند حافة التمرير لصفوف الرقائق: في اتجاه RTL المحتوى
+ * المخفي يمتد نحو اليسار، فالتلاشي على الحافة اليسرى يدلّ أن هناك
+ * المزيد يُمرَّر إليه — بدل رقاقة مقصوصة بلا أي إشارة.
+ */
+.chip-row-fade {
+  -webkit-mask-image: linear-gradient(to left, transparent 0, black 30px);
+  mask-image: linear-gradient(to left, transparent 0, black 30px);
+}
+
 body {
   background: var(--bg);
   color: var(--text);

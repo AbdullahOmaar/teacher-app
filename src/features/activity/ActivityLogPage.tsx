@@ -11,7 +11,7 @@ import {
   SkeletonRows,
 } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
-import { formatMoney } from '../../lib/format'
+import { formatClock12, formatMoney } from '../../lib/format'
 import type { ActivityEventType, ActivityLogRow } from '../../types/database'
 import { formatDateLabel } from '../schedule/api'
 import {
@@ -26,7 +26,7 @@ import { useActivityActors, useActivityLog } from './hooks'
 function timeLabel(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: '2-digit' })
+  return formatClock12(d)
 }
 
 /**

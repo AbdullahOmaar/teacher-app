@@ -13,6 +13,7 @@ import {
   CalendarX2,
   Check,
   CheckCheck,
+  ChevronDown,
   Clock,
   CloudOff,
   Copy,
@@ -24,13 +25,14 @@ import {
   TriangleAlert,
   Undo2,
   Users,
+  X,
 } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Chip, Field, TextInput } from '../../components/ui/form'
+import { Chip } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
 import { Avatar } from '../../components/ui/Avatar'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
-import { shortTime } from '../../lib/format'
+import { formatClock12, formatTime12 } from '../../lib/format'
 import type { AttendanceStatus } from '../../types/database'
 import { useGroups } from '../groups/hooks'
 import { formatDateLabel, generationWindowMonths, monthStartStr, todayStr } from '../schedule/api'
@@ -102,6 +104,35 @@ export function AttendancePage() {
   const [flashId, setFlashId] = useState<string | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toast = useToast()
+  // منتقي التاريخ: الزر يعرض التاريخ بصيغة عربية مقروءة ويفتح منتقي
+  // الإدخال الأصلي (input[type=date] مخفي بصرياً) عبر showPicker
+  const dateInputRef = useRef<HTMLInputElement | null>(null)
+  const openDatePicker = () => {
+    const el = dateInputRef.current as
+      | (HTMLInputElement & { showPicker?: () => void })
+      | null
+    if (!el) return
+    if (typeof el.showPicker === 'function') {
+      try {
+        el.showPicker()
+        return
+      } catch {
+        /* تابع للبديل */
+      }
+    }
+    el.focus()
+    el.click()
+  }
+  // تنبيه «تم إصدار فواتير هذا الشهر»: شريط نحيف قابل للإغلاق، وإغلاقه
+  // يُحفظ لجلسة المتصفح (sessionStorage) بمفتاح المجموعة+الشهر فلا
+  // يزعج بقية الشهر، ويعود تلقائياً مع شهر/مجموعة أخرى
+  const [dismissedNotice, setDismissedNotice] = useState<string | null>(() => {
+    try {
+      return window.sessionStorage.getItem('att-invoices-dismissed')
+    } catch {
+      return null
+    }
+  })
 
   // الحصة الممرّرة من رابط (الرئيسية/الجدول): تُختار تلقائياً ويُضبط تاريخها
   const paramQ = useSessionById(teacherId, paramSessionId ?? undefined)
@@ -194,6 +225,18 @@ export function AttendancePage() {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
 
   const cancelled = selected?.status === 'cancelled'
+  const noticeKey = selected
+    ? `${selected.group_id}:${selected.session_date.slice(0, 7)}`
+    : null
+  const dismissNotice = () => {
+    if (!noticeKey) return
+    try {
+      window.sessionStorage.setItem('att-invoices-dismissed', noticeKey)
+    } catch {
+      /* جلسة بلا تخزين: الإغلاق يبقى داخل الجلسة الحالية فقط */
+    }
+    setDismissedNotice(noticeKey)
+  }
   const group = selected ? groupById.get(selected.group_id) : undefined
   const rowsReady = Boolean(selected && attQ.data)
   // قيم القائمة المعلّقة للحصة المختارة — طبقة بين التجاوز المحلي
@@ -418,151 +461,159 @@ export function AttendancePage() {
       {/* حالة الأوفلاين/المزامنة (خطوة 11) — تظهر فقط عند الحاجة */}
       <SyncStatusBar online={online} sync={sync} />
 
-      {/* اختيار الحصة: التاريخ + حصص اليوم */}
+      {/* ترويسة مدمجة واحدة: منتقي التاريخ + بيانات الحصة + التقدّم +
+          إدارة الحصة في بطاقة واحدة — كانت ترويستين مكررتين تدفعان
+          قائمة الطلاب تحت أول شاشة. أزرار «مسح QR» و«الكل حاضر» لا
+          توجد هنا: مكانها الوحيد الشريط اللاصق السفلي مع العدّادات. */}
       <Card>
-        <Field label="تاريخ الحصة">
-          <TextInput
-            type="date"
-            dir="ltr"
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value)
-              setPickedId(null)
-            }}
-          />
-        </Field>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={openDatePicker}
+              aria-label="تاريخ الحصة — اضغط لتغيير التاريخ"
+              className="w-full flex items-center gap-2 border border-border rounded-xl px-3 min-h-[48px] bg-card text-text cursor-pointer"
+            >
+              <CalendarDays size={20} className="text-primary shrink-0" />
+              <span className="flex-1 text-start font-semibold text-[15px] truncate">
+                {/^\d{4}-\d{2}-\d{2}$/.test(date)
+                  ? formatDateLabel(date).replace(' ', '، ')
+                  : 'اختر تاريخ الحصة'}
+              </span>
+              <ChevronDown size={18} className="text-muted shrink-0" />
+            </button>
+            <input
+              ref={dateInputRef}
+              type="date"
+              value={date}
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={(e) => {
+                if (!e.target.value) return
+                setDate(e.target.value)
+                setPickedId(null)
+              }}
+              className="absolute inset-0 w-full opacity-0 pointer-events-none"
+            />
+          </div>
+          {selected && (
+            <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
+              {saving ? (
+                'بنحفظ…'
+              ) : !online ? (
+                <>
+                  <CloudOff size={14} className="text-warn-text" />
+                  غير متصل — الحفظ على الجهاز
+                </>
+              ) : sync.pendingCount > 0 ? (
+                <>
+                  <Clock size={14} className="text-warn-text" />
+                  {sync.pendingCount} قيد الانتظار
+                </>
+              ) : (
+                <>
+                  <Check size={14} className="text-ok-text" />
+                  الحفظ فوري
+                </>
+              )}
+            </span>
+          )}
+        </div>
         {paramSessionId && paramQ.isSuccess && !paramQ.data && (
-          <p className="text-warn-text text-[13.5px] mb-2">
+          <p className="text-warn-text text-[13.5px] mt-2 mb-0">
             الحصة المطلوبة من الرابط غير موجودة — اختر حصة من حصص اليوم المختار.
           </p>
         )}
         {pickerPending ? (
-          <Skeleton className="h-[44px]" />
+          <Skeleton className="h-[44px] mt-3" />
         ) : pickerError ? (
-          <p className="text-bad-text text-[13.5px] mb-0">
+          <p className="text-bad-text text-[13.5px] mt-2 mb-0">
             {pickerError instanceof Error ? pickerError.message : 'خطأ غير معروف'}
           </p>
         ) : groups.length === 0 ? (
-          <EmptyState
-            icon={CalendarDays}
-            title="لا توجد مجموعات بعد — فلا حصص تُولّد"
-            hint="أنشئ مجموعة وحدد أيامها وميعادها، وحصصها هتتولّد تلقائياً وتظهر هنا للتحضير."
-          />
-        ) : daySessions.length === 0 ? (
-          <EmptyState
-            icon={CalendarX2}
-            title="لا توجد حصص في اليوم ده"
-            hint="جرّب تاريخاً تاني، أو راجع جدول المجموعات من شاشة الجدول."
-          />
-        ) : (
-          <div className="flex flex-col gap-2">
-            {daySessions.map((s) => {
-              const active = selected?.id === s.id
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setPickedId(s.id)}
-                  className={`text-start border rounded-xl px-3 py-2.5 min-h-[48px] cursor-pointer ${
-                    active
-                      ? 'border-primary bg-soft'
-                      : 'border-border bg-card hover:bg-soft'
-                  } ${s.status === 'cancelled' ? 'opacity-70' : ''}`}
-                >
-                  <span className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-[16px]">{s.group_name}</span>
-                    {s.kind === 'extra' && (
-                      <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">إضافية</span>
-                    )}
-                    {s.kind === 'moved' && (
-                      <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">منقولة</span>
-                    )}
-                    {s.status === 'cancelled' && (
-                      <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">ملغاة</span>
-                    )}
-                  </span>
-                  <span className="block text-muted text-[13.5px] mt-0.5">
-                    الساعة {shortTime(s.start_time)} · {s.duration_minutes} دقيقة
-                    {s.group_room ? ` · ${s.group_room}` : ''}
-                  </span>
-                </button>
-              )
-            })}
+          <div className="mt-2">
+            <EmptyState
+              icon={CalendarDays}
+              title="لا توجد مجموعات بعد — فلا حصص تُولّد"
+              hint="أنشئ مجموعة وحدد أيامها وميعادها، وحصصها هتتولّد تلقائياً وتظهر هنا للتحضير."
+            />
           </div>
+        ) : daySessions.length === 0 ? (
+          <div className="mt-2">
+            <EmptyState
+              icon={CalendarX2}
+              title="لا توجد حصص في اليوم ده"
+              hint="جرّب تاريخاً تاني، أو راجع جدول المجموعات من شاشة الجدول."
+            />
+          </div>
+        ) : (
+          <>
+            {daySessions.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto no-scrollbar chip-row-fade mt-3 -mx-1 px-1 pb-1">
+                {daySessions.map((s) => (
+                  <Chip
+                    key={s.id}
+                    active={selected?.id === s.id}
+                    onClick={() => setPickedId(s.id)}
+                  >
+                    {s.group_name} · {formatTime12(s.start_time)}
+                    {s.status === 'cancelled' ? ' (ملغاة)' : ''}
+                  </Chip>
+                ))}
+              </div>
+            )}
+            {selected && (
+              <div className="mt-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-extrabold text-[16px]">{selected.group_name}</span>
+                  {selected.kind === 'extra' && (
+                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">إضافية</span>
+                  )}
+                  {selected.kind === 'moved' && (
+                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">منقولة</span>
+                  )}
+                  {selected.status === 'cancelled' && (
+                    <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">ملغاة</span>
+                  )}
+                </div>
+                <div className="text-muted text-[13.5px] mt-0.5">
+                  الساعة {formatTime12(selected.start_time)} · {selected.duration_minutes} دقيقة
+                  {selected.group_room ? ` · ${selected.group_room}` : ''}
+                </div>
+                <div className="flex items-center gap-2 mt-2.5">
+                  <div className="flex-1 h-2 rounded-full bg-soft overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${done >= total && total > 0 ? 'bg-ok' : 'bg-primary'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-[13.5px] font-extrabold">
+                    {rowsReady ? `${done}/${total}` : '…'} محضّر
+                  </span>
+                </div>
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  <Button
+                    variant={cancelled ? 'primary' : 'ghost'}
+                    onClick={toggleSessionStatus}
+                    disabled={statusMut.isPending}
+                    className="min-h-[48px] text-[13.5px] px-3"
+                  >
+                    {cancelled ? (<><Undo2 size={18} /> استرجاع الحصة</>) : 'إلغاء الحصة'}
+                  </Button>
+                  <Link to="/schedule" className="no-underline">
+                    <Button variant="ghost" className="min-h-[48px] text-[13.5px] px-3">
+                      نقل الحصة من الجدول
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </Card>
 
       {selected && (
         <>
-          {/* شريط الملخص: الحصة والتقدّم والحفظ */}
-          <Card>
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="font-extrabold text-[16px]">{selected.group_name}</div>
-                <div className="text-muted text-[13.5px]">
-                  {formatDateLabel(selected.session_date)} · الساعة {shortTime(selected.start_time)} ·{' '}
-                  {selected.duration_minutes} دقيقة
-                  {selected.group_room ? ` · ${selected.group_room}` : ''}
-                </div>
-              </div>
-              <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
-                {saving ? (
-                  'بنحفظ…'
-                ) : !online ? (
-                  <>
-                    <CloudOff size={14} className="text-warn-text" />
-                    غير متصل — الحفظ على الجهاز
-                  </>
-                ) : sync.pendingCount > 0 ? (
-                  <>
-                    <Clock size={14} className="text-warn-text" />
-                    {sync.pendingCount} قيد الانتظار
-                  </>
-                ) : (
-                  <>
-                    <Check size={14} className="text-ok-text" />
-                    الحفظ فوري
-                  </>
-                )}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 mt-3">
-              <div className="flex-1 h-2 rounded-full bg-soft overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${done >= total && total > 0 ? 'bg-ok' : 'bg-primary'}`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              <span className="text-[13.5px] font-extrabold">
-                {rowsReady ? `${done}/${total}` : '…'} محضّر
-              </span>
-            </div>
-            <div className="flex gap-2 mt-3 flex-wrap">
-              {!cancelled && rowsReady && (
-                <Button onClick={() => setScanOpen(true)}>
-                  <ScanQrCode size={20} />
-                  مسح QR
-                </Button>
-              )}
-              {!cancelled && anyNotPresent && rowsReady && (
-                <Button variant="soft" onClick={markAllPresent} disabled={saveManyMut.isPending}>
-                  <CheckCheck size={20} />
-                  حاضر للكل
-                </Button>
-              )}
-              <Button
-                variant={cancelled ? 'primary' : 'ghost'}
-                onClick={toggleSessionStatus}
-                disabled={statusMut.isPending}
-              >
-                {cancelled ? (<><Undo2 size={20} /> استرجاع الحصة</>) : 'إلغاء الحصة'}
-              </Button>
-              <Link to="/schedule" className="no-underline">
-                <Button variant="ghost">نقل الحصة من الجدول</Button>
-              </Link>
-            </div>
-          </Card>
-
           {cancelled && (
             <div className="border border-border bg-soft rounded-xl px-3 py-2.5 mb-3 text-[13.5px] font-semibold text-muted flex items-start gap-2">
               <Ban size={20} className="shrink-0 mt-0.5" />
@@ -570,10 +621,20 @@ export function AttendancePage() {
             </div>
           )}
 
-          {invoicesQ.data && (
-            <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2 mb-3 text-[13.5px] flex items-start gap-2">
-              <AlertTriangle size={20} className="shrink-0 mt-0.5 text-warn-text" />
-              <span>تم إصدار فواتير هذا الشهر؛ أي تعديل في الحضور سيسجل كتسوية مالية.</span>
+          {invoicesQ.data && noticeKey !== dismissedNotice && (
+            <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-1.5 mb-3 text-[13.5px] flex items-center gap-2">
+              <AlertTriangle size={16} className="shrink-0 text-warn-text" />
+              <span className="flex-1">
+                تم إصدار فواتير هذا الشهر — أي تعديل في الحضور سيسجل كتسوية مالية.
+              </span>
+              <button
+                type="button"
+                onClick={dismissNotice}
+                aria-label="إغلاق تنبيه الفواتير"
+                className="shrink-0 w-9 h-9 -my-1 flex items-center justify-center bg-transparent border-0 cursor-pointer text-warn-text"
+              >
+                <X size={16} />
+              </button>
             </div>
           )}
 
@@ -740,11 +801,7 @@ export function AttendancePage() {
                                 <>
                                   <span className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-primary">
                                     <LogOut size={16} />
-                                    انصرف{' '}
-                                    {new Date(leftAt).toLocaleTimeString('ar-EG', {
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                    })}
+                                    انصرف {formatClock12(new Date(leftAt))}
                                   </span>
                                   <Button
                                     variant="ghost"
@@ -937,7 +994,7 @@ export function AttendancePage() {
           وتُوقف مع تركيبه/فكّه، والتسجيل يمرّ بـ handleScan ← changeValue */}
       {scanOpen && selected && (
         <QrScannerSheet
-          sessionLabel={`${selected.group_name} · ${formatDateLabel(selected.session_date)} · الساعة ${shortTime(selected.start_time)}`}
+          sessionLabel={`${selected.group_name} · ${formatDateLabel(selected.session_date)} · الساعة ${formatTime12(selected.start_time)}`}
           done={done}
           total={total}
           onScan={handleScan}

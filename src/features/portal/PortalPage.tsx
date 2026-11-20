@@ -20,7 +20,7 @@ import { Button } from '../../components/ui/Button'
 import { Chip, ChipRow, Field, FormError, TextInput } from '../../components/ui/form'
 import { SkeletonCards } from '../../components/ui/states'
 import type { IconComponent } from '../../components/ui/EmptyState'
-import { daysLabel, formatMoney, shortTime } from '../../lib/format'
+import { daysLabel, formatClock12, formatMoney, formatTime12 } from '../../lib/format'
 import type { PaymentMethod } from '../../types/database'
 import { fmtScore, pctOf } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
@@ -288,7 +288,7 @@ function PaymentProofSection({
 function fmtEventTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: '2-digit' })
+  return formatClock12(d)
 }
 
 /**
@@ -485,7 +485,7 @@ export function PortalPage() {
           <Card key={g.name}>
             <div className="font-bold text-[15px]">{g.name}</div>
             <div className="text-muted text-[13.5px] mt-0.5">
-              {daysLabel(g.days)} · الساعة {shortTime(g.start_time)}
+              {daysLabel(g.days)} · الساعة {formatTime12(g.start_time)}
               {g.room ? ` · ${g.room}` : ''}
             </div>
             {g.links.length > 0 && (

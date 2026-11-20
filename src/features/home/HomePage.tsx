@@ -13,7 +13,8 @@ import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
-import { formatMoney, shortTime } from '../../lib/format'
+import { Logo } from '../../components/brand/Logo'
+import { formatMoney, formatTime12 } from '../../lib/format'
 import {
   monthStartStr,
   relLabel,
@@ -169,7 +170,11 @@ export function HomePage() {
               className="bg-card border border-border rounded-2xl py-3 flex flex-col items-center gap-1.5 no-underline text-text"
             >
               <ActionIcon size={24} className="text-primary" />
-              <span className="text-[13.5px] font-semibold">{a.label}</span>
+              {/* ارتفاع موحّد للتسميات الأربع (سطرين محجوزين ومتمركزين) —
+                  «مجموعة جديدة» كانت تلتف لسطرين فتكسر تساوي البطاقات */}
+              <span className="text-[13.5px] font-semibold leading-[1.45] min-h-[2.9em] flex items-center justify-center text-center">
+                {a.label}
+              </span>
             </Link>
           )
         })}
@@ -201,8 +206,13 @@ export function HomePage() {
         />
       ) : (
         <>
-          {/* Hero: الحصة القادمة بتدرّج نيلي */}
-          <div className="rounded-2xl p-4 mb-3 text-white bg-[linear-gradient(135deg,#4F46E5,#4338CA)] shadow-[0_8px_20px_rgba(79,70,229,0.35)]">
+          {/* Hero: الحصة القادمة بتدرّج نيلي — وبصمة الهوية: علامة
+              الكتاب/الصح مائية بيضاء خفيفة جداً على التدرّج نفسه */}
+          <div className="relative overflow-hidden rounded-2xl p-4 mb-3 text-white bg-[linear-gradient(135deg,#4F46E5,#4338CA)] shadow-[0_8px_20px_rgba(79,70,229,0.35)]">
+            <div className="absolute -bottom-10 -end-10 pointer-events-none" aria-hidden="true">
+              <Logo mono decorative size={190} className="text-white opacity-[0.09]" />
+            </div>
+            <div className="relative">
             {hero ? (
               <>
                 <div className="text-[13.5px] opacity-85 mb-1">
@@ -211,7 +221,7 @@ export function HomePage() {
                 <div className="font-extrabold text-[19px]">{hero.group_name}</div>
                 <div className="text-[13.5px] opacity-90 mt-1">
                   {hero.session_date === today ? `${relLabel(hero, now)} · ` : ''}
-                  الساعة {shortTime(hero.start_time)} · {hero.duration_minutes} دقيقة
+                  الساعة {formatTime12(hero.start_time)} · {hero.duration_minutes} دقيقة
                   {hero.group_room ? ` · ${hero.group_room}` : ''}
                   {countsQ.data ? ` · ${countsQ.data.get(hero.group_id) ?? 0} طالب` : ''}
                 </div>
@@ -235,6 +245,7 @@ export function HomePage() {
                 </div>
               </>
             )}
+            </div>
           </div>
 
           {/* KPIs */}
@@ -380,7 +391,7 @@ function TodaySessionCard({
             )}
           </div>
           <div className="text-muted text-[13.5px] mt-0.5">
-            {shortTime(s.start_time)} · {s.duration_minutes} دقيقة
+            {formatTime12(s.start_time)} · {s.duration_minutes} دقيقة
             {s.group_room ? ` · ${s.group_room}` : ''}
           </div>
         </div>

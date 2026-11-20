@@ -189,6 +189,7 @@ export function StudentsPage() {
           }
         />
       ) : (
+        <>
         <Card className="p-0 overflow-hidden">
           {filtered.map((s, i) => {
             const balance = balancesQ.data?.get(s.id) ?? 0
@@ -223,10 +224,13 @@ export function StudentsPage() {
                     </>
                   }
                   secondary={
+                    /* الصف والمجموعة فقط — كود الطالب أُخرج من هذا السطر
+                       حتى لا يزاحم أسماء المجموعات (يبقى في ملف الطالب
+                       والبحث به يعمل كما هو) */
                     <>
-                      <span dir="ltr">{s.public_code}</span>
-                      {s.grade ? ` · ${s.grade}` : ''}
-                      {names.length ? ` · ${names.join('، ')}` : ''}
+                      {s.grade ?? ''}
+                      {s.grade && names.length ? ' · ' : ''}
+                      {names.length ? names.join('، ') : ''}
                     </>
                   }
                   trailing={
@@ -247,6 +251,10 @@ export function StudentsPage() {
             )
           })}
         </Card>
+        {/* حشوة تمرير سفلية: آخر صف يمرّ بالكامل فوق الـ FAB العائم
+            فلا يحجب الزر الصف الأخير ولا شاراته */}
+        <div aria-hidden="true" className="h-[76px]" />
+        </>
       )}
       </div>
 

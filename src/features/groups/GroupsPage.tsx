@@ -7,7 +7,7 @@ import { Fab } from '../../components/ui/Fab'
 import { Chip, ChipRow } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
-import { BILLING_LABELS, daysLabel, formatMoney, shortTime } from '../../lib/format'
+import { BILLING_LABELS, daysLabel, formatMoney, formatTime12 } from '../../lib/format'
 import { useEnrollments } from '../students/hooks'
 import { countByGroup } from './api'
 import { useGroups } from './hooks'
@@ -111,7 +111,7 @@ export function GroupsPage() {
                 </div>
                 <div className="text-muted text-[13.5px] mt-0.5">
                   {BILLING_LABELS[g.billing_type]} · {formatMoney(g.price)} · {daysLabel(g.days)} ·{' '}
-                  {shortTime(g.start_time)} ({g.duration_minutes} د)
+                  {formatTime12(g.start_time)} ({g.duration_minutes} د)
                   {g.room ? ` · ${g.room}` : ''}
                 </div>
                 {g.capacity != null && pct != null ? (

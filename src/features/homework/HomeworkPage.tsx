@@ -24,7 +24,7 @@ import {
   Skeleton,
 } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
-import { shortTime } from '../../lib/format'
+import { formatTime12 } from '../../lib/format'
 import {
   EMPTY_VALUE,
   STATUS_BADGE_CLASS,
@@ -375,7 +375,7 @@ export function HomeworkPage() {
                   )}
                 </span>
                 <span className="block text-muted text-[13.5px] mt-0.5">
-                  الساعة {shortTime(s.start_time)}
+                  الساعة {formatTime12(s.start_time)}
                   {sum
                     ? sum.attended > 0
                       ? ` · سلّم ${sum.submitted} من ${sum.attended} حاضرين`
@@ -409,7 +409,7 @@ export function HomeworkPage() {
               <div className="min-w-0">
                 <div className="font-extrabold text-[16px]">{group?.name}</div>
                 <div className="text-muted text-[13.5px]">
-                  {formatDateLabel(selected.session_date)} · الساعة {shortTime(selected.start_time)} ·{' '}
+                  {formatDateLabel(selected.session_date)} · الساعة {formatTime12(selected.start_time)} ·{' '}
                   {selected.duration_minutes} دقيقة
                 </div>
               </div>

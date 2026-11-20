@@ -11,7 +11,7 @@ import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../.
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
-import { BILLING_LABELS, daysLabel, formatMoney, shortTime } from '../../lib/format'
+import { BILLING_LABELS, daysLabel, formatMoney, formatTime12 } from '../../lib/format'
 import { useStudents } from '../students/hooks'
 import { EnrollStudentSheet } from '../students/EnrollStudentSheet'
 import {
@@ -149,7 +149,7 @@ export function GroupDetailPage() {
         <div className="text-muted text-[13.5px] mt-1 leading-relaxed">
           {BILLING_LABELS[group.billing_type]} · {formatMoney(group.price)}
           <br />
-          {daysLabel(group.days)} · {shortTime(group.start_time)} ({group.duration_minutes} دقيقة)
+          {daysLabel(group.days)} · {formatTime12(group.start_time)} ({group.duration_minutes} دقيقة)
           {group.room ? <br /> : null}
           {group.room ? (<span className="inline-flex items-center gap-1"><MapPin size={16} /> {group.room}</span>) : ''}
           {group.assistant_name ? <><br />مساعد: {group.assistant_name}</> : null}

@@ -178,7 +178,7 @@ export function InvoicesPage() {
       <div className="flex gap-2 mb-3">
         <div className="flex-1">
           <TextInput
-            placeholder="ابحث باسم الطالب أو الشهر (2026-11)…"
+            placeholder="ابحث باسم الطالب أو باسم الشهر (نوفمبر)…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -276,17 +276,22 @@ export function InvoicesPage() {
               />
             </Card>
           ) : (
-            <Card className="p-0 overflow-hidden">
-              {filtered.map((inv, i) => (
-                <InvoiceCard
-                  key={inv.invoice_id}
-                  inv={inv}
-                  first={i === 0}
-                  selected={paneInvoiceId === inv.invoice_id}
-                  onDesktopSelect={setSelectedId}
-                />
-              ))}
-            </Card>
+            <>
+              <Card className="p-0 overflow-hidden">
+                {filtered.map((inv, i) => (
+                  <InvoiceCard
+                    key={inv.invoice_id}
+                    inv={inv}
+                    first={i === 0}
+                    selected={paneInvoiceId === inv.invoice_id}
+                    onDesktopSelect={setSelectedId}
+                  />
+                ))}
+              </Card>
+              {/* حشوة تمرير سفلية: آخر فاتورة تمرّ بالكامل فوق الـ FAB
+                  العائم فلا يحجب الزر صفها ولا شارة حالتها */}
+              <div aria-hidden="true" className="h-[76px]" />
+            </>
           )}
         </>
       )}
@@ -310,7 +315,7 @@ export function InvoicesPage() {
       <Fab
         onClick={() => setIssueOpen(true)}
         ariaLabel={`إصدار فواتير ${currentMonthLabel}`}
-        label={`إصدار فواتير ${currentMonthLabel}`}
+        label="إصدار فواتير الشهر"
         icon={ReceiptText}
       />
 

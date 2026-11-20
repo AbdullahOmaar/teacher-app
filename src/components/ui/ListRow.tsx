@@ -28,7 +28,9 @@ export function ListRow({
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-[15px] leading-[1.6] truncate">{title}</div>
           {secondary != null && (
-            <div className="text-muted text-[13.5px] leading-[1.7] truncate">{secondary}</div>
+            /* السطر الثاني يلتف حتى سطرين بقصّ أنيق في النهاية فقط —
+               كان truncate يقصّ أسماء المجموعات منتصف الكلمة («الثانو…») */
+            <div className="text-muted text-[13.5px] leading-[1.7] line-clamp-2">{secondary}</div>
           )}
         </div>
         {trailing}

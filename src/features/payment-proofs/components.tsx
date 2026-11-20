@@ -8,7 +8,7 @@ import { Sheet } from '../../components/ui/Sheet'
 import { Field, FormError, Select, TextInput } from '../../components/ui/form'
 import { ErrorState, SkeletonRows } from '../../components/ui/states'
 import { useToast } from '../../components/ui/toast'
-import { formatMoney } from '../../lib/format'
+import { formatClock12, formatMoney } from '../../lib/format'
 import { PAYMENT_METHOD_LABELS, periodLabel } from '../invoices/api'
 import { useStudentInvoices } from '../invoices/hooks'
 import type { PendingProofItem } from './api'
@@ -22,7 +22,7 @@ function errText(e: unknown): string {
 function proofDateTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return `${d.toLocaleDateString('ar-EG')} · ${d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}`
+  return `${d.toLocaleDateString('ar-EG')} · ${formatClock12(d)}`
 }
 
 // ---------------------------------------------------------------------------

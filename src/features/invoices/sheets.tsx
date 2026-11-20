@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Logo } from '../../components/brand/Logo'
 import { useBrandIdentity } from '../../hooks/useBrandIdentity'
 import { Chip, ChipRow, Field, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
-import { formatMoney, shortTime } from '../../lib/format'
+import { formatMoney, formatTime12 } from '../../lib/format'
 import type { AttendanceStatus, PaymentMethod, PaymentRow } from '../../types/database'
 import { todayStr } from '../home/api'
 import { ATTENDANCE_STATUSES, STATUS_LABELS } from '../attendance/api'
@@ -552,7 +552,7 @@ export function AdjustSheet({
             >
               {sessions.map((s) => (
                 <option key={s.session_id} value={s.session_id}>
-                  {s.session_date} · {shortTime(s.start_time)} — حالياً:{' '}
+                  {s.session_date} · {formatTime12(s.start_time)} — حالياً:{' '}
                   {s.status ? STATUS_LABELS[s.status] : 'بلا حالة'}
                 </option>
               ))}

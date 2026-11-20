@@ -4,7 +4,7 @@ import { Sheet } from '../../components/ui/Sheet'
 import { AlertTriangle, CalendarCheck2, MoveHorizontal, NotebookPen, Undo2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, Select, TextInput } from '../../components/ui/form'
-import { shortTime } from '../../lib/format'
+import { formatTime12, shortTime } from '../../lib/format'
 import type { GroupRow, SessionRow } from '../../types/database'
 import { datesBetween, formatDateLabel, todayStr, type SessionWithGroup } from './api'
 import {
@@ -115,7 +115,7 @@ export function SessionDetailSheet({
       </div>
       <div className="text-muted text-[13.5px] mb-1">{formatDateLabel(session.session_date)}</div>
       <div className="text-[13.5px] mb-1">
-        الساعة {shortTime(session.start_time)} · {session.duration_minutes} دقيقة
+        الساعة {formatTime12(session.start_time)} · {session.duration_minutes} دقيقة
         {session.group_room ? ` · ${session.group_room}` : ''}
       </div>
       {session.kind === 'moved' && (
