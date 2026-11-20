@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/*
+ * ثيم التطبيق — نفس متغيرات النسخة المرجعية (FEATURES-UIUX-SPEC §6.1)
+ * Tailwind v4: نربط ألوان الأدوات بمتغيرات CSS عبر @theme inline
+ * فيعمل تبديل الثيم الداكن بتغيير المتغيرات فقط.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-d: var(--primary-d);
+  --color-soft: var(--soft);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --font-sans: "IBM Plex Sans Arabic", system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+:root {
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --muted: #64748b;
+  --primary: #4f46e5;
+  --primary-d: #4338ca;
+  --soft: #eef2ff;
+  --ok: #10b981;
+  --warn: #f59e0b;
+  --bad: #ef4444;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --border: #334155;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --primary: #818cf8;
+  --primary-d: #6366f1;
+  --soft: #1e1b4b;
+  /* ok / warn / bad ثابتة في الثيمين كما في المرجع */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+}
