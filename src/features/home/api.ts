@@ -282,7 +282,7 @@ export async function fetchHomeAlerts(
         alerts.push({
           kind: 'att',
           text: `${s.group_name}: ${unmarked} طالب لسه متسجلش حضورهم`,
-          to: '/attendance',
+          to: `/attendance?session=${s.id}`,
         })
       }
     }

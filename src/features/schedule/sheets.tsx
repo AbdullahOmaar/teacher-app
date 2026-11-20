@@ -126,7 +126,7 @@ export function SessionDetailSheet({
 
       <div className="flex flex-col gap-2 mt-4">
         {!cancelled && (
-          <Link to="/attendance" className="no-underline">
+          <Link to={`/attendance?session=${session.id}`} className="no-underline">
             <Button full variant="soft">
               ✅ فتح الحضور
             </Button>

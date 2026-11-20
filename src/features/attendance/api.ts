@@ -1,0 +1,358 @@
+import { supabase } from '../../lib/supabase'
+import { waLink } from '../../lib/format'
+import type { AttendanceRow, AttendanceStatus, StudentRow } from '../../types/database'
+import { fetchSessionsInRange, monthStartStr, type SessionWithGroup } from '../home/api'
+
+export { fetchSessionsInRange, monthStartStr }
+export type { SessionWithGroup }
+
+function db() {
+  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
+  return supabase
+}
+
+// ---------------------------------------------------------------------------
+// حالات الحضور الأربع — enum ‏attendance_status في المخطط حرفياً (p/a/l/m)،
+// والأسماء والألوان من المرجع §2.4. الحضور الفعلي = p/l/m في كل الحسابات.
+// ---------------------------------------------------------------------------
+
+export const ATTENDANCE_STATUSES: { code: AttendanceStatus; label: string }[] = [
+  { code: 'p', label: 'حاضر' },
+  { code: 'a', label: 'غائب' },
+  { code: 'l', label: 'متأخر' },
+  { code: 'm', label: 'تعويضية' },
+]
+
+export const STATUS_LABELS: Record<AttendanceStatus, string> = {
+  p: 'حاضر',
+  a: 'غائب',
+  l: 'متأخر',
+  m: 'تعويضية',
+}
+
+/** لون الحالة في المرجع §2.4 ‏(STATUS_COLOR) — يُستخدم للشارات والأزرار المختارة */
+export const STATUS_COLORS: Record<AttendanceStatus, string> = {
+  p: '#10B981',
+  a: '#EF4444',
+  l: '#F59E0B',
+  m: '#4F46E5',
+}
+
+/** الحضور الفعلي (المرجع §2.4): حاضر/متأخر/تعويضية */
+export function isAttended(status: AttendanceStatus | null | undefined): boolean {
+  return status === 'p' || status === 'l' || status === 'm'
+}
+
+/** قيمة حضور طالب في حصة — صف واحد في attendance يجمع الحالة + الواجب + التمييز */
+export interface AttendanceValue {
+  status: AttendanceStatus | null
+  homework_done: boolean
+  starred: boolean
+}
+
+export const EMPTY_VALUE: AttendanceValue = { status: null, homework_done: false, starred: false }
+
+function isEmptyValue(v: AttendanceValue): boolean {
+  return v.status == null && !v.homework_done && !v.starred
+}
+
+// ---------------------------------------------------------------------------
+// الحصص والقائمة (roster)
+// ---------------------------------------------------------------------------
+
+const SESSION_COLS =
+  'id, teacher_id, group_id, session_date, start_time, duration_minutes, kind, status, origin_session_id, note, created_at, updated_at'
+const ATT_COLS =
+  'teacher_id, session_id, student_id, status, homework_done, starred, created_at, updated_at'
+
+function withGroup(row: Record<string, unknown>): SessionWithGroup {
+  const g = (row.groups ?? {}) as { name?: string; room?: string | null }
+  return {
+    ...(row as unknown as SessionWithGroup),
+    group_name: g.name ?? '—',
+    group_room: g.room ?? null,
+  }
+}
+
+/** حصة واحدة بمعرّفها — لروابط «سجّل الحضور/تحضير» التي تمرّر ?session= */
+export async function fetchSessionById(
+  teacherId: string,
+  sessionId: string,
+): Promise<SessionWithGroup | null> {
+  const { data, error } = await db()
+    .from('sessions')
+    .select(`${SESSION_COLS}, groups(name, room)`)
+    .eq('teacher_id', teacherId)
+    .eq('id', sessionId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  return withGroup(data as unknown as Record<string, unknown>)
+}
+
+export type RosterStudent = Pick<
+  StudentRow,
+  'id' | 'name' | 'public_code' | 'phone' | 'guardian_name' | 'guardian_phone'
+>
+
+/**
+ * طلاب المجموعة المسجلون النشطون — قائمة الحضور (المرجع §3.2):
+ * تسجيلات المجموعة حيث الطالب غير موقوف (studentsOf في المرجع يصفّي !paused).
+ */
+export async function fetchSessionRoster(
+  teacherId: string,
+  groupId: string,
+): Promise<RosterStudent[]> {
+  const { data, error } = await db()
+    .from('enrollments')
+    .select('student_id, students!inner(name, public_code, paused, phone, guardian_name, guardian_phone)')
+    .eq('teacher_id', teacherId)
+    .eq('group_id', groupId)
+    .eq('students.paused', false)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
+    const st = (row.students ?? {}) as Record<string, unknown>
+    return {
+      id: row.student_id as string,
+      name: (st.name as string) ?? '—',
+      public_code: (st.public_code as string) ?? '',
+      phone: (st.phone as string | null) ?? null,
+      guardian_name: (st.guardian_name as string | null) ?? null,
+      guardian_phone: (st.guardian_phone as string | null) ?? null,
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// ولي الأمر ورسالة الغياب (المرجع §3.2 + §5.6)
+// الرقم: صف guardians المرتبط بالطالب عبر guardian_students إن وُجد (الرقم
+// المُتحقق منه في المخطط)، وإلا guardian_phone على الطالب، وإلا موبايل الطالب
+// نفسه — وهو ترتيب المرجع §5.6 (guardianPhone إن وُجد وإلا phone).
+// ---------------------------------------------------------------------------
+
+export interface GuardianContact {
+  name: string | null
+  phone: string | null
+}
+
+export async function fetchGuardianContacts(
+  teacherId: string,
+  studentIds: string[],
+): Promise<Map<string, GuardianContact>> {
+  const map = new Map<string, GuardianContact>()
+  if (studentIds.length === 0) return map
+  const { data, error } = await db()
+    .from('guardian_students')
+    .select('student_id, guardians(display_name, phone)')
+    .eq('teacher_id', teacherId)
+    .in('student_id', studentIds)
+  if (error) throw error
+  for (const row of (data ?? []) as unknown as Record<string, unknown>[]) {
+    const sid = row.student_id as string
+    if (map.has(sid)) continue
+    const g = (row.guardians ?? {}) as { display_name?: string; phone?: string }
+    map.set(sid, { name: g.display_name?.trim() ? g.display_name : null, phone: g.phone ?? null })
+  }
+  return map
+}
+
+/** بيانات ولي الأمر الفعّالة لطالب: المرتبط (guardians) أولاً ثم حقول الطالب */
+export function resolveGuardian(
+  student: RosterStudent,
+  contact: GuardianContact | undefined,
+): { name: string; phone: string | null } {
+  return {
+    name: contact?.name ?? (student.guardian_name?.trim() ? student.guardian_name : 'ولي الأمر'),
+    phone: contact?.phone ?? student.guardian_phone ?? student.phone,
+  }
+}
+
+/**
+ * رابط إبلاغ الغياب عبر واتساب (wa.me يدوي كما في المرجع §5.6):
+ * «أهلاً {guardian}، نحيطكم علماً بتغيب الطالب {name} عن حصة {date}.»
+ * و{date} هي تاريخ الحصة بصيغة المخطط YYYY-MM-DD كما في الكود المرجعي.
+ */
+export function absenceWaUrl(
+  student: RosterStudent,
+  contact: GuardianContact | undefined,
+  sessionDate: string,
+): string | null {
+  const { name: guardianName, phone } = resolveGuardian(student, contact)
+  const base = waLink(phone)
+  if (!base) return null
+  const msg = `أهلاً ${guardianName}، نحيطكم علماً بتغيب الطالب ${student.name} عن حصة ${sessionDate}.`
+  return `${base}?text=${encodeURIComponent(msg)}`
+}
+
+// ---------------------------------------------------------------------------
+// قراءة وكتابة الحضور — upsert على المفتاح الأساسي (session_id, student_id).
+// قيد المخطط: لا صف بلا أي قيمة (status null + لا واجب + لا تمييز)، فالقيمة
+// الفارغة تماماً تُحذف صفّها بدل إدراجها.
+// ---------------------------------------------------------------------------
+
+export async function fetchSessionAttendance(
+  teacherId: string,
+  sessionId: string,
+): Promise<AttendanceRow[]> {
+  const { data, error } = await db()
+    .from('attendance')
+    .select(ATT_COLS)
+    .eq('teacher_id', teacherId)
+    .eq('session_id', sessionId)
+  if (error) throw error
+  return (data ?? []) as unknown as AttendanceRow[]
+}
+
+export async function saveAttendance(
+  teacherId: string,
+  sessionId: string,
+  studentId: string,
+  value: AttendanceValue,
+): Promise<void> {
+  if (isEmptyValue(value)) {
+    const { error } = await db()
+      .from('attendance')
+      .delete()
+      .eq('teacher_id', teacherId)
+      .eq('session_id', sessionId)
+      .eq('student_id', studentId)
+    if (error) throw error
+    return
+  }
+  const { error } = await db()
+    .from('attendance')
+    .upsert(
+      {
+        teacher_id: teacherId,
+        session_id: sessionId,
+        student_id: studentId,
+        status: value.status,
+        homework_done: value.homework_done,
+        starred: value.starred,
+      },
+      { onConflict: 'session_id,student_id' },
+    )
+  if (error) throw error
+}
+
+/** حفظ جماعي (حاضر للكل): upsert واحد لكل الطلاب ذوي القيم غير الفارغة */
+export async function saveManyAttendance(
+  teacherId: string,
+  sessionId: string,
+  entries: { studentId: string; value: AttendanceValue }[],
+): Promise<void> {
+  const rows = entries
+    .filter((e) => !isEmptyValue(e.value))
+    .map((e) => ({
+      teacher_id: teacherId,
+      session_id: sessionId,
+      student_id: e.studentId,
+      status: e.value.status,
+      homework_done: e.value.homework_done,
+      starred: e.value.starred,
+    }))
+  if (rows.length === 0) return
+  const { error } = await db()
+    .from('attendance')
+    .upsert(rows, { onConflict: 'session_id,student_id' })
+  if (error) throw error
+}
+
+/** هل صدرت فواتير شهر هذه الحصة لمجموعتها؟ (تنبيه المرجع §3.2) */
+export async function fetchMonthHasInvoices(
+  teacherId: string,
+  groupId: string,
+  sessionDate: string,
+): Promise<boolean> {
+  const { count, error } = await db()
+    .from('invoices')
+    .select('id', { count: 'exact', head: true })
+    .eq('teacher_id', teacherId)
+    .eq('group_id', groupId)
+    .eq('period_month', monthStartStr(sessionDate))
+  if (error) throw error
+  return (count ?? 0) > 0
+}
+
+// ---------------------------------------------------------------------------
+// سجل حضور طالب واحد — لتبويب الحضور في ملف الطالب (المرجع §3.4)
+// ---------------------------------------------------------------------------
+
+export interface StudentAttendanceRecord {
+  session_id: string
+  session_date: string
+  start_time: string
+  group_id: string
+  group_name: string
+  status: AttendanceStatus | null
+  homework_done: boolean
+  starred: boolean
+}
+
+export async function fetchStudentAttendance(
+  teacherId: string,
+  studentId: string,
+): Promise<StudentAttendanceRecord[]> {
+  const { data, error } = await db()
+    .from('attendance')
+    .select('session_id, status, homework_done, starred, sessions!inner(session_date, start_time, group_id, groups(name))')
+    .eq('teacher_id', teacherId)
+    .eq('student_id', studentId)
+  if (error) throw error
+  const rows = ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
+    const se = (row.sessions ?? {}) as Record<string, unknown>
+    const g = (se.groups ?? {}) as { name?: string }
+    return {
+      session_id: row.session_id as string,
+      session_date: (se.session_date as string) ?? '',
+      start_time: (se.start_time as string) ?? '',
+      group_id: (se.group_id as string) ?? '',
+      group_name: g.name ?? '—',
+      status: (row.status as AttendanceStatus | null) ?? null,
+      homework_done: Boolean(row.homework_done),
+      starred: Boolean(row.starred),
+    }
+  })
+  // الأحدث أولاً — ترتيب محلي لأن الترتيب على جدول مرتبط غير مضمون الشكل هنا
+  rows.sort((a, b) =>
+    a.session_date === b.session_date
+      ? b.start_time.localeCompare(a.start_time)
+      : b.session_date.localeCompare(a.session_date),
+  )
+  return rows
+}
+
+export interface StudentAttendanceStats {
+  /** حصص سُجّلت لها حالة (status غير null) */
+  marked: number
+  /** منها الحضور الفعلي p/l/m */
+  attended: number
+  /** النسبة % من view ‏student_attendance_stats — null عند غياب أي تسجيل */
+  rate: number | null
+}
+
+/** نسبة الالتزام من view ‏student_attendance_stats في المخطط (محسوبة، لا مخزنة) */
+export async function fetchStudentAttendanceStats(
+  teacherId: string,
+  studentId: string,
+): Promise<StudentAttendanceStats> {
+  const { data, error } = await db()
+    .from('student_attendance_stats')
+    .select('marked_sessions, attended_sessions, attendance_rate')
+    .eq('teacher_id', teacherId)
+    .eq('student_id', studentId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return { marked: 0, attended: 0, rate: null }
+  const row = data as unknown as {
+    marked_sessions: number | string
+    attended_sessions: number | string
+    attendance_rate: number | string | null
+  }
+  return {
+    marked: Number(row.marked_sessions) || 0,
+    attended: Number(row.attended_sessions) || 0,
+    rate: row.attendance_rate == null ? null : Number(row.attendance_rate),
+  }
+}

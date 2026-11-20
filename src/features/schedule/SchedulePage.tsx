@@ -593,7 +593,7 @@ function MonthView({
           <SessionCard key={s.id} session={s} onPick={onPick}>
             <div className="flex gap-2 mt-2.5">
               {s.status !== 'cancelled' && (
-                <Link to="/attendance" className="no-underline flex-1" onClick={(e) => e.stopPropagation()}>
+                <Link to={`/attendance?session=${s.id}`} className="no-underline flex-1" onClick={(e) => e.stopPropagation()}>
                   <Button full variant="soft" className="min-h-[38px] text-[13px]">
                     الحضور
                   </Button>

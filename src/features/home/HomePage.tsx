@@ -199,7 +199,7 @@ export function HomePage() {
                   {countsQ.data ? ` · ${countsQ.data.get(hero.group_id) ?? 0} طالب` : ''}
                 </div>
                 <Link
-                  to="/attendance"
+                  to={`/attendance?session=${hero.id}`}
                   className="inline-block mt-3 bg-white text-primary font-bold text-[13px] rounded-full px-4 py-2 no-underline"
                 >
                   سجّل الحضور
@@ -373,14 +373,14 @@ function TodaySessionCard({
               <span className="shrink-0 text-muted text-[12px]">مفيش طلاب مسجلين</span>
             ) : done >= total ? (
               <Link
-                to="/attendance"
+                to={`/attendance?session=${s.id}`}
                 className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok border border-ok/30 rounded-full px-3 py-1.5 no-underline"
               >
                 تم ({done})
               </Link>
             ) : (
               <Link
-                to="/attendance"
+                to={`/attendance?session=${s.id}`}
                 className="shrink-0 text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-3 py-1.5 no-underline"
               >
                 تحضير ({done}/{total})

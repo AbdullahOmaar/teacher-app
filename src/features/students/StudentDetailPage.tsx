@@ -15,6 +15,7 @@ import {
   useStudentBalances,
   useStudentEnrollments,
 } from './hooks'
+import { StudentAttendanceTab } from '../attendance/StudentAttendanceTab'
 import { StudentFormSheet } from './StudentFormSheet'
 import { StudentCardSheet } from './StudentCardSheet'
 import { EnrollStudentSheet } from './EnrollStudentSheet'
@@ -31,7 +32,6 @@ const TABS: { key: TabKey; label: string }[] = [
 ]
 
 const UPCOMING: Record<string, string> = {
-  att: 'نسبة الالتزام وسجل الحصص هيتبنوا مع وحدة الحضور.',
   pay: 'فواتير الطالب ودفعاته هتتبني مع وحدة الفواتير.',
   grades: 'درجات الطالب وتطور مستواه هيتبنوا مع وحدة الدرجات.',
   notes: 'ملاحظات الطالب المؤرخة هتتبني في خطوة لاحقة.',
@@ -48,7 +48,7 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 
 /**
  * ملف الطالب (المواصفات §3.4): ترويسة (اتصال/واتساب/الكارت الرقمي) وتبويبات.
- * «البيانات» و«المجموعات» منفذة فعلياً؛ الحضور/المدفوعات/الدرجات/الملاحظات
+ * «البيانات» و«المجموعات» و«الحضور» منفذة فعلياً؛ المدفوعات/الدرجات/الملاحظات
  * هياكل جاهزة لوحداتها القادمة.
  */
 export function StudentDetailPage() {
@@ -220,7 +220,16 @@ export function StudentDetailPage() {
         </div>
       )}
 
-      {(tab === 'att' || tab === 'pay' || tab === 'grades' || tab === 'notes') && (
+      {tab === 'att' && (
+        <StudentAttendanceTab
+          teacherId={teacher.teacherId}
+          studentId={student.id}
+          enrollments={enrollments}
+          groupById={groupById}
+        />
+      )}
+
+      {(tab === 'pay' || tab === 'grades' || tab === 'notes') && (
         <EmptyState icon="🚧" title="قريباً" hint={UPCOMING[tab]} />
       )}
 
