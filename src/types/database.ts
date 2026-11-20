@@ -263,3 +263,60 @@ export interface WaitlistInput {
   phone: string | null
   note: string | null
 }
+
+export type AssessmentType = 'exam' | 'homework'
+export type QuestionType = 'mcq' | 'essay'
+
+export interface AssessmentRow {
+  id: string
+  teacher_id: string
+  group_id: string
+  title: string
+  type: AssessmentType
+  assess_date: string // 'YYYY-MM-DD'
+  max_score: number // > 0 (قيد المخطط)
+  pass_score: number // >= 0 (قيد المخطط)
+  created_at: string
+  updated_at: string
+}
+
+/** سؤال بنك أسئلة مرتبط بتقييم — لا جدول بنك مستقل في المخطط (انظر وحدة الدرجات) */
+export interface AssessmentQuestionRow {
+  id: string
+  teacher_id: string
+  assessment_id: string
+  position: number
+  type: QuestionType
+  text: string
+  options: string[] | null // jsonb — حتى 4 اختيارات للـ MCQ
+  correct_answer: string | null
+  points: number // >= 0 (قيد المخطط)
+  created_at: string
+}
+
+/** درجة طالب في تقييم — غياب الصف = لا درجة مسجلة؛ المفتاح (assessment_id, student_id) */
+export interface ScoreRow {
+  teacher_id: string
+  assessment_id: string
+  student_id: string
+  score: number // >= 0 (قيد المخطط)
+  created_at: string
+  updated_at: string
+}
+
+export interface AssessmentInput {
+  group_id: string
+  title: string
+  type: AssessmentType
+  assess_date: string // 'YYYY-MM-DD'
+  max_score: number
+  pass_score: number
+}
+
+export interface QuestionInput {
+  type: QuestionType
+  text: string
+  options: string[] | null
+  correct_answer: string | null
+  points: number
+}
