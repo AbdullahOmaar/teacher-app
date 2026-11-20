@@ -3,6 +3,7 @@ import { useTheme } from '../../hooks/useTheme'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { Onboarding } from '../../features/auth/Onboarding'
 import { LoadingState } from '../ui/states'
+import { Logo } from '../brand/Logo'
 
 /** عناوين الشاشات الـ16 (من جدول titles في المرجع) */
 const TITLES: Record<string, string> = {
@@ -85,6 +86,7 @@ export function AppShell() {
               ›
             </button>
           ) : null}
+          <Logo size={26} />
           <div className="font-extrabold text-[16px] flex-1">{TITLES[screen] ?? 'تطبيق المدرس'}</div>
           {isRoot && (
             <>

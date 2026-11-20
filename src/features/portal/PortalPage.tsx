@@ -98,7 +98,7 @@ export function PortalPage() {
             {rate == null ? (
               <div className="text-[14px] font-bold text-muted">لسه مفيش حصص متسجلة</div>
             ) : (
-              <div className={`text-[20px] font-extrabold ${rate >= 80 ? 'text-ok' : 'text-warn'}`}>
+              <div className={`text-[20px] font-extrabold ${rate >= 80 ? 'text-ok-text' : 'text-warn-text'}`}>
                 {rate}%
               </div>
             )}
@@ -106,9 +106,9 @@ export function PortalPage() {
           <div className="rounded-xl border border-border bg-bg p-3 text-center">
             <div className="text-muted text-[12px] font-semibold mb-0.5">الموقف المالي</div>
             {o.balance > 0 ? (
-              <div className="text-[20px] font-extrabold text-bad">{formatMoney(o.balance)}</div>
+              <div className="text-[20px] font-extrabold text-bad-text">{formatMoney(o.balance)}</div>
             ) : (
-              <div className="text-[20px] font-extrabold text-ok">مسدد ✅</div>
+              <div className="text-[20px] font-extrabold text-ok-text">مسدد ✅</div>
             )}
           </div>
         </div>

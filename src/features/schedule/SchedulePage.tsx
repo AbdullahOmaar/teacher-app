@@ -295,7 +295,7 @@ export function SchedulePage() {
                       }
                     }}
                     disabled={deleteHolidayMut.isPending}
-                    className="shrink-0 text-[12.5px] font-bold text-bad bg-transparent border border-bad/40 rounded-full px-3 py-1.5 cursor-pointer disabled:opacity-50"
+                    className="shrink-0 text-[12.5px] font-bold text-bad-text bg-transparent border border-bad/40 rounded-full px-3 py-1.5 cursor-pointer disabled:opacity-50"
                   >
                     حذف
                   </button>
@@ -412,7 +412,7 @@ function WeekView({
                 </span>
               )}
               {holiday && (
-                <span className="text-[11px] font-bold bg-warn/15 text-warn border border-warn/40 rounded-full px-2 py-0.5">
+                <span className="text-[11px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
                   🏖️ إجازة{holiday.name ? `: ${holiday.name}` : ''}
                 </span>
               )}
@@ -545,7 +545,7 @@ function MonthView({
                   {d.getDate()}
                 </span>
                 {holiday ? (
-                  <span className="text-[9.5px] font-bold text-warn mt-1">إجازة</span>
+                  <span className="text-[9.5px] font-bold text-warn-text mt-1">إجازة</span>
                 ) : daySessions.length > 0 ? (
                   allCancelled ? (
                     <span className="text-[9.5px] font-bold text-muted mt-1">ملغاة</span>

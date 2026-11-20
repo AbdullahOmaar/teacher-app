@@ -170,7 +170,7 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
 
       {conflicts.length > 0 && (
         <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2 mb-3 text-[13px]">
-          <div className="font-bold text-warn mb-1">⚠️ تعارض في المواعيد</div>
+          <div className="font-bold text-warn-text mb-1">⚠️ تعارض في المواعيد</div>
           {conflicts.map((c, i) => (
             <div key={i}>
               مع مجموعة «{c.name}» — أيام مشتركة: {c.days}، ميعادها {c.time}
@@ -179,7 +179,7 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
         </div>
       )}
 
-      {error && <p className="text-bad text-[13px] mb-3">{error}</p>}
+      {error && <p className="text-bad-text text-[13px] mb-3">{error}</p>}
       <div className="flex gap-2">
         <Button full onClick={save} disabled={saving}>
           {saving ? 'بنحفظ…' : 'حفظ'}

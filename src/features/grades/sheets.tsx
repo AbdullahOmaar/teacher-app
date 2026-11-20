@@ -157,11 +157,11 @@ export function AssessmentFormSheet({
           </Field>
         </div>
         {pass > max && (
-          <p className="text-warn text-[12.5px] font-semibold">
+          <p className="text-warn-text text-[12.5px] font-semibold">
             درجة النجاح أكبر من النهائية — كل الطلاب هيظهروا تحت النجاح.
           </p>
         )}
-        {mut.isError && <p className="text-bad text-[13px] font-semibold">{errText(mut.error)}</p>}
+        {mut.isError && <p className="text-bad-text text-[13px] font-semibold">{errText(mut.error)}</p>}
         <Button full type="submit" disabled={mut.isPending || !valid}>
           {mut.isPending ? 'بنحفظ…' : initial ? 'حفظ التعديلات' : 'إنشاء التقييم'}
         </Button>
@@ -173,7 +173,7 @@ export function AssessmentFormSheet({
       {initial && (
         <div className="mt-4 border-t border-border pt-3">
           {del.isError && (
-            <p className="text-bad text-[13px] font-semibold">{errText(del.error)}</p>
+            <p className="text-bad-text text-[13px] font-semibold">{errText(del.error)}</p>
           )}
           <Button
             full
@@ -314,7 +314,7 @@ export function ExamBuilderSheet({
             />
           </Field>
         </div>
-        {add.isError && <p className="text-bad text-[13px] font-semibold">{errText(add.error)}</p>}
+        {add.isError && <p className="text-bad-text text-[13px] font-semibold">{errText(add.error)}</p>}
         <Button full type="submit" disabled={add.isPending || !valid}>
           {add.isPending ? 'بنضيف…' : '+ إضافة السؤال'}
         </Button>
@@ -330,7 +330,7 @@ export function ExamBuilderSheet({
         {questionsQ.isPending ? (
           <p className="text-muted text-[13px]">بنحمّل الأسئلة…</p>
         ) : questionsQ.isError ? (
-          <p className="text-bad text-[13px] font-semibold">{errText(questionsQ.error)}</p>
+          <p className="text-bad-text text-[13px] font-semibold">{errText(questionsQ.error)}</p>
         ) : questions.length === 0 ? (
           <p className="text-muted text-[13px] mb-0">
             لسه مفيش أسئلة — أضف أول سؤال من النموذج اللي فوق.
@@ -348,7 +348,7 @@ export function ExamBuilderSheet({
                   </div>
                   <button
                     type="button"
-                    className="shrink-0 text-bad text-[12.5px] font-semibold bg-transparent border-0 cursor-pointer"
+                    className="shrink-0 text-bad-text text-[12.5px] font-semibold bg-transparent border-0 cursor-pointer"
                     disabled={del.isPending}
                     onClick={() => del.mutate(q.id)}
                   >
@@ -361,7 +361,7 @@ export function ExamBuilderSheet({
                   </div>
                 )}
                 {q.correct_answer && (
-                  <div className="text-ok text-[12.5px] font-semibold mt-0.5">
+                  <div className="text-ok-text text-[12.5px] font-semibold mt-0.5">
                     ✓ الإجابة: {q.correct_answer}
                   </div>
                 )}
@@ -370,7 +370,7 @@ export function ExamBuilderSheet({
           </div>
         )}
         {del.isError && (
-          <p className="text-bad text-[13px] font-semibold mt-2">{errText(del.error)}</p>
+          <p className="text-bad-text text-[13px] font-semibold mt-2">{errText(del.error)}</p>
         )}
       </div>
 

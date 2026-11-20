@@ -17,9 +17,9 @@ interface PortalLinkSheetProps {
 }
 
 const STATUS_META: Record<ReturnType<typeof tokenStatus>, { label: string; cls: string }> = {
-  active: { label: 'نشط', cls: 'bg-ok/10 text-ok border-ok/30' },
-  expired: { label: 'منتهي', cls: 'bg-warn/15 text-warn border-warn/40' },
-  revoked: { label: 'ملغي', cls: 'bg-bad/10 text-bad border-bad/30' },
+  active: { label: 'نشط', cls: 'bg-ok/10 text-ok-text border-ok/30' },
+  expired: { label: 'منتهي', cls: 'bg-warn/15 text-warn-text border-warn/40' },
+  revoked: { label: 'ملغي', cls: 'bg-bad/10 text-bad-text border-bad/30' },
 }
 
 function fmtDateTime(iso: string): string {
@@ -53,7 +53,7 @@ function TokenRow({
               if (window.confirm('إلغاء الرابط ده؟ ولي الأمر مش هيقدر يفتح البوابة بيه تاني.'))
                 onRevoke()
             }}
-            className="text-bad text-[12.5px] font-semibold bg-transparent border-0 cursor-pointer disabled:opacity-50"
+            className="text-bad-text text-[12.5px] font-semibold bg-transparent border-0 cursor-pointer disabled:opacity-50"
           >
             إلغاء الرابط
           </button>
@@ -166,7 +166,7 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
             : '🔗 توليد رابط ولي الأمر'}
       </Button>
       {createLink.isError && (
-        <p className="text-bad text-[13px] mt-2 mb-0">
+        <p className="text-bad-text text-[13px] mt-2 mb-0">
           {createLink.error instanceof Error ? createLink.error.message : 'حصلت مشكلة في توليد الرابط'}
         </p>
       )}
@@ -175,7 +175,7 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
       {tokensQ.isPending ? (
         <div className="text-muted text-[13px]">بنحمّل الروابط…</div>
       ) : tokensQ.isError ? (
-        <div className="text-bad text-[13px]">ماقدرناش نحمّل الروابط</div>
+        <div className="text-bad-text text-[13px]">ماقدرناش نحمّل الروابط</div>
       ) : tokens.length === 0 ? (
         <div className="text-muted text-[13px]">مفيش روابط معمولة للطالب ده لسه.</div>
       ) : (

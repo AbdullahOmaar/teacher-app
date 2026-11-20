@@ -1,7 +1,16 @@
 @import "tailwindcss";
 
 /*
- * ثيم التطبيق — نفس متغيرات النسخة المرجعية (FEATURES-UIUX-SPEC §6.1)
+ * ثيم التطبيق — الهوية البصرية «نيلي الثقة» (Phase 2، الخطوة 1)
+ * القيم الحرفية من UIUX-RESEARCH §4 (الاتجاه أ):
+ * فاتح: أساسي #4F46E5 / داكن #4338CA / حاويات #EEF2FF، خلفية #F7F8FC،
+ * سطح #FFFFFF، حدود #E3E6F0، نص #141A2E، ثانوي #5B6478.
+ * داكن: خلفية #0E1120، سطح #171B2E، حدود #262C47، أساسي #8B85F7،
+ * حاويات #232046، نص #F2F4FA، ثانوي #A3AAC2.
+ * ألوان الحالات بنسختين (بحث §5): حشوة/خلفية (-soft) + نصية (-text)
+ * بتباين ≥4.5:1 على السطح وعلى خلفيتها — القيم الأساسية (--ok/--warn/--bad)
+ * للحشوات والأشرطة، و -text للنصوص والشارات النصية.
+ * اللهجة الكهرمانية (--accent #F59E0B) للحظات الإنجاز فقط.
  * Tailwind v4: نربط ألوان الأدوات بمتغيرات CSS عبر @theme inline
  * فيعمل تبديل الثيم الداكن بتغيير المتغيرات فقط.
  */
@@ -14,36 +23,64 @@
   --color-primary: var(--primary);
   --color-primary-d: var(--primary-d);
   --color-soft: var(--soft);
+  --color-accent: var(--accent);
   --color-ok: var(--ok);
+  --color-ok-text: var(--ok-text);
+  --color-ok-soft: var(--ok-soft);
   --color-warn: var(--warn);
+  --color-warn-text: var(--warn-text);
+  --color-warn-soft: var(--warn-soft);
   --color-bad: var(--bad);
+  --color-bad-text: var(--bad-text);
+  --color-bad-soft: var(--bad-soft);
   --font-sans: "IBM Plex Sans Arabic", system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
 }
 
 :root {
-  --bg: #f8fafc;
+  --bg: #f7f8fc;
   --card: #ffffff;
-  --border: #e2e8f0;
-  --text: #0f172a;
-  --muted: #64748b;
+  --border: #e3e6f0;
+  --text: #141a2e;
+  --muted: #5b6478;
   --primary: #4f46e5;
   --primary-d: #4338ca;
   --soft: #eef2ff;
-  --ok: #10b981;
+  --accent: #f59e0b;
+  /* حالات فاتح: حشوة #0E9F6E (3.39:1 كنص — للحشوات فقط)،
+     نصية #047857 (5.48:1 على الأبيض، 5.21:1 على خلفيتها) */
+  --ok: #0e9f6e;
+  --ok-text: #047857;
+  --ok-soft: #ecfdf5;
+  /* تحذير: حشوة كهرمانية #F59E0B، نصية #B45309 (5.02:1 أبيض، 4.51:1 على #FEF3C7) */
   --warn: #f59e0b;
-  --bad: #ef4444;
+  --warn-text: #b45309;
+  --warn-soft: #fef3c7;
+  /* خطر: حشوة #DC2626، نصية #B91C1C (6.47:1 أبيض، 5.91:1 على خلفيتها) */
+  --bad: #dc2626;
+  --bad-text: #b91c1c;
+  --bad-soft: #fef2f2;
 }
 
 :root[data-theme="dark"] {
-  --bg: #0f172a;
-  --card: #1e293b;
-  --border: #334155;
-  --text: #f1f5f9;
-  --muted: #94a3b8;
-  --primary: #818cf8;
-  --primary-d: #6366f1;
-  --soft: #1e1b4b;
-  /* ok / warn / bad ثابتة في الثيمين كما في المرجع */
+  --bg: #0e1120;
+  --card: #171b2e;
+  --border: #262c47;
+  --text: #f2f4fa;
+  --muted: #a3aac2;
+  --primary: #8b85f7;
+  --primary-d: #a09bf8;
+  --soft: #232046;
+  --accent: #fbbf24;
+  /* حالات داكن مفتّحة: تصلح حشوةً ونصاً على الأسطح الداكنة (≥5.9:1) */
+  --ok: #34d399;
+  --ok-text: #34d399;
+  --ok-soft: #0f2e23;
+  --warn: #fbbf24;
+  --warn-text: #fbbf24;
+  --warn-soft: #33270e;
+  --bad: #f87171;
+  --bad-text: #f87171;
+  --bad-soft: #33161a;
 }
 
 * {
@@ -61,7 +98,8 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
-  line-height: 1.5;
+  /* ارتفاع السطر العربي الأساسي 1.75 (بحث §5 — العربية تحتاج 1.6–1.9) */
+  line-height: 1.75;
   -webkit-tap-highlight-color: transparent;
 }
 

@@ -99,7 +99,7 @@ export function InvoiceDetailPage() {
             </div>
           </div>
           {state === 'paid' ? (
-            <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok border border-ok/30 rounded-full px-2 py-0.5">
+            <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
               مسدد
             </span>
           ) : state === 'partial' ? (
@@ -107,7 +107,7 @@ export function InvoiceDetailPage() {
               مدفوع جزئياً
             </span>
           ) : (
-            <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn border border-warn/40 rounded-full px-2 py-0.5">
+            <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
               مستحقة
             </span>
           )}
@@ -124,7 +124,7 @@ export function InvoiceDetailPage() {
                   <div className="text-[14px] font-semibold">
                     {l.description}
                     {l.line_type === 'discount' && (
-                      <span className="ms-2 text-[11px] font-bold bg-ok/10 text-ok border border-ok/30 rounded-full px-2 py-0.5 align-middle">
+                      <span className="ms-2 text-[11px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5 align-middle">
                         خصم
                       </span>
                     )}
@@ -137,7 +137,7 @@ export function InvoiceDetailPage() {
                   {l.reason && <div className="text-muted text-[12px]">{l.reason}</div>}
                 </div>
                 <span
-                  className={`font-bold text-[14px] shrink-0 ${l.amount < 0 ? 'text-bad' : ''}`}
+                  className={`font-bold text-[14px] shrink-0 ${l.amount < 0 ? 'text-bad-text' : ''}`}
                   dir="ltr"
                 >
                   {formatMoney(l.amount)}
@@ -152,11 +152,11 @@ export function InvoiceDetailPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted font-semibold">المدفوع</span>
-              <b dir="ltr" className="text-ok">{formatMoney(invoice.paid)}</b>
+              <b dir="ltr" className="text-ok-text">{formatMoney(invoice.paid)}</b>
             </div>
             <div className="flex justify-between border-t border-border pt-1.5">
               <span className="font-extrabold">المتبقي</span>
-              <b dir="ltr" className={invoice.balance > 0 ? 'text-warn' : 'text-ok'}>
+              <b dir="ltr" className={invoice.balance > 0 ? 'text-warn-text' : 'text-ok-text'}>
                 {invoice.balance > 0 ? formatMoney(invoice.balance) : 'مسدد بالكامل ✓'}
               </b>
             </div>
@@ -202,14 +202,14 @@ export function InvoiceDetailPage() {
               <div key={p.id} className={`px-[14px] py-3 ${i > 0 ? 'border-t border-border' : ''}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span
-                    className={`font-extrabold text-[15px] ${p.amount < 0 ? 'text-bad' : 'text-ok'}`}
+                    className={`font-extrabold text-[15px] ${p.amount < 0 ? 'text-bad-text' : 'text-ok-text'}`}
                     dir="ltr"
                   >
                     {formatMoney(p.amount)}
                   </span>
                   <span className="flex items-center gap-1.5 shrink-0">
                     {isReversal && (
-                      <span className="text-[11px] font-bold bg-bad/10 text-bad border border-bad/30 rounded-full px-2 py-0.5">
+                      <span className="text-[11px] font-bold bg-bad/10 text-bad-text border border-bad/30 rounded-full px-2 py-0.5">
                         دفعة عكسية
                       </span>
                     )}
@@ -229,7 +229,7 @@ export function InvoiceDetailPage() {
                       <button
                         type="button"
                         disabled={voidPay.isPending}
-                        className="text-[12px] font-bold text-bad bg-transparent border-0 cursor-pointer disabled:opacity-50"
+                        className="text-[12px] font-bold text-bad-text bg-transparent border-0 cursor-pointer disabled:opacity-50"
                         onClick={() => {
                           if (
                             window.confirm(

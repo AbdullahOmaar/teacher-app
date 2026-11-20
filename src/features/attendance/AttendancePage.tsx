@@ -227,14 +227,14 @@ export function AttendancePage() {
           />
         </Field>
         {paramSessionId && paramQ.isSuccess && !paramQ.data && (
-          <p className="text-warn text-[12.5px] mb-2">
+          <p className="text-warn-text text-[12.5px] mb-2">
             الحصة المطلوبة من الرابط غير موجودة — اختر حصة من حصص اليوم المختار.
           </p>
         )}
         {pickerPending ? (
           <Skeleton className="h-[44px]" />
         ) : pickerError ? (
-          <p className="text-bad text-[13px] mb-0">
+          <p className="text-bad-text text-[13px] mb-0">
             {pickerError instanceof Error ? pickerError.message : 'خطأ غير معروف'}
           </p>
         ) : groups.length === 0 ? (

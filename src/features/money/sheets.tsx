@@ -139,7 +139,7 @@ export function ExpenseFormSheet({
             تثبيت كمصروف شهري متكرر
           </label>
         )}
-        {error && <p className="text-bad text-[13px] font-semibold">{error}</p>}
+        {error && <p className="text-bad-text text-[13px] font-semibold">{error}</p>}
         <Button full type="submit" disabled={busy || !(amt > 0) || !date}>
           {busy ? 'بنسجل…' : isEdit ? 'حفظ التعديل' : 'تسجيل المصروف'}
         </Button>
@@ -231,7 +231,7 @@ export function RecurringFormSheet({
           معين من شاشة الفلوس، وكل قالب بيضاف مرة واحدة بس في الشهر (مفيش تكرار).
         </p>
         {(create.isError || update.isError) && (
-          <p className="text-bad text-[13px] font-semibold">
+          <p className="text-bad-text text-[13px] font-semibold">
             {errText(create.error ?? update.error)}
           </p>
         )}

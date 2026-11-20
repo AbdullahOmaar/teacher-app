@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Sheet } from '../../components/ui/Sheet'
 import { Button } from '../../components/ui/Button'
+import { Logo } from '../../components/brand/Logo'
 import { Chip, ChipRow, Field, Select, TextArea, TextInput } from '../../components/ui/form'
 import { formatMoney, shortTime } from '../../lib/format'
 import type { AttendanceStatus, PaymentMethod, PaymentRow } from '../../types/database'
@@ -133,7 +134,7 @@ export function IssueInvoicesSheet({
             فواتير «حسب الحضور» بتتحسب بعدد الحصص المحضورة لحد النهاردة.
           </p>
           {issue.isError && (
-            <p className="text-bad text-[13px] font-semibold">{errText(issue.error)}</p>
+            <p className="text-bad-text text-[13px] font-semibold">{errText(issue.error)}</p>
           )}
           <Button full type="submit" disabled={issue.isPending || !month}>
             {issue.isPending ? 'بنصدر الفواتير…' : `إصدار فواتير ${monthLabel}`}
@@ -239,11 +240,11 @@ export function PaySheet({
           />
         </Field>
         {amt > balance && balance > 0 && (
-          <p className="text-warn text-[12.5px] font-semibold">
+          <p className="text-warn-text text-[12.5px] font-semibold">
             المبلغ أكبر من المتبقي — الفاتورة هتتقفل والفرق هيظهر كرصيد مدفوع زيادة.
           </p>
         )}
-        {pay.isError && <p className="text-bad text-[13px] font-semibold">{errText(pay.error)}</p>}
+        {pay.isError && <p className="text-bad-text text-[13px] font-semibold">{errText(pay.error)}</p>}
         <Button full type="submit" disabled={pay.isPending || !(amt > 0)}>
           {pay.isPending ? 'بنسجل الدفعة…' : 'تسجيل الدفعة وإصدار الإيصال'}
         </Button>
@@ -330,6 +331,9 @@ export function ReceiptSheet({
         className={`print-area ${paper === 'thermal' ? 'paper-thermal' : ''} bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3`}
       >
         <div className="text-center border-b border-slate-200 pb-2 mb-2">
+          <div className="flex justify-center mb-1.5">
+            <Logo size={44} />
+          </div>
           <div className="font-extrabold text-[16px]">
             {teacherNameQ.data ? teacherNameQ.data : 'إيصال دفع'}
           </div>
@@ -455,7 +459,7 @@ export function AdjustSheet({
       {sessionsQ.isPending ? (
         <p className="text-muted text-[13.5px]">بنحمّل حصص شهر الفاتورة…</p>
       ) : sessionsQ.isError ? (
-        <p className="text-bad text-[13px] font-semibold">{errText(sessionsQ.error)}</p>
+        <p className="text-bad-text text-[13px] font-semibold">{errText(sessionsQ.error)}</p>
       ) : sessions.length === 0 ? (
         <p className="text-muted text-[13.5px]">
           مفيش حصص مسجلة لمجموعة الفاتورة في شهرها لحد النهاردة — التسوية محتاجة حصة قائمة.
@@ -519,7 +523,7 @@ export function AdjustSheet({
             (موجب أو سالب)، وحالة الحضور نفسها هتتحدث.
           </p>
           {adjust.isError && (
-            <p className="text-bad text-[13px] font-semibold">{errText(adjust.error)}</p>
+            <p className="text-bad-text text-[13px] font-semibold">{errText(adjust.error)}</p>
           )}
           <Button
             full

@@ -107,7 +107,7 @@ export function SessionDetailSheet({
         <span className="font-extrabold text-[16px]">{session.group_name}</span>
         <KindBadge session={session} />
         {isHoliday && (
-          <span className="text-[11px] font-bold bg-warn/15 text-warn border border-warn/40 rounded-full px-2 py-0.5">
+          <span className="text-[11px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
             🏖️ يوم إجازة
           </span>
         )}
@@ -183,7 +183,7 @@ export function SessionDetailSheet({
         </Button>
       </div>
 
-      {error && <p className="text-bad text-[13px] mt-3">{error}</p>}
+      {error && <p className="text-bad-text text-[13px] mt-3">{error}</p>}
     </Sheet>
   )
 }
@@ -300,7 +300,7 @@ export function ExtraSessionSheet({
               أيام الإجازات.
             </div>
           )}
-          {error && <p className="text-bad text-[13px] mb-3">{error}</p>}
+          {error && <p className="text-bad-text text-[13px] mb-3">{error}</p>}
           <div className="flex gap-2">
             <Button full onClick={save} disabled={createMut.isPending}>
               {createMut.isPending ? 'بنحفظ…' : 'إضافة الحصة'}
@@ -377,7 +377,7 @@ export function HolidaySheet({ teacherId, onClose, onDone }: HolidaySheetProps) 
           ? `${dates.length} ${dates.length === 1 ? 'يوم' : 'يوم'} — حصص كل المجموعات في الأيام دي هتتعلّم «ملغاة» (مش هتتمسح)، وحذف الإجازة بعد كده بيرجّعها.`
           : 'اختار نطاقاً صحيحاً — ليوم واحد بس خلّي البداية والنهاية نفس اليوم.'}
       </p>
-      {error && <p className="text-bad text-[13px] mb-3">{error}</p>}
+      {error && <p className="text-bad-text text-[13px] mb-3">{error}</p>}
       <div className="flex gap-2">
         <Button full onClick={save} disabled={addMut.isPending}>
           {addMut.isPending ? 'بنحفظ…' : 'حفظ الإجازة'}

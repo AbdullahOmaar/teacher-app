@@ -591,7 +591,7 @@ export function SettingsPage() {
                   ) : (
                     <Button
                       variant="ghost"
-                      className="min-h-[38px] text-[13px] text-bad"
+                      className="min-h-[38px] text-[13px] text-bad-text"
                       onClick={() => setConfirmRemoveId(m.id)}
                     >
                       إزالة من الفريق

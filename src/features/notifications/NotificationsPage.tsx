@@ -27,7 +27,7 @@ function WaButton({ url, label = 'واتساب' }: { url: string; label?: string
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="shrink-0 inline-flex items-center justify-center gap-1.5 text-[12.5px] font-bold bg-ok/10 text-ok border border-ok/30 rounded-full px-3 py-1.5 no-underline"
+      className="shrink-0 inline-flex items-center justify-center gap-1.5 text-[12.5px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-3 py-1.5 no-underline"
     >
       💬 {label}
     </a>
@@ -81,7 +81,7 @@ function AlertRow({ alert }: { alert: AppAlert }) {
                   <span className="text-[13.5px] font-semibold">
                     {inv.group_name} · {periodLabel(inv.period_month)}
                   </span>
-                  <span className="text-[12.5px] font-bold bg-warn/15 text-warn border border-warn/40 rounded-full px-2 py-0.5 shrink-0">
+                  <span className="text-[12.5px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 shrink-0">
                     باقي {formatMoney(inv.balance)}
                   </span>
                 </Link>

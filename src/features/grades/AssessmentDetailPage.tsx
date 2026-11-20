@@ -225,10 +225,10 @@ export function AssessmentDetailPage() {
           </span>
         </div>
         <div className="flex gap-2 mt-3 flex-wrap">
-          <span className="text-[12px] font-bold bg-ok/10 text-ok border border-ok/30 rounded-full px-2.5 py-1">
+          <span className="text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2.5 py-1">
             ناجح {passedCount}
           </span>
-          <span className="text-[12px] font-bold bg-bad/10 text-bad border border-bad/30 rounded-full px-2.5 py-1">
+          <span className="text-[12px] font-bold bg-bad/10 text-bad-text border border-bad/30 rounded-full px-2.5 py-1">
             أقل من 50%: {below50Count}
           </span>
         </div>

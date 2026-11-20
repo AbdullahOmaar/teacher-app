@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { Sheet } from '../../components/ui/Sheet'
 import { Button } from '../../components/ui/Button'
+import { Logo } from '../../components/brand/Logo'
 import type { StudentRow } from '../../types/database'
 
 interface StudentCardSheetProps {
@@ -44,7 +45,10 @@ export function StudentCardSheet({ student, groupNames, onClose }: StudentCardSh
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[12px] opacity-80 mb-1">🪪 كارت طالب</div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Logo mono size={30} />
+              <span className="text-[12px] opacity-80">كارت طالب</span>
+            </div>
             <div className="text-[19px] font-extrabold leading-snug">{student.name}</div>
             <div className="text-[13px] opacity-90 mt-1">
               الكود: <span dir="ltr" className="font-bold">{student.public_code}</span>

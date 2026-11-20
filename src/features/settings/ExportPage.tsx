@@ -145,12 +145,12 @@ export function ExportPage() {
           <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{importMsg}</p>
         )}
         {quickImport.isError && (
-          <p className="text-[13px] text-bad mb-3 mt-0">
+          <p className="text-[13px] text-bad-text mb-3 mt-0">
             {quickImport.error instanceof Error ? quickImport.error.message : 'تعذّر الاستيراد.'}
           </p>
         )}
         {quickImport.data && quickImport.data.errors.length > 0 && (
-          <div className="text-[12px] text-bad bg-bad/5 rounded-xl px-3 py-2 mb-3">
+          <div className="text-[12px] text-bad-text bg-bad/5 rounded-xl px-3 py-2 mb-3">
             {quickImport.data.errors.map((e, i) => (
               <div key={i}>{e}</div>
             ))}

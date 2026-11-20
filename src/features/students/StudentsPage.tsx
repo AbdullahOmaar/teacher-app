@@ -163,18 +163,18 @@ export function StudentsPage() {
                   <div className="font-bold text-[15.5px]">
                     {s.name}
                     {s.paused && (
-                      <span className="ms-2 text-[11px] font-bold bg-warn/15 text-warn border border-warn/40 rounded-full px-2 py-0.5 align-middle">
+                      <span className="ms-2 text-[11px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
                         موقوف
                       </span>
                     )}
                   </div>
                   {!isAssistant &&
                     (balance > 0 ? (
-                      <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn border border-warn/40 rounded-full px-2 py-0.5">
+                      <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
                         باقي {formatMoney(balance)}
                       </span>
                     ) : (
-                      <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok border border-ok/30 rounded-full px-2 py-0.5">
+                      <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
                         مسدد
                       </span>
                     ))}

@@ -4,6 +4,7 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/AuthProvider'
+import { Logo } from '../../components/brand/Logo'
 import { ensureTeacherProfile, signInDemo, signInWithEmail, signUpWithEmail } from './api'
 
 type Mode = 'signin' | 'signup'
@@ -120,7 +121,9 @@ export function LoginPage() {
     <div className="min-h-screen bg-bg text-text flex items-start justify-center">
       <div className="w-full max-w-[640px] px-4 pt-14 pb-10">
         <div className="text-center mb-6">
-          <div className="text-[40px] mb-2">🎓</div>
+          <div className="flex justify-center mb-3">
+            <Logo size={76} />
+          </div>
           <h1 className="text-[20px] font-extrabold m-0">تطبيق المدرس</h1>
           <p className="text-muted text-[13px] mt-1">
             {mode === 'signin' ? 'سجّل دخولك علشان تكمل' : 'أنشئ حساب مدرس جديد'}
@@ -157,7 +160,7 @@ export function LoginPage() {
             <p className="bg-soft text-primary text-[13px] rounded-xl px-3 py-2 mb-3 mt-0">{notice}</p>
           )}
           {error && (
-            <p className="bg-[#FEF2F2] text-bad text-[13px] rounded-xl px-3 py-2 mb-3 mt-0" role="alert">
+            <p className="bg-[#FEF2F2] text-bad-text text-[13px] rounded-xl px-3 py-2 mb-3 mt-0" role="alert">
               {error}
             </p>
           )}
@@ -266,7 +269,7 @@ export function LoginPage() {
           </p>
 
           {!configured && (
-            <p className="text-warn text-[13px] mt-3 mb-0 text-center">
+            <p className="text-warn-text text-[13px] mt-3 mb-0 text-center">
               وضع تجريبي: لسه Supabase مش مربوط — عبّي قيم .env علشان الدخول يشتغل.
             </p>
           )}

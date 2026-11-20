@@ -75,7 +75,7 @@ export function PortalManagePage() {
                   </div>
                 </div>
                 {expiresAt ? (
-                  <span className="shrink-0 text-[11.5px] font-bold bg-ok/10 text-ok border border-ok/30 rounded-full px-2 py-0.5">
+                  <span className="shrink-0 text-[11.5px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
                     رابط نشط حتى {expiresAt.slice(0, 10)}
                   </span>
                 ) : (

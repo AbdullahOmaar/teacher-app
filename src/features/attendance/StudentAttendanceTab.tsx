@@ -66,7 +66,7 @@ export function StudentAttendanceTab({
           <span className="font-bold text-[14.5px]">نسبة الالتزام</span>
           <span
             className={`text-[20px] font-extrabold ${
-              stats.rate == null ? '' : stats.rate >= 80 ? 'text-ok' : 'text-warn'
+              stats.rate == null ? '' : stats.rate >= 80 ? 'text-ok-text' : 'text-warn-text'
             }`}
           >
             {stats.rate == null ? '—' : `${stats.rate}%`}
@@ -92,7 +92,7 @@ export function StudentAttendanceTab({
           <div className="flex items-center justify-between gap-2">
             <span className="font-bold text-[14.5px]">باقة {c.groupName}</span>
             <span
-              className={`text-[13px] font-extrabold ${c.left <= 1 ? 'text-bad' : 'text-ok'}`}
+              className={`text-[13px] font-extrabold ${c.left <= 1 ? 'text-bad-text' : 'text-ok-text'}`}
             >
               متبقي {c.left}
             </span>

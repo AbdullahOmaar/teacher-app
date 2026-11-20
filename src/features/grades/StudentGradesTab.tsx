@@ -64,7 +64,7 @@ export function StudentGradesTab({
           <span className="font-bold text-[14.5px]">متوسط الدرجات</span>
           <span
             className={`text-[20px] font-extrabold ${
-              average == null ? '' : average >= 50 ? 'text-ok' : 'text-bad'
+              average == null ? '' : average >= 50 ? 'text-ok-text' : 'text-bad-text'
             }`}
           >
             {average == null ? '—' : `${average}%`}

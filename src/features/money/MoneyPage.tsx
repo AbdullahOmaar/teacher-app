@@ -55,7 +55,7 @@ function MonthBarRow({
       <div className="flex justify-between items-center gap-2 mb-1.5">
         <span className="font-bold text-[13.5px]">{periodLabel(row.month)}</span>
         <span
-          className={`text-[13px] font-extrabold ${row.net_profit < 0 ? 'text-bad' : 'text-ok'}`}
+          className={`text-[13px] font-extrabold ${row.net_profit < 0 ? 'text-bad-text' : 'text-ok-text'}`}
           dir="ltr"
         >
           {formatMoney(row.net_profit)}
@@ -193,12 +193,12 @@ export function MoneyPage() {
         <>
           {/* ملخص الفترة — من view ‏monthly_profit حرفياً */}
           <div className="grid grid-cols-3 gap-2 mb-3">
-            <Kpi value={formatMoney(summary.collected)} label="محصّل الشهر" valueClass="text-ok" />
-            <Kpi value={formatMoney(summary.expenses)} label="مصروفات الشهر" valueClass="text-bad" />
+            <Kpi value={formatMoney(summary.collected)} label="محصّل الشهر" valueClass="text-ok-text" />
+            <Kpi value={formatMoney(summary.expenses)} label="مصروفات الشهر" valueClass="text-bad-text" />
             <Kpi
               value={formatMoney(summary.net_profit)}
               label="صافي الربح"
-              valueClass={summary.net_profit < 0 ? 'text-bad' : 'text-ok'}
+              valueClass={summary.net_profit < 0 ? 'text-bad-text' : 'text-ok-text'}
             />
           </div>
 
@@ -288,7 +288,7 @@ export function MoneyPage() {
                       {exp.note ? ` · ${exp.note}` : ''}
                     </div>
                   </div>
-                  <b className="text-bad text-[15px] shrink-0" dir="ltr">
+                  <b className="text-bad-text text-[15px] shrink-0" dir="ltr">
                     {formatMoney(exp.amount)}
                   </b>
                 </div>
@@ -302,7 +302,7 @@ export function MoneyPage() {
                   </Button>
                   <Button
                     variant="ghost"
-                    className="flex-1 min-h-[38px] text-[13px] text-bad border-bad/40"
+                    className="flex-1 min-h-[38px] text-[13px] text-bad-text border-bad/40"
                     disabled={delExpense.isPending}
                     onClick={() =>
                       delExpense.mutate(exp.id, {
@@ -357,7 +357,7 @@ export function MoneyPage() {
                   </Button>
                   <Button
                     variant="ghost"
-                    className="flex-1 min-h-[38px] text-[13px] text-bad border-bad/40"
+                    className="flex-1 min-h-[38px] text-[13px] text-bad-text border-bad/40"
                     disabled={delRecurring.isPending}
                     onClick={() =>
                       delRecurring.mutate(t.id, {

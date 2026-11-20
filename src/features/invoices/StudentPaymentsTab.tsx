@@ -56,10 +56,10 @@ export function StudentPaymentsTab({
             <div className="font-extrabold text-[15px]">
               {summary.dueTotal > 0 ? (
                 <>
-                  مستحق <span className="text-warn" dir="ltr">{formatMoney(summary.dueTotal)}</span>
+                  مستحق <span className="text-warn-text" dir="ltr">{formatMoney(summary.dueTotal)}</span>
                 </>
               ) : (
-                <span className="text-ok">لا توجد مستحقات ✓</span>
+                <span className="text-ok-text">لا توجد مستحقات ✓</span>
               )}
             </div>
             <div className="text-muted text-[12.5px] mt-0.5">
@@ -106,7 +106,7 @@ export function StudentPaymentsTab({
                     </span>
                   </div>
                   {state === 'paid' ? (
-                    <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok border border-ok/30 rounded-full px-2 py-0.5">
+                    <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
                       مسدد
                     </span>
                   ) : state === 'partial' ? (
@@ -114,7 +114,7 @@ export function StudentPaymentsTab({
                       جزئي — باقي {formatMoney(inv.balance)}
                     </span>
                   ) : (
-                    <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn border border-warn/40 rounded-full px-2 py-0.5">
+                    <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
                       باقي {formatMoney(inv.balance)}
                     </span>
                   )}
@@ -148,7 +148,7 @@ export function StudentPaymentsTab({
             >
               <div className="flex items-center justify-between gap-2">
                 <span
-                  className={`font-extrabold text-[14.5px] ${p.amount < 0 ? 'text-bad' : 'text-ok'}`}
+                  className={`font-extrabold text-[14.5px] ${p.amount < 0 ? 'text-bad-text' : 'text-ok-text'}`}
                   dir="ltr"
                 >
                   {formatMoney(p.amount)}

@@ -119,7 +119,7 @@ export function BackupPage() {
         <h2 className="text-[15px] font-extrabold mt-0 mb-1">💾 حالة النسخ الاحتياطي</h2>
         <p className="text-[13px] mt-0 mb-2">{lastExportLabel(lastExport)}</p>
         {backupDue ? (
-          <p className="text-[13px] bg-warn/10 text-warn rounded-xl px-3 py-2 mb-0 mt-0 font-semibold">
+          <p className="text-[13px] bg-warn/10 text-warn-text rounded-xl px-3 py-2 mb-0 mt-0 font-semibold">
             ⚠️ مفيش نسخة احتياطية حديثة — اعمل نسخة دلوقتي واحفظها بره التطبيق (ملفاتك أو بريدك).
           </p>
         ) : (
@@ -142,7 +142,7 @@ export function BackupPage() {
           <p className="text-[13px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{downloadMsg}</p>
         )}
         {download.isError && (
-          <p className="text-[13px] text-bad mb-3 mt-0">
+          <p className="text-[13px] text-bad-text mb-3 mt-0">
             {download.error instanceof Error ? download.error.message : 'تعذّر إنشاء النسخة.'}
           </p>
         )}
@@ -193,7 +193,7 @@ export function BackupPage() {
 
         {/* نتيجة التحقق */}
         {validation && !validation.ok && (
-          <div className="mt-4 text-[13px] bg-bad/5 text-bad rounded-xl px-3 py-2">
+          <div className="mt-4 text-[13px] bg-bad/5 text-bad-text rounded-xl px-3 py-2">
             {validation.errors.map((e, i) => (
               <div key={i}>⚠️ {e}</div>
             ))}
@@ -228,7 +228,7 @@ export function BackupPage() {
               )}
             </div>
             {importer.isError && (
-              <p className="text-[13px] text-bad mb-3 mt-0">
+              <p className="text-[13px] text-bad-text mb-3 mt-0">
                 {importer.error instanceof Error
                   ? importer.error.message
                   : 'تعذّر الاستيراد.'}
@@ -287,7 +287,7 @@ export function BackupPage() {
                 ))}
             </div>
             {report.errorSamples.length > 0 && (
-              <div className="text-[12px] text-bad bg-bad/5 rounded-xl px-3 py-2">
+              <div className="text-[12px] text-bad-text bg-bad/5 rounded-xl px-3 py-2">
                 {report.errorSamples.map((e, i) => (
                   <div key={i}>{e}</div>
                 ))}

@@ -236,7 +236,7 @@ export function HomePage() {
                   ? 'لا حضور مسجل هذا الشهر'
                   : `حضر ${monthAttendanceQ.data?.attended ?? 0} من ${monthAttendanceQ.data?.marked ?? 0} مسجلة`
               }
-              valueClass={attRate == null ? '' : attRate >= 80 ? 'text-ok' : 'text-warn'}
+              valueClass={attRate == null ? '' : attRate >= 80 ? 'text-ok-text' : 'text-warn-text'}
             />
             {isOwner && (
               <KpiCard
@@ -244,7 +244,7 @@ export function HomePage() {
                 value={formatMoney(collectedMonth)}
                 label="محصّل الشهر"
                 sub={`اليوم: ${formatMoney(paymentsQ.data?.collectedToday ?? 0)}`}
-                valueClass="text-ok"
+                valueClass="text-ok-text"
               />
             )}
             {isOwner && (
@@ -257,7 +257,7 @@ export function HomePage() {
                     ? `بإجمالي ${formatMoney(invoiceStats.arrearsTotal)}`
                     : 'لا توجد متأخرات'
                 }
-                valueClass={invoiceStats.unpaidCount > 0 ? 'text-warn' : ''}
+                valueClass={invoiceStats.unpaidCount > 0 ? 'text-warn-text' : ''}
               />
             )}
           </div>
@@ -267,7 +267,7 @@ export function HomePage() {
             <Card>
               <div className="flex justify-between items-center mb-2">
                 <span className="font-bold text-[14px]">هدف تحصيل الشهر</span>
-                <span className="font-extrabold text-ok">{goalPct}%</span>
+                <span className="font-extrabold text-ok-text">{goalPct}%</span>
               </div>
               <div className="h-2 rounded-full bg-soft overflow-hidden">
                 <div className="h-full rounded-full bg-ok" style={{ width: `${goalPct}%` }} />
@@ -374,7 +374,7 @@ function TodaySessionCard({
             ) : done >= total ? (
               <Link
                 to={`/attendance?session=${s.id}`}
-                className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok border border-ok/30 rounded-full px-3 py-1.5 no-underline"
+                className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-3 py-1.5 no-underline"
               >
                 تم ({done})
               </Link>

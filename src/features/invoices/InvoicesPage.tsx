@@ -25,7 +25,7 @@ function stateBadge(inv: InvoiceListItem) {
   const state = payStateOf(inv)
   if (state === 'paid')
     return (
-      <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok border border-ok/30 rounded-full px-2 py-0.5">
+      <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
         مسدد
       </span>
     )
@@ -36,7 +36,7 @@ function stateBadge(inv: InvoiceListItem) {
       </span>
     )
   return (
-    <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn border border-warn/40 rounded-full px-2 py-0.5">
+    <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
       باقي {formatMoney(inv.balance)}
     </span>
   )
@@ -210,7 +210,7 @@ export function InvoicesPage() {
                       className="flex justify-between py-1.5 text-[13.5px] no-underline text-text border-b border-border/60 last:border-0"
                     >
                       <span className="font-semibold">{r.name}</span>
-                      <span className="font-bold text-warn" dir="ltr">
+                      <span className="font-bold text-warn-text" dir="ltr">
                         {formatMoney(r.total)}
                       </span>
                     </Link>

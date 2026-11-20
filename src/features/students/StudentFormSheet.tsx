@@ -200,7 +200,7 @@ export function StudentFormSheet({
         </div>
       )}
 
-      {error && <p className="text-bad text-[13px] mb-3">{error}</p>}
+      {error && <p className="text-bad-text text-[13px] mb-3">{error}</p>}
       <div className="flex gap-2">
         <Button full onClick={save} disabled={saving}>
           {saving ? 'بنحفظ…' : 'حفظ'}

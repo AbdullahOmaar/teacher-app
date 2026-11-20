@@ -105,18 +105,18 @@ export function StudentDetailPage() {
           <div className="text-[18px] font-extrabold">
             {student.name}
             {student.paused && (
-              <span className="ms-2 text-[11px] font-bold bg-warn/15 text-warn border border-warn/40 rounded-full px-2 py-0.5 align-middle">
+              <span className="ms-2 text-[11px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
                 موقوف
               </span>
             )}
           </div>
           {!isAssistant &&
             (balance > 0 ? (
-              <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn border border-warn/40 rounded-full px-2 py-0.5">
+              <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
                 باقي {formatMoney(balance)}
               </span>
             ) : (
-              <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok border border-ok/30 rounded-full px-2 py-0.5">
+              <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
                 مسدد
               </span>
             ))}
@@ -201,7 +201,7 @@ export function StudentDetailPage() {
                     </Link>
                     <button
                       type="button"
-                      className="text-bad text-[12.5px] font-semibold bg-transparent border-0 cursor-pointer"
+                      className="text-bad-text text-[12.5px] font-semibold bg-transparent border-0 cursor-pointer"
                       onClick={() => {
                         if (window.confirm(`إلغاء تسجيل «${student.name}» من مجموعة «${g.name}»؟`))
                           deleteEnrollment.mutate(e.id)

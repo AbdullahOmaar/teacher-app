@@ -39,7 +39,7 @@ export function ErrorState({ message }: { message: string }) {
   return (
     <Card className="text-center py-6">
       <div className="text-[28px] mb-2">⚠️</div>
-      <div className="font-bold text-bad mb-1">حصلت مشكلة في التحميل</div>
+      <div className="font-bold text-bad-text mb-1">حصلت مشكلة في التحميل</div>
       <p className="text-muted text-[13px] mb-0 break-words">{message}</p>
     </Card>
   )

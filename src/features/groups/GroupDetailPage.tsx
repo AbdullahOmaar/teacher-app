@@ -131,7 +131,7 @@ export function GroupDetailPage() {
               <div className="flex items-center justify-between gap-2">
                 <span className="font-bold text-[14.5px]">
                   {r.student_name}
-                  {r.student_paused && <span className="text-warn text-[12px]"> (موقوف)</span>}
+                  {r.student_paused && <span className="text-warn-text text-[12px]"> (موقوف)</span>}
                 </span>
                 <span className="text-muted text-[12.5px]">
                   <span dir="ltr">{r.student_code}</span>
@@ -180,7 +180,7 @@ export function GroupDetailPage() {
               <TextInput value={wlNote} onChange={(e) => setWlNote(e.target.value)} />
             </Field>
           </div>
-          {wlError && <p className="text-bad text-[13px] mb-2">{wlError}</p>}
+          {wlError && <p className="text-bad-text text-[13px] mb-2">{wlError}</p>}
           <Button full variant="soft" onClick={submitWaitlist} disabled={addWaitlist.isPending}>
             {addWaitlist.isPending ? 'بنضيف…' : '+ إضافة لقائمة الانتظار'}
           </Button>
