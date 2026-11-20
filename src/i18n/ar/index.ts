@@ -6,6 +6,8 @@ import { atrisk } from './atrisk'
 import { analytics } from './analytics'
 import { students } from './students'
 import { invoices } from './invoices'
+import { activity } from './activity'
+import { money } from './money'
 
 /**
  * قاموس العربية — اللغة الوحيدة حالياً (W7 — R-4/R-5).
@@ -21,4 +23,6 @@ export const ar = {
   analytics,
   students,
   invoices,
+  activity,
+  money,
 } as const

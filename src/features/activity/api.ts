@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { t } from '../../i18n'
 import type {
   ActivityActorRole,
   ActivityEventType,
@@ -249,25 +250,25 @@ export async function fetchActivityActors(teacherId: string): Promise<ActivityAc
 // ---------------------------------------------------------------------------
 
 export const EVENT_TYPE_LABELS: Record<ActivityEventType, string> = {
-  payment_created: 'تسجيل دفعة',
-  payment_voided: 'عكس دفعة',
-  invoice_created: 'إنشاء فاتورة',
-  invoices_generated: 'توليد فواتير',
-  attendance_saved: 'تسجيل حضور',
-  member_invited: 'دعوة مساعد',
-  member_joined: 'قبول دعوة مساعد',
-  member_removed: 'إزالة مساعد',
-  member_invite_cancelled: 'إلغاء دعوة مساعد',
-  member_permissions_updated: 'تعديل صلاحيات مساعد',
-  proof_approved: 'اعتماد إثبات دفع',
-  proof_rejected: 'رفض إثبات دفع',
-  student_deleted: 'حذف طالب',
-  student_archived: 'أرشفة طالب',
-  student_unarchived: 'إلغاء أرشفة طالب',
-  group_deleted: 'حذف مجموعة',
-  group_archived: 'أرشفة مجموعة',
-  group_unarchived: 'إلغاء أرشفة مجموعة',
-  cashbox_closed: 'إغلاق خزنة يومي',
+  payment_created: t('activity.event.payment_created'),
+  payment_voided: t('activity.event.payment_voided'),
+  invoice_created: t('activity.event.invoice_created'),
+  invoices_generated: t('activity.event.invoices_generated'),
+  attendance_saved: t('activity.event.attendance_saved'),
+  member_invited: t('activity.event.member_invited'),
+  member_joined: t('activity.event.member_joined'),
+  member_removed: t('activity.event.member_removed'),
+  member_invite_cancelled: t('activity.event.member_invite_cancelled'),
+  member_permissions_updated: t('activity.event.member_permissions_updated'),
+  proof_approved: t('activity.event.proof_approved'),
+  proof_rejected: t('activity.event.proof_rejected'),
+  student_deleted: t('activity.event.student_deleted'),
+  student_archived: t('activity.event.student_archived'),
+  student_unarchived: t('activity.event.student_unarchived'),
+  group_deleted: t('activity.event.group_deleted'),
+  group_archived: t('activity.event.group_archived'),
+  group_unarchived: t('activity.event.group_unarchived'),
+  cashbox_closed: t('activity.event.cashbox_closed'),
 }
 
 export const EVENT_TYPE_OPTIONS: { code: ActivityEventType; label: string }[] = (
@@ -275,6 +276,6 @@ export const EVENT_TYPE_OPTIONS: { code: ActivityEventType; label: string }[] = 
 ).map((code) => ({ code, label: EVENT_TYPE_LABELS[code] }))
 
 export const ACTOR_ROLE_LABELS: Record<ActivityActorRole, string> = {
-  owner: 'المالك',
-  assistant: 'مساعد',
+  owner: t('activity.role.owner'),
+  assistant: t('activity.role.assistant'),
 }

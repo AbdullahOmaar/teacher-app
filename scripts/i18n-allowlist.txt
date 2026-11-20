@@ -5,7 +5,6 @@ src/components/PortalPushToggle.tsx
 src/components/brand/Logo.tsx
 src/components/ui/Avatar.tsx
 src/components/ui/DangerConfirmSheet.tsx
-src/features/activity/ActivityLogPage.tsx
 src/features/analytics/charts.tsx
 src/features/atrisk/AtRiskPage.tsx
 src/features/attendance/AttendancePage.tsx
@@ -32,7 +31,6 @@ src/features/invoices/StudentPaymentsTab.tsx
 src/features/invoices/sheets.tsx
 src/features/money/CashboxSection.tsx
 src/features/money/ClosingFormSheet.tsx
-src/features/money/MoneyPage.tsx
 src/features/money/sheets.tsx
 src/features/payment-proofs/components.tsx
 src/features/portal/PortalLinkSheet.tsx

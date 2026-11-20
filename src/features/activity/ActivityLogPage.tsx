@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { t } from '../../i18n'
 import { History, X } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -43,33 +44,33 @@ function detailsText(row: ActivityLogRow): string | null {
   const str = (v: unknown) => (typeof v === 'string' && v ? v : null)
 
   const amount = num(d.amount)
-  if (amount != null) parts.push(`المبلغ: ${formatMoney(amount)}`)
+  if (amount != null) parts.push(t('activity.detail.amount', { amount: formatMoney(amount) }))
   const method = str(d.method_label) ?? str(d.method)
-  if (method) parts.push(`الطريقة: ${method}`)
+  if (method) parts.push(t('activity.detail.method', { method }))
   const receipt = str(d.receipt_no)
-  if (receipt) parts.push(`إيصال ${receipt}`)
+  if (receipt) parts.push(t('activity.detail.receipt', { receipt }))
   const period = str(d.period_label) ?? str(d.period)
-  if (period) parts.push(`فترة: ${period}`)
+  if (period) parts.push(t('activity.detail.period', { period }))
   const created = num(d.created)
-  if (created != null) parts.push(`أُنشئت ${created} فاتورة`)
+  if (created != null) parts.push(t('activity.detail.created', { count: created }))
   const skipped = num(d.skipped)
-  if (skipped != null && skipped > 0) parts.push(`اتخطّت ${skipped} (موجودة)`)
+  if (skipped != null && skipped > 0) parts.push(t('activity.detail.skipped', { count: skipped }))
   const studentCount = num(d.student_count)
-  if (studentCount != null) parts.push(`${studentCount} طالب`)
+  if (studentCount != null) parts.push(t('activity.detail.students', { count: studentCount }))
   const present = num(d.present_count)
-  if (present != null) parts.push(`حاضر/متأخر/تعويضية: ${present}`)
+  if (present != null) parts.push(t('activity.detail.present', { count: present }))
   const absent = num(d.absent_count)
-  if (absent != null) parts.push(`غائب: ${absent}`)
+  if (absent != null) parts.push(t('activity.detail.absent', { count: absent }))
   const closingDate = str(d.closing_date)
-  if (closingDate) parts.push(`يوم: ${formatDateLabel(closingDate)}`)
+  if (closingDate) parts.push(t('activity.detail.closingDay', { date: formatDateLabel(closingDate) }))
   const counted = num(d.counted_total)
-  if (counted != null) parts.push(`المعدود: ${formatMoney(counted)}`)
+  if (counted != null) parts.push(t('activity.detail.counted', { amount: formatMoney(counted) }))
   const expected = num(d.expected_total)
-  if (expected != null) parts.push(`المتوقع: ${formatMoney(expected)}`)
+  if (expected != null) parts.push(t('activity.detail.expected', { amount: formatMoney(expected) }))
   const email = str(d.invited_email)
   if (email) parts.push(email)
   const reason = str(d.reason)
-  if (reason) parts.push(`السبب: ${reason}`)
+  if (reason) parts.push(t('activity.detail.reason', { reason }))
   return parts.length > 0 ? parts.join(' · ') : null
 }
 
@@ -127,7 +128,7 @@ export function ActivityLogPage() {
     setToDate('')
   }
   const actorName = (id: string) =>
-    (actorsQ.data ?? []).find((a) => a.id === id)?.name ?? 'فاعل'
+    (actorsQ.data ?? []).find((a) => a.id === id)?.name ?? t('activity.page.actorFallback')
   const eventTypeLabel = (code: string) =>
     EVENT_TYPE_OPTIONS.find((o) => o.code === code)?.label ?? code
 
@@ -147,7 +148,7 @@ export function ActivityLogPage() {
         search={{
           value: search,
           onChange: setSearch,
-          placeholder: 'ابحث في السجل…',
+          placeholder: t('activity.page.searchPlaceholder'),
         }}
         chips={
           <>
@@ -163,17 +164,17 @@ export function ActivityLogPage() {
             )}
             {fromDate && (
               <Chip active onClick={() => setFromDate('')}>
-                من {formatDateLabel(fromDate)} <X size={14} />
+                {t('activity.page.fromChip', { date: formatDateLabel(fromDate) })} <X size={14} />
               </Chip>
             )}
             {toDate && (
               <Chip active onClick={() => setToDate('')}>
-                إلى {formatDateLabel(toDate)} <X size={14} />
+                {t('activity.page.toChip', { date: formatDateLabel(toDate) })} <X size={14} />
               </Chip>
             )}
             {advancedCount > 0 && (
               <Chip active={false} onClick={clearAdvanced}>
-                مسح الكل
+                {t('activity.page.clearAll')}
               </Chip>
             )}
           </>
@@ -185,12 +186,12 @@ export function ActivityLogPage() {
 
       <Card>
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2">
-          <History size={22} className="text-primary" /> سجل النشاط
+          <History size={22} className="text-primary" /> {t('activity.page.title')}
         </h2>
         <p className="text-muted text-[13.5px] mt-0 mb-0">
           {role === 'owner'
-            ? 'كل الأحداث الجوهرية في حسابك: مين عمل إيه وإمتى — دفعات وفواتير وحضور وعضويات وإثباتات وحذف/أرشفة وإغلاقات خزنة. السجل للقراءة فقط ولا يمكن تعديله أو مسحه من التطبيق.'
-            : 'بتشوف هنا نشاطك إنت بس داخل حساب المدرس (تسجيلك للحضور والعمليات اللي عملتها) — نشاط المالك وباقي الفريق محجوب عنك في قاعدة البيانات نفسها.'}
+            ? t('activity.page.introOwner')
+            : t('activity.page.introAssistant')}
         </p>
       </Card>
 
@@ -200,16 +201,16 @@ export function ActivityLogPage() {
         </Card>
       ) : logQ.isError ? (
         <ErrorState
-          message={logQ.error instanceof Error ? logQ.error.message : 'تعذّر تحميل سجل النشاط.'}
+          message={logQ.error instanceof Error ? logQ.error.message : t('activity.page.loadError')}
           onRetry={() => void logQ.refetch()}
         />
       ) : rows.length === 0 ? (
         <EmptyState
-          title={hasFilters ? 'مفيش أحداث مطابقة للفلاتر' : 'لسه مفيش نشاط مسجل'}
+          title={hasFilters ? t('activity.page.emptyFilteredTitle') : t('activity.page.emptyTitle')}
           hint={
             hasFilters
-              ? 'جرّب توسّع المدى الزمني أو تشيل فلتر — الأحداث بتتسجل تلقائياً من العمليات الجوهرية بس.'
-              : 'أول ما تسجّل دفعة أو حضور أو أي عملية جوهرية هتظهر هنا بفاعلها ووقتها.'
+              ? t('activity.page.emptyFilteredHint')
+              : t('activity.page.emptyHint')
           }
         />
       ) : (
@@ -234,7 +235,7 @@ export function ActivityLogPage() {
                       <span className="text-muted text-[12.5px] shrink-0">{timeLabel(row.created_at)}</span>
                     </div>
                     <div className="text-muted text-[13px] mt-0.5">
-                      {row.actor_name ?? 'مستخدم'} · {ACTOR_ROLE_LABELS[row.actor_role]}
+                      {row.actor_name ?? t('activity.page.userFallback')} · {ACTOR_ROLE_LABELS[row.actor_role]}
                       {details ? ` · ${details}` : ''}
                     </div>
                   </div>
@@ -252,11 +253,11 @@ export function ActivityLogPage() {
 
       {/* Sheet «تصفية» النمط الموحّد (W3): نوع/فاعل/مدى زمني — تطبق فوراً
           وتظهر رقائقها القابلة للإزالة في الشريط */}
-      <Sheet open={filterOpen} onClose={() => setFilterOpen(false)} title="تصفية سجل النشاط">
+      <Sheet open={filterOpen} onClose={() => setFilterOpen(false)} title={t('activity.page.filterTitle')}>
         <div className="pb-2">
-          <Field label="نوع الحدث">
+          <Field label={t('activity.page.typeLabel')}>
             <Select value={eventType} onChange={(e) => setEventType(e.target.value)}>
-              <option value="">كل الأحداث</option>
+              <option value="">{t('activity.page.allEvents')}</option>
               {EVENT_TYPE_OPTIONS.map((o) => (
                 <option key={o.code} value={o.code}>
                   {o.label}
@@ -264,9 +265,9 @@ export function ActivityLogPage() {
               ))}
             </Select>
           </Field>
-          <Field label="الفاعل">
+          <Field label={t('activity.page.actorLabel')}>
             <Select value={actorId} onChange={(e) => setActorId(e.target.value)}>
-              <option value="">الكل</option>
+              <option value="">{t('activity.page.allActors')}</option>
               {(actorsQ.data ?? []).map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name} ({ACTOR_ROLE_LABELS[a.role]})
@@ -274,18 +275,18 @@ export function ActivityLogPage() {
               ))}
             </Select>
           </Field>
-          <Field label="من تاريخ">
+          <Field label={t('activity.page.fromLabel')}>
             <TextInput type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           </Field>
-          <Field label="إلى تاريخ">
+          <Field label={t('activity.page.toLabel')}>
             <TextInput type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
           </Field>
           <div className="flex gap-2 mt-1">
             <Button full variant="ghost" onClick={clearAdvanced} disabled={advancedCount === 0}>
-              مسح الكل
+              {t('activity.page.clearAll')}
             </Button>
             <Button full onClick={() => setFilterOpen(false)}>
-              عرض النتائج
+              {t('activity.page.showResults')}
             </Button>
           </div>
         </div>
