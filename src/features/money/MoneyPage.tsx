@@ -12,6 +12,7 @@ import { monthStartStr, todayStr } from '../home/api'
 import { periodLabel } from '../invoices/api'
 import { addMonthsStr, formatDateLabel } from '../schedule/api'
 import { lastSixMonths, summaryOf, type MonthSummary } from './api'
+import { CashboxSection } from './CashboxSection'
 import {
   useApplyRecurring,
   useCenterSharePercent,
@@ -91,6 +92,13 @@ function MonthBarRow({
  * المالية محجوبة عن المساعد: RLS تمنع القراءة أصلاً (لا سياسة مالية
  * للمساعد على expenses/recurring_expenses/teacher_settings/payments)،
  * والواجهة تعرض قفلاً بنفس نمط شاشة الفواتير.
+ *
+ * أعلى الشاشة قسم «الإغلاق اليومي للخزنة» (CashboxSection — Phase 2
+ * خطوة 5): ملخص يوم مختار (افتراضياً النهاردة) محسوب حياً من دفعات
+ * اليوم ومصروفاته + حفظ/تعديل إغلاق اليوم في daily_closings وسجل
+ * الإغلاقات السابقة — اختير قسماً داخل شاشة الفلوس لا شاشة مستقلة لأن
+ * التنقل السفلي ثابت بخمس وجهات والإغلاق امتداد طبيعي لسياق الفلوس،
+ * ومالك فقط كسائر المالية.
  */
 export function MoneyPage() {
   const teacher = useCurrentTeacher()
@@ -182,6 +190,10 @@ export function MoneyPage() {
           رجوع للشهر الحالي ({periodLabel(currentMonth)})
         </Button>
       )}
+
+      {/* الإغلاق اليومي للخزنة (خطوة 5): قسم مستقل بحالاته الخاصة،
+          يومي الإيقاع فلا يرتبط بتنقّل الشهور أسفله */}
+      {teacherId && <CashboxSection teacherId={teacherId} />}
 
       {pending ? (
         <LoadingState label="بنحمّل الملخص المالي…" />

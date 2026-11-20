@@ -381,3 +381,33 @@ export interface RecurringExpenseInput {
   amount: number
   note: string | null
 }
+
+/**
+ * إغلاق يومي للخزنة — جدول daily_closings (migration 0004).
+ * صف واحد لكل (مدرس، يوم): لقطة المتوقع وقت الإغلاق + المعدود فعلياً.
+ * الفرق (معدود − متوقع) مشتق دائماً ولا يُخزّن.
+ */
+export interface DailyClosingRow {
+  id: string
+  teacher_id: string
+  closing_date: string // 'YYYY-MM-DD'
+  expected_cash: number
+  expected_electronic: number
+  expenses_total: number // لقطة مصروفات اليوم وقت الإغلاق (عرض فقط)
+  counted_cash: number // >= 0 (قيد المخطط)
+  counted_electronic: number // >= 0 (قيد المخطط)
+  note: string | null
+  closed_by: string // حساب Auth لمن أغلق — المالك فقط (لا سياسة مالية للمساعد)
+  created_at: string
+  updated_at: string
+}
+
+export interface DailyClosingInput {
+  closing_date: string // 'YYYY-MM-DD'
+  expected_cash: number
+  expected_electronic: number
+  expenses_total: number
+  counted_cash: number
+  counted_electronic: number
+  note: string | null
+}
