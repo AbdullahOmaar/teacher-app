@@ -32,7 +32,7 @@ import { Chip } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
 import { Avatar } from '../../components/ui/Avatar'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
-import { formatClock12, formatTime12 } from '../../lib/format'
+import { formatClock12, formatTime12, safeExternalUrl } from '../../lib/format'
 import type { AttendanceStatus } from '../../types/database'
 import { useGroups } from '../groups/hooks'
 import { formatDateLabel, generationWindowMonths, monthStartStr, todayStr } from '../schedule/api'
@@ -638,22 +638,26 @@ export function AttendancePage() {
             </div>
           )}
 
-          {group && group.links.length > 0 && (
+          {group && group.links.some((l) => safeExternalUrl(l) !== null) && (
             <Card>
               <div className="font-bold text-[15px] mb-2">روابط الملازم والواجبات</div>
               <div className="flex flex-col gap-1.5">
-                {group.links.map((l) => (
-                  <a
-                    key={l}
-                    href={l}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-primary text-[13.5px] break-all"
-                    dir="ltr"
-                  >
-                    {l}
-                  </a>
-                ))}
+                {group.links.map((l) => {
+                  const href = safeExternalUrl(l)
+                  if (href === null) return null
+                  return (
+                    <a
+                      key={l}
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary text-[13.5px] break-all"
+                      dir="ltr"
+                    >
+                      {l}
+                    </a>
+                  )
+                })}
               </div>
             </Card>
           )}

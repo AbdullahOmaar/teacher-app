@@ -58,6 +58,22 @@ export function daysLabel(days: number[]): string {
     .join('، ')
 }
 
+/**
+ * رابط خارجي آمن للعرض كـ href (روابط المجموعات): يُقبل http/https فقط.
+ * أي scheme آخر (javascript:/data:/…) أو نص غير صالح كرابط يُرفض (null) —
+ * حماية من XSS مخزّن عبر روابط حرة النص تصل لبوابات عامة (مراجعة أمان C-01).
+ */
+export function safeExternalUrl(raw: string): string | null {
+  const t = raw.trim()
+  if (!t) return null
+  try {
+    const u = new URL(t)
+    return u.protocol === 'https:' || u.protocol === 'http:' ? t : null
+  } catch {
+    return null
+  }
+}
+
 /** تحويل رقم هاتف مصري لصيغة wa.me الدولية (افتراضي +20) */
 export function waLink(phone: string | null | undefined): string | null {
   if (!phone) return null

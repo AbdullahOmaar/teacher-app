@@ -11,7 +11,7 @@ import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../.
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
-import { BILLING_LABELS, daysLabel, formatMoney, formatTime12 } from '../../lib/format'
+import { BILLING_LABELS, daysLabel, formatMoney, formatTime12, safeExternalUrl } from '../../lib/format'
 import { useStudents } from '../students/hooks'
 import { EnrollStudentSheet } from '../students/EnrollStudentSheet'
 import {
@@ -199,14 +199,18 @@ export function GroupDetailPage() {
             </div>
           </div>
         )}
-        {group.links.length > 0 && (
+        {group.links.some((l) => safeExternalUrl(l) !== null) && (
           <div className="mt-2">
-            {group.links.map((l, i) => (
-              <a key={i} href={l} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-primary text-[13.5px] break-all min-h-[48px]" dir="ltr">
-                <Link2 size={16} className="shrink-0" />
-                <span className="break-all">{l}</span>
-              </a>
-            ))}
+            {group.links.map((l, i) => {
+              const href = safeExternalUrl(l)
+              if (href === null) return null
+              return (
+                <a key={i} href={href} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-primary text-[13.5px] break-all min-h-[48px]" dir="ltr">
+                  <Link2 size={16} className="shrink-0" />
+                  <span className="break-all">{l}</span>
+                </a>
+              )
+            })}
           </div>
         )}
         <div className="flex flex-wrap gap-2 mt-3">

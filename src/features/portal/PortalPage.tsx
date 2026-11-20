@@ -20,7 +20,7 @@ import { Button } from '../../components/ui/Button'
 import { Chip, ChipRow, Field, FormError, TextInput } from '../../components/ui/form'
 import { SkeletonCards } from '../../components/ui/states'
 import type { IconComponent } from '../../components/ui/EmptyState'
-import { daysLabel, formatClock12, formatMoney, formatTime12 } from '../../lib/format'
+import { daysLabel, formatClock12, formatMoney, formatTime12, safeExternalUrl } from '../../lib/format'
 import type { PaymentMethod } from '../../types/database'
 import { fmtScore, pctOf } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
@@ -488,21 +488,25 @@ export function PortalPage() {
               {daysLabel(g.days)} · الساعة {formatTime12(g.start_time)}
               {g.room ? ` · ${g.room}` : ''}
             </div>
-            {g.links.length > 0 && (
+            {g.links.some((link) => safeExternalUrl(link) !== null) && (
               <div className="flex flex-wrap gap-2 mt-2">
-                {g.links.map((link) => (
-                  <a
-                    key={link}
-                    href={link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 min-h-[48px] text-[13.5px] font-semibold bg-soft text-primary rounded-full px-3 no-underline max-w-full"
-                    dir="ltr"
-                  >
-                    <Link2 size={16} className="shrink-0" />
-                    <span className="truncate">{link}</span>
-                  </a>
-                ))}
+                {g.links.map((link) => {
+                  const href = safeExternalUrl(link)
+                  if (href === null) return null
+                  return (
+                    <a
+                      key={link}
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 min-h-[48px] text-[13.5px] font-semibold bg-soft text-primary rounded-full px-3 no-underline max-w-full"
+                      dir="ltr"
+                    >
+                      <Link2 size={16} className="shrink-0" />
+                      <span className="truncate">{link}</span>
+                    </a>
+                  )
+                })}
               </div>
             )}
           </Card>

@@ -4,7 +4,7 @@ import { AlertTriangle } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Chip, Field, FieldError, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import type { BillingType, GroupInput, GroupRow } from '../../types/database'
-import { BILLING_LABELS, BILLING_TYPES, DAY_NAMES, shortTime, timeToMin } from '../../lib/format'
+import { BILLING_LABELS, BILLING_TYPES, DAY_NAMES, safeExternalUrl, shortTime, timeToMin } from '../../lib/format'
 import { useCreateGroup, useUpdateGroup } from './hooks'
 
 interface GroupFormSheetProps {
@@ -71,6 +71,7 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
     price?: string
     duration?: string
     capacity?: string
+    links?: string
   }>({})
 
   const createGroup = useCreateGroup(teacherId)
@@ -96,6 +97,12 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
     if (!Number.isFinite(priceNum) || priceNum < 0) errs.price = 'السعر غير صحيح'
     const durNum = Number(duration)
     if (!Number.isInteger(durNum) || durNum < 30) errs.duration = 'المدة لازم تكون 30 دقيقة على الأقل'
+    const linkList = links
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+    if (linkList.some((l) => safeExternalUrl(l) === null))
+      errs.links = 'كل رابط لازم يبدأ بـ https:// أو http://'
     const capNum = capacity.trim() === '' ? null : Number(capacity)
     if (capNum !== null && (!Number.isInteger(capNum) || capNum <= 0))
       errs.capacity = 'السعة لازم تكون عدداً صحيحاً موجباً (أو فارغة = بلا حد)'
@@ -112,10 +119,7 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
       room: room.trim() === '' ? null : room.trim(),
       capacity: capNum,
       assistant_name: assistant.trim() === '' ? null : assistant.trim(),
-      links: links
-        .split('\n')
-        .map((l) => l.trim())
-        .filter(Boolean),
+      links: linkList,
     }
     try {
       if (initial) await updateGroup.mutateAsync({ groupId: initial.id, input })
@@ -194,7 +198,7 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
       <Field label="اسم المساعد">
         <TextInput value={assistant} onChange={(e) => setAssistant(e.target.value)} />
       </Field>
-      <Field label="روابط (ملازم / أونلاين) — سطر لكل رابط">
+      <Field label="روابط (ملازم / أونلاين) — سطر لكل رابط" error={fieldErrors.links}>
         <TextArea rows={3} dir="ltr" value={links} onChange={(e) => setLinks(e.target.value)} placeholder={'https://…'} />
       </Field>
 
