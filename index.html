@@ -14,6 +14,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="المدرس" />
+    <script>
+      // تهيئة الثيم قبل أول رسم (إصلاح QA الخطوة 14): خطاف useTheme راكب
+      // داخل AppShell فقط، فالصفحات العامة (الدخول/البوابة) كانت تظهر
+      // بالفاتح دائماً مهما كان الثيم المحفوظ أو النظامي. نفس منطق
+      // resolveDark في src/hooks/useTheme.ts ونفس مفتاح التخزين حرفياً،
+      // وبلا وميض لأنها تعمل قبل تصيير أي محتوى.
+      try {
+        var savedTheme = localStorage.getItem('teacher-app-theme')
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        document.documentElement.dataset.theme =
+          savedTheme === 'dark' || (savedTheme !== 'light' && prefersDark) ? 'dark' : 'light'
+      } catch (e) {
+        /* بلا وصول للتخزين: يبقى الافتراضي الفاتح من CSS */
+      }
+    </script>
     <title>تطبيق المدرس</title>
     <!-- الخط (IBM Plex Sans Arabic) مضمّن محلياً عبر @fontsource في main.tsx — لا روابط خطوط خارجية -->
   </head>
