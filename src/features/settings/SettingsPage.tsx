@@ -28,6 +28,7 @@ import {
 } from '../auth/hooks'
 import { DEFAULT_WA_TEMPLATE } from '../invoices/api'
 import { InstallAppCard } from './InstallAppCard'
+import { PushNotificationsCard } from './PushNotificationsCard'
 import { formatDateLabel } from '../schedule/api'
 import { REMINDER_OPTIONS, THEME_MODES, type TeacherSettingsInput } from './api'
 import {
@@ -987,6 +988,9 @@ export function SettingsPage() {
 
       {/* تثبيت التطبيق (PWA — خطوة 11) */}
       <InstallAppCard />
+
+      {/* إشعارات Push (Phase 4 — الخطوة 1: تفعيل اشتراك المتصفح) */}
+      <PushNotificationsCard />
 
       {/* تسجيل الخروج */}
       <Card>

@@ -688,6 +688,14 @@ export const BACKUP_TABLES: BackupTableSpec[] = [
   // يجعل إعادة الاستيراد آمنة. guardian_id لقطة مستلم قد تشير لوليّ
   // مُستورد في نفس النسخة (guardians قبلها في الترتيب).
   { key: 'guardian_notifications', table: 'guardian_notifications', label: 'تنبيهات وصول/مغادرة أولياء الأمور', pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'guardian_id', 'session_id', 'kind', 'event_at', 'read_at', 'created_at'] },
+  // Phase 4 (الخطوة 1): اشتراكات Web Push (migration ‏0013) آخر الترتيب —
+  // تعتمد على guardians/students وكلاهما قبلها. الاشتراكات مرتبطة
+  // بأجهزة المصدر: الصفوف المستعادة قد تشير لمتصفحات لم تعد موجودة،
+  // وأول إرسال لها يرد 404/410 فينظّفها مرسِل الـ Push تلقائياً.
+  // user_id لاشتراكات teacher يُعاد ربطه بالمستورِد في toInsertRow
+  // (مرجع auth.users)، وportal_token_id لقطة بلا قيد فتنتقل كما هي.
+  // سجل الإرسال push_delivery_log تشخيصي عابر فلا يدخل النسخة.
+  { key: 'push_subscriptions', table: 'push_subscriptions', label: 'اشتراكات إشعارات Push', pk: ['id'], columns: ['id', 'teacher_id', 'subscriber_kind', 'user_id', 'portal_token_id', 'guardian_id', 'student_id', 'endpoint', 'p256dh', 'auth', 'user_agent', 'is_active', 'disabled_at', 'disabled_reason', 'failure_count', 'last_success_at', 'last_failure_at', 'created_at', 'updated_at'] },
 ]
 
 export interface BackupFile {
@@ -931,6 +939,13 @@ function toInsertRow(
   if (spec.table === 'activity_log') {
     out.actor_id = teacherId
     out.actor_role = 'owner'
+  }
+  // اشتراكات Push (0013): user_id مرجع auth.users لصاحب المتصفح —
+  // اشتراكات teacher المستوردة تُعاد نسبتها لحساب المستورِد (المتصفح
+  // الذي سيُعاد التفعيل منه أصلاً)، واشتراكات البوابات user_id فيها
+  // خالٍ بطبيعتها فلا تُمسّ.
+  if (spec.table === 'push_subscriptions' && out.subscriber_kind === 'teacher') {
+    out.user_id = teacherId
   }
   return out
 }

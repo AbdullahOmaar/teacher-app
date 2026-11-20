@@ -1,0 +1,161 @@
+import { supabase } from './supabase'
+import type { PushSubscriptionRow } from '../types/database'
+
+/**
+ * عميل Web Push الأساسي (Phase 4 — الخطوة 1: البنية).
+ *
+ * المسؤولية هنا ضيّقة ومقصودة: تحويل متصفح المستخدم المسجل الحالي
+ * لاشتراك Push (طلب الإذن + pushManager.subscribe بمفتاح VAPID العام)
+ * وحفظه/إيقافه في push_subscriptions (migration ‏0013) كاشتراك
+ * «teacher». الإرسال نفسه لا يحدث من المتصفح أبداً — يتم من Edge
+ * Function ‏send-push داخلياً فقط.
+ *
+ * الخطوات التالية تبني على هذا الأساس: الخطوة 2 تضيف مسار اشتراك
+ * البوابات (RPC بالتوكن — لا وصول مباشر للجدول)، والخطوة 3 تستخدم
+ * اشتراك المدرس الجاهز هنا للتنبيهات الفورية والملخص اليومي.
+ *
+ * المفتاح العام VAPID يأتي من VITE_VAPID_PUBLIC_KEY (متغير بناء عام
+ * بطبيعته — نظيره الخاص سرّ في Supabase فقط ولا يصل للمتصفح أبداً).
+ */
+
+export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as
+  | string
+  | undefined
+
+/** هل ضُبط مفتاح VAPID العام في بناء التطبيق؟ */
+export function isPushConfigured(): boolean {
+  return Boolean(VAPID_PUBLIC_KEY)
+}
+
+/** هل يدعم هذا المتصفح Web Push أصلاً؟ (iOS: فقط للتطبيق المثبّت 16.4+) */
+export function isPushSupported(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    'Notification' in window
+  )
+}
+
+export type BrowserPushState =
+  | 'unsupported'
+  | 'unconfigured'
+  | 'denied'
+  | 'subscribed'
+  | 'not-subscribed'
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const raw = atob(base64)
+  const out = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i += 1) out[i] = raw.charCodeAt(i)
+  return out
+}
+
+async function browserSubscription(): Promise<PushSubscription | null> {
+  if (!isPushSupported()) return null
+  const reg = await navigator.serviceWorker.ready
+  return reg.pushManager.getSubscription()
+}
+
+const PUSH_SUB_COLS =
+  'id, teacher_id, subscriber_kind, user_id, portal_token_id, guardian_id, student_id, endpoint, p256dh, auth, user_agent, is_active, disabled_at, disabled_reason, failure_count, last_success_at, last_failure_at, created_at, updated_at'
+
+/**
+ * حالة اشتراك هذا المتصفح للمستخدم الحالي: «مشترك» تعني أن نقطة نهاية
+ * المتصفح الحالية موجودة ونشطة كصف teacher لهذا المستخدم.
+ */
+export async function getBrowserPushState(userId: string): Promise<BrowserPushState> {
+  if (!isPushSupported()) return 'unsupported'
+  if (!isPushConfigured()) return 'unconfigured'
+  if (Notification.permission === 'denied') return 'denied'
+  const sub = await browserSubscription()
+  if (!sub || !supabase) return 'not-subscribed'
+  const { data } = await supabase
+    .from('push_subscriptions')
+    .select('id')
+    .eq('endpoint', sub.endpoint)
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle()
+  return data ? 'subscribed' : 'not-subscribed'
+}
+
+/**
+ * تفعيل إشعارات هذا المتصفح للمستخدم المسجل: يطلب الإذن إن لزم،
+ * يشترك عند خدمة الـ Push بمفتاح VAPID العام، ويحفظ الاشتراك
+ * (upsert على endpoint الفريد — إعادة التفعيل بعد إيقاف تُنشّط الصف).
+ */
+export async function subscribeTeacherPush(params: {
+  teacherId: string
+  userId: string
+}): Promise<PushSubscriptionRow> {
+  if (!isPushSupported()) {
+    throw new Error('المتصفح ده لا يدعم إشعارات Push — على آيفون لازم التطبيق يكون مثبّتاً على الشاشة الرئيسية (iOS 16.4 أو أحدث).')
+  }
+  if (!isPushConfigured() || !VAPID_PUBLIC_KEY) {
+    throw new Error('مفتاح إشعارات Push العام غير مضبوط في هذا البناء بعد.')
+  }
+  if (!supabase) throw new Error('الاتصال بقاعدة البيانات غير مضبوط.')
+  const permission = await Notification.requestPermission()
+  if (permission !== 'granted') {
+    throw new Error('إذن الإشعارات غير ممنوح — فعّله من إعدادات المتصفح للموقع ثم حاول تاني.')
+  }
+  const reg = await navigator.serviceWorker.ready
+  const existing = await reg.pushManager.getSubscription()
+  const sub =
+    existing ??
+    (await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
+    }))
+  const json = sub.toJSON()
+  const p256dh = json.keys?.p256dh
+  const auth = json.keys?.auth
+  if (!p256dh || !auth) {
+    throw new Error('المتصفح رجّع اشتراكاً ناقص المفاتيح — حدّث الصفحة وحاول تاني.')
+  }
+  const { data, error } = await supabase
+    .from('push_subscriptions')
+    .upsert(
+      {
+        teacher_id: params.teacherId,
+        subscriber_kind: 'teacher' as const,
+        user_id: params.userId,
+        endpoint: sub.endpoint,
+        p256dh,
+        auth,
+        user_agent: navigator.userAgent.slice(0, 300),
+        is_active: true,
+        disabled_at: null,
+        disabled_reason: null,
+      },
+      { onConflict: 'endpoint' },
+    )
+    .select(PUSH_SUB_COLS)
+    .single()
+  if (error) throw error
+  return data as unknown as PushSubscriptionRow
+}
+
+/**
+ * إيقاف إشعارات هذا المتصفح: يلغي الاشتراك عند خدمة الـ Push نفسها
+ * ويعطّل صفه في القاعدة (يبقى الصف وسجلّه — التعطيل لا الحذف).
+ */
+export async function unsubscribeTeacherPush(): Promise<void> {
+  const sub = await browserSubscription()
+  if (!sub) return
+  const endpoint = sub.endpoint
+  await sub.unsubscribe().catch(() => undefined)
+  if (supabase) {
+    await supabase
+      .from('push_subscriptions')
+      .update({
+        is_active: false,
+        disabled_at: new Date().toISOString(),
+        disabled_reason: 'unsubscribed by user',
+      })
+      .eq('endpoint', endpoint)
+  }
+}

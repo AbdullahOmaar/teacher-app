@@ -244,6 +244,52 @@ export interface GuardianNotificationRow {
   created_at: string
 }
 
+/** نوع مشترك الـ Push ‏(0013): مدرس مسجل / بوابة ولي أمر / بوابة طالب */
+export type PushSubscriberKind = 'teacher' | 'guardian' | 'student'
+
+/** حالة نتيجة إرسال Push واحدة في سجل الإرسال (0013) */
+export type PushDeliveryStatus = 'sent' | 'failed' | 'gone' | 'skipped_inactive'
+
+/**
+ * اشتراك Web Push ‏(0013): endpoint فريد عالمياً + مفتاحا التشفير.
+ * teacher: ‏user_id حساب Auth صاحب المتصفح. البوابات (الخطوة 2):
+ * portal_token_id لقطة توكن الإذن + student_id إلزامي.
+ */
+export interface PushSubscriptionRow {
+  id: string
+  teacher_id: string
+  subscriber_kind: PushSubscriberKind
+  user_id: string | null
+  portal_token_id: string | null
+  guardian_id: string | null
+  student_id: string | null
+  endpoint: string
+  p256dh: string
+  auth: string
+  user_agent: string | null
+  is_active: boolean
+  disabled_at: string | null
+  disabled_reason: string | null
+  failure_count: number
+  last_success_at: string | null
+  last_failure_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** صف سجل نتيجة إرسال Push ‏(0013) — كتابته من الـ Edge Function فقط */
+export interface PushDeliveryLogRow {
+  id: string
+  subscription_id: string | null
+  teacher_id: string | null
+  endpoint_host: string | null
+  title: string | null
+  status: PushDeliveryStatus
+  http_status: number | null
+  error: string | null
+  created_at: string
+}
+
 export interface InvoiceRow {
   id: string
   teacher_id: string

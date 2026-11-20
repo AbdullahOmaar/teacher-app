@@ -119,3 +119,56 @@ self.addEventListener('fetch', (event) => {
   }
   // أي GET آخر من نفس الأصل: يمر للشبكة كما هو بلا تدخل
 })
+
+/*
+ * إشعارات Web Push (Phase 4 — الخطوة 1) — إضافة فقط:
+ * المعالجان التاليان لا يمسّان أي سلوك تخزين/اعتراض قائم أعلاه إطلاقاً
+ * (لا علاقة لهما بحدث fetch). الحمولة JSON من Edge Function ‏send-push
+ * بالشكل {title, body, url, tag, icon} — أي حمولة ناقصة/تالفة تسقط
+ * لقيم افتراضية آمنة بدل كسر عرض الإشعار.
+ */
+self.addEventListener('push', (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch {
+    data = {}
+  }
+  const title = typeof data.title === 'string' && data.title ? data.title : 'تطبيق المدرس'
+  const options = {
+    body: typeof data.body === 'string' ? data.body : '',
+    icon: typeof data.icon === 'string' && data.icon ? data.icon : '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: typeof data.tag === 'string' && data.tag ? data.tag : undefined,
+    dir: 'rtl',
+    lang: 'ar',
+    data: { url: typeof data.url === 'string' && data.url ? data.url : '/' },
+  }
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const target =
+    event.notification.data && typeof event.notification.data.url === 'string'
+      ? event.notification.data.url
+      : '/'
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windows) => {
+        // نافذة مفتوحة أصلاً: ركّزها وانتقل داخلها بدل فتح تبويب جديد
+        for (const win of windows) {
+          if ('focus' in win) {
+            return win.focus().then((focused) => {
+              if (focused && 'navigate' in focused) {
+                return focused.navigate(target).catch(() => undefined)
+              }
+              return undefined
+            })
+          }
+        }
+        return self.clients.openWindow(target)
+      }),
+  )
+})
