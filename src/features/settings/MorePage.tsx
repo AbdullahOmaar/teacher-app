@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   BookOpenCheck,
   CalendarDays,
+  ChartColumn,
   ChevronLeft,
   Download,
   HardDriveDownload,
@@ -21,6 +22,7 @@ const MENU: { icon: LucideIcon; label: string; path: string }[] = [
   { icon: NotebookPen, label: 'الامتحانات والدرجات', path: '/grades' },
   { icon: BookOpenCheck, label: 'متابعة الواجبات', path: '/homework' },
   { icon: Landmark, label: 'المصروفات والأرباح', path: '/money' },
+  { icon: ChartColumn, label: 'التحليلات', path: '/analytics' },
   { icon: UserSquare2, label: 'بوابة ولي الأمر', path: '/portal-links' },
   { icon: History, label: 'سجل النشاط', path: '/activity-log' },
   { icon: HardDriveDownload, label: 'النسخ الاحتياطي', path: '/backup' },
