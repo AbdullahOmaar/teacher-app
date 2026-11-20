@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
-import { Check, FolderCog, GraduationCap, Handshake, ImagePlus, Mail, Palette, SlidersHorizontal, Trash2, UserRound } from 'lucide-react'
+import { Bell, CalendarCheck2, Check, ChevronDown, ChevronUp, FolderCog, GraduationCap, Handshake, ImagePlus, Mail, MonitorSmartphone, Palette, SlidersHorizontal, Trash2, UserRound, type LucideIcon } from 'lucide-react'
+import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Button } from '../../components/ui/Button'
 import { Chip, Field, TextArea, TextInput } from '../../components/ui/form'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -50,6 +51,65 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 function shortId(id: string) {
   return `${id.slice(0, 8)}…${id.slice(-4)}`
+}
+
+/** تعريف قسم إعدادات واحد في خريطة الصفحة (أنكورز + أكورديون) */
+interface SettingsSectionDef {
+  id: string
+  title: string
+  icon: LucideIcon
+}
+
+/**
+ * قسم إعدادات قابل للطي (موجة W3 — بحث R-11: أكورديون صفحات الأقسام):
+ * ترويسة وصفية تعمل كخريطة للصفحة، والمحتوى تحتها عند الفتح. الأقسام
+ * المدمجة (بطاقات مكوّنات قائمة بعناوينها الداخلية مثل Push) تُمرَّر
+ * بـ bare: تُعرض كما هي ويُخفى عنوانها الداخلي اكتفاءً بالترويسة.
+ */
+function SettingsSection({
+  def,
+  open,
+  onToggle,
+  bare = false,
+  children,
+}: {
+  def: SettingsSectionDef
+  open: boolean
+  onToggle: () => void
+  bare?: boolean
+  children: ReactNode
+}) {
+  const Icon = def.icon
+  return (
+    <div
+      className="mb-3 scroll-mt-[118px]"
+      id={`settings-section-${def.id}`}
+      data-settings-section={def.id}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full flex items-center gap-2 bg-card border border-border rounded-2xl px-3 min-h-[52px] cursor-pointer text-text"
+      >
+        <Icon size={22} className="text-primary shrink-0" />
+        <span className="font-bold text-[15px] flex-1 text-start">{def.title}</span>
+        {open ? (
+          <ChevronUp size={20} className="text-muted shrink-0" />
+        ) : (
+          <ChevronDown size={20} className="text-muted shrink-0" />
+        )}
+      </button>
+      {open &&
+        (bare ? (
+          <div className="mt-2 -mb-3 [&_h2]:hidden">{children}</div>
+        ) : (
+          <div className="bg-card border border-border rounded-2xl p-4 shadow-card mt-2">
+            {children}
+          </div>
+        ))}
+    </div>
+  )
 }
 
 /**
@@ -144,6 +204,37 @@ export function SettingsPage() {
   const [newCentreName, setNewCentreName] = useState('')
   const [centreMsg, setCentreMsg] = useState<string | null>(null)
   const createCentre = useCreateCentre(ownId)
+
+  // حالة أقسام الإعدادات (W3 — R-11): hooks هنا فوق أي إرجاع مبكر؛
+  // تعريفات الأقسام نفسها (قيم عادية) عند الإرجاع حيث تتوفر شروطها
+  const [openSections, setOpenSections] = useState<Set<string> | null>(null)
+  const [activeSection, setActiveSection] = useState('account')
+  const [isDesktop, setIsDesktop] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const update = () => setIsDesktop(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+  const settingsRootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (teacher.status !== 'ready') return
+    const els = settingsRootRef.current?.querySelectorAll('[data-settings-section]')
+    if (!els || els.length === 0) return
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            setActiveSection(e.target.getAttribute('data-settings-section') ?? 'account')
+          }
+        }
+      },
+      { rootMargin: '-118px 0px -55% 0px' },
+    )
+    els.forEach((el) => obs.observe(el))
+    return () => obs.disconnect()
+  }, [teacher.status])
 
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status !== 'ready') return <LoadingState label="بنجهّز الإعدادات…" />
@@ -369,11 +460,102 @@ export function SettingsPage() {
     navigate('/login', { replace: true })
   }
 
+  // ——— خريطة أقسام الإعدادات (W3 — R-11) ———
+  // الأقسام الظاهرة فعلاً بحسب الشروط نفسها التي تحكم عرض بطاقاتها،
+  // بنفس ترتيب الصفحة. على الموبايل: أكورديون (فتح متعدد، حالة محفوظة،
+  // الأول مفتوح افتراضياً) + رقائق أنكورز في الشريط الموحّد؛ وعلى
+  // الديسكتوب (≥1024px): عمود أنكورز جانبي وكل الأقسام مفتوحة.
+  const sectionDefs: SettingsSectionDef[] = [
+    { id: 'account', title: 'حسابي', icon: UserRound },
+    ...(managedCentre
+      ? [
+          { id: 'profile', title: 'ملف المدرس', icon: GraduationCap },
+          { id: 'app', title: 'إعدادات التطبيق', icon: SlidersHorizontal },
+          { id: 'brand', title: 'هوية السنتر', icon: Palette },
+        ]
+      : []),
+    ...(ownTeachers.length > 0 || memberships.length > 0
+      ? [{ id: 'centres', title: 'السناتر ومساحات العمل', icon: FolderCog }]
+      : []),
+    ...(ownTeacher && isOwnerWorkspace
+      ? [{ id: 'team', title: 'فريق العمل (المساعدون)', icon: Handshake }]
+      : []),
+    { id: 'install', title: 'تثبيت التطبيق', icon: MonitorSmartphone },
+    { id: 'push', title: 'إشعارات Push', icon: Bell },
+    ...(isOwnerWorkspace
+      ? [{ id: 'enrol', title: 'صفحة الحجز العامة', icon: CalendarCheck2 }]
+      : []),
+  ]
+  const effectiveOpenSections = isDesktop
+    ? new Set(sectionDefs.map((s) => s.id))
+    : (openSections ?? new Set(['account']))
+  const toggleSection = (id: string) =>
+    setOpenSections((prev) => {
+      const next = new Set(prev ?? new Set(['account']))
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const jumpToSection = (id: string) => {
+    setOpenSections((prev) => {
+      const next = new Set(prev ?? new Set(['account']))
+      next.add(id)
+      return next
+    })
+    setActiveSection(id)
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`settings-section-${id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+  const sectionProps = (id: string) => {
+    const def = sectionDefs.find((s) => s.id === id)!
+    return {
+      def,
+      open: effectiveOpenSections.has(id),
+      onToggle: () => toggleSection(id),
+    }
+  }
+
   return (
-    <div>
+    <div ref={settingsRootRef}>
+      {/* رقائق الأنكورز — موبايل فقط؛ الديسكتوب له العمود الجانبي */}
+      <div className="lg:hidden">
+        <PageToolBar
+          chips={sectionDefs.map((s) => (
+            <Chip key={s.id} active={activeSection === s.id} onClick={() => jumpToSection(s.id)}>
+              {s.title}
+            </Chip>
+          ))}
+        />
+      </div>
+
+      <div className="lg:grid lg:grid-cols-[210px_minmax(0,1fr)] lg:gap-5 lg:items-start">
+        {/* عمود الأنكورز الجانبي — ديسكتوب فقط (R-11) */}
+        <aside className="hidden lg:block sticky top-[76px]">
+          <div className="flex flex-col gap-1.5">
+            {sectionDefs.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => jumpToSection(s.id)}
+                className={`flex items-center gap-2 min-h-[44px] px-3 rounded-xl border text-[13.5px] font-semibold cursor-pointer text-start ${
+                  activeSection === s.id
+                    ? 'bg-soft border-primary/40 text-primary'
+                    : 'bg-card border-border text-muted hover:bg-soft'
+                }`}
+              >
+                <s.icon size={19} className="shrink-0" />
+                {s.title}
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <div className="min-w-0">
       {/* حسابي */}
-      <Card>
-        <h2 className="type-section mt-0 mb-3 flex items-center gap-2"><UserRound size={22} className="text-primary" /> حسابي</h2>
+      <SettingsSection {...sectionProps('account')}>
         <div className="text-[13.5px] text-muted mb-1">البريد الإلكتروني</div>
         <div className="font-semibold mb-3 break-all" dir="ltr" style={{ textAlign: 'start' }}>
           {user?.email ?? '—'}
@@ -395,12 +577,11 @@ export function SettingsPage() {
             {teacher.role === 'owner' ? 'مدرس (مالك الحساب)' : 'مساعد عند مدرس آخر'}
           </b>
         </div>
-      </Card>
+      </SettingsSection>
 
       {/* ملف المدرس — بيانات السنتر المُدار (النشط إن كان مملوكاً) */}
       {managedCentre && (
-        <Card>
-          <h2 className="type-section mt-0 mb-3 flex items-center gap-2"><GraduationCap size={22} className="text-primary" /> ملف المدرس</h2>
+        <SettingsSection {...sectionProps('profile')}>
           {profileMsg && <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{profileMsg}</p>}
           <form onSubmit={handleProfileSave}>
             <Field label="اسم المدرس">
@@ -442,13 +623,12 @@ export function SettingsPage() {
               {updateProfile.isPending ? 'جارٍ الحفظ…' : 'حفظ'}
             </Button>
           </form>
-        </Card>
+        </SettingsSection>
       )}
 
       {/* إعدادات التطبيق — teacher_settings كاملة (الخطوة 10) */}
       {managedCentre && (
-        <Card>
-          <h2 className="type-section mt-0 mb-3 flex items-center gap-2"><SlidersHorizontal size={22} className="text-primary" /> إعدادات التطبيق</h2>
+        <SettingsSection {...sectionProps('app')}>
           {settingsQ.isPending ? (
             <LoadingState label="بنحمّل إعداداتك…" />
           ) : settingsQ.isError ? (
@@ -546,7 +726,7 @@ export function SettingsPage() {
               </Button>
             </form>
           )}
-        </Card>
+        </SettingsSection>
       )}
 
       {/* هوية السنتر — الهوية البيضاء (Phase 3 خطوة 1، migration ‏0008):
@@ -554,8 +734,7 @@ export function SettingsPage() {
           والشعار ولون اللهجة يظهرون على كارت الطالب والإيصالات وأوراق
           الامتحان وبوابة ولي الأمر — وغياب أي عنصر يسقط للافتراضي. */}
       {managedCentre && (
-        <Card>
-          <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><Palette size={22} className="text-primary" /> هوية السنتر</h2>
+        <SettingsSection {...sectionProps('brand')}>
           <p className="text-muted text-[13.5px] mt-0 mb-3">
             خصّص شكل سنترك: الاسم والشعار ولون اللهجة بيظهروا على كارت الطالب
             والإيصالات وأوراق الامتحان وبوابة ولي الأمر. سيب أي عنصر فاضي
@@ -723,15 +902,14 @@ export function SettingsPage() {
               </form>
             </>
           )}
-        </Card>
+        </SettingsSection>
       )}
 
       {/* السناتر ومساحات العمل (0016) — مبدّل السنتر: كل سناترك المملوكة
           (مالك) + عضوياتك عند مدرسين آخرين (مساعد)، وإنشاء سنتر جديد.
           بيانات وهوية وإعدادات كل سنتر منفصلة تماماً بـ teacher_id. */}
       {(ownTeachers.length > 0 || memberships.length > 0) && (
-        <Card>
-          <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FolderCog size={22} className="text-primary" /> السناتر ومساحات العمل</h2>
+        <SettingsSection {...sectionProps('centres')}>
           <p className="text-muted text-[13.5px] mt-0 mb-3">
             اختر السنتر اللي هتشتغل عليه دلوقتي — بيانات كل سنتر منفصلة تماماً.
           </p>
@@ -793,13 +971,12 @@ export function SettingsPage() {
               </Button>
             </form>
           )}
-        </Card>
+        </SettingsSection>
       )}
 
       {/* فريق العمل — للمالك في مساحته فقط */}
       {ownTeacher && isOwnerWorkspace && (
-        <Card>
-          <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><Handshake size={22} className="text-primary" /> فريق العمل (المساعدون)</h2>
+        <SettingsSection {...sectionProps('team')}>
           <p className="text-muted text-[13.5px] mt-0 mb-3">
             طريقتان لإضافة مساعد: بالبريد الإلكتروني (الدعوة بتتفعّل تلقائياً لما
             صاحب البريد يدخل التطبيق)، أو بمعرّف الحساب لو المساعد عنده حساب
@@ -1045,17 +1222,25 @@ export function SettingsPage() {
               )
             })
           )}
-        </Card>
+        </SettingsSection>
       )}
 
-      {/* تثبيت التطبيق (PWA — خطوة 11) */}
-      <InstallAppCard />
+      {/* تثبيت التطبيق (PWA — خطوة 11) — بطاقة مكوّن قائمة: bare */}
+      <SettingsSection {...sectionProps('install')} bare>
+        <InstallAppCard />
+      </SettingsSection>
 
-      {/* إشعارات Push (Phase 4 — الخطوة 1: اشتراك المتصفح، والخطوة 3: الملخص اليومي) */}
-      <PushNotificationsCard />
+      {/* إشعارات Push (Phase 4) — بطاقة مكوّن قائمة: bare */}
+      <SettingsSection {...sectionProps('push')} bare>
+        <PushNotificationsCard />
+      </SettingsSection>
 
       {/* صفحة الحجز العامة (Phase 5 — خطوة 2): البطاقة نفسها مالك فقط */}
-      <EnrolLinkCard />
+      {isOwnerWorkspace && (
+        <SettingsSection {...sectionProps('enrol')} bare>
+          <EnrolLinkCard />
+        </SettingsSection>
+      )}
 
       {/* تسجيل الخروج */}
       <Card>
@@ -1063,6 +1248,8 @@ export function SettingsPage() {
           {signingOut ? 'جارٍ تسجيل الخروج…' : 'تسجيل الخروج'}
         </Button>
       </Card>
+        </div>
+      </div>
     </div>
   )
 }
