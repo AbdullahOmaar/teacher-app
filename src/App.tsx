@@ -66,6 +66,9 @@ const NotificationsPage = lazy(() =>
 const PortalPage = lazy(() =>
   import('./features/portal/PortalPage').then((m) => ({ default: m.PortalPage })),
 )
+const ExamPage = lazy(() =>
+  import('./features/exams/ExamPage').then((m) => ({ default: m.ExamPage })),
+)
 const PortalManagePage = lazy(() =>
   import('./features/portal/PortalManagePage').then((m) => ({ default: m.PortalManagePage })),
 )
@@ -118,6 +121,16 @@ export default function App() {
               element={
                 <LazyRoute>
                   <PortalPage />
+                </LazyRoute>
+              }
+            />
+            {/* الامتحان الإلكتروني: صفحة عامة بلا جلسة — الاعتماد هو
+                رابط الامتحان الموقّع (?t=) + كود الطالب عبر RPC فقط */}
+            <Route
+              path="/exam"
+              element={
+                <LazyRoute>
+                  <ExamPage />
                 </LazyRoute>
               }
             />

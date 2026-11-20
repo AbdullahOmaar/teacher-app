@@ -612,8 +612,9 @@ export async function quickImportStudents(
 // • teachers (هوية الحساب نفسها — الملف الشخصي يُدار من الإعدادات،
 //   والاستيراد يفرض حساب المستورِد الحالي ولا يكتب فوق حساب آخر أبداً)
 // • teacher_members (عضويات مرتبطة بحسابات Auth لأشخاص آخرين)
-// • guardian_access_tokens (رموز وصول أمنية — القاعدة تخزن هاشاتها فقط
-//   أصلاً، والروابط تُعاد توليدها من شاشة بوابة ولي الأمر عند الحاجة)
+// • guardian_access_tokens + online_exam_tokens (رموز وصول أمنية —
+//   القاعدة تخزن هاشاتها فقط أصلاً، والروابط تُعاد توليدها من شاشات
+//   بوابة ولي الأمر / التقييم عند الحاجة)
 // • الـ views الأربع (invoice_balances / student_balances /
 //   student_attendance_stats / monthly_profit) محسوبة دائماً لا تُخزَّن.
 // الشكل مُصدَّر (version) حتى يرفض التطبيق أي ملف أحدث منه بوضوح.
@@ -654,7 +655,7 @@ export const BACKUP_TABLES: BackupTableSpec[] = [
   { key: 'payments', table: 'payments', label: 'الدفعات', pk: ['id'], columns: ['id', 'teacher_id', 'invoice_id', 'amount', 'method', 'paid_on', 'receipt_no', 'reverses_payment_id', 'voided', 'created_at'] },
   { key: 'attendance', table: 'attendance', label: 'الحضور', pk: ['session_id', 'student_id'], columns: ['teacher_id', 'session_id', 'student_id', 'status', 'homework_done', 'starred', 'created_at', 'updated_at'] },
   { key: 'assessment_questions', table: 'assessment_questions', label: 'أسئلة الامتحانات', pk: ['id'], columns: ['id', 'teacher_id', 'assessment_id', 'position', 'type', 'text', 'options', 'correct_answer', 'points', 'created_at'] },
-  { key: 'scores', table: 'scores', label: 'الدرجات', pk: ['assessment_id', 'student_id'], columns: ['teacher_id', 'assessment_id', 'student_id', 'score', 'created_at', 'updated_at'] },
+  { key: 'scores', table: 'scores', label: 'الدرجات', pk: ['assessment_id', 'student_id'], columns: ['teacher_id', 'assessment_id', 'student_id', 'score', 'source', 'exam_attempt_id', 'created_at', 'updated_at'] },
   { key: 'guardian_students', table: 'guardian_students', label: 'ربط أولياء الأمور بالطلاب', pk: ['guardian_id', 'student_id'], columns: ['teacher_id', 'guardian_id', 'student_id', 'relationship', 'created_at'] },
   { key: 'receipt_counters', table: 'receipt_counters', label: 'عدّادات الإيصالات', pk: ['counter_year'], columns: ['teacher_id', 'counter_year', 'last_number'] },
   // Phase 2 (الخطوة 14): الجدولان في آخر الترتيب عمداً — daily_closings
@@ -669,6 +670,15 @@ export const BACKUP_TABLES: BackupTableSpec[] = [
   // بالمستورِد في toInsertRow كي لا يفشل قيده في بيئة جديدة، وتبقى لقطتا
   // actor_role/actor_name شاهدتين على الفاعل الأصلي كما هما.
   { key: 'activity_log', table: 'activity_log', label: 'سجل النشاط', pk: ['id'], columns: ['id', 'teacher_id', 'actor_id', 'actor_role', 'actor_name', 'event_type', 'entity_type', 'entity_id', 'entity_label', 'details', 'created_at'] },
+  // Phase 3 (الخطوة 4): الامتحانات الإلكترونية (migration ‏0010) آخر
+  // الترتيب — online_exams يعتمد على assessments/groups (قبله)،
+  // وexam_attempts يعتمد عليه وعلى students (قبله)، فالآخر آمن.
+  // روابط الامتحان (online_exam_tokens) مستثناة كروابط البوابة: رموز
+  // وصول أمنية تُعاد توليدها من شاشة التقييم عند الحاجة. ودرجات
+  // scores تحمل exam_attempt_id يشير لمحاولة تُستورد بعده — يُدخل
+  // مؤقتاً بلا الرابط ويُصلَح في المرور الثاني (انظر importBackup).
+  { key: 'online_exams', table: 'online_exams', label: 'الامتحانات الإلكترونية', pk: ['id'], columns: ['id', 'teacher_id', 'assessment_id', 'group_id', 'status', 'duration_minutes', 'max_attempts', 'starts_at', 'ends_at', 'allow_review', 'shuffle_questions', 'shuffle_options', 'created_at', 'updated_at'] },
+  { key: 'exam_attempts', table: 'exam_attempts', label: 'محاولات الامتحانات الإلكترونية', pk: ['id'], columns: ['id', 'teacher_id', 'exam_id', 'student_id', 'attempt_no', 'status', 'seed', 'presentation', 'answers', 'started_at', 'submitted_at', 'score', 'max_score', 'pct', 'score_posted', 'created_at', 'updated_at'] },
 ]
 
 export interface BackupFile {
@@ -980,9 +990,12 @@ export async function importBackup(
     }
   }
 
-  // المرجعان الذاتيان المؤجلان للمرور الثاني
+  // المراجع المؤجلة للمرور الثاني: ذاتية (sessions/payments) أو عابرة
+  // لجدول لاحق في الترتيب (scores.exam_attempt_id ← exam_attempts)
   const deferred: {
     table: string
+    /** الجدول الذي يجب أن يوجد فيه الصف المستهدَف بالقيمة */
+    targetTable: string
     label: string
     match: Record<string, unknown>
     field: string
@@ -1026,6 +1039,7 @@ export async function importBackup(
         if (typeof origin === 'string' && origin) {
           deferred.push({
             table: 'sessions',
+            targetTable: 'sessions',
             label: spec.label,
             match: { id: payload.id },
             field: 'origin_session_id',
@@ -1039,12 +1053,33 @@ export async function importBackup(
         if (typeof rev === 'string' && rev) {
           deferred.push({
             table: 'payments',
+            targetTable: 'payments',
             label: spec.label,
             match: { id: payload.id },
             field: 'reverses_payment_id',
             value: rev,
           })
           payload.reverses_payment_id = null
+        }
+      }
+      // درجة مُرحَّلة من امتحان إلكتروني (0010): محاولتها تُستورد في
+      // قسم exam_attempts اللاحق لترتيب scores — نُدخل الدرجة بمصدرها
+      // وبلا رابط المحاولة مؤقتاً ونصلح الرابط في المرور الثاني.
+      if (spec.table === 'scores') {
+        const attId = payload.exam_attempt_id
+        if (typeof attId === 'string' && attId) {
+          deferred.push({
+            table: 'scores',
+            targetTable: 'exam_attempts',
+            label: spec.label,
+            match: {
+              assessment_id: payload.assessment_id,
+              student_id: payload.student_id,
+            },
+            field: 'exam_attempt_id',
+            value: attId,
+          })
+          payload.exam_attempt_id = null
         }
       }
       const { error } = await supa.from(spec.table).insert(payload)
@@ -1061,30 +1096,34 @@ export async function importBackup(
     report.totalFailed += res.failed
   }
 
-  // المرور الثاني: إصلاح المراجع الذاتية المؤجلة إن وُجد طرفاها الآن
+  // المرور الثاني: إصلاح المراجع المؤجلة إن وُجد طرفاها الآن — المطابقة
+  // بكل أعمدة match معاً (مفتاح scores مركّب، وباقي الجداول بمعرّفها)
   for (const d of deferred) {
-    const targetTable = d.table
     const { data: target } = await supa
-      .from(targetTable)
+      .from(d.targetTable)
       .select('id')
       .eq('teacher_id', teacherId)
       .eq('id', d.value)
       .maybeSingle()
     if (!target) continue
-    const matchCol = Object.keys(d.match)[0]
-    const { data: current } = await supa
+    let currentQ = supa
       .from(d.table)
       .select(d.field)
       .eq('teacher_id', teacherId)
-      .eq(matchCol, d.match[matchCol] as string)
-      .maybeSingle()
+    for (const [col, val] of Object.entries(d.match)) {
+      currentQ = currentQ.eq(col, val as string)
+    }
+    const { data: current } = await currentQ.maybeSingle()
     const curVal = (current as unknown as Record<string, unknown> | null)?.[d.field]
     if (curVal != null) continue
-    const { error } = await supa
+    let updateQ = supa
       .from(d.table)
       .update({ [d.field]: d.value })
       .eq('teacher_id', teacherId)
-      .eq(matchCol, d.match[matchCol] as string)
+    for (const [col, val] of Object.entries(d.match)) {
+      updateQ = updateQ.eq(col, val as string)
+    }
+    const { error } = await updateQ
     if (error) noteError(d.label, error)
   }
 

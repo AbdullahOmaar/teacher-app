@@ -348,6 +348,84 @@ export interface ScoreRow {
   assessment_id: string
   student_id: string
   score: number // >= 0 (قيد المخطط)
+  /** مصدر الدرجة (migration ‏0010): إدخال يدوي أم ترحيل من امتحان إلكتروني */
+  source: ScoreSource
+  /** المحاولة صاحبة الدرجة عند الترحيل من امتحان إلكتروني، وإلا null */
+  exam_attempt_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ScoreSource = 'manual' | 'online_exam'
+
+export type OnlineExamStatus = 'draft' | 'published' | 'closed'
+export type ExamAttemptStatus = 'in_progress' | 'submitted' | 'expired'
+
+/** امتحان إلكتروني فوق تقييم قائم — جدول online_exams (migration ‏0010) حرفياً */
+export interface OnlineExamRow {
+  id: string
+  teacher_id: string
+  assessment_id: string
+  group_id: string
+  status: OnlineExamStatus
+  duration_minutes: number | null // null = بلا مؤقّت
+  max_attempts: number
+  starts_at: string | null
+  ends_at: string | null
+  allow_review: boolean
+  shuffle_questions: boolean
+  shuffle_options: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface OnlineExamInput {
+  status: OnlineExamStatus
+  duration_minutes: number | null
+  max_attempts: number
+  starts_at: string | null
+  ends_at: string | null
+  allow_review: boolean
+  shuffle_questions: boolean
+  shuffle_options: boolean
+}
+
+/** رابط امتحان — جدول online_exam_tokens حرفياً بلا عمود الهاش (يُكتب عند الإنشاء فقط) */
+export interface OnlineExamTokenRow {
+  id: string
+  teacher_id: string
+  exam_id: string
+  expires_at: string | null
+  revoked_at: string | null
+  last_used_at: string | null
+  created_at: string
+}
+
+/** سؤال كما يراه الطالب في لقطة عرض المحاولة — بلا أي إجابة صحيحة بالتصميم */
+export interface ExamPresentationQuestion {
+  id: string
+  text: string
+  points: number
+  options: string[]
+}
+
+/** محاولة طالب — جدول exam_attempts (migration ‏0010) حرفياً */
+export interface ExamAttemptRow {
+  id: string
+  teacher_id: string
+  exam_id: string
+  student_id: string
+  attempt_no: number
+  status: ExamAttemptStatus
+  seed: string
+  presentation: ExamPresentationQuestion[]
+  answers: Record<string, string>
+  started_at: string
+  submitted_at: string | null
+  score: number | null
+  max_score: number | null
+  pct: number | null
+  score_posted: boolean
   created_at: string
   updated_at: string
 }

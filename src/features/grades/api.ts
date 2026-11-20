@@ -103,7 +103,8 @@ const ASSESS_COLS =
   'id, teacher_id, group_id, title, type, assess_date, max_score, pass_score, created_at, updated_at'
 const QUESTION_COLS =
   'id, teacher_id, assessment_id, position, type, text, options, correct_answer, points, created_at'
-const SCORE_COLS = 'teacher_id, assessment_id, student_id, score, created_at, updated_at'
+const SCORE_COLS =
+  'teacher_id, assessment_id, student_id, score, source, exam_attempt_id, created_at, updated_at'
 
 function toAssessment(row: Record<string, unknown>): AssessmentRow {
   return {
@@ -283,6 +284,10 @@ export async function saveScores(
       assessment_id: assessmentId,
       student_id: e.studentId,
       score: e.score,
+      // إدخال يدوي صريح (0010): أي حفظ من شاشة الدرجات يصفّر مصدر
+      // الامتحان الإلكتروني — الترحيل التلقائي وحده يضبط 'online_exam'
+      source: 'manual' as const,
+      exam_attempt_id: null,
     }))
   if (upserts.length > 0) {
     const { error } = await supa
@@ -417,6 +422,8 @@ export interface StudentScoreItem {
   max_score: number
   pass_score: number
   score: number
+  /** مصدر الدرجة (0010): 'online_exam' = مُرحَّلة من امتحان إلكتروني */
+  source: 'manual' | 'online_exam'
   /** النسبة % مقربة — محسوبة دائماً من الدرجة والنهائية */
   pct: number
 }
@@ -428,7 +435,7 @@ export async function fetchStudentScores(
   const { data, error } = await db()
     .from('scores')
     .select(
-      'assessment_id, score, assessments!inner(title, type, assess_date, group_id, max_score, pass_score, groups(name))',
+      'assessment_id, score, source, assessments!inner(title, type, assess_date, group_id, max_score, pass_score, groups(name))',
     )
     .eq('teacher_id', teacherId)
     .eq('student_id', studentId)
@@ -448,6 +455,9 @@ export async function fetchStudentScores(
       max_score: max,
       pass_score: Number(a.pass_score) || 0,
       score,
+      source: (row.source === 'online_exam'
+        ? 'online_exam'
+        : 'manual') as StudentScoreItem['source'],
       pct: max > 0 ? Math.round((score / max) * 100) : 0,
     }
   })

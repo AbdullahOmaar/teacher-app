@@ -294,6 +294,15 @@ export function ExamBuilderSheet({
           />
         </Field>
         {qType === 'mcq' && (
+          <button
+            type="button"
+            className="text-primary text-[13.5px] font-semibold bg-transparent border-0 cursor-pointer p-0 mb-2 min-h-[48px]"
+            onClick={() => setOpts(['صح', 'خطأ', '', ''])}
+          >
+            سؤال صح / خطأ؟ املأ الخيارين جاهزين (صح وخطأ)
+          </button>
+        )}
+        {qType === 'mcq' && (
           <div className="grid grid-cols-2 gap-2 mb-3">
             {opts.map((o, i) => (
               <TextInput

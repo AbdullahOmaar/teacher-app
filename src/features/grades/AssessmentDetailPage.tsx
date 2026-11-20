@@ -38,6 +38,7 @@ import {
   useSyncAssessmentMax,
 } from './hooks'
 import { AssessmentFormSheet, ExamBuilderSheet, ExamSheetSheet } from './sheets'
+import { OnlineExamPanel } from '../exams/OnlineExamPanel'
 
 /** شارة رتبة لوحة الشرف: دائرة مرقّمة (الأول بلون اللهجة الكهرمانية) بدل ميداليات الإيموجي */
 function RankBadge({ rank }: { rank: number }) {
@@ -206,6 +207,15 @@ export function AssessmentDetailPage() {
     .slice(0, 3)
 
   const questionsTotal = questions.reduce((s, q) => s + q.points, 0)
+  // القابلة للتصحيح التلقائي في الامتحان الإلكتروني (0010): اختيارية
+  // بإجابة صحيحة وخيارين فأكثر — وسؤال صح/خطأ داخل فيها بطبيعته
+  const gradableCount = questions.filter(
+    (q) =>
+      q.type === 'mcq' &&
+      Boolean(q.correct_answer?.trim()) &&
+      Array.isArray(q.options) &&
+      q.options.length >= 2,
+  ).length
   const maxMismatch = questions.length > 0 && questionsTotal > 0 && questionsTotal !== assessment.max_score
 
   const rowsReady = Boolean(scoresQ.data) && !rosterQ.isPending
@@ -273,6 +283,16 @@ export function AssessmentDetailPage() {
           </Button>
         </div>
       </Card>
+
+      {/* الامتحان الإلكتروني بتصحيح تلقائي — Phase 3 خطوة 4 */}
+      {teacherId && (
+        <OnlineExamPanel
+          teacherId={teacherId}
+          assessment={assessment}
+          gradableCount={gradableCount}
+          questionsTotal={questionsTotal}
+        />
+      )}
 
       {maxMismatch && (
         <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2.5 mb-3 text-[13.5px] flex items-center justify-between gap-2 flex-wrap">

@@ -117,6 +117,11 @@ export function StudentGradesTab({
                 <div className="text-muted text-[13.5px]">
                   {ASSESSMENT_TYPE_LABELS[r.type]} · {r.group_name} ·{' '}
                   {formatDateLabel(r.assess_date)}
+                  {r.source === 'online_exam' && (
+                    <span className="inline-block font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5 text-[11px] ms-1 align-middle">
+                      امتحان إلكتروني
+                    </span>
+                  )}
                 </div>
               </div>
               <span className="flex items-center gap-2 shrink-0">
