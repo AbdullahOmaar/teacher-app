@@ -488,7 +488,17 @@ export async function quickImportStudents(
 
 // ===========================================================================
 // النسخة الاحتياطية JSON — نطاقها: كل جداول بيانات المدرس التشغيلية في
-// المخطط (19 جدولاً أدناه بترتيب اعتماد الاستيراد) + صف إعداداته.
+// المخطط (21 جدولاً أدناه بترتيب اعتماد الاستيراد) + صف إعداداته.
+// الجدولان الأخيران أُضيفا في Phase 2 (الخطوة 14) بعد اكتشاف الخطوة 13
+// أن نطاق النسخة لم يشملهما:
+// • daily_closings (migration ‏0004 — إغلاقات الخزنة اليومية): بيانات
+//   صرفة، تُصدَّر وتُستورد كاملة بنفس نمط باقي الجداول.
+// • payment_proofs (migration ‏0005 — إثباتات الدفع): تُصدَّر صفوف
+//   البيانات فقط. صور الإثباتات نفسها تعيش في Supabase Storage
+//   (bucket ‏payment-proofs) وليست جزءاً من ملف JSON هذا إطلاقاً —
+//   الصفوف المستعادة تحمل storage_path يشير لملف قد لا يوجد بعد
+//   الاستيراد على حساب/بيئة جديدة، فتبقى بيانات الإثبات (المبلغ،
+//   الطريقة، الحالة، المراجعة) سليمة لكن عرض صورتها قد يتعذّر هناك.
 // مُستثنى بوعي وموثّق:
 // • teachers (هوية الحساب نفسها — الملف الشخصي يُدار من الإعدادات،
 //   والاستيراد يفرض حساب المستورِد الحالي ولا يكتب فوق حساب آخر أبداً)
@@ -498,6 +508,10 @@ export async function quickImportStudents(
 // • الـ views الأربع (invoice_balances / student_balances /
 //   student_attendance_stats / monthly_profit) محسوبة دائماً لا تُخزَّن.
 // الشكل مُصدَّر (version) حتى يرفض التطبيق أي ملف أحدث منه بوضوح.
+// إصدار الصيغة بقى 1 رغم التوسيع: الجدولان الجديدان قسمان اختياريان
+// بنفس قاعدة الأقسام القائمة (قسم ناقص = فارغ في parseBackupJson)،
+// فملف قديم (19 جدولاً) يُستورد بنجاح بعد التوسيع، والتطبيق القديم
+// يتجاهل القسمين الجديدين في ملف جديد — توافق في الاتجاهين بلا كسر.
 // ===========================================================================
 
 export const BACKUP_FORMAT = 'teacher-app-backup'
@@ -534,6 +548,13 @@ export const BACKUP_TABLES: BackupTableSpec[] = [
   { key: 'scores', table: 'scores', label: 'الدرجات', pk: ['assessment_id', 'student_id'], columns: ['teacher_id', 'assessment_id', 'student_id', 'score', 'created_at', 'updated_at'] },
   { key: 'guardian_students', table: 'guardian_students', label: 'ربط أولياء الأمور بالطلاب', pk: ['guardian_id', 'student_id'], columns: ['teacher_id', 'guardian_id', 'student_id', 'relationship', 'created_at'] },
   { key: 'receipt_counters', table: 'receipt_counters', label: 'عدّادات الإيصالات', pk: ['counter_year'], columns: ['teacher_id', 'counter_year', 'last_number'] },
+  // Phase 2 (الخطوة 14): الجدولان في آخر الترتيب عمداً — daily_closings
+  // بلا أي مفتاح خارجي داخل نطاق النسخة (closed_by يُعاد ربطه بالمستورِد
+  // في toInsertRow)، وpayment_proofs يعتمد على guardians/students/
+  // invoices/payments وكلها قبله في الترتيب، فالآخر هو الموضع الآمن.
+  { key: 'daily_closings', table: 'daily_closings', label: 'إغلاقات الخزنة اليومية', pk: ['id'], columns: ['id', 'teacher_id', 'closing_date', 'expected_cash', 'expected_electronic', 'expenses_total', 'counted_cash', 'counted_electronic', 'note', 'closed_by', 'created_at', 'updated_at'] },
+  // صفوف بيانات فقط — الصور في Storage وليست في ملف JSON (انظر الترويسة)
+  { key: 'payment_proofs', table: 'payment_proofs', label: 'إثباتات الدفع (صفوف فقط)', pk: ['id'], columns: ['id', 'teacher_id', 'guardian_id', 'student_id', 'invoice_id', 'amount', 'method', 'storage_path', 'status', 'rejection_reason', 'reviewed_by', 'reviewed_at', 'payment_id', 'uploaded_at', 'created_at', 'updated_at'] },
 ]
 
 export interface BackupFile {
@@ -711,6 +732,13 @@ export function parseBackupJson(text: string): BackupValidation {
 //   يُوقف بقية الاستيراد، ويظهر في التقرير بعدّاده ورسالة عيّنة.
 // • guardians.user_id يُصفَّر دائماً: ربط حساب ولي الأمر لا ينتقل بين
 //   الحسابات (يبقى الربط بالطالب عبر guardian_students والهاتف).
+// • مرجعا auth.users في جدولي Phase 2 (daily_closings.closed_by و
+//   payment_proofs.reviewed_by) يُعاد ربطهما بحساب المستورِد الحالي:
+//   حساب المُغلِق/المُراجِع الأصلي قد لا يوجد في بيئة الاستيراد فيفشل
+//   قيد المفتاح الخارجي، وفي هذا التطبيق المالك هو من يغلق ويراجع
+//   دائماً (سياسات RLS للمالك فقط) فإعادة الربط أمينة دلالياً.
+// • payment_proofs تُستعاد صفوفها كما هي (بما فيها storage_path) لكن
+//   ملفات الصور ليست في النسخة أصلاً — انظر قيد الترويسة أعلاه.
 // • إعدادات المدرس هي الاستثناء الوحيد للتحديث: تُدمج في صف إعدادات
 //   الحساب الحالي (قالب واتساب/نسبة سنتر/تذكير/ثيم بعد التحقق منها)،
 //   وlast_export_at لا يُمسّ من الملف أبداً.
@@ -752,6 +780,11 @@ function toInsertRow(
   }
   out.teacher_id = teacherId
   if (spec.table === 'guardians') out.user_id = null
+  // مرجعا auth.users (انظر توثيق الاستيراد أعلاه): يُعاد ربطهما بالمستورِد
+  if (spec.table === 'daily_closings') out.closed_by = teacherId
+  if (spec.table === 'payment_proofs' && out.reviewed_by != null) {
+    out.reviewed_by = teacherId
+  }
   return out
 }
 
