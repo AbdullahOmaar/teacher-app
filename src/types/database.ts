@@ -34,6 +34,11 @@ export interface TeacherSettingsRow {
   center_share_percent: number
   reminder_minutes: number
   theme: string // 'auto' | 'light' | 'dark' (check في المخطط)
+  // الهوية البيضاء (migration ‏0008): اسم السنتر التجاري، مسار الشعار في
+  // bucket ‏brand-logos، ولون لهجة #RRGGBB — كلها اختيارية (null = افتراضي)
+  brand_name: string | null
+  brand_logo_path: string | null
+  brand_accent: string | null
   last_export_at: string | null
   created_at: string
   updated_at: string

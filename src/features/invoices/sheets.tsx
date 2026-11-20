@@ -3,6 +3,7 @@ import { Sheet } from '../../components/ui/Sheet'
 import { MessageCircle, Printer, ReceiptText } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Logo } from '../../components/brand/Logo'
+import { useBrandIdentity } from '../../hooks/useBrandIdentity'
 import { Chip, ChipRow, Field, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import { formatMoney, shortTime } from '../../lib/format'
 import type { AttendanceStatus, PaymentMethod, PaymentRow } from '../../types/database'
@@ -296,6 +297,10 @@ export function ReceiptSheet({
   const studentQ = useStudent(teacherId, invoice.student_id)
   const teacherNameQ = useTeacherDisplayName(teacherId, true)
   const templateQ = useWhatsappTemplate(teacherId, true)
+  // الهوية البيضاء (Phase 3 خطوة 1): اسم السنتر وشعاره ولهجته على ترويسة
+  // الإيصال إن وُجدت — الاسم التجاري يتقدم اسم المدرس، وغيابها = الشكل
+  // الحالي حرفياً (شعار التطبيق + اسم المدرس).
+  const { brand } = useBrandIdentity(teacherId, true)
 
   const student = studentQ.data ?? null
   const guardian = student?.guardian_name?.trim() ? student.guardian_name : 'ولي الأمر'
@@ -347,12 +352,26 @@ export function ReceiptSheet({
       <div
         className={`print-area ${paper === 'thermal' ? 'paper-thermal' : ''} bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3`}
       >
-        <div className="text-center border-b border-slate-200 pb-2 mb-2">
+        <div
+          className="text-center border-b border-slate-200 pb-2 mb-2"
+          style={brand.accent ? { borderBottomColor: brand.accent, borderBottomWidth: 2 } : undefined}
+        >
           <div className="flex justify-center mb-1.5">
-            <Logo size={44} />
+            {brand.logoUrl ? (
+              <img
+                src={brand.logoUrl}
+                alt={brand.name ?? 'شعار السنتر'}
+                className="h-[52px] max-w-[180px] object-contain"
+              />
+            ) : (
+              <Logo size={44} />
+            )}
           </div>
-          <div className="font-extrabold text-[16px]">
-            {teacherNameQ.data ? teacherNameQ.data : 'إيصال دفع'}
+          <div
+            className="font-extrabold text-[16px]"
+            style={brand.accent ? { color: brand.accent } : undefined}
+          >
+            {brand.name ?? (teacherNameQ.data ? teacherNameQ.data : 'إيصال دفع')}
           </div>
           <div className="text-[12px] text-slate-500">
             إيصال رقم <span dir="ltr" className="font-bold text-slate-800">{payment.receipt_no}</span>

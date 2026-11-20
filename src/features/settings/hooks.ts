@@ -11,8 +11,10 @@ import {
   downloadTextFile,
   importBackup,
   quickImportStudents,
+  removeBrandLogo,
   touchLastExportAt,
   updateTeacherSettings,
+  uploadBrandLogo,
   type BackupFile,
   type CsvKind,
   type TeacherSettingsInput,
@@ -44,6 +46,32 @@ export function useUpdateTeacherSettings(teacherId: string) {
       void qc.invalidateQueries({ queryKey: [MONEY] })
       void qc.invalidateQueries({ queryKey: [INV] })
       void qc.invalidateQueries({ queryKey: [HOME] })
+      // الهوية البيضاء قد تتغير مع الحفظ — أسطح العرض تقرأ ['brand-identity']
+      void qc.invalidateQueries({ queryKey: ['brand-identity'] })
+    },
+  })
+}
+
+/** رفع/استبدال شعار الهوية — يبطل إعدادات الوحدة وكاش الهوية للأسطح */
+export function useUploadBrandLogo(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => uploadBrandLogo(teacherId, file),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [SETTINGS] })
+      void qc.invalidateQueries({ queryKey: ['brand-identity'] })
+    },
+  })
+}
+
+/** حذف شعار الهوية — يبطل إعدادات الوحدة وكاش الهوية للأسطح */
+export function useRemoveBrandLogo(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => removeBrandLogo(teacherId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [SETTINGS] })
+      void qc.invalidateQueries({ queryKey: ['brand-identity'] })
     },
   })
 }

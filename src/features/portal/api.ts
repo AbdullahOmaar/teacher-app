@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import { waLink } from '../../lib/format'
 import type {
   GuardianAccessTokenRow,
@@ -288,9 +289,20 @@ export interface PortalAttendance {
   status: string // 'p' | 'a' | 'l' | 'm' — من attendance_status في المخطط
 }
 
+/** هوية السنتر البيضاء في البوابة (0008) — كل الحقول اختيارية */
+export interface PortalBrand {
+  /** اسم السنتر التجاري، وإلا اسم المدرس، وإلا null (العنوان الافتراضي) */
+  name: string | null
+  /** رابط الشعار العام أو null */
+  logo_url: string | null
+  /** لون اللهجة #RRGGBB أو null */
+  accent: string | null
+}
+
 /** عرض البوابة كما يعيده portal_build_overview حرفياً — حقول محدودة بالتصميم */
 export interface PortalOverview {
   student: { name: string; code: string; grade: string | null }
+  brand: PortalBrand
   attendance_rate: number | null
   balance: number
   groups: PortalGroup[]
@@ -315,9 +327,24 @@ export async function fetchPortalOverview(
   })
   if (error) throw error
   if (!data) throw new Error('invalid or expired token')
-  const raw = data as unknown as PortalOverview
+  const raw = data as unknown as PortalOverview & {
+    brand?: {
+      name?: string | null
+      teacher_name?: string | null
+      logo_path?: string | null
+      accent?: string | null
+    } | null
+  }
   return {
     student: raw.student,
+    // الهوية البيضاء: الاسم التجاري يتقدم اسم المدرس، والشعار يُبنى رابطه
+    // العام من مساره، واللهجة تُمرَّر بعد التحقق من صيغتها — غياب قسم
+    // brand كله (نسخة RPC أقدم) يسقط للافتراضي بلا كسر.
+    brand: {
+      name: raw.brand?.name?.trim() || raw.brand?.teacher_name?.trim() || null,
+      logo_url: brandLogoUrl(raw.brand?.logo_path),
+      accent: isValidAccent(raw.brand?.accent) ? raw.brand.accent.toLowerCase() : null,
+    },
     attendance_rate: raw.attendance_rate == null ? null : num(raw.attendance_rate),
     balance: num(raw.balance),
     groups: (raw.groups ?? []).map((g) => ({

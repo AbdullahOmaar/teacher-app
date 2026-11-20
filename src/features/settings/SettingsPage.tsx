@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
-import { Check, FolderCog, GraduationCap, Handshake, Mail, SlidersHorizontal, UserRound } from 'lucide-react'
+import { Check, FolderCog, GraduationCap, Handshake, ImagePlus, Mail, Palette, SlidersHorizontal, Trash2, UserRound } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Chip, Field, TextArea, TextInput } from '../../components/ui/form'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -30,7 +30,14 @@ import { DEFAULT_WA_TEMPLATE } from '../invoices/api'
 import { InstallAppCard } from './InstallAppCard'
 import { formatDateLabel } from '../schedule/api'
 import { REMINDER_OPTIONS, THEME_MODES, type TeacherSettingsInput } from './api'
-import { useTeacherSettings, useUpdateTeacherSettings } from './hooks'
+import {
+  useRemoveBrandLogo,
+  useTeacherSettings,
+  useUpdateTeacherSettings,
+  useUploadBrandLogo,
+} from './hooks'
+import { ACCENT_PRESETS, brandLogoUrl } from '../../lib/brand'
+import { Logo } from '../../components/brand/Logo'
 import type { TeacherMemberRow } from '../../types/database'
 
 /** متغيرات قالب رسالة واتساب المتاحة في الإيصال (المرجع §3.16) */
@@ -77,6 +84,15 @@ export function SettingsPage() {
   const [centerShare, setCenterShare] = useState<string | null>(null)
   const [reminder, setReminder] = useState<number | null>(null)
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null)
+
+  // الهوية البيضاء (Phase 3 خطوة 1) — brandAccent بحالة undefined =
+  // «لسه مالمستهاش» فيسقط لقيمة القاعدة، وnull الصريح = إعادة تعيين.
+  const [brandName, setBrandName] = useState<string | null>(null)
+  const [brandAccent, setBrandAccent] = useState<string | null | undefined>(undefined)
+  const [brandMsg, setBrandMsg] = useState<string | null>(null)
+  const [confirmLogoRemove, setConfirmLogoRemove] = useState(false)
+  const uploadLogo = useUploadBrandLogo(user?.id ?? '')
+  const removeLogo = useRemoveBrandLogo(user?.id ?? '')
 
   // مزامنة الثيم من القاعدة مرة واحدة عند تحميل الإعدادات: عمود
   // teacher_settings.theme هو المحفوظ حسابياً وخطاف useTheme هو آلية
@@ -173,6 +189,12 @@ export function SettingsPage() {
     reminder_minutes:
       overrides.reminder_minutes ?? reminder ?? settingsRow?.reminder_minutes ?? 0,
     theme: overrides.theme ?? theme.mode,
+    brand_name: overrides.brand_name ?? brandName ?? settingsRow?.brand_name ?? null,
+    brand_logo_path:
+      overrides.brand_logo_path ?? settingsRow?.brand_logo_path ?? null,
+    brand_accent:
+      overrides.brand_accent ??
+      (brandAccent !== undefined ? brandAccent : (settingsRow?.brand_accent ?? null)),
   })
 
   const handleSettingsSave = (e: FormEvent) => {
@@ -195,6 +217,40 @@ export function SettingsPage() {
       onSuccess: () => setSettingsMsg('تم حفظ الإعدادات'),
       onError: (err) =>
         setSettingsMsg(err instanceof Error ? err.message : 'تعذّر حفظ الإعدادات.'),
+    })
+  }
+
+  // حفظ هوية السنتر (الاسم + اللهجة) — الشعار له إجراء فوري منفصل تحت
+  const handleBrandSave = (e: FormEvent) => {
+    e.preventDefault()
+    setBrandMsg(null)
+    updateSettings.mutate(settingsPayload(), {
+      onSuccess: () => setBrandMsg('تم حفظ هوية السنتر'),
+      onError: (err) =>
+        setBrandMsg(err instanceof Error ? err.message : 'تعذّر حفظ الهوية.'),
+    })
+  }
+
+  const handleLogoFile = (file: File | null) => {
+    if (!file) return
+    setBrandMsg(null)
+    setConfirmLogoRemove(false)
+    uploadLogo.mutate(file, {
+      onSuccess: () => setBrandMsg('تم رفع الشعار — هيظهر على الكارت والإيصالات والبوابة.'),
+      onError: (err) =>
+        setBrandMsg(err instanceof Error ? err.message : 'تعذّر رفع الشعار.'),
+    })
+  }
+
+  const handleLogoRemove = () => {
+    setBrandMsg(null)
+    removeLogo.mutate(undefined, {
+      onSuccess: () => {
+        setConfirmLogoRemove(false)
+        setBrandMsg('تم حذف الشعار — رجعنا لشعار التطبيق الافتراضي.')
+      },
+      onError: (err) =>
+        setBrandMsg(err instanceof Error ? err.message : 'تعذّر حذف الشعار.'),
     })
   }
 
@@ -456,6 +512,183 @@ export function SettingsPage() {
                 {updateSettings.isPending ? 'جارٍ الحفظ…' : 'حفظ الإعدادات'}
               </Button>
             </form>
+          )}
+        </Card>
+      )}
+
+      {/* هوية السنتر — الهوية البيضاء (Phase 3 خطوة 1، migration ‏0008):
+          للمالك فقط (teacher_settings بلا سياسة مساعد أصلاً). الاسم
+          والشعار ولون اللهجة يظهرون على كارت الطالب والإيصالات وأوراق
+          الامتحان وبوابة ولي الأمر — وغياب أي عنصر يسقط للافتراضي. */}
+      {ownTeacher && (
+        <Card>
+          <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><Palette size={22} className="text-primary" /> هوية السنتر</h2>
+          <p className="text-muted text-[13.5px] mt-0 mb-3">
+            خصّص شكل سنترك: الاسم والشعار ولون اللهجة بيظهروا على كارت الطالب
+            والإيصالات وأوراق الامتحان وبوابة ولي الأمر. سيب أي عنصر فاضي
+            وبيظهر بداله شكل التطبيق الافتراضي.
+          </p>
+          {settingsQ.isPending ? (
+            <LoadingState label="بنحمّل هويتك…" />
+          ) : settingsQ.isError ? (
+            <ErrorState
+              message={
+                settingsQ.error instanceof Error ? settingsQ.error.message : 'خطأ غير معروف'
+              }
+              onRetry={() => void settingsQ.refetch()}
+            />
+          ) : (
+            <>
+              {/* الشعار — رفع/استبدال/حذف فوري مع معاينة */}
+              <div className="flex items-center gap-3 mb-3">
+                {settingsRow?.brand_logo_path && brandLogoUrl(settingsRow.brand_logo_path) ? (
+                  <img
+                    src={brandLogoUrl(settingsRow.brand_logo_path) ?? ''}
+                    alt="شعار السنتر"
+                    className="w-16 h-16 rounded-2xl object-contain bg-soft border border-border p-1 shrink-0"
+                  />
+                ) : (
+                  <span className="shrink-0">
+                    <Logo size={56} />
+                  </span>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-[15px]">
+                    {settingsRow?.brand_logo_path ? 'شعار السنتر الحالي' : 'لسه مفيش شعار مرفوع'}
+                  </div>
+                  <div className="text-muted text-[12px]">
+                    صورة JPG أو PNG أو WebP — لحد 2 ميجا. الشعار الافتراضي بيظهر لحد ما ترفع شعارك.
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 mb-4">
+                <label className="flex-1 inline-flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-primary text-on-primary font-semibold text-[15px] cursor-pointer px-3">
+                  <ImagePlus size={20} />
+                  {uploadLogo.isPending
+                    ? 'جارٍ الرفع…'
+                    : settingsRow?.brand_logo_path
+                      ? 'استبدال الشعار'
+                      : 'رفع شعار'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    disabled={uploadLogo.isPending}
+                    onChange={(e) => {
+                      handleLogoFile(e.target.files?.[0] ?? null)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+                {settingsRow?.brand_logo_path &&
+                  (confirmLogoRemove ? (
+                    <>
+                      <Button
+                        variant="danger"
+                        className="min-h-[48px] text-[13.5px]"
+                        disabled={removeLogo.isPending}
+                        onClick={handleLogoRemove}
+                      >
+                        أيوه، حذف
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="min-h-[48px] text-[13.5px]"
+                        onClick={() => setConfirmLogoRemove(false)}
+                      >
+                        تراجع
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      className="min-h-[48px] text-[13.5px] text-bad-text"
+                      onClick={() => setConfirmLogoRemove(true)}
+                    >
+                      <Trash2 size={18} /> حذف
+                    </Button>
+                  ))}
+              </div>
+
+              <form onSubmit={handleBrandSave}>
+                <Field label="اسم السنتر / الاسم التجاري (اختياري)">
+                  <TextInput
+                    value={brandName ?? settingsRow?.brand_name ?? ''}
+                    onChange={(e) => setBrandName(e.target.value)}
+                    placeholder="مثال: سنتر النور التعليمي"
+                    maxLength={80}
+                  />
+                </Field>
+
+                <div className="mb-4">
+                  <div className="text-[13.5px] text-muted font-semibold mb-2">
+                    لون اللهجة (اختياري)
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {ACCENT_PRESETS.map((p) => {
+                      const active =
+                        (brandAccent !== undefined
+                          ? brandAccent
+                          : settingsRow?.brand_accent) === p.hex
+                      return (
+                        <button
+                          key={p.hex}
+                          type="button"
+                          title={p.label}
+                          aria-label={p.label}
+                          onClick={() => setBrandAccent(p.hex)}
+                          className={`w-[48px] h-[48px] rounded-full border-2 cursor-pointer flex items-center justify-center ${
+                            active ? 'border-text' : 'border-border'
+                          }`}
+                          style={{ background: p.hex }}
+                        >
+                          {active && <Check size={20} color="#fff" />}
+                        </button>
+                      )
+                    })}
+                    <label
+                      className="inline-flex items-center gap-2 min-h-[48px] px-3 rounded-full border border-border cursor-pointer text-[13.5px] font-semibold"
+                      title="لون مخصص"
+                    >
+                      <input
+                        type="color"
+                        className="w-8 h-8 p-0 border-0 bg-transparent cursor-pointer"
+                        value={
+                          (brandAccent !== undefined
+                            ? brandAccent
+                            : settingsRow?.brand_accent) ?? '#4f46e5'
+                        }
+                        onChange={(e) => setBrandAccent(e.target.value.toLowerCase())}
+                      />
+                      مخصص
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setBrandAccent(null)}
+                      className={`px-3 min-h-[48px] rounded-full border text-[13.5px] font-semibold cursor-pointer ${
+                        (brandAccent !== undefined
+                          ? brandAccent
+                          : settingsRow?.brand_accent) == null
+                          ? 'bg-primary text-on-primary border-primary'
+                          : 'bg-card text-muted border-border'
+                      }`}
+                    >
+                      الافتراضي (بدون لهجة)
+                    </button>
+                  </div>
+                  <p className="text-muted text-[12px] mb-0 mt-2">
+                    اللهجة بتلوّن تدرّج كارت الطالب وترويسات الإيصالات وأوراق الامتحان وبوابة ولي الأمر.
+                  </p>
+                </div>
+
+                {brandMsg && (
+                  <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{brandMsg}</p>
+                )}
+                <Button full type="submit" disabled={updateSettings.isPending}>
+                  {updateSettings.isPending ? 'جارٍ الحفظ…' : 'حفظ الهوية'}
+                </Button>
+              </form>
+            </>
           )}
         </Card>
       )}

@@ -23,7 +23,14 @@ import { daysLabel, formatMoney, shortTime } from '../../lib/format'
 import type { PaymentMethod } from '../../types/database'
 import { fmtScore, pctOf } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
-import { PORTAL_ATT_META, PROOF_METHODS, PROOF_STATUS_META, portalErrorInfo } from './api'
+import {
+  PORTAL_ATT_META,
+  PROOF_METHODS,
+  PROOF_STATUS_META,
+  portalErrorInfo,
+  type PortalBrand,
+} from './api'
+import { darken } from '../../lib/brand'
 import { usePortalOverview, usePortalProofs, useSubmitPortalProof } from './hooks'
 
 /**
@@ -40,15 +47,45 @@ import { usePortalOverview, usePortalProofs, useSubmitPortalProof } from './hook
  * 10 حصص حضور — لا شيء beyond ذلك.
  */
 
-function PortalShell({ children }: { children: React.ReactNode }) {
+function PortalShell({
+  children,
+  brand,
+}: {
+  children: React.ReactNode
+  /** الهوية البيضاء (0008) — تُمرَّر بعد تحميل العرض فقط؛ غيابها = الشكل الافتراضي */
+  brand?: PortalBrand | null
+}) {
+  // لون اللهجة يلوّن عناصر الأساسي في البوابة كلها عبر متغيرات الثيم —
+  // بلا لهجة تبقى نيلي الثقة كما هي.
+  const accentVars = brand?.accent
+    ? ({
+        '--primary': brand.accent,
+        '--primary-d': darken(brand.accent, 0.15),
+      } as React.CSSProperties)
+    : undefined
   return (
-    <div className="min-h-screen bg-bg text-text">
+    <div className="min-h-screen bg-bg text-text" style={accentVars}>
       <header className="sticky top-0 z-20 h-[52px] bg-card border-b border-border">
         <div className="mx-auto max-w-[640px] h-full px-4 flex items-center gap-2">
-          <span className="w-9 h-9 rounded-full bg-soft text-primary flex items-center justify-center">
-            <Users size={20} />
-          </span>
-          <div className="type-section">بوابة ولي الأمر</div>
+          {brand?.logo_url ? (
+            <img
+              src={brand.logo_url}
+              alt={brand.name ?? 'شعار السنتر'}
+              className="w-9 h-9 rounded-full object-contain bg-soft p-0.5 shrink-0"
+            />
+          ) : (
+            <span className="w-9 h-9 rounded-full bg-soft text-primary flex items-center justify-center">
+              <Users size={20} />
+            </span>
+          )}
+          <div className="min-w-0">
+            <div className="type-section leading-[1.4] truncate">
+              {brand?.name ?? 'بوابة ولي الأمر'}
+            </div>
+            {brand?.name && (
+              <div className="text-muted text-[12px] leading-[1.4]">بوابة ولي الأمر</div>
+            )}
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-10">{children}</main>
@@ -270,7 +307,7 @@ export function PortalPage() {
   const rate = o.attendance_rate
 
   return (
-    <PortalShell>
+    <PortalShell brand={o.brand}>
       {/* البانر: الاسم + KPI الحضور + KPI الموقف المالي (§3.17) */}
       <Card>
         <div className="text-[19px] font-extrabold leading-[1.7]">{o.student.name}</div>

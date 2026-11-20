@@ -12,6 +12,7 @@ import type {
 } from '../../types/database'
 import { formatDateLabel } from '../schedule/api'
 import { useTeacherDisplayName } from '../invoices/hooks'
+import { useBrandIdentity } from '../../hooks/useBrandIdentity'
 import {
   ASSESSMENT_TYPES,
   OPTION_LETTERS,
@@ -411,6 +412,9 @@ export function ExamSheetSheet({
 }) {
   const [showAns, setShowAns] = useState(false)
   const teacherNameQ = useTeacherDisplayName(teacherId, true)
+  // الهوية البيضاء (Phase 3 خطوة 1): شعار واسم ولهجة السنتر على ترويسة
+  // الورقة إن وُجدت، وإلا اسم المدرس كما كان.
+  const { brand } = useBrandIdentity(teacherId, true)
 
   return (
     <Sheet open title="ورقة الامتحان" onClose={onClose}>
@@ -424,9 +428,24 @@ export function ExamSheetSheet({
       </ChipRow>
 
       <div className="print-area bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3">
-        <div className="text-center border-b border-slate-200 pb-2 mb-3">
-          <div className="font-extrabold text-[16px]">
-            {teacherNameQ.data ? teacherNameQ.data : 'ورقة الامتحان'}
+        <div
+          className="text-center border-b border-slate-200 pb-2 mb-3"
+          style={brand.accent ? { borderBottomColor: brand.accent, borderBottomWidth: 2 } : undefined}
+        >
+          {brand.logoUrl && (
+            <div className="flex justify-center mb-1.5">
+              <img
+                src={brand.logoUrl}
+                alt={brand.name ?? 'شعار السنتر'}
+                className="h-[52px] max-w-[180px] object-contain"
+              />
+            </div>
+          )}
+          <div
+            className="font-extrabold text-[16px]"
+            style={brand.accent ? { color: brand.accent } : undefined}
+          >
+            {brand.name ?? (teacherNameQ.data ? teacherNameQ.data : 'ورقة الامتحان')}
           </div>
           <div className="text-[13.5px] text-slate-600">
             {assessment.title} · {groupName}

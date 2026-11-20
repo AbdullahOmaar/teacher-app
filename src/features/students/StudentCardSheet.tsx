@@ -4,6 +4,8 @@ import { Sheet } from '../../components/ui/Sheet'
 import { Printer } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Logo } from '../../components/brand/Logo'
+import { darken } from '../../lib/brand'
+import { useBrandIdentity } from '../../hooks/useBrandIdentity'
 import type { StudentRow } from '../../types/database'
 
 interface StudentCardSheetProps {
@@ -20,6 +22,9 @@ interface StudentCardSheetProps {
  */
 export function StudentCardSheet({ student, groupNames, onClose }: StudentCardSheetProps) {
   const [qrUrl, setQrUrl] = useState<string | null>(null)
+  // الهوية البيضاء (Phase 3 خطوة 1): شعار/اسم/لهجة السنتر إن وُجدت، وإلا
+  // التدرج النيلي وشعار التطبيق واسم المدرس كما كانوا قبلها بالضبط.
+  const { brand } = useBrandIdentity(student.teacher_id)
 
   useEffect(() => {
     let alive = true
@@ -40,15 +45,27 @@ export function StudentCardSheet({ student, groupNames, onClose }: StudentCardSh
       <div
         className="rounded-2xl p-5 text-white mb-4"
         style={{
-          background: 'linear-gradient(135deg, #312e81, #4338ca)',
+          background: brand.accent
+            ? `linear-gradient(135deg, ${darken(brand.accent, 0.45)}, ${brand.accent})`
+            : 'linear-gradient(135deg, #312e81, #4338ca)',
           boxShadow: '0 10px 24px rgba(49,46,129,0.35)',
         }}
       >
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <Logo mono size={30} />
-              <span className="text-[12px] opacity-80">كارت طالب</span>
+              {brand.logoUrl ? (
+                <img
+                  src={brand.logoUrl}
+                  alt={brand.name ?? 'شعار السنتر'}
+                  className="w-[38px] h-[38px] rounded-lg object-contain bg-white p-0.5 shrink-0"
+                />
+              ) : (
+                <Logo mono size={30} />
+              )}
+              <span className="text-[12px] opacity-80">
+                {brand.name ? `${brand.name} · كارت طالب` : 'كارت طالب'}
+              </span>
             </div>
             <div className="text-[19px] font-extrabold leading-[1.7]">{student.name}</div>
             <div className="text-[13.5px] opacity-90 mt-1">

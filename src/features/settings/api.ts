@@ -1,4 +1,10 @@
 import { supabase } from '../../lib/supabase'
+import {
+  BRAND_BUCKET,
+  BRAND_LOGO_MAX_BYTES,
+  BRAND_LOGO_MIME_EXT,
+  isValidAccent,
+} from '../../lib/brand'
 import type { TeacherSettingsRow } from '../../types/database'
 import type { ThemeMode } from '../../hooks/useTheme'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
@@ -29,7 +35,7 @@ function db() {
 // ===========================================================================
 
 const SETTINGS_COLS =
-  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, last_export_at, created_at, updated_at'
+  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, last_export_at, created_at, updated_at'
 
 export const THEME_MODES: { code: ThemeMode; label: string }[] = [
   { code: 'auto', label: 'تلقائي' },
@@ -59,6 +65,10 @@ export interface TeacherSettingsInput {
   center_share_percent: number
   reminder_minutes: number
   theme: ThemeMode
+  /** الهوية البيضاء (0008) — كلها اختيارية: null = هوية التطبيق الافتراضية */
+  brand_name: string | null
+  brand_logo_path: string | null
+  brand_accent: string | null
 }
 
 /** حفظ الإعدادات القابلة للتحرير — upsert آمن التكرار على مفتاح teacher_id */
@@ -80,6 +90,26 @@ export async function updateTeacherSettings(
   }
   if (!isThemeMode(input.theme)) throw new Error('قيمة المظهر غير صالحة')
 
+  // الهوية البيضاء: الاسم يُقصّ (فارغ = null = افتراضي) وبحد أقصى 80 حرفاً
+  // (نفس قيد المخطط)، واللهجة #RRGGBB فقط أو null — التحقق هنا حتى لا
+  // تصل قيمة مكسورة لأي سطح عرض (كارت/إيصال/بوابة).
+  const brandName = input.brand_name?.trim() ? input.brand_name.trim() : null
+  if (brandName && brandName.length > 80) {
+    throw new Error('اسم السنتر طويل أوي — 80 حرف كحد أقصى')
+  }
+  const brandAccent =
+    input.brand_accent == null ? null : input.brand_accent.trim().toLowerCase()
+  if (brandAccent !== null && !isValidAccent(brandAccent)) {
+    throw new Error('لون اللهجة غير صالح — لازم يكون بصيغة #RRGGBB')
+  }
+  const brandLogoPath = input.brand_logo_path?.trim()
+    ? input.brand_logo_path.trim()
+    : null
+  // مسار الشعار لا يُقبل إلا داخل مجلد المدرس نفسه (نفس قيد سياسات Storage)
+  if (brandLogoPath && !brandLogoPath.startsWith(`${teacherId}/`)) {
+    throw new Error('مسار الشعار غير صالح')
+  }
+
   const { data, error } = await db()
     .from('teacher_settings')
     .upsert(
@@ -89,6 +119,9 @@ export async function updateTeacherSettings(
         center_share_percent: input.center_share_percent,
         reminder_minutes: input.reminder_minutes,
         theme: input.theme,
+        brand_name: brandName,
+        brand_logo_path: brandLogoPath,
+        brand_accent: brandAccent,
       },
       { onConflict: 'teacher_id' },
     )
@@ -97,6 +130,79 @@ export async function updateTeacherSettings(
   if (error) throw error
   const row = data as unknown as TeacherSettingsRow
   return { ...row, center_share_percent: Number(row.center_share_percent) || 0 }
+}
+
+// ---------------------------------------------------------------------------
+// شعار الهوية — bucket ‏brand-logos (migration ‏0008): المسار دائماً
+// «<teacher_id>/logo.<ext>»، والرفع/الاستبدال/الحذف للمالك فقط بسياسات
+// Storage (لا سياسة لمساعد ولا كتابة لـ anon). الرفع يحدّث
+// brand_logo_path في نفس الخطوة؛ واستبدال بامتداد مختلف يحذف الملف
+// القديم حتى لا تتراكم يتامى في مجلد المدرس.
+// ---------------------------------------------------------------------------
+
+/** رفع/استبدال شعار السنتر — يعيد مسار الشعار الجديد */
+export async function uploadBrandLogo(teacherId: string, file: File): Promise<string> {
+  const ext = BRAND_LOGO_MIME_EXT[file.type]
+  if (!ext) throw new Error('اختار صورة شعار بصيغة JPG أو PNG أو WebP.')
+  if (file.size > BRAND_LOGO_MAX_BYTES) {
+    throw new Error('الشعار كبير أوي (أكتر من 2 ميجا) — اختار صورة أصغر.')
+  }
+  const supa = db()
+  const { data: current } = await supa
+    .from('teacher_settings')
+    .select('brand_logo_path')
+    .eq('teacher_id', teacherId)
+    .maybeSingle()
+  const oldPath =
+    (current as unknown as { brand_logo_path?: string | null } | null)?.brand_logo_path ?? null
+
+  const path = `${teacherId}/logo.${ext}`
+  const { error: upErr } = await supa.storage
+    .from(BRAND_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: true })
+  if (upErr) throw new Error('ماقدرناش نرفع الشعار — اتأكد من النت وحاول تاني.')
+
+  const { error } = await supa
+    .from('teacher_settings')
+    .upsert(
+      { teacher_id: teacherId, brand_logo_path: path },
+      { onConflict: 'teacher_id' },
+    )
+  if (error) throw error
+
+  if (oldPath && oldPath !== path) {
+    // تنظيف الملف القديم best-effort — فشله لا يلغي نجاح الاستبدال
+    await supa.storage.from(BRAND_BUCKET).remove([oldPath]).then(
+      () => {},
+      () => {},
+    )
+  }
+  return path
+}
+
+/** حذف شعار السنتر نهائياً (الملف + المسار) — السقوط للشعار الافتراضي */
+export async function removeBrandLogo(teacherId: string): Promise<void> {
+  const supa = db()
+  const { data: current } = await supa
+    .from('teacher_settings')
+    .select('brand_logo_path')
+    .eq('teacher_id', teacherId)
+    .maybeSingle()
+  const path =
+    (current as unknown as { brand_logo_path?: string | null } | null)?.brand_logo_path ?? null
+  const { error } = await supa
+    .from('teacher_settings')
+    .upsert(
+      { teacher_id: teacherId, brand_logo_path: null },
+      { onConflict: 'teacher_id' },
+    )
+  if (error) throw error
+  if (path) {
+    await supa.storage.from(BRAND_BUCKET).remove([path]).then(
+      () => {},
+      () => {},
+    )
+  }
 }
 
 /**
@@ -742,6 +848,10 @@ export function parseBackupJson(text: string): BackupValidation {
 // • إعدادات المدرس هي الاستثناء الوحيد للتحديث: تُدمج في صف إعدادات
 //   الحساب الحالي (قالب واتساب/نسبة سنتر/تذكير/ثيم بعد التحقق منها)،
 //   وlast_export_at لا يُمسّ من الملف أبداً.
+// • الهوية البيضاء (Phase 3 خطوة 1، migration ‏0008): لا جدول جديد —
+//   أعمدة brand_* على teacher_settings نفسه، فتُصدَّر تلقائياً ضمن صف
+//   الإعدادات عبر SETTINGS_COLS وتُدمج عند الاستيراد (الاسم واللهجة)،
+//   ومسار الشعار لا ينتقل بين الحسابات (الملف في Storage حساب المصدر).
 // • المرجعان الذاتيان (sessions.origin_session_id و
 //   payments.reverses_payment_id) يُصلَحان في مرور ثانٍ بعد إدراج الكل.
 // ---------------------------------------------------------------------------
@@ -833,6 +943,18 @@ export async function importBackup(
           ? reminderRaw
           : (cur?.reminder_minutes ?? 0),
         theme: isThemeMode(s.theme) ? s.theme : isThemeMode(cur?.theme) ? cur.theme : 'auto',
+        // الهوية البيضاء (0008): الاسم واللهجة ينتقلان مع النسخة، أما
+        // brand_logo_path فلا — ملف الشعار يعيش في مجلد حساب المصدر في
+        // Storage وليس داخل ملف JSON (نفس قيد صور إثباتات الدفع)، فنبقي
+        // مسار الحساب الحالي كما هو بدل مسار مدلّي لحساب آخر.
+        brand_name:
+          typeof s.brand_name === 'string' && s.brand_name.trim()
+            ? s.brand_name
+            : (cur?.brand_name ?? null),
+        brand_logo_path: cur?.brand_logo_path ?? null,
+        brand_accent: isValidAccent(s.brand_accent)
+          ? s.brand_accent
+          : (cur?.brand_accent ?? null),
       })
       report.settingsUpdated = true
     } catch (err) {
