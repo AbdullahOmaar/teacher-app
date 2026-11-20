@@ -12,6 +12,7 @@ import {
   Check,
   CheckCheck,
   MessageCircle,
+  ScanQrCode,
   Star,
   Undo2,
   Users,
@@ -46,6 +47,8 @@ import {
   useSessionById,
   useSessionRoster,
 } from './hooks'
+import { QrScannerSheet, type ScanOutcome } from './QrScannerSheet'
+import { findStudentByCode, normalizeScannedCode } from './qr'
 
 /**
  * الحضور (المواصفات §3.2): تسجيل حضور حصة واحدة من جدول sessions الحقيقي —
@@ -65,6 +68,11 @@ export function AttendancePage() {
   const today = todayStr()
   const [date, setDate] = useState(today)
   const [pickedId, setPickedId] = useState<string | null>(null)
+  // وضع مسح QR (خطوة 4): الكاميرا لا تُفتح إلا بضغط الزر صراحةً، وصفّ آخر
+  // طالب سُجّل بالمسح يومض في القائمة بعد إغلاق الماسح (flashId)
+  const [scanOpen, setScanOpen] = useState(false)
+  const [flashId, setFlashId] = useState<string | null>(null)
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toast = useToast()
 
   // الحصة الممرّرة من رابط (الرئيسية/الجدول): تُختار تلقائياً ويُضبط تاريخها
@@ -186,6 +194,24 @@ export function AttendancePage() {
         },
       },
     )
+  }
+
+  /**
+   * معالجة كود ممسوح/مكتوب من الماسح (خطوة 4): المطابقة ضد قائمة الحصة
+   * المختارة حالياً فقط، والتسجيل بنفس changeValue الحالية حرفياً
+   * (upsert متفائل على (session_id, student_id) + نفس الإبطال) فتنعكس
+   * العدّادات وشريط الملخص فوراً. كود غير معروف/طالب خارج الحصة: لا تسجيل.
+   */
+  const handleScan = (raw: string): ScanOutcome => {
+    const student = findStudentByCode(roster, raw)
+    if (!student) return { kind: 'unknown', code: normalizeScannedCode(raw) ?? raw.trim() }
+    if (cancelled) return { kind: 'cancelled' }
+    if (valueOf(student.id).status === 'p') return { kind: 'already', studentName: student.name }
+    changeValue(student.id, { status: 'p' })
+    setFlashId(student.id)
+    if (flashTimer.current) clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setFlashId(null), 2400)
+    return { kind: 'marked', studentName: student.name }
   }
 
   const markAllPresent = () => {
@@ -335,6 +361,12 @@ export function AttendancePage() {
               </span>
             </div>
             <div className="flex gap-2 mt-3 flex-wrap">
+              {!cancelled && rowsReady && (
+                <Button onClick={() => setScanOpen(true)}>
+                  <ScanQrCode size={20} />
+                  مسح QR
+                </Button>
+              )}
               {!cancelled && anyNotPresent && rowsReady && (
                 <Button variant="soft" onClick={markAllPresent} disabled={saveManyMut.isPending}>
                   <CheckCheck size={20} />
@@ -431,7 +463,9 @@ export function AttendancePage() {
                   return (
                     <div
                       key={st.id}
-                      className={`px-3 py-2 ${i > 0 ? 'border-t border-border' : ''}`}
+                      className={`px-3 py-2 ${i > 0 ? 'border-t border-border' : ''} ${
+                        flashId === st.id ? 'att-row-flash' : ''
+                      }`}
                     >
                       <div className="min-[480px]:flex min-[480px]:items-center min-[480px]:gap-2.5">
                         <div className="flex items-center gap-2.5 min-w-0 min-[480px]:w-[196px] min-[480px]:shrink-0">
@@ -550,10 +584,20 @@ export function AttendancePage() {
                   <span className="text-[13.5px] font-semibold text-muted">
                     {statusCounts.none > 0 ? `باقي ${statusCounts.none} بلا حالة` : 'الكل اتحضّر'}
                   </span>
-                  {!cancelled && anyNotPresent && (
+                  {!cancelled && (
                     <Button
                       variant="soft"
                       className="ms-auto min-h-[48px] text-[13.5px] px-3"
+                      onClick={() => setScanOpen(true)}
+                    >
+                      <ScanQrCode size={18} />
+                      مسح QR
+                    </Button>
+                  )}
+                  {!cancelled && anyNotPresent && (
+                    <Button
+                      variant="soft"
+                      className="min-h-[48px] text-[13.5px] px-3"
                       onClick={markAllPresent}
                       disabled={saveManyMut.isPending}
                     >
@@ -566,6 +610,18 @@ export function AttendancePage() {
             </>
           )}
         </>
+      )}
+
+      {/* ماسح QR (خطوة 4): يُركّب فقط عند الفتح الصريح — الكاميرا تُطلب
+          وتُوقف مع تركيبه/فكّه، والتسجيل يمرّ بـ handleScan ← changeValue */}
+      {scanOpen && selected && (
+        <QrScannerSheet
+          sessionLabel={`${selected.group_name} · ${formatDateLabel(selected.session_date)} · الساعة ${shortTime(selected.start_time)}`}
+          done={done}
+          total={total}
+          onScan={handleScan}
+          onClose={() => setScanOpen(false)}
+        />
       )}
     </div>
   )

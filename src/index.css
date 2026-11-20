@@ -144,6 +144,27 @@
 :root[data-theme="dark"] .att-active-l,
 :root[data-theme="dark"] .att-active-m { color: #141a2e; }
 
+/*
+ * ماسح QR للحضور (Phase 2 — خطوة 4): خط مسح متحرك داخل إطار التوجيه،
+ * دخول رسالة التغذية الراجعة، ووميض صف الطالب بعد تسجيله بالمسح.
+ * (قاعدة prefers-reduced-motion العامة أسفل الملف توقفها كلها.)
+ */
+@keyframes qr-scan-move {
+  0%, 100% { top: 5%; }
+  50% { top: calc(95% - 3px); }
+}
+.qr-scanline { animation: qr-scan-move 2.2s ease-in-out infinite; }
+@keyframes qr-feedback-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.qr-feedback-in { animation: qr-feedback-in 180ms ease-out; }
+@keyframes att-row-flash {
+  0% { background-color: var(--ok-soft); }
+  100% { background-color: transparent; }
+}
+.att-row-flash { animation: att-row-flash 2s ease-out; }
+
 /* حركة موحدة (بحث §5): انتقالات 150–250ms ease-out للعناصر التفاعلية */
 button,
 a {
