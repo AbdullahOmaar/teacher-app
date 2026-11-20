@@ -158,9 +158,12 @@ export async function fetchMonthlyAttendance(
  * لا بحضور الشهر الحالي وحده (M3).
  */
 export async function fetchAnyAttendanceCount(teacherId: string): Promise<number> {
+  // جدول attendance بلا عمود id (مفتاحه المركب session_id+student_id) —
+  // العدّ يكون على session_id؛ اختيار 'id' كان يفشل بـ 42703 فيبقى
+  // الاستعلام بلا بيانات وتتعطل بطاقة «ابدأ هنا» كلها بصمت.
   const { count, error } = await db()
     .from('attendance')
-    .select('id', { count: 'exact', head: true })
+    .select('session_id', { count: 'exact', head: true })
     .eq('teacher_id', teacherId)
     .not('status', 'is', null)
   if (error) throw error
