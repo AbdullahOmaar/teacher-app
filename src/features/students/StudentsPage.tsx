@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
-import { Search, Users } from 'lucide-react'
+import { Search, Upload, Users } from 'lucide-react'
+import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
 import { Chip, ChipRow, TextInput } from '../../components/ui/form'
@@ -14,6 +15,7 @@ import { useGroups } from '../groups/hooks'
 import { useEnrollments, useStudentBalances, useStudents } from './hooks'
 import { StudentDetailPage } from './StudentDetailPage'
 import { StudentFormSheet } from './StudentFormSheet'
+import { StudentImportSheet } from './import/StudentImportSheet'
 
 type StatusFilter = 'all' | 'late' | 'ok' | 'paused'
 
@@ -35,6 +37,8 @@ export function StudentsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [formOpen, setFormOpen] = useState(false)
+  // استيراد الملفات: يُفتح من زر الشاشة أو من رابط شاشة التصدير (?import=1)
+  const [importOpen, setImportOpen] = useState(() => searchParams.get('import') === '1')
   // اختيار List-Detail عند ≥1024px — تحت هذا العرض يبقى التنقل لصفحة التفاصيل
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -112,6 +116,14 @@ export function StudentsPage() {
   return (
     <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-5 lg:items-start">
       <div className="min-w-0">
+      <Button
+        variant="soft"
+        full
+        className="mb-3"
+        onClick={() => setImportOpen(true)}
+      >
+        <Upload size={20} /> استيراد طلاب من Excel / CSV
+      </Button>
       <div className="relative mb-3">
         <Search size={20} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
         <TextInput
@@ -254,6 +266,22 @@ export function StudentsPage() {
       </div>
 
       <Fab onClick={() => setFormOpen(true)} ariaLabel="إضافة طالب جديد" label="طالب جديد" />
+
+      {importOpen && (
+        <StudentImportSheet
+          onClose={() => {
+            setImportOpen(false)
+            if (searchParams.get('import')) {
+              const next = new URLSearchParams(searchParams)
+              next.delete('import')
+              setSearchParams(next, { replace: true })
+            }
+          }}
+          teacherId={teacher.teacherId}
+          groups={groupsQ.data ?? []}
+          students={studentsQ.data ?? []}
+        />
+      )}
 
       {formOpen && (
         <StudentFormSheet

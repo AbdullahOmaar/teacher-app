@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
-import { Banknote, Calculator, CalendarCheck2, DatabaseBackup, FileDown, FileUp, Lock, NotebookPen, ReceiptText, Users, type LucideIcon } from 'lucide-react'
+import { Banknote, Calculator, CalendarCheck2, DatabaseBackup, FileDown, FileSpreadsheet, FileUp, Lock, NotebookPen, ReceiptText, Users, type LucideIcon } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, TextArea } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -185,6 +185,21 @@ export function ExportPage() {
         >
           {quickImport.isPending ? 'جارٍ الاستيراد…' : '+ إضافة الطلاب دفعة واحدة'}
         </Button>
+      </Card>
+
+      <Card>
+        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileSpreadsheet size={22} className="text-primary" /> استيراد طلاب من ملف Excel / CSV</h2>
+        <p className="text-muted text-[13.5px] mt-0 mb-3">
+          المسار الكامل للملفات: قالب جاهز بنفس أعمدة تصدير الطلاب، معاينة قبل الحفظ بحالة كل
+          صف، كشف تكرار بالموبايل والكود، وتسجيل اختياري في مجموعة. الاستيراد النصي فوق ده
+          للّصق السريع البسيط، واستيراد الملف من شاشة الطلاب — نفس مسارات إنشاء الطالب في
+          الحالتين.
+        </p>
+        <Link to="/students?import=1">
+          <Button full variant="soft">
+            فتح استيراد الملف من شاشة الطلاب
+          </Button>
+        </Link>
       </Card>
 
       <Card>
