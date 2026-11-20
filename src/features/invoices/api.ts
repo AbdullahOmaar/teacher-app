@@ -286,7 +286,7 @@ interface EnrollmentForBilling {
 }
 
 /** عدد أيام الشهر المطابقة لأيام جدول المجموعة (بديل عند غياب صفوف الحصص) */
-function calendarSessionsInMonth(group: GroupRow, periodMonth: string): number {
+export function calendarSessionsInMonth(group: GroupRow, periodMonth: string): number {
   const [y, m] = periodMonth.split('-').map(Number)
   const daysInMonth = new Date(y, m, 0).getDate()
   let count = 0
@@ -294,6 +294,54 @@ function calendarSessionsInMonth(group: GroupRow, periodMonth: string): number {
     if (group.days.includes(new Date(y, m - 1, d).getDay())) count += 1
   }
   return count
+}
+
+export interface BaseChargeInput {
+  billingType: GroupRow['billing_type']
+  /** السعر الفعّال: السعر الخاص في التسجيل وإلا سعر المجموعة (المرجع §5.1) */
+  price: number
+  /** صيغة الفترة 'YYYY-MM' — تدخل في نصوص البنود */
+  ym: string
+  /** كمية «مدفوعة مسبقاً» بعد حلّها (تسجيل ← حصص الشهر ← بديل تقويمي) */
+  prepaidQty: number
+  /** عدد مرات الحضور الفعلي (p/l/m) — لنظام per_session_attended */
+  attendedCount: number
+}
+
+export interface BaseCharge {
+  amount: number
+  desc: string
+}
+
+/**
+ * البند الأساسي لفاتورة (طالب × مجموعة × شهر) بحسب نظام فوترة المجموعة —
+ * جدول الأنظمة §2.3. دالة نقية مستخرجة حرفياً من generateInvoices (موجة
+ * W2) حتى تُختبَر الأنظمة الأربعة بلا قاعدة بيانات؛ المدخلات المحسوبة من
+ * الجداول (الكمية/الحضور) تُمرَّر جاهزة.
+ */
+export function baseChargeFor(input: BaseChargeInput): BaseCharge {
+  const { price, ym } = input
+  switch (input.billingType) {
+    case 'monthly_fixed':
+      return { amount: price, desc: `اشتراك ${ym}` }
+    case 'weekly_package':
+      return { amount: 4 * price, desc: `باقة شهر ${ym} (4 أسابيع)` }
+    case 'per_session_prepaid':
+      return {
+        amount: input.prepaidQty * price,
+        desc: `${input.prepaidQty} حصة مدفوعة مسبقاً`,
+      }
+    case 'per_session_attended':
+      return {
+        amount: input.attendedCount * price,
+        desc: `حصص حضرها (${input.attendedCount})`,
+      }
+  }
+}
+
+/** مبلغ الخصم الفعلي: لا يتجاوز قيمة البند الأساسي أبداً ولا ينزل تحت صفر */
+export function clampedDiscount(discount: number, baseAmount: number): number {
+  return Math.min(discount, Math.max(baseAmount, 0))
 }
 
 export async function generateInvoices(
@@ -409,32 +457,18 @@ export async function generateInvoices(
 
     // السعر الفعّال: السعر الخاص في التسجيل وإلا سعر المجموعة (المرجع §5.1)
     const price = e.price_override ?? group.price
-    let baseAmount = 0
-    let baseDesc = ''
-    switch (group.billing_type) {
-      case 'monthly_fixed':
-        baseAmount = price
-        baseDesc = `اشتراك ${ym}`
-        break
-      case 'weekly_package':
-        baseAmount = 4 * price
-        baseDesc = `باقة شهر ${ym} (4 أسابيع)`
-        break
-      case 'per_session_prepaid': {
-        const qty =
-          e.prepaid_sessions ??
-          (monthSessionCount.get(e.group_id) || calendarSessionsInMonth(group, period))
-        baseAmount = qty * price
-        baseDesc = `${qty} حصة مدفوعة مسبقاً`
-        break
-      }
-      case 'per_session_attended': {
-        const n = attendedCount.get(key) ?? 0
-        baseAmount = n * price
-        baseDesc = `حصص حضرها (${n})`
-        break
-      }
-    }
+    // كمية «مدفوعة مسبقاً»: من التسجيل، وإلا عدد حصص الشهر المجدولة،
+    // وإلا البديل التقويمي — بنفس ترتيب الحلّ الأصلي حرفياً
+    const prepaidQty =
+      e.prepaid_sessions ??
+      (monthSessionCount.get(e.group_id) || calendarSessionsInMonth(group, period))
+    const { amount: baseAmount, desc: baseDesc } = baseChargeFor({
+      billingType: group.billing_type,
+      price,
+      ym,
+      prepaidQty,
+      attendedCount: attendedCount.get(key) ?? 0,
+    })
 
     const { data: inv, error: invErr } = await supa
       .from('invoices')
@@ -475,7 +509,7 @@ export async function generateInvoices(
     ]
     // الخصم العام (المرجع §5.1): بند سالب لا يتجاوز قيمة البند الأساسي أبداً
     if (opts.discount > 0) {
-      const discAmt = Math.min(opts.discount, Math.max(baseAmount, 0))
+      const discAmt = clampedDiscount(opts.discount, baseAmount)
       if (discAmt > 0) {
         lines.push({
           teacher_id: teacherId,
