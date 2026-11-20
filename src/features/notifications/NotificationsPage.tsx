@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -20,6 +20,8 @@ import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { PageToolBar } from '../../components/ui/PageToolBar'
+import { Chip } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
@@ -156,21 +158,23 @@ const SECTION_PREVIEW = 5
 function SectionBlock({
   kind,
   items,
-  defaultOpen,
+  open,
+  onToggle,
 }: {
   kind: AlertKind
   items: AppAlert[]
-  defaultOpen: boolean
+  /** الحالة مُتحكَّم بها من الصفحة (W3): رقائق الأنكورز تفتح قسمها أيضاً */
+  open: boolean
+  onToggle: () => void
 }) {
-  const [open, setOpen] = useState(defaultOpen)
   const [showAll, setShowAll] = useState(false)
   const KindIcon = KIND_ICONS[kind]
   const visible = showAll ? items : items.slice(0, SECTION_PREVIEW)
   return (
-    <div className="mb-3">
+    <div className="mb-3 scroll-mt-[118px]" id={`notif-section-${kind}`} data-notif-section={kind}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
         aria-expanded={open}
         className="w-full flex items-center gap-2 bg-card border border-border rounded-2xl px-3 min-h-[52px] cursor-pointer text-text"
       >
@@ -239,6 +243,57 @@ export function NotificationsPage() {
   const finCount = useMemo(() => alerts.filter((a) => a.kind === 'fin').length, [alerts])
   const overdueText = useMemo(() => overdueListText(alerts), [alerts])
 
+  // حالة فتح الأقسام (W3 — R-11 أكورديون بقواعد NN/g): فتح متعدد مسموح
+  // والحالة محفوظة أثناء الجلسة؛ الافتراضي = أول قسم (الأعلى أولوية) فقط
+  const [openKinds, setOpenKinds] = useState<Set<AlertKind> | null>(null)
+  const defaultOpen = useMemo(
+    () => new Set<AlertKind>(sections.length ? [sections[0].kind] : []),
+    [sections],
+  )
+  const effectiveOpen = openKinds ?? defaultOpen
+  const toggleKind = (kind: AlertKind) =>
+    setOpenKinds((prev) => {
+      const next = new Set(prev ?? defaultOpen)
+      if (next.has(kind)) next.delete(kind)
+      else next.add(kind)
+      return next
+    })
+
+  // رقاقة الأنكور النشطة تتبع القسم الظاهر أثناء التمرير (scroll-spy — R-11)
+  const [activeKind, setActiveKind] = useState<AlertKind | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const els = rootRef.current?.querySelectorAll('[data-notif-section]')
+    if (!els || els.length === 0) return
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            setActiveKind(e.target.getAttribute('data-notif-section') as AlertKind)
+          }
+        }
+      },
+      { rootMargin: '-118px 0px -55% 0px' },
+    )
+    els.forEach((el) => obs.observe(el))
+    return () => obs.disconnect()
+  }, [sections])
+
+  // ضغط رقاقة أنكور: يفتح قسمها (إن كان مطوياً) ويمرّر إليه
+  const jumpToKind = (kind: AlertKind) => {
+    setOpenKinds((prev) => {
+      const next = new Set(prev ?? defaultOpen)
+      next.add(kind)
+      return next
+    })
+    setActiveKind(kind)
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`notif-section-${kind}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
   const copy = (text: string, okMsg: string) => {
     void navigator.clipboard
       ?.writeText(text)
@@ -251,7 +306,7 @@ export function NotificationsPage() {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
 
   return (
-    <div>
+    <div ref={rootRef}>
       {alertsQ.isPending ? (
         <>
           <Skeleton className="h-[64px] mb-3" />
@@ -273,6 +328,20 @@ export function NotificationsPage() {
         </Card>
       ) : (
         <>
+          {/* شريط الأنكورز الموحّد (W3 — R-10/R-11): رقائق تنقّل بين
+              الأقسام — الضغط يمرّر للقسم ويفتحه، والنشطة تتبع الظاهر */}
+          <PageToolBar
+            chips={sections.map((s) => (
+              <Chip
+                key={s.kind}
+                active={activeKind === s.kind}
+                onClick={() => jumpToKind(s.kind)}
+              >
+                {SECTION_META[s.kind].title} ({s.items.length})
+              </Chip>
+            ))}
+          />
+
           <Card>
             <div className="flex items-center gap-2">
               <Bell size={24} className="text-primary" />
@@ -313,8 +382,14 @@ export function NotificationsPage() {
             </Card>
           )}
 
-          {sections.map((s, idx) => (
-            <SectionBlock key={s.kind} kind={s.kind} items={s.items} defaultOpen={idx === 0} />
+          {sections.map((s) => (
+            <SectionBlock
+              key={s.kind}
+              kind={s.kind}
+              items={s.items}
+              open={effectiveOpen.has(s.kind)}
+              onToggle={() => toggleKind(s.kind)}
+            />
           ))}
         </>
       )}
