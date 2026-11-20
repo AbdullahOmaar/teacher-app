@@ -6,6 +6,8 @@ import {
   BookOpenCheck,
   CalendarX2,
   Check,
+  ChevronDown,
+  ChevronUp,
   ClipboardList,
   Users,
 } from 'lucide-react'
@@ -109,6 +111,9 @@ export function HomeworkPage() {
 
   const [pickedGroupId, setPickedGroupId] = useState<string | null>(null)
   const [pickedSessionId, setPickedSessionId] = useState<string | null>(null)
+  // قسم «الحصص القادمة» مطوي افتراضياً (W1-2): يُفتح يدوياً، ويظهر
+  // مفتوحاً باشتقاق لو الحصة المختارة نفسها قادمة (انظر futureShown)
+  const [futureOpen, setFutureOpen] = useState(false)
 
   const groupsQ = useGroups(teacherId)
   const groups = useMemo(() => groupsQ.data ?? [], [groupsQ.data])
@@ -150,27 +155,52 @@ export function HomeworkPage() {
     return list
   }, [sessionsQ.data, paramQ.data, groupId])
 
+  // تقسيم الحصص (W1-2): الماضي واليوم أولاً — القائمة القادمة من الـ API
+  // تنازلية (الأحدث أولاً) فالماضي فيها جاهز بأحدث حصة فعلية في المقدمة؛
+  // والمستقبل يُعكَس ليبدأ بأقرب حصة قادمة، ويُعرض في قسم مطوي منفصل
+  // بدل ما يزحم مقدمة المنتقي بحصص «لسه مفيش حاضرين» لأسابيع قدام.
+  const pastSessions = useMemo(
+    () => sessions.filter((s) => s.session_date <= today),
+    [sessions, today],
+  )
+  const futureSessions = useMemo(
+    () => sessions.filter((s) => s.session_date > today).reverse(),
+    [sessions, today],
+  )
+
   // الافتراضي: آخر حصة فاتت أو النهاردة (أحدث تاريخ ≤ اليوم)، وإلا أقرب قادمة
   const defaultSessionId = useMemo(() => {
     if (sessions.length === 0) return undefined
-    return (
-      sessions.find((s) => s.session_date <= today)?.id ??
-      sessions[sessions.length - 1].id
-    )
-  }, [sessions, today])
+    return pastSessions[0]?.id ?? futureSessions[0]?.id
+  }, [sessions.length, pastSessions, futureSessions])
   const selectedId =
     (pickedSessionId && sessions.some((s) => s.id === pickedSessionId)
       ? pickedSessionId
       : null) ?? defaultSessionId
   const selected = sessions.find((s) => s.id === selectedId) ?? null
 
+  // حصة مختارة قادمة (رابط عميق/اختيار يدوي) ⇒ قسمها المطوي مفتوح
+  // باشتقاق مباشر حتى يراها المدرس مختارة في موضعها (يُطوى باختيار
+  // حصة فاتت ثم طيّه يدوياً)
+  const futureShown =
+    futureOpen || (selected != null && selected.session_date > today)
+
   const rosterQ = useSessionRoster(teacherId, groupId)
   const roster = useMemo(() => rosterQ.data ?? [], [rosterQ.data])
   const rosterIds = useMemo(() => new Set(roster.map((s) => s.id)), [roster])
   const attQ = useSessionAttendance(teacherId, selectedId)
 
-  // ملخصات المنتقي/النظرة الإجمالية: علامات أحدث الحصص المعروضة + المختارة
-  const shownSessions = useMemo(() => sessions.slice(0, PICKER_LIMIT), [sessions])
+  // ملخصات المنتقي/النظرة الإجمالية: علامات الحصص المعروضة في القسمين
+  // (أحدث حصص الماضي + أقرب الحصص القادمة) + الحصة المختارة دائماً
+  const shownPast = useMemo(() => pastSessions.slice(0, PICKER_LIMIT), [pastSessions])
+  const shownFuture = useMemo(
+    () => futureSessions.slice(0, PICKER_LIMIT),
+    [futureSessions],
+  )
+  const shownSessions = useMemo(
+    () => [...shownPast, ...shownFuture],
+    [shownPast, shownFuture],
+  )
   const marksSessionIds = useMemo(() => {
     const ids = shownSessions.map((s) => s.id)
     if (selectedId && !ids.includes(selectedId)) ids.push(selectedId)
@@ -273,6 +303,71 @@ export function HomeworkPage() {
     )
   }
 
+  // صف حصة واحد في المنتقي — نفس الشكل والملخص في قسمي الماضي والقادمة،
+  // والتبديل/التسليم من قسم التفاصيل أسفله يعمل لأي حصة مختارة منهما
+  const sessionRow = (s: (typeof sessions)[number], i: number) => {
+    const active = selected?.id === s.id
+    const sum = marksQ.data ? (summaries.get(s.id) ?? null) : null
+    return (
+      <button
+        key={s.id}
+        type="button"
+        onClick={() => setPickedSessionId(s.id)}
+        aria-pressed={active}
+        className={`w-full text-start px-4 py-3 min-h-[64px] cursor-pointer border-0 ${
+          i > 0 ? 'border-t border-border' : ''
+        } ${active ? 'bg-soft' : 'bg-card hover:bg-soft'}`}
+      >
+        <span className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-[15px]">
+            {formatDateLabel(s.session_date)}
+          </span>
+          {s.session_date > today && (
+            <span className="text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5">
+              قادمة
+            </span>
+          )}
+          {s.kind === 'extra' && (
+            <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">إضافية</span>
+          )}
+          {s.kind === 'moved' && (
+            <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">منقولة</span>
+          )}
+          {s.status === 'cancelled' && (
+            <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">ملغاة</span>
+          )}
+          {sum && sum.rate != null && (
+            <span
+              className={`ms-auto text-[12px] font-bold rounded-full px-2 py-0.5 border ${
+                sum.rate >= 80
+                  ? 'bg-ok-soft text-ok-text border-ok/30'
+                  : 'bg-warn-soft text-warn-text border-warn/40'
+              }`}
+            >
+              سلّم {sum.rate}%
+            </span>
+          )}
+        </span>
+        <span className="block text-muted text-[13.5px] mt-0.5">
+          الساعة {formatTime12(s.start_time)}
+          {sum
+            ? sum.attended > 0
+              ? ` · سلّم ${sum.submitted} من ${sum.attended} حاضرين`
+              : ' · لسه مفيش حاضرين مسجلين'
+            : ''}
+        </span>
+        {sum && sum.attended > 0 && (
+          <span className="block h-1.5 rounded-full bg-border/60 overflow-hidden mt-2">
+            <span
+              className={`block h-full rounded-full ${sum.rate === 100 ? 'bg-ok' : 'bg-primary'}`}
+              style={{ width: `${sum.rate}%` }}
+            />
+          </span>
+        )}
+      </button>
+    )
+  }
+
   const pickerPending = genQ.isPending || sessionsQ.isPending
   const pickerError = genQ.error ?? sessionsQ.error
 
@@ -309,7 +404,9 @@ export function HomeworkPage() {
         ))}
       </ChipRow>
 
-      {/* اختيار الحصة + النظرة الإجمالية: أحدث الحصص أولاً ونسبة تسليم كل حصة */}
+      {/* اختيار الحصة + النظرة الإجمالية: حصص الماضي واليوم أولاً (أحدث
+          حصة فعلية في المقدمة) ونسبة تسليم كل حصة — والقادمة في قسم
+          مطوي منفصل تحتها (W1-2) */}
       <h3 className="type-section mt-1 mb-2">حصص {group?.name ?? ''}</h3>
       {pickerPending ? (
         <>
@@ -330,75 +427,58 @@ export function HomeworkPage() {
           />
         </Card>
       ) : (
-        <Card className="p-0 overflow-hidden mb-4">
-          {shownSessions.map((s, i) => {
-            const active = selected?.id === s.id
-            const sum = marksQ.data ? (summaries.get(s.id) ?? null) : null
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setPickedSessionId(s.id)}
-                aria-pressed={active}
-                className={`w-full text-start px-4 py-3 min-h-[64px] cursor-pointer border-0 ${
-                  i > 0 ? 'border-t border-border' : ''
-                } ${active ? 'bg-soft' : 'bg-card hover:bg-soft'}`}
-              >
-                <span className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-[15px]">
-                    {formatDateLabel(s.session_date)}
-                  </span>
-                  {s.session_date > today && (
-                    <span className="text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5">
-                      قادمة
-                    </span>
-                  )}
-                  {s.kind === 'extra' && (
-                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">إضافية</span>
-                  )}
-                  {s.kind === 'moved' && (
-                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">منقولة</span>
-                  )}
-                  {s.status === 'cancelled' && (
-                    <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">ملغاة</span>
-                  )}
-                  {sum && sum.rate != null && (
-                    <span
-                      className={`ms-auto text-[12px] font-bold rounded-full px-2 py-0.5 border ${
-                        sum.rate >= 80
-                          ? 'bg-ok-soft text-ok-text border-ok/30'
-                          : 'bg-warn-soft text-warn-text border-warn/40'
-                      }`}
-                    >
-                      سلّم {sum.rate}%
-                    </span>
-                  )}
-                </span>
-                <span className="block text-muted text-[13.5px] mt-0.5">
-                  الساعة {formatTime12(s.start_time)}
-                  {sum
-                    ? sum.attended > 0
-                      ? ` · سلّم ${sum.submitted} من ${sum.attended} حاضرين`
-                      : ' · لسه مفيش حاضرين مسجلين'
-                    : ''}
-                </span>
-                {sum && sum.attended > 0 && (
-                  <span className="block h-1.5 rounded-full bg-border/60 overflow-hidden mt-2">
-                    <span
-                      className={`block h-full rounded-full ${sum.rate === 100 ? 'bg-ok' : 'bg-primary'}`}
-                      style={{ width: `${sum.rate}%` }}
-                    />
-                  </span>
-                )}
-              </button>
-            )
-          })}
-          {sessions.length > PICKER_LIMIT && (
-            <p className="text-muted text-[13.5px] px-4 py-2.5 m-0 border-t border-border">
-              بنعرض أحدث {PICKER_LIMIT} حصة — حصص أقدم من كده افتحها من شاشة الحضور أو الجدول.
-            </p>
+        <>
+          {/* الماضي واليوم: أحدث حصة فعلية في المقدمة */}
+          {shownPast.length > 0 ? (
+            <Card className="p-0 overflow-hidden mb-4">
+              {shownPast.map((s, i) => sessionRow(s, i))}
+              {pastSessions.length > PICKER_LIMIT && (
+                <p className="text-muted text-[13.5px] px-4 py-2.5 m-0 border-t border-border">
+                  بنعرض أحدث {PICKER_LIMIT} حصة فاتت — حصص أقدم من كده افتحها من شاشة الحضور أو الجدول.
+                </p>
+              )}
+            </Card>
+          ) : (
+            <Card className="mb-4">
+              <p className="text-muted text-[13.5px] m-0">
+                لسه مفيش حصص فاتت للمجموعة دي — أول حصة لسه قادمة، وهتلاقيها في
+                «الحصص القادمة» تحت.
+              </p>
+            </Card>
           )}
-        </Card>
+
+          {/* القادمة: قسم مطوي منفصل — أقرب حصة أولاً، والاختيار منه
+              بيفتح نفس قسم التفاصيل والتسليم تحت زي أي حصة فاتت */}
+          {futureSessions.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setFutureOpen((v) => !v)}
+                aria-expanded={futureShown}
+                className="w-full flex items-center gap-2 min-h-[48px] px-1 mb-2 bg-transparent border-0 cursor-pointer text-text"
+              >
+                <span className="type-section">الحصص القادمة</span>
+                <span className="text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5">
+                  {futureSessions.length}
+                </span>
+                <span className="ms-auto text-muted inline-flex">
+                  {futureShown ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </span>
+              </button>
+              {futureShown && (
+                <Card className="p-0 overflow-hidden mb-4">
+                  {shownFuture.map((s, i) => sessionRow(s, i))}
+                  {futureSessions.length > PICKER_LIMIT && (
+                    <p className="text-muted text-[13.5px] px-4 py-2.5 m-0 border-t border-border">
+                      بنعرض أقرب {PICKER_LIMIT} حصة قادمة — اللي بعدها هيتولّد
+                      ويظهر مع دخول شهوره في نافذة الجدول.
+                    </p>
+                  )}
+                </Card>
+              )}
+            </>
+          )}
+        </>
       )}
 
       {selected && (
