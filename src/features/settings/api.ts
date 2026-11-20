@@ -1,4 +1,7 @@
 import { supabase } from '../../lib/supabase'
+import { csvEsc, toCsv } from '../../lib/csv'
+
+export { csvEsc, toCsv }
 import {
   BRAND_BUCKET,
   BRAND_LOGO_MAX_BYTES,
@@ -336,16 +339,7 @@ async function fetchPaged<T>(
 // (بلا لاحقة «ج») حتى يقدر Excel يحسب عليها.
 // ===========================================================================
 
-export function csvEsc(value: unknown): string {
-  if (value == null) return ''
-  const s = String(value)
-  return /[",\r\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s
-}
-
-export function toCsv(headers: string[], rows: unknown[][]): string {
-  return [headers, ...rows].map((r) => r.map(csvEsc).join(',')).join('\r\n')
-}
-
+// csvEsc/toCsv وُحّدا في lib/csv (مع تحييد حقن الصيغ) ويُعاد تصديرهما أعلاه.
 export type CsvKind = 'students' | 'invoices' | 'payments' | 'attendance' | 'scores' | 'expenses'
 
 export const CSV_KINDS: { kind: CsvKind; label: string; hint: string }[] = [

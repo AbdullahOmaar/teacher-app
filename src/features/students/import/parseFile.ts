@@ -9,6 +9,7 @@
  * ثانية للقالب، ففُضّلت مكتبة واحدة للاتجاهين.
  */
 import { TEMPLATE_EXAMPLE_ROW, TEMPLATE_HEADERS } from './logic'
+import { csvEsc } from '../../../lib/csv'
 
 export interface ParsedFile {
   fileName: string
@@ -65,12 +66,6 @@ export async function downloadTemplateXlsx(): Promise<void> {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'الطلاب')
   XLSX.writeFile(wb, 'قالب-استيراد-الطلاب.xlsx')
-}
-
-function csvEsc(value: unknown): string {
-  if (value == null) return ''
-  const s = String(value)
-  return /[",\r\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s
 }
 
 /** تنزيل نفس القالب بصيغة CSV (نفس هروب وBOM تصدير الإعدادات لفتح عربي سليم) */
