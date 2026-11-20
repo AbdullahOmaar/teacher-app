@@ -28,7 +28,6 @@ src/features/groups/GroupFormSheet.tsx
 src/features/groups/GroupsPage.tsx
 src/features/homework/HomeworkPage.tsx
 src/features/invoices/InvoiceDetailPage.tsx
-src/features/invoices/InvoicesPage.tsx
 src/features/invoices/StudentPaymentsTab.tsx
 src/features/invoices/sheets.tsx
 src/features/money/CashboxSection.tsx
@@ -53,5 +52,4 @@ src/features/students/EnrollStudentSheet.tsx
 src/features/students/StudentCardSheet.tsx
 src/features/students/StudentDetailPage.tsx
 src/features/students/StudentFormSheet.tsx
-src/features/students/StudentsPage.tsx
 src/features/students/import/StudentImportSheet.tsx

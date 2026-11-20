@@ -328,7 +328,7 @@ export function NotificationsPage() {
     void navigator.clipboard
       ?.writeText(text)
       .then(() => toast(okMsg))
-      .catch(() => toast(t('notifications.page.copyUnavailable')))
+      .catch(() => toast(t('common.copyUnavailable')))
   }
 
   if (teacher.status === 'loading') return <LoadingState />
@@ -401,7 +401,7 @@ export function NotificationsPage() {
                 {t('notifications.page.overdueActionsBody', { count: finCount })}
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Button variant="soft" onClick={() => copy(overdueText, t('notifications.page.copiedOverdueList'))}>
+                <Button variant="soft" onClick={() => copy(overdueText, t('common.copiedOverdueList'))}>
                   <Copy size={18} />
                   {t('notifications.page.copyOverdueList')}
                 </Button>

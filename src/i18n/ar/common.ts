@@ -14,6 +14,9 @@ export const common = {
   noTeacherBody:
     'حسابك مسجل دخوله، لكن لسه ما اتعملّوش ملف مدرس (أو عضوية فريق) في قاعدة البيانات.',
   unknownError: 'خطأ غير معروف',
+  copyUnavailable: 'النسخ مش متاح في المتصفح ده',
+  copiedOverdueList: 'اتنسخت قائمة المتأخرات',
+  groupFallback: 'مجموعة',
   filter: 'تصفية',
   filterAdvanced: 'تصفية متقدمة',
   close: 'إغلاق',

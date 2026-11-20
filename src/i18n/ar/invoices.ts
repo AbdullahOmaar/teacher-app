@@ -1,0 +1,35 @@
+/** نصوص صفحة الفواتير: الفلاتر والشارات وبطاقتا المستحقات والحالات */
+export const invoices = {
+  filterAll: 'الكل',
+  filterDue: 'مستحقة',
+  filterPartial: 'جزئية',
+  filterPaid: 'مسددة',
+  badgePaid: 'مسدد',
+  badgePartial: 'جزئي — باقي {amount}',
+  badgeDue: 'باقي {amount}',
+  rowTotal: 'الإجمالي {amount}',
+  rowPaidPart: 'مدفوع {amount}',
+  ownerOnlyTitle: 'الفواتير والمالية للمالك فقط',
+  ownerOnlyBody:
+    'حساب المساعد لا يملك صلاحية مالية — الفواتير والدفعات محجوبة في قاعدة البيانات نفسها (RLS) وليس في الواجهة فقط.',
+  searchPlaceholder: 'ابحث باسم الطالب أو باسم الشهر (نوفمبر)…',
+  loading: 'بنحمّل الفواتير…',
+  overdueTitle: 'متأخرات مستحقة',
+  countTotal: '{count} طالب · إجمالي {total}',
+  showList: 'عرض القائمة',
+  hideList: 'إخفاء القائمة',
+  copyOverdue: 'نسخ المتأخرات',
+  plusCurrentDue:
+    'وبالإضافة لكده، مستحقات {month} (لسه في شهرها — مش متأخرة): {count} طالب · إجمالي {total}',
+  currentDueTitle: 'مستحقات {month}',
+  currentDueLine: '{count} طالب · إجمالي {total} — فواتير الشهر الحالي لسه مش متأخرة',
+  emptyNoneTitle: 'لسه مفيش فواتير',
+  emptyNoMatchTitle: 'مفيش فواتير مطابقة',
+  emptyNoneHint:
+    'اصدر فواتير الشهر من الزر العائم — لكل طالب نشط بسعره الفعلي وحسب نظام فوترة مجموعته.',
+  emptyNoMatchHint: 'جرّب كلمة بحث أو فلتر تاني.',
+  issueAction: 'إصدار فواتير الشهر',
+  selectTitle: 'اختر فاتورة من القائمة',
+  selectHint: 'تفاصيل الفاتورة المحددة هتظهر هنا — أو عدّل البحث والفلاتر.',
+  fabIssueAria: 'إصدار فواتير {month}',
+} as const

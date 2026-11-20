@@ -16,7 +16,6 @@ export const notifications = {
     absenceDetail: 'غياب متكرر — يستحق متابعة مع ولي الأمر',
     absenceWa:
       'أهلاً {guardian}، نلاحظ تكرار غياب الطالب {name} — تغيّب {count} مرات خلال آخر {days} يوم. نرجو المتابعة معنا، وشكراً لكم.',
-    groupFallback: 'مجموعة',
     prepaidDepleted: '({group}): باقة {name} نفدت',
     studentLine: 'الطالب: {name}',
     prepaidDepletedWa:
@@ -49,7 +48,6 @@ export const notifications = {
     showStudents: 'عرض الطلاب ({count})',
     showLess: 'عرض أقل',
     showAll: 'عرض الكل ({count})',
-    copyUnavailable: 'النسخ مش متاح في المتصفح ده',
     emptyTitle: 'مفيش أي تنبيهات حالياً',
     emptyHint:
       'كل حاجة تمام: الحضور متسجل، ومفيش متأخرات ولا باقات بتنفد ولا درجات منخفضة تحتاج متابعة.',
@@ -61,7 +59,6 @@ export const notifications = {
     overdueActionsBody:
       '{count} طالب عليهم مستحقات — انسخ القائمة أو التذكير العام وابعته كما يناسبك.',
     copyOverdueList: 'نسخ قائمة المتأخرات',
-    copiedOverdueList: 'اتنسخت قائمة المتأخرات',
     copyGenericReminder: 'نسخ تذكير عام',
     copiedGenericReminder: 'اتنسخ التذكير العام',
     prepaidMemberLeft: 'متبقي {left} من {prepaid} حصة',

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { t } from '../../i18n'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { Check, Upload, Users, X } from 'lucide-react'
@@ -22,10 +23,10 @@ import { StudentImportSheet } from './import/StudentImportSheet'
 type StatusFilter = 'all' | 'late' | 'ok' | 'paused'
 
 const STATUS_CHIPS: { key: StatusFilter; label: string }[] = [
-  { key: 'all', label: 'النشطين' },
-  { key: 'late', label: 'عليه متأخرات' },
-  { key: 'ok', label: 'مسدد' },
-  { key: 'paused', label: 'موقوف / أرشيف' },
+  { key: 'all', label: t('students.statusAll') },
+  { key: 'late', label: t('students.statusLate') },
+  { key: 'ok', label: t('students.statusOk') },
+  { key: 'paused', label: t('students.statusPaused') },
 ]
 
 /**
@@ -77,7 +78,7 @@ export function StudentsPage() {
       }
       if (status === 'late' && !((balances?.get(s.id) ?? 0) > 0)) return false
       // «مسدد» تعني فواتير موجودة ومُسوّاة: طالب بلا أي فاتورة (لا صف له
-      // في student_balances) حالته محايدة «لا فواتير بعد» لا «مسدد» (L1)
+      // في student_balances) حالته محايدة «{t('students.badgeNoInvoices')}» لا «مسدد» (L1)
       if (
         status === 'ok' &&
         balances &&
@@ -124,17 +125,17 @@ export function StudentsPage() {
     const order: string[] = []
     const byTitle = new Map<string, typeof filtered>()
     for (const s of filtered) {
-      const title = (groupNamesByStudent.get(s.id) ?? [])[0] ?? 'بلا مجموعة'
+      const title = (groupNamesByStudent.get(s.id) ?? [])[0] ?? t('students.noGroup')
       if (!byTitle.has(title)) {
         byTitle.set(title, [])
         order.push(title)
       }
       byTitle.get(title)!.push(s)
     }
-    const noGroupIdx = order.indexOf('بلا مجموعة')
+    const noGroupIdx = order.indexOf(t('students.noGroup'))
     if (noGroupIdx >= 0) {
       order.splice(noGroupIdx, 1)
-      order.push('بلا مجموعة')
+      order.push(t('students.noGroup'))
     }
     return order.map((title) => ({ title: title as string | null, items: byTitle.get(title)! }))
   }, [filtered, groupsQ.data, groupFilter, groupNamesByStudent])
@@ -162,7 +163,7 @@ export function StudentsPage() {
         search={{
           value: search,
           onChange: setSearch,
-          placeholder: 'ابحث بالاسم أو الكود أو الموبايل…',
+          placeholder: t('students.searchPlaceholder'),
         }}
         chips={
           <>
@@ -171,7 +172,7 @@ export function StudentsPage() {
                 active
                 onClick={() => setSearchParams({}, { replace: true })}
               >
-                {groupNameById.get(groupFilter) ?? 'مجموعة'} <X size={14} />
+                {groupNameById.get(groupFilter) ?? t('common.groupFallback')} <X size={14} />
               </Chip>
             )}
             {STATUS_CHIPS.map((c) => (
@@ -192,14 +193,14 @@ export function StudentsPage() {
         className="mb-3"
         onClick={() => setImportOpen(true)}
       >
-        <Upload size={20} /> استيراد طلاب من Excel / CSV
+        <Upload size={20} /> {t('students.importAction')}
       </Button>
 
       {loading ? (
-        <LoadingState label="بنحمّل الطلاب…" />
+        <LoadingState label={t('students.loading')} />
       ) : error ? (
         <ErrorState
-          message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+          message={error instanceof Error ? error.message : t('common.unknownError')}
           onRetry={() => {
             void studentsQ.refetch()
             void enrollmentsQ.refetch()
@@ -209,15 +210,15 @@ export function StudentsPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Users}
-          title={(studentsQ.data?.length ?? 0) === 0 ? 'لا يوجد طلاب بعد' : 'لا نتائج مطابقة'}
+          title={(studentsQ.data?.length ?? 0) === 0 ? t('students.emptyNoneTitle') : t('students.emptyNoMatchTitle')}
           hint={
             (studentsQ.data?.length ?? 0) === 0
-              ? 'ابدأ بإضافة أول طالب من الزر العائم «طالب جديد»'
-              : 'جرّب تغيير البحث أو الفلاتر'
+              ? t('students.emptyNoneHint')
+              : t('students.emptyNoMatchHint')
           }
           action={
             (studentsQ.data?.length ?? 0) === 0
-              ? { label: 'إضافة طالب', onClick: () => setFormOpen(true) }
+              ? { label: t('students.addStudent'), onClick: () => setFormOpen(true) }
               : undefined
           }
         />
@@ -227,7 +228,7 @@ export function StudentsPage() {
           <div key={section.title ?? '__all'}>
             {section.title && (
               <StickyGroupHeader bleed={false}>
-                {section.title} · {section.items.length} طالب
+                {t('students.sectionHeader', { title: section.title, count: section.items.length })}
               </StickyGroupHeader>
             )}
             <Card className="p-0 overflow-hidden">
@@ -261,7 +262,7 @@ export function StudentsPage() {
                       {s.name}
                       {s.paused && (
                         <span className="ms-2 type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
-                          موقوف
+                          {t('students.badgePaused')}
                         </span>
                       )}
                     </>
@@ -273,22 +274,22 @@ export function StudentsPage() {
                     <>
                       {s.grade ?? ''}
                       {s.grade && names.length ? ' · ' : ''}
-                      {names.length ? names.join('، ') : ''}
+                      {names.length ? names.join(t('students.nameSeparator')) : ''}
                     </>
                   }
                   trailing={
                     !isAssistant && balancesQ.data ? (
                       balance > 0 ? (
                         <span className="shrink-0 type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-                          باقي {formatMoney(balance)}
+                          {t('students.badgeDue', { amount: formatMoney(balance) })}
                         </span>
                       ) : hasInvoices ? (
                         <span className="shrink-0 type-badge bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-                          مسدد
+                          {t('students.badgePaid')}
                         </span>
                       ) : (
                         <span className="shrink-0 type-badge bg-soft text-muted border border-border rounded-full px-2 py-0.5">
-                          لا فواتير بعد
+                          {t('students.badgeNoInvoices')}
                         </span>
                       )
                     ) : undefined
@@ -315,14 +316,14 @@ export function StudentsPage() {
           <Card>
             <EmptyState
               icon={Users}
-              title="اختر طالباً من القائمة"
-              hint="تفاصيل الطالب المحدد هتظهر هنا — أو عدّل البحث والفلاتر."
+              title={t('students.selectTitle')}
+              hint={t('students.selectHint')}
             />
           </Card>
         )}
       </div>
 
-      <Fab onClick={() => setFormOpen(true)} ariaLabel="إضافة طالب جديد" label="طالب جديد" />
+      <Fab onClick={() => setFormOpen(true)} ariaLabel={t('students.fabAddAria')} label={t('students.fabNew')} />
 
       {importOpen && (
         <StudentImportSheet
@@ -352,7 +353,7 @@ export function StudentsPage() {
 
       {/* Sheet «تصفية» النمط الموحّد (W3): اختيار المجموعة — الفلاتر
           المتقدمة لا تكدَّس فوق المحتوى بعد اليوم */}
-      <Sheet open={filterOpen} onClose={() => setFilterOpen(false)} title="تصفية حسب المجموعة">
+      <Sheet open={filterOpen} onClose={() => setFilterOpen(false)} title={t('students.filterByGroup')}>
         <div className="flex flex-col gap-2 pb-2">
           <button
             type="button"
@@ -364,7 +365,7 @@ export function StudentsPage() {
               !groupFilter ? 'bg-soft border-primary/40 text-primary' : 'bg-card border-border text-text'
             }`}
           >
-            كل المجموعات
+            {t('students.allGroups')}
             {!groupFilter && <Check size={19} />}
           </button>
           {(groupsQ.data ?? []).map((g) => (

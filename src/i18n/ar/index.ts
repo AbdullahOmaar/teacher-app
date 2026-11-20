@@ -4,6 +4,8 @@ import { notifications } from './notifications'
 import { home } from './home'
 import { atrisk } from './atrisk'
 import { analytics } from './analytics'
+import { students } from './students'
+import { invoices } from './invoices'
 
 /**
  * قاموس العربية — اللغة الوحيدة حالياً (W7 — R-4/R-5).
@@ -17,4 +19,6 @@ export const ar = {
   home,
   atrisk,
   analytics,
+  students,
+  invoices,
 } as const
