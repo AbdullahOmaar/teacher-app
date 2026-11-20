@@ -1,11 +1,99 @@
-import { Placeholder } from '../../components/ui/Placeholder'
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Card } from '../../components/ui/Card'
+import { Button } from '../../components/ui/Button'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
+import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
+import { BILLING_LABELS, daysLabel, formatMoney, shortTime } from '../../lib/format'
+import { useEnrollments } from '../students/hooks'
+import { countByGroup } from './api'
+import { useGroups } from './hooks'
+import { GroupFormSheet } from './GroupFormSheet'
 
+/**
+ * شاشة المجموعات (المواصفات §3.9): بطاقة لكل مجموعة (نظام الفوترة · السعر ·
+ * الأيام · الميعاد والمدة) وشريط سعة عند وجود حد. الضغط يفتح تفاصيل المجموعة.
+ */
 export function GroupsPage() {
+  const teacher = useCurrentTeacher()
+  const [formOpen, setFormOpen] = useState(false)
+
+  const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
+  const groupsQ = useGroups(teacherId)
+  const enrollmentsQ = useEnrollments(teacherId)
+
+  const counts = useMemo(() => countByGroup(enrollmentsQ.data ?? []), [enrollmentsQ.data])
+
+  if (teacher.status === 'loading') return <LoadingState />
+  if (teacher.status === 'signed-out') return <SignInRequired />
+  if (teacher.status === 'no-teacher') return <NoTeacherProfile />
+  if (groupsQ.isPending || enrollmentsQ.isPending) return <LoadingState label="بنحمّل المجموعات…" />
+  const error = groupsQ.error ?? enrollmentsQ.error
+  if (error) return <ErrorState message={error instanceof Error ? error.message : 'خطأ غير معروف'} />
+
+  const groups = groupsQ.data ?? []
+
   return (
-    <Placeholder
-      icon="👨‍👩‍👧‍👦"
-      title="المجموعات"
-      hint="إدارة المجموعات وأنظمة الدفع الأربعة وكشف تعارض المواعيد — هتتنفذ من المواصفات §3.4."
-    />
+    <div>
+      <Button full className="mb-3" onClick={() => setFormOpen(true)}>
+        + مجموعة جديدة
+      </Button>
+
+      {groups.length === 0 ? (
+        <EmptyState icon="👨‍👩‍👧‍👦" title="لا توجد مجموعات بعد" hint="أنشئ أول مجموعة وحدد جدولها ونظام الدفع" />
+      ) : (
+        groups.map((g) => {
+          const cnt = counts.get(g.id) ?? 0
+          const pct = g.capacity ? Math.min(100, Math.round((cnt / g.capacity) * 100)) : null
+          return (
+            <Link key={g.id} to={`/groups/${g.id}`} className="block no-underline text-text">
+              <Card>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[15.5px]">{g.name}</span>
+                  {g.assistant_name && (
+                    <span className="text-[11px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
+                      مساعد: {g.assistant_name}
+                    </span>
+                  )}
+                </div>
+                <div className="text-muted text-[13px] mt-0.5">
+                  {BILLING_LABELS[g.billing_type]} · {formatMoney(g.price)} · {daysLabel(g.days)} ·{' '}
+                  {shortTime(g.start_time)} ({g.duration_minutes} د)
+                  {g.room ? ` · ${g.room}` : ''}
+                </div>
+                {g.capacity != null && pct != null ? (
+                  <div className="mt-2">
+                    <div className="flex justify-between text-[12px] text-muted mb-1">
+                      <span>
+                        {cnt}/{g.capacity} طالب
+                      </span>
+                      <span>{pct}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-soft overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${pct >= 100 ? 'bg-bad' : 'bg-primary'}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-muted text-[12.5px] mt-1">{cnt} طالب مسجل</div>
+                )}
+              </Card>
+            </Link>
+          )
+        })
+      )}
+
+      {formOpen && (
+        <GroupFormSheet
+          onClose={() => setFormOpen(false)}
+          teacherId={teacher.teacherId}
+          groups={groups}
+          initial={null}
+        />
+      )}
+    </div>
   )
 }

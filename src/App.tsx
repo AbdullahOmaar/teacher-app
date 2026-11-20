@@ -7,6 +7,7 @@ import { AttendancePage } from './features/attendance/AttendancePage'
 import { StudentsPage } from './features/students/StudentsPage'
 import { StudentDetailPage } from './features/students/StudentDetailPage'
 import { GroupsPage } from './features/groups/GroupsPage'
+import { GroupDetailPage } from './features/groups/GroupDetailPage'
 import { InvoicesPage } from './features/invoices/InvoicesPage'
 import { InvoiceDetailPage } from './features/invoices/InvoiceDetailPage'
 import { SchedulePage } from './features/schedule/SchedulePage'
@@ -40,6 +41,7 @@ export default function App() {
               <Route path="more" element={<MorePage />} />
               <Route path="schedule" element={<SchedulePage />} />
               <Route path="groups" element={<GroupsPage />} />
+              <Route path="groups/:id" element={<GroupDetailPage />} />
               <Route path="grades" element={<GradesPage />} />
               <Route path="assessments/:id" element={<AssessmentDetailPage />} />
               <Route path="money" element={<MoneyPage />} />
