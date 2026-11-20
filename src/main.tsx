@@ -8,9 +8,26 @@ import '@fontsource/ibm-plex-sans-arabic/600.css'
 import '@fontsource/ibm-plex-sans-arabic/700.css'
 import './index.css'
 import App from './App.tsx'
+// التقاط beforeinstallprompt مبكراً لبطاقة التثبيت في الإعدادات (خطوة 11)
+import './lib/installPrompt'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
   </StrictMode>,
 )
+
+/*
+ * تسجيل Service Worker للـ PWA (خطوة 11) — إنتاج فقط (في التطوير يمنع
+ * الـ SW التحديث الفوري للكود ويشتت التصحيح). ملف public/sw.js يدوي
+ * ومحافظ: قشرة + أصول ثابتة فقط، لا كاش لأي API/Supabase أبداً،
+ * والتنقلات Network-First فلا نسخة قديمة بعد أي نشر (انظر ترويسة sw.js).
+ * فشل التسجيل غير قاتل: التطبيق يعمل كاملاً بدونه (بلا أوفلاين للقشرة).
+ */
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // تجاهل متعمّد: لا SW = تجربة ويب عادية
+    })
+  })
+}

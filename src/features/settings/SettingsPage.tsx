@@ -27,6 +27,7 @@ import {
   useUpdateOwnProfile,
 } from '../auth/hooks'
 import { DEFAULT_WA_TEMPLATE } from '../invoices/api'
+import { InstallAppCard } from './InstallAppCard'
 import { formatDateLabel } from '../schedule/api'
 import { REMINDER_OPTIONS, THEME_MODES, type TeacherSettingsInput } from './api'
 import { useTeacherSettings, useUpdateTeacherSettings } from './hooks'
@@ -750,6 +751,9 @@ export function SettingsPage() {
           )}
         </Card>
       )}
+
+      {/* تثبيت التطبيق (PWA — خطوة 11) */}
+      <InstallAppCard />
 
       {/* تسجيل الخروج */}
       <Card>

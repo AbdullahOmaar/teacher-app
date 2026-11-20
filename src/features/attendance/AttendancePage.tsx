@@ -12,9 +12,12 @@ import {
   CalendarX2,
   Check,
   CheckCheck,
+  Clock,
+  CloudOff,
   MessageCircle,
   ScanQrCode,
   Star,
+  TriangleAlert,
   Undo2,
   Users,
 } from 'lucide-react'
@@ -50,6 +53,17 @@ import {
 } from './hooks'
 import { QrScannerSheet, type ScanOutcome } from './QrScannerSheet'
 import { findStudentByCode, normalizeScannedCode } from './qr'
+import {
+  enqueueStored,
+  isNetworkFailure,
+  itemsForSession,
+  loadQueue,
+  queueKey,
+  removeItem,
+  saveQueue,
+} from './offlineQueue'
+import { useOfflineSync, useOnlineStatus } from './useOfflineSync'
+import { SyncStatusBar } from './SyncStatusBar'
 
 /**
  * الحضور (المواصفات §3.2): تسجيل حضور حصة واحدة من جدول sessions الحقيقي —
@@ -141,6 +155,12 @@ export function AttendancePage() {
   const saveManyMut = useSaveManyAttendance(teacherId ?? '')
   const statusMut = useSetSessionStatus(teacherId ?? '')
 
+  // أوفلاين (خطوة 11): حالة الاتصال + قائمة المزامنة + محركها. الحفظ
+  // الأونلاين يبقى كما هو حرفياً؛ عند غياب الاتصال أو فشل شبكي يمرّ
+  // التغيير لنفس القيمة الكاملة إلى القائمة بدل ضياعه (انظر changeValue).
+  const online = useOnlineStatus()
+  const sync = useOfflineSync(teacherId)
+
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status === 'signed-out') return <SignInRequired />
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
@@ -148,10 +168,19 @@ export function AttendancePage() {
   const cancelled = selected?.status === 'cancelled'
   const group = selected ? groupById.get(selected.group_id) : undefined
   const rowsReady = Boolean(selected && attQ.data)
+  // قيم القائمة المعلّقة للحصة المختارة — طبقة بين التجاوز المحلي
+  // وبيانات الخادم: التغيير المعلّق يظهر كما كتبه المستخدم حتى يُزامَن،
+  // وصفّ صاحبه يُعلَّم «قيد الانتظار» (أو «فشل الحفظ» إن استنفد محاولاته)
+  const queueMap = new Map(
+    (selectedId && teacherId ? itemsForSession(sync.items, teacherId, selectedId) : []).map(
+      (i) => [i.studentId, i] as const,
+    ),
+  )
   const valueOf = (studentId: string): AttendanceValue =>
     (overrideState && selected && overrideState.sessionId === selected.id
       ? overrideState.values.get(studentId)
       : undefined) ??
+    queueMap.get(studentId)?.value ??
     serverMap.get(studentId) ??
     EMPTY_VALUE
   const done = roster.filter((s) => valueOf(s.id).status != null).length
@@ -182,14 +211,37 @@ export function AttendancePage() {
     })
   }
 
+  /**
+   * نقطة الحفظ الوحيدة لكل تغيير حضور (أزرار الحالات/الواجب/التمييز
+   * ومسح QR عبر handleScan) — خطوة 11 أضافت فرع الأوفلاين داخلها فقط:
+   * - متصل: نفس الحفظ الفوري المتفائل والإبطال كما كان تماماً، ونجاحه
+   *   يلغي أي عنصر معلّق أقدم لنفس الطالب (القيمة الأحدث وصلت خلاص).
+   * - غير متصل (أو فشل الحفظ لسبب شبكي تحديداً): القيمة الكاملة تدخل
+   *   قائمة المزامنة المحلية وتبقى ظاهرة «قيد الانتظار» بدل التراجع
+   *   أو الضياع، وتُزامَن تلقائياً عند عودة الاتصال بنفس upsert.
+   * - خطأ غير شبكي (RLS/تحقق): السلوك القديم نفسه — تراجع + توست،
+   *   ولا يدخل القائمة كأنه انقطاع اتصال.
+   */
   const changeValue = (studentId: string, patch: Partial<AttendanceValue>) => {
-    if (!selected || cancelled) return
+    if (!selected || cancelled || !teacherId) return
     const next = { ...valueOf(studentId), ...patch }
     applyOverride([{ studentId, value: next }])
+    if (!online) {
+      enqueueStored({ teacherId, sessionId: selected.id, studentId, value: next })
+      return
+    }
     saveMut.mutate(
       { sessionId: selected.id, studentId, value: next },
       {
-        onError: () => {
+        onSuccess: () => {
+          saveQueue(removeItem(loadQueue(), queueKey(teacherId, selected.id, studentId)))
+        },
+        onError: (err) => {
+          if (isNetworkFailure(err)) {
+            enqueueStored({ teacherId, sessionId: selected.id, studentId, value: next })
+            toast('انقطع الاتصال — التغيير اتحفظ على الجهاز وهيتزامن تلقائياً')
+            return
+          }
           toast('حصلت مشكلة في حفظ الحضور — رجّعنا آخر حالة محفوظة')
           resyncAfterError()
         },
@@ -216,16 +268,44 @@ export function AttendancePage() {
   }
 
   const markAllPresent = () => {
-    if (!selected || cancelled) return
+    if (!selected || cancelled || !teacherId) return
     const entries = roster.map((s) => ({
       studentId: s.id,
       value: { ...valueOf(s.id), status: 'p' as AttendanceStatus },
     }))
     applyOverride(entries)
+    // أوفلاين: كل طالب عنصر مستقل في القائمة (نفس مفتاح upsert الفردي)
+    // فيُزامَن لاحقاً بنفس saveAttendance واحداً واحداً — نتيجة مطابقة
+    const enqueueAll = () => {
+      for (const e of entries) {
+        enqueueStored({
+          teacherId,
+          sessionId: selected.id,
+          studentId: e.studentId,
+          value: e.value,
+        })
+      }
+    }
+    if (!online) {
+      enqueueAll()
+      return
+    }
     saveManyMut.mutate(
       { sessionId: selected.id, entries },
       {
-        onError: () => {
+        onSuccess: () => {
+          let items = loadQueue()
+          for (const e of entries) {
+            items = removeItem(items, queueKey(teacherId, selected.id, e.studentId))
+          }
+          saveQueue(items)
+        },
+        onError: (err) => {
+          if (isNetworkFailure(err)) {
+            enqueueAll()
+            toast('انقطع الاتصال — التغييرات اتحفظت على الجهاز وهتتزامن تلقائياً')
+            return
+          }
           toast('حصلت مشكلة في حفظ الحضور — رجّعنا آخر حالة محفوظة')
           resyncAfterError()
         },
@@ -252,6 +332,9 @@ export function AttendancePage() {
 
   return (
     <div>
+      {/* حالة الأوفلاين/المزامنة (خطوة 11) — تظهر فقط عند الحاجة */}
+      <SyncStatusBar online={online} sync={sync} />
+
       {/* اختيار الحصة: التاريخ + حصص اليوم */}
       <Card>
         <Field label="تاريخ الحصة">
@@ -342,6 +425,16 @@ export function AttendancePage() {
               <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
                 {saving ? (
                   'بنحفظ…'
+                ) : !online ? (
+                  <>
+                    <CloudOff size={14} className="text-warn-text" />
+                    غير متصل — الحفظ على الجهاز
+                  </>
+                ) : sync.pendingCount > 0 ? (
+                  <>
+                    <Clock size={14} className="text-warn-text" />
+                    {sync.pendingCount} قيد الانتظار
+                  </>
                 ) : (
                   <>
                     <Check size={14} className="text-ok-text" />
@@ -458,6 +551,7 @@ export function AttendancePage() {
               <Card className="p-0 overflow-hidden">
                 {roster.map((st, i) => {
                   const v = valueOf(st.id)
+                  const qItem = queueMap.get(st.id)
                   const wa = v.status === 'a'
                     ? absenceWaUrl(st, contactsQ.data?.get(st.id), selected.session_date)
                     : null
@@ -484,6 +578,18 @@ export function AttendancePage() {
                                 <span className="inline-flex items-center gap-1 text-ok-text font-semibold">
                                   <Check size={14} />
                                   سلّم الواجب
+                                </span>
+                              )}
+                              {qItem && !qItem.failed && (
+                                <span className="inline-flex items-center gap-1 text-warn-text font-semibold">
+                                  <Clock size={14} />
+                                  قيد الانتظار
+                                </span>
+                              )}
+                              {qItem?.failed && (
+                                <span className="inline-flex items-center gap-1 text-bad-text font-semibold">
+                                  <TriangleAlert size={14} />
+                                  فشل الحفظ
                                 </span>
                               )}
                             </div>

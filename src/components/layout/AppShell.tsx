@@ -14,6 +14,7 @@ import { useTheme } from '../../hooks/useTheme'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { useHomeAlerts } from '../../features/home/hooks'
 import { Onboarding } from '../../features/auth/Onboarding'
+import { AttendanceSyncBridge } from '../../features/attendance/SyncBridge'
 import { LoadingState } from '../ui/states'
 import { Logo } from '../brand/Logo'
 
@@ -99,6 +100,8 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-bg text-text">
+      {/* مزامنة الحضور أوفلاين تعمل طوال الجلسة (إقلاع + عودة اتصال) */}
+      <AttendanceSyncBridge />
       {/* الشريط العلوي — لاصق، أزراره أهداف لمس ≥48px (بحث §5) */}
       <header className="sticky top-0 z-20 bg-card border-b border-border">
         <div className={`mx-auto ${containerCls} px-2 flex items-center gap-1`}>
