@@ -279,8 +279,20 @@ export function EnrolPage() {
           />
         </Field>
 
-        {/* honeypot: حقل خفي عن البشر — تعبئته تعني بوت، والخادم يسقطه صامتاً */}
-        <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, overflow: 'hidden' }}>
+        {/* honeypot: حقل مخفي بصرياً بنمط visually-hidden (بلا إزاحات سالبة —
+            الإزاحة خارج الشاشة توسّع عرض الصفحة أفقياً خصوصاً في RTL).
+            تعبئته تعني بوت، والخادم يسقطه صامتاً */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            overflow: 'hidden',
+            clipPath: 'inset(50%)',
+            whiteSpace: 'nowrap',
+          }}
+        >
           <label>
             الموقع الإلكتروني
             <input
