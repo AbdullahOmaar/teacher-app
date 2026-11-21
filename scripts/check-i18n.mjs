@@ -1,26 +1,38 @@
-// بوابة اللوكلايزيشن (W7 — R-6): تمنع رجوع نص عربي ثابت في ملفات .tsx
-// خارج src/i18n بعد ترحيل الملف، وقائمة السماح (i18n-allowlist.txt)
-// لا يُسمح لها إلا بالانكماش: ملف مسموح لم يعد فيه نص عربي = خطأ
-// (احذفه من القائمة) — فتتقدم الترحيلة ولا تتراجع أبداً.
+// بوابة اللوكلايزيشن (W7 — R-6، موسّعة في PAT-6/3A-297): تمنع رجوع نص
+// عربي ثابت في ملفات .tsx و.ts خارج src/i18n. اكتمل ترحيل .tsx بالكامل
+// (قائمة السماح القديمة حُذفت — أي نص عربي في .tsx خارج القاموس خطأ).
+// ملفات .ts لها قائمة استثناءات (i18n-ts-exceptions.txt) للبيانات التي
+// ليست نصوص عرض: قيم تُكتب في ملفات/تُطابَق بها، وملف مجمّد بقرار مالك.
+// القائمة تنكمش فقط: ملف مستثنى لم يعد فيه نص عربي = خطأ (احذفه منها).
 // التعليقات العربية في الكود ليست نصاً ظاهراً وتُستثنى من الفحص.
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const repoRoot = new URL('../', import.meta.url).pathname
 const srcRoot = join(repoRoot, 'src')
 const ARABIC = /[\u0600-\u06FF]/
-const allow = new Set(
-  readFileSync(join(repoRoot, 'scripts/i18n-allowlist.txt'), 'utf8')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l && !l.startsWith('#')),
-)
+
+function readList(path) {
+  if (!existsSync(path)) return new Set()
+  return new Set(
+    readFileSync(path, 'utf8')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#')),
+  )
+}
+const tsExceptions = readList(join(repoRoot, 'scripts/i18n-ts-exceptions.txt'))
 
 function walk(dir, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name)
     if (e.isDirectory()) walk(p, out)
-    else if (e.name.endsWith('.tsx') && !e.name.endsWith('.test.tsx')) out.push(p)
+    else if (
+      (e.name.endsWith('.tsx') || e.name.endsWith('.ts')) &&
+      !e.name.endsWith('.test.ts') &&
+      !e.name.endsWith('.test.tsx')
+    )
+      out.push(p)
   }
   return out
 }
@@ -73,14 +85,15 @@ for (const file of walk(srcRoot)) {
   const rel = relative(repoRoot, file)
   if (rel.startsWith('src/i18n/')) continue
   const hits = flaggedLines(file)
-  if (hits.length > 0 && !allow.has(rel)) {
+  const isTs = rel.endsWith('.ts') && !rel.endsWith('.tsx')
+  if (hits.length > 0 && !(isTs && tsExceptions.has(rel))) {
     console.error(`x ${rel}: نص عربي خارج القاموس في أسطر ${hits.slice(0, 8).join(', ')}`)
     failed = true
   }
-  if (hits.length === 0 && allow.has(rel)) {
-    console.error(`x ${rel}: في قائمة السماح لكن لم يعد فيه نص عربي — احذفه من القائمة`)
+  if (hits.length === 0 && isTs && tsExceptions.has(rel)) {
+    console.error(`x ${rel}: في قائمة استثناءات .ts لكن لم يعد فيه نص عربي — احذفه من القائمة`)
     failed = true
   }
 }
 if (failed) process.exit(1)
-console.log('OK بوابة i18n: لا نص عربي خارج القاموس إلا في ملفات قائمة السماح الموثقة')
+console.log('OK بوابة i18n: لا نص عربي خارج القاموس في .tsx/.ts إلا استثناءات .ts الموثقة')

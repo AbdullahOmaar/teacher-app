@@ -52,7 +52,7 @@ def load_spec():
     src = open(os.path.join(REPO, "src/features/settings/api.ts"), encoding="utf8").read()
     spec = []
     for m in re.finditer(
-        r"\{\s*key: '(\w+)',\s*table: '(\w+)',\s*label: '[^']*',\s*pk: \[([^\]]*)\],\s*columns: \[([^\]]*)\]\s*\}",
+        r"\{\s*key: '(\w+)',\s*table: '(\w+)',\s*label: (?:'[^']*'|t\('[^']*'\s*(?:,\s*\{[^}]*\})?\)),\s*pk: \[([^\]]*)\],\s*columns: \[([^\]]*)\]\s*\}",
         src,
     ):
         cols = re.findall(r"'(\w+)'", m.group(4))
