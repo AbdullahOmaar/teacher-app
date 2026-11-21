@@ -12,9 +12,6 @@ import {
   fetchStudentAttendance,
   fetchStudentAttendanceStats,
   markStudentLeft,
-  saveAttendance,
-  saveManyAttendance,
-  type AttendanceValue,
 } from './api'
 
 /** كل مفاتيح وحدة الحضور تبدأ بـ 'attendance' */
@@ -107,35 +104,12 @@ function useInvalidateAttendance() {
   }
 }
 
-export function useSaveAttendance(teacherId: string) {
-  const invalidate = useInvalidateAttendance()
-  return useMutation({
-    mutationFn: ({
-      sessionId,
-      studentId,
-      value,
-    }: {
-      sessionId: string
-      studentId: string
-      value: AttendanceValue
-    }) => saveAttendance(teacherId, sessionId, studentId, value),
-    onSuccess: invalidate,
-  })
-}
-
-export function useSaveManyAttendance(teacherId: string) {
-  const invalidate = useInvalidateAttendance()
-  return useMutation({
-    mutationFn: ({
-      sessionId,
-      entries,
-    }: {
-      sessionId: string
-      entries: { studentId: string; value: AttendanceValue }[]
-    }) => saveManyAttendance(teacherId, sessionId, entries),
-    onSuccess: invalidate,
-  })
-}
+/**
+ * ملاحظة (3A-296): لا توجد طفرات حفظ حضور مباشرة هنا بعد توحيد المسار —
+ * كل كتابة حضور/واجب تمرّ بقائمة المزامنة المحلية (enqueueStored) ويفرّغها
+ * محرك useOfflineSync مجمّعة بحسب الحصة (saveAttendanceBatch)، وإبطال
+ * الكاش يحدث هناك مرة لكل دفعة مزامنة لا لكل طالب.
+ */
 
 /**
  * الانصراف الصريح (0012): ضبط/مسح left_at — تحديث مستقل عن حفظ الحالات

@@ -269,13 +269,21 @@ export async function saveAttendance(
   logAttendanceTouch(teacherId, sessionId, studentId)
 }
 
-/** حفظ جماعي (حاضر للكل): upsert واحد لكل الطلاب ذوي القيم غير الفارغة */
-export async function saveManyAttendance(
+type AttendanceUpsertRow = {
+  teacher_id: string
+  session_id: string
+  student_id: string
+  status: AttendanceStatus | null
+  homework_done: boolean
+  starred: boolean
+}
+
+function buildUpsertRows(
   teacherId: string,
   sessionId: string,
   entries: { studentId: string; value: AttendanceValue }[],
-): Promise<void> {
-  const rows = entries
+): AttendanceUpsertRow[] {
+  return entries
     .filter((e) => !isEmptyValue(e.value))
     .map((e) => ({
       teacher_id: teacherId,
@@ -285,23 +293,74 @@ export async function saveManyAttendance(
       homework_done: e.value.homework_done,
       starred: e.value.starred,
     }))
-  if (rows.length === 0) return
-  const { error } = await db()
-    .from('attendance')
-    .upsert(rows, { onConflict: 'session_id,student_id' })
-  if (error) throw error
-  // سجل النشاط: حدث واحد تجميعي للحصة كلها (لا صف لكل طالب) — فاشل-safe
+}
+
+/** حدث نشاط تجميعي واحد لحفظ حصة (لا صف لكل طالب) — فاشل-safe */
+function logBatchSaved(
+  teacherId: string,
+  sessionId: string,
+  rows: AttendanceUpsertRow[],
+  totalCount: number,
+): void {
   void logActivity(teacherId, {
     event_type: 'attendance_saved',
     entity_type: 'session',
     entity_id: sessionId,
     details: {
-      student_count: rows.length,
+      student_count: totalCount,
       present_count: rows.filter((r) => r.status === 'p' || r.status === 'l' || r.status === 'm')
         .length,
       absent_count: rows.filter((r) => r.status === 'a').length,
     },
   })
+}
+
+/** حفظ جماعي (حاضر للكل): upsert واحد لكل الطلاب ذوي القيم غير الفارغة */
+export async function saveManyAttendance(
+  teacherId: string,
+  sessionId: string,
+  entries: { studentId: string; value: AttendanceValue }[],
+): Promise<void> {
+  const rows = buildUpsertRows(teacherId, sessionId, entries)
+  if (rows.length === 0) return
+  const { error } = await db()
+    .from('attendance')
+    .upsert(rows, { onConflict: 'session_id,student_id' })
+  if (error) throw error
+  logBatchSaved(teacherId, sessionId, rows, rows.length)
+}
+
+/**
+ * حفظ دفعة مزامنة كاملة لحصة (أداء 3A-296): كل تغييرات الحصة المعلّقة في
+ * طلبين على الأكثر — upsert جماعي للقيم غير الفارغة + حذف جماعي لصفوف
+ * القيم الفارغة تماماً (نفس عقد saveAttendance الفردي: لا صف بلا قيمة).
+ * Idempotent: إعادة إرسال نفس الدفعة تعطي نفس النتيجة، فهي آمنة كوحدة
+ * مزامنة لقائمة الأوفلاين. لا تمس left_at (upsert يحدّث أعمدته فقط).
+ */
+export async function saveAttendanceBatch(
+  teacherId: string,
+  sessionId: string,
+  entries: { studentId: string; value: AttendanceValue }[],
+): Promise<void> {
+  if (entries.length === 0) return
+  const rows = buildUpsertRows(teacherId, sessionId, entries)
+  if (rows.length > 0) {
+    const { error } = await db()
+      .from('attendance')
+      .upsert(rows, { onConflict: 'session_id,student_id' })
+    if (error) throw error
+  }
+  const deletionIds = entries.filter((e) => isEmptyValue(e.value)).map((e) => e.studentId)
+  if (deletionIds.length > 0) {
+    const { error } = await db()
+      .from('attendance')
+      .delete()
+      .eq('teacher_id', teacherId)
+      .eq('session_id', sessionId)
+      .in('student_id', deletionIds)
+    if (error) throw error
+  }
+  logBatchSaved(teacherId, sessionId, rows, entries.length)
 }
 
 // ---------------------------------------------------------------------------

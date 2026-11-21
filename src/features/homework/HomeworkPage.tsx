@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
 import {
   Ban,
   BookOpenCheck,
@@ -17,7 +16,6 @@ import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Chip, ChipRow } from '../../components/ui/form'
-import { useToast } from '../../components/ui/toast'
 import {
   ErrorState,
   LoadingState,
@@ -35,12 +33,13 @@ import {
   type AttendanceValue,
 } from '../attendance/api'
 import {
-  ATT,
-  useSaveAttendance,
   useSessionAttendance,
   useSessionById,
   useSessionRoster,
 } from '../attendance/hooks'
+import { enqueueStored } from '../attendance/offlineQueue'
+import { useOfflineSync, useOnlineStatus } from '../attendance/useOfflineSync'
+import { SyncStatusBar } from '../attendance/SyncStatusBar'
 import { useGroups } from '../groups/hooks'
 import { formatDateLabel, generationWindowMonths, monthStartStr, todayStr } from '../schedule/api'
 import { useGeneration } from '../schedule/hooks'
@@ -57,7 +56,8 @@ import { useGroupSessions, useHomeworkMarks } from './hooks'
  *
  * مصدر الحقيقة واحد: الواجب هو attendance.homework_done في نفس صف حضور
  * الطالب للحصة، والقراءة هنا من نفس استعلامات الحضور وبنفس مفاتيح الكاش
- * (ATT)، والكتابة بنفس useSaveAttendance حرفياً — upsert على
+ * (ATT)، والكتابة بنفس مسار حفظ الحضور الموحّد (قائمة المزامنة +
+ * دفعة الحصة المجمّعة) — upsert على
  * ‎(session_id, student_id)‎ بقيمة الحضور الكاملة (الحالة والتمييز محفوظان
  * كما هما، يتبدّل homework_done فقط). طالب بلا صف حضور: سلوك شاشة الحضور
  * نفسه — التبديل ينشئ الصف بقيمته الحالية + الواجب (أو يحذفه لو رجعت
@@ -102,8 +102,6 @@ function HwToggle({
 export function HomeworkPage() {
   const teacher = useCurrentTeacher()
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
-  const qc = useQueryClient()
-  const toast = useToast()
   const [searchParams] = useSearchParams()
   const paramGroupId = searchParams.get('group')
   const paramSessionId = searchParams.get('session') ?? searchParams.get('sessionId')
@@ -236,7 +234,10 @@ export function HomeworkPage() {
     sessionId: string
     values: Map<string, AttendanceValue>
   } | null>(null)
-  const saveMut = useSaveAttendance(teacherId ?? '')
+  // محرك مزامنة الحضور (يُركَّب هنا أيضاً حتى تُفرَّغ تبديلات الواجب
+  // مجمّعة حتى لو لم تُفتح شاشة الحضور — التشغيل الفعلي وحيد عالمياً)
+  const sync = useOfflineSync(teacherId)
+  const online = useOnlineStatus()
 
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status === 'signed-out') return <SignInRequired />
@@ -281,7 +282,7 @@ export function HomeworkPage() {
   const othersList = roster.filter((s) => !isAttended(valueOf(s.id).status))
 
   const changeHomework = (studentId: string, done: boolean) => {
-    if (!selected || cancelled) return
+    if (!selected || cancelled || !teacherId) return
     const next = { ...valueOf(studentId), homework_done: done }
     setOverrideState((prev) => {
       const values =
@@ -291,16 +292,9 @@ export function HomeworkPage() {
       values.set(studentId, next)
       return { sessionId: selected.id, values }
     })
-    saveMut.mutate(
-      { sessionId: selected.id, studentId, value: next },
-      {
-        onError: () => {
-          toast('حصلت مشكلة في حفظ الواجب — رجّعنا آخر حالة محفوظة')
-          setOverrideState(null)
-          void qc.invalidateQueries({ queryKey: [ATT] })
-        },
-      },
-    )
+    // نفس مسار حفظ الحضور الموحّد (3A-296): القيمة تدخل قائمة المزامنة
+    // المحلية وتُفرَّغ مجمّعة مع بقية تغييرات الحصة — لا طلب لكل تبديل
+    enqueueStored({ teacherId, sessionId: selected.id, studentId, value: next })
   }
 
   // صف حصة واحد في المنتقي — نفس الشكل والملخص في قسمي الماضي والقادمة،
@@ -373,6 +367,8 @@ export function HomeworkPage() {
 
   return (
     <div>
+      {/* شريط حالة مزامنة الحضور/الواجب — يظهر فقط عند وجود معلّق/فشل */}
+      <SyncStatusBar online={online} sync={sync} />
       <Card>
         <div className="flex items-start gap-3">
           <span className="w-11 h-11 rounded-xl bg-soft text-primary flex items-center justify-center shrink-0">
@@ -494,7 +490,7 @@ export function HomeworkPage() {
                 </div>
               </div>
               <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
-                {saveMut.isPending ? (
+                {sync.syncing ? (
                   'بنحفظ…'
                 ) : (
                   <>

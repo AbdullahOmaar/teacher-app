@@ -59,8 +59,6 @@ import {
   useGuardianContacts,
   useMarkStudentLeft,
   useMonthHasInvoices,
-  useSaveAttendance,
-  useSaveManyAttendance,
   useSessionAttendance,
   useSessionById,
   useSessionRoster,
@@ -68,15 +66,7 @@ import {
 import { useBrandIdentity } from '../../hooks/useBrandIdentity'
 import { QrScannerSheet, type ScanOutcome } from './QrScannerSheet'
 import { findStudentByCode, normalizeScannedCode } from './qr'
-import {
-  enqueueStored,
-  isNetworkFailure,
-  itemsForSession,
-  loadQueue,
-  queueKey,
-  removeItem,
-  saveQueue,
-} from './offlineQueue'
+import { enqueueStored, itemsForSession } from './offlineQueue'
 import { useOfflineSync, useOnlineStatus } from './useOfflineSync'
 import { SyncStatusBar } from './SyncStatusBar'
 
@@ -204,8 +194,6 @@ export function AttendancePage() {
     values: Map<string, AttendanceValue>
   } | null>(null)
 
-  const saveMut = useSaveAttendance(teacherId ?? '')
-  const saveManyMut = useSaveManyAttendance(teacherId ?? '')
   const statusMut = useSetSessionStatus(teacherId ?? '')
   // الانصراف الصريح (0012): left_at يعيش على صف الحضور نفسه منفصلاً عن
   // قيم الحالات، وتنبيه «غادر» يتولد في القاعدة عند ضبطه أول مرة.
@@ -265,12 +253,10 @@ export function AttendancePage() {
   }
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
   const anyNotPresent = roster.some((s) => valueOf(s.id).status !== 'p')
-  const saving = saveMut.isPending || saveManyMut.isPending
-
-  const resyncAfterError = () => {
-    setOverrideState(null)
-    void qc.invalidateQueries({ queryKey: [ATT] })
-  }
+  // مؤشر الحفظ: المزامنة جارية فعلياً أو توجد عناصر معلّقة لهذه الحصة
+  const saving =
+    sync.syncing ||
+    (selected ? itemsForSession(sync.items, teacherId ?? '', selected.id).length > 0 : false)
 
   const applyOverride = (entries: { studentId: string; value: AttendanceValue }[]) => {
     if (!selected) return
@@ -284,40 +270,23 @@ export function AttendancePage() {
 
   /**
    * نقطة الحفظ الوحيدة لكل تغيير حضور (أزرار الحالات/الواجب/التمييز
-   * ومسح QR عبر handleScan) — خطوة 11 أضافت فرع الأوفلاين داخلها فقط:
-   * - متصل: نفس الحفظ الفوري المتفائل والإبطال كما كان تماماً، ونجاحه
-   *   يلغي أي عنصر معلّق أقدم لنفس الطالب (القيمة الأحدث وصلت خلاص).
-   * - غير متصل (أو فشل الحفظ لسبب شبكي تحديداً): القيمة الكاملة تدخل
-   *   قائمة المزامنة المحلية وتبقى ظاهرة «قيد الانتظار» بدل التراجع
-   *   أو الضياع، وتُزامَن تلقائياً عند عودة الاتصال بنفس upsert.
-   * - خطأ غير شبكي (RLS/تحقق): السلوك القديم نفسه — تراجع + توست،
-   *   ولا يدخل القائمة كأنه انقطاع اتصال.
+   * ومسح QR عبر handleScan) — بعد تجميع الطلبات (3A-296) صار كل تغيير
+   * يمرّ بقائمة المزامنة المحلية دائماً، متصلاً كان أو غير متصل:
+   * - القيمة الكاملة تدخل القائمة (تخزين محلي دائم) وتظهر فوراً عبر
+   *   طبقة التجاوز + شارة «قيد الانتظار» على الصف.
+   * - محرك المزامنة يفرّغ القائمة تلقائياً بعد هدوء قصير، مجمّعاً
+   *   عناصر الحصة في دفعة واحدة (upsert جماعي + حذف جماعي) بدل طلب
+   *   لكل نقرة كما كان.
+   * - فشل دائم (RLS/تحقق): العنصر يُعلَّم «فشل الحفظ» على صفّه وفي
+   *   شريط المزامنة مع إعادة محاولة/تجاهل — لا تراجع صامت ولا ضياع.
+   * عقد الأوفلاين الأصلي لم يتغير: آخر كتابة تفوز، والمزامنة
+   * idempotent، والعناصر الفاشلة لا تعود تلقائياً إلا بزر أو بتعديل.
    */
   const changeValue = (studentId: string, patch: Partial<AttendanceValue>) => {
     if (!selected || cancelled || !teacherId) return
     const next = { ...valueOf(studentId), ...patch }
     applyOverride([{ studentId, value: next }])
-    if (!online) {
-      enqueueStored({ teacherId, sessionId: selected.id, studentId, value: next })
-      return
-    }
-    saveMut.mutate(
-      { sessionId: selected.id, studentId, value: next },
-      {
-        onSuccess: () => {
-          saveQueue(removeItem(loadQueue(), queueKey(teacherId, selected.id, studentId)))
-        },
-        onError: (err) => {
-          if (isNetworkFailure(err)) {
-            enqueueStored({ teacherId, sessionId: selected.id, studentId, value: next })
-            toast('انقطع الاتصال — التغيير اتحفظ على الجهاز وهيتزامن تلقائياً')
-            return
-          }
-          toast('حصلت مشكلة في حفظ الحضور — رجّعنا آخر حالة محفوظة')
-          resyncAfterError()
-        },
-      },
-    )
+    enqueueStored({ teacherId, sessionId: selected.id, studentId, value: next })
   }
 
   /**
@@ -345,43 +314,16 @@ export function AttendancePage() {
       value: { ...valueOf(s.id), status: 'p' as AttendanceStatus },
     }))
     applyOverride(entries)
-    // أوفلاين: كل طالب عنصر مستقل في القائمة (نفس مفتاح upsert الفردي)
-    // فيُزامَن لاحقاً بنفس saveAttendance واحداً واحداً — نتيجة مطابقة
-    const enqueueAll = () => {
-      for (const e of entries) {
-        enqueueStored({
-          teacherId,
-          sessionId: selected.id,
-          studentId: e.studentId,
-          value: e.value,
-        })
-      }
+    // كل طالب عنصر مستقل في قائمة المزامنة (نفس مفتاح الدمج الفردي)،
+    // والمحرك يرسلهم دفعة حصة واحدة — متصلاً كان أو غير متصل (3A-296)
+    for (const e of entries) {
+      enqueueStored({
+        teacherId,
+        sessionId: selected.id,
+        studentId: e.studentId,
+        value: e.value,
+      })
     }
-    if (!online) {
-      enqueueAll()
-      return
-    }
-    saveManyMut.mutate(
-      { sessionId: selected.id, entries },
-      {
-        onSuccess: () => {
-          let items = loadQueue()
-          for (const e of entries) {
-            items = removeItem(items, queueKey(teacherId, selected.id, e.studentId))
-          }
-          saveQueue(items)
-        },
-        onError: (err) => {
-          if (isNetworkFailure(err)) {
-            enqueueAll()
-            toast('انقطع الاتصال — التغييرات اتحفظت على الجهاز وهتتزامن تلقائياً')
-            return
-          }
-          toast('حصلت مشكلة في حفظ الحضور — رجّعنا آخر حالة محفوظة')
-          resyncAfterError()
-        },
-      },
-    )
   }
 
   const toggleSessionStatus = () => {
@@ -981,7 +923,7 @@ export function AttendancePage() {
                       variant="soft"
                       className="min-h-[48px] text-[13.5px] px-3"
                       onClick={markAllPresent}
-                      disabled={saveManyMut.isPending}
+                      disabled={sync.syncing}
                     >
                       <CheckCheck size={18} />
                       الكل حاضر

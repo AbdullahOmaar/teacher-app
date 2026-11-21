@@ -129,6 +129,29 @@ export function resetItemFailure(
   )
 }
 
+/**
+ * تجميع عناصر القائمة بحسب الحصة (نقية) — وحدة المزامنة المجمّعة
+ * (أداء 3A-296): عناصر نفس الحصة تُرسل في دفعة واحدة (upsert جماعي +
+ * حذف جماعي) بدل طلب لكل طالب. ترتيب المجموعات والعناصر بداخلها هو
+ * ترتيب الظهور الأول في القائمة (استقرار يسهّل التتبع والاختبار).
+ */
+export function groupItemsBySession(
+  items: QueuedAttendanceItem[],
+): { sessionId: string; items: QueuedAttendanceItem[] }[] {
+  const groups: { sessionId: string; items: QueuedAttendanceItem[] }[] = []
+  const bySession = new Map<string, { sessionId: string; items: QueuedAttendanceItem[] }>()
+  for (const item of items) {
+    let g = bySession.get(item.sessionId)
+    if (!g) {
+      g = { sessionId: item.sessionId, items: [] }
+      bySession.set(item.sessionId, g)
+      groups.push(g)
+    }
+    g.items.push(item)
+  }
+  return groups
+}
+
 /** عناصر مدرس واحد — القائمة قد تضم مدرسين (تبديل مساحة عمل/حسابات) */
 export function itemsForTeacher(
   items: QueuedAttendanceItem[],
