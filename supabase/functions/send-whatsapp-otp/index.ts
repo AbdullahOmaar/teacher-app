@@ -33,7 +33,13 @@ const ENV_KEYS = [
 Deno.serve((req: Request) => {
   const env: WhatsappOtpEnv = {}
   for (const key of ENV_KEYS) env[key] = Deno.env.get(key)
-  return handleSendWhatsappOtp(req, env, (input, init) => fetch(input, init), (msg) =>
-    console.log(msg),
+  return handleSendWhatsappOtp(
+    req,
+    env,
+    // مهلة شبكة صريحة 10 ثوانٍ لنداء Meta Graph (تصليب 3A-302): بلا مهلة
+    // قد يعلّق نداء بطيء/معلّق خطافَ GoTrue حتى مهلته هو؛ الحدّ هنا يعيد
+    // خطأ نظيفاً أولاً. المنطق في core.ts لا يمرّر signal أصلاً فدمجه هنا آمن.
+    (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(10_000) }),
+    (msg) => console.log(msg),
   )
 })
