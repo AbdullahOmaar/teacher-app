@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
@@ -95,6 +95,26 @@ export function AssessmentDetailPage() {
   } | null>(null)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
+  // تجميع حفظ الدرجات (أداء 3A-296): مؤقّت تفريغ + مرجع لأحدث دوال
+  // الحفظ (تُسنَد بعد تعريفها أسفل لأنها تُبنى بعد بوابات الرجوع
+  // المبكر) + علم «توجد تعديلات مجدولة». فكّ التركيب يفرّغ فوراً.
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const latestSave = useRef<{
+    changedEntries: () => ScoreEntry[]
+    saveEntries: (entries: ScoreEntry[], successMsg?: string) => void
+  }>({ changedEntries: () => [], saveEntries: () => {} })
+  const [flushScheduled, setFlushScheduled] = useState(false)
+  useEffect(
+    () => () => {
+      if (flushTimer.current) {
+        clearTimeout(flushTimer.current)
+        flushTimer.current = null
+        latestSave.current.saveEntries(latestSave.current.changedEntries())
+      }
+    },
+    [],
+  )
+
   const serverMap = useMemo(() => {
     const m = new Map<string, number>()
     for (const row of scoresQ.data ?? []) m.set(row.student_id, row.score)
@@ -178,6 +198,14 @@ export function AssessmentDetailPage() {
     )
   }
 
+  // تجميع الحفظ (أداء 3A-296): خروج الحقل لم يعد يطلق طلباً لكل طالب —
+  // التعديلات تتجمّع وتُحفَظ دفعة واحدة (saveScores جماعية أصلاً) بعد
+  // هدوء قصير، وزر «حفظ كل الدرجات» يفرّغ فوراً، وفكّ التركيب يفرّغ
+  // أيضاً حتى لا تضيع آخر تعديلات. إسناد المرجع أثناء التصيير مقصود:
+  // المؤقّت يجب أن يرى أحدث changedEntries/saveEntries دائماً.
+  // oxlint-disable-next-line react/refs
+  latestSave.current = { changedEntries, saveEntries }
+
   const saveRow = (studentId: string) => {
     if (!drafts.has(studentId)) return
     const { valid } = parseRaw(drafts.get(studentId) ?? '')
@@ -185,7 +213,13 @@ export function AssessmentDetailPage() {
       toast('الدرجة لازم تكون رقماً صفر أو أكبر')
       return
     }
-    saveEntries(changedEntries().filter((e) => e.studentId === studentId))
+    if (flushTimer.current) clearTimeout(flushTimer.current)
+    setFlushScheduled(true)
+    flushTimer.current = setTimeout(() => {
+      flushTimer.current = null
+      setFlushScheduled(false)
+      latestSave.current.saveEntries(latestSave.current.changedEntries())
+    }, 900)
   }
 
   // إحصاءات الملخص ولوحة الشرف — من القيم الفعّالة (مسودة صالحة أو قاعدة)
@@ -235,7 +269,7 @@ export function AssessmentDetailPage() {
             </div>
           </div>
           <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
-            {saveMut.isPending ? (
+            {saveMut.isPending || flushScheduled ? (
               'بنحفظ…'
             ) : (
               <>
@@ -440,9 +474,15 @@ export function AssessmentDetailPage() {
           <Button
             full
             disabled={saveMut.isPending || pendingChanges === 0}
-            onClick={() =>
+            onClick={() => {
+              // إلغاء أي تفريغ مجدول — هذا الزر يفرّغ الآن فوراً
+              if (flushTimer.current) {
+                clearTimeout(flushTimer.current)
+                flushTimer.current = null
+              }
+              setFlushScheduled(false)
               saveEntries(changedEntries(), `اتحفظت ${pendingChanges} درجة`)
-            }
+            }}
             className="mb-3"
           >
             {saveMut.isPending ? (
