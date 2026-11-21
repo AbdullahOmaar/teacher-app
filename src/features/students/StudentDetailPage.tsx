@@ -28,20 +28,21 @@ import { StudentCardSheet } from './StudentCardSheet'
 import { EnrollStudentSheet } from './EnrollStudentSheet'
 import { PortalLinkSheet } from '../portal/PortalLinkSheet'
 import { StudentPortalLinkSheet } from '../student-portal/StudentPortalLinkSheet'
+import { t } from '../../i18n'
 
 type TabKey = 'data' | 'groups' | 'att' | 'pay' | 'grades' | 'notes'
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: 'data', label: 'البيانات' },
-  { key: 'groups', label: 'المجموعات' },
-  { key: 'att', label: 'الحضور' },
-  { key: 'pay', label: 'المدفوعات' },
-  { key: 'grades', label: 'الدرجات' },
-  { key: 'notes', label: 'الملاحظات' },
+  { key: 'data', label: t('students.detailTabData') },
+  { key: 'groups', label: t('students.detailTabGroups') },
+  { key: 'att', label: t('students.detailTabAtt') },
+  { key: 'pay', label: t('students.detailTabPay') },
+  { key: 'grades', label: t('students.detailTabGrades') },
+  { key: 'notes', label: t('students.detailTabNotes') },
 ]
 
 const UPCOMING: Record<string, string> = {
-  notes: 'ملاحظات الطالب المؤرخة هتتبني في خطوة لاحقة.',
+  notes: t('students.detailUpcomingNotes'),
 }
 
 function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
@@ -98,12 +99,12 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
   if (teacher.status === 'signed-out') return <SignInRequired />
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
   if (studentQ.isPending || enrollmentsQ.isPending || groupsQ.isPending)
-    return <LoadingState label="بنحمّل ملف الطالب…" />
+    return <LoadingState label={t('students.detailLoading')} />
   const error = studentQ.error ?? enrollmentsQ.error ?? groupsQ.error
   if (error)
     return (
       <ErrorState
-        message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+        message={error instanceof Error ? error.message : t('common.unknownError')}
         onRetry={() => {
           void studentQ.refetch()
           void enrollmentsQ.refetch()
@@ -115,7 +116,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
   const student = studentQ.data
   if (!student) {
     return (
-      <EmptyState icon={UserRoundX} title="الطالب غير موجود" hint="ممكن يكون اتحذف أو الرابط غير صحيح" />
+      <EmptyState icon={UserRoundX} title={t('students.detailNotFoundTitle')} hint={t('students.detailNotFoundHint')} />
     )
   }
 
@@ -135,17 +136,17 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
     try {
       if (dangerMode === 'archive') {
         await setPaused.mutateAsync({ studentId: student.id, paused: true })
-        toast(`تمت أرشفة «${student.name}» — سجلاته محفوظة ويظهر في فلتر «موقوف / أرشيف»`)
+        toast(t('students.detailArchivedToast', { name: student.name }))
         setDangerMode(null)
       } else {
         await deleteStudent.mutateAsync(student.id)
-        toast(`تم حذف «${student.name}» نهائياً`)
+        toast(t('students.detailDeletedToast', { name: student.name }))
         setDangerMode(null)
         // الصفحة المستقلة ترجع لقائمة الطلاب؛ نمط List-Detail يتحدث تلقائياً بإبطال الكاش
         if (!studentId) navigate('/students', { replace: true })
       }
     } catch (e) {
-      setDangerError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء التنفيذ')
+      setDangerError(e instanceof Error ? e.message : t('groups.actionError'))
     }
   }
 
@@ -158,36 +159,36 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
             {student.name}
             {student.paused && (
               <span className="ms-2 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
-                موقوف
+                {t('students.badgePaused')}
               </span>
             )}
           </div>
           {!isAssistant &&
             (balance > 0 ? (
               <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-                باقي {formatMoney(balance)}
+                {t('students.badgeDue', { amount: formatMoney(balance) })}
               </span>
             ) : balancesQ.data && !hasInvoices ? (
               <span className="shrink-0 text-[12px] font-bold bg-soft text-muted border border-border rounded-full px-2 py-0.5">
-                لا فواتير بعد
+                {t('students.badgeNoInvoices')}
               </span>
             ) : (
               <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-                مسدد
+                {t('students.badgePaid')}
               </span>
             ))}
         </div>
         <div className="text-muted text-[13.5px] mt-0.5">
-          الكود: <span dir="ltr">{student.public_code}</span>
-          {student.grade ? ` · ${student.grade}` : ''}
-          {student.school ? ` · ${student.school}` : ''}
+          {t('students.detailCodePrefix')}<span dir="ltr">{student.public_code}</span>
+          {student.grade ? t('students.metaItem', { value: student.grade ?? '' }) : ''}
+          {student.school ? t('students.metaItem', { value: student.school ?? '' }) : ''}
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
           {student.phone && (
             <a href={`tel:${student.phone}`} className="no-underline">
               <Button variant="soft">
                 <Phone size={20} />
-                اتصال
+                {t('students.detailCallBtn')}
               </Button>
             </a>
           )}
@@ -195,33 +196,33 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
             <a href={wa} target="_blank" rel="noreferrer" className="no-underline">
               <Button variant="soft">
                 <MessageCircle size={20} />
-                واتساب
+                {t('students.detailWhatsappBtn')}
               </Button>
             </a>
           )}
           <Button variant="soft" onClick={() => setCardOpen(true)}>
             <IdCard size={20} />
-            الكارت الرقمي
+            {t('students.detailCardBtn')}
           </Button>
           <Button variant="soft" onClick={() => setPortalOpen(true)}>
             <Link2 size={20} />
-            رابط ولي الأمر
+            {t('students.detailPortalBtn')}
           </Button>
           <Button variant="soft" onClick={() => setStudentPortalOpen(true)}>
             <GraduationCap size={20} />
-            رابط بوابة الطالب
+            {t('students.detailStudentPortalBtn')}
           </Button>
           <Button variant="ghost" onClick={() => setEditOpen(true)}>
             <Pencil size={20} />
-            تعديل
+            {t('groups.edit')}
           </Button>
         </div>
       </Card>
 
       <ChipRow>
-        {TABS.filter((t) => !(isAssistant && t.key === 'pay')).map((t) => (
-          <Chip key={t.key} active={tab === t.key} onClick={() => setTab(t.key)}>
-            {t.label}
+        {TABS.filter((tok) => !(isAssistant && tok.key === 'pay')).map((tok) => (
+          <Chip key={tok.key} active={tab === tok.key} onClick={() => setTab(tok.key)}>
+            {tok.label}
           </Chip>
         ))}
       </ChipRow>
@@ -229,13 +230,13 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
       {tab === 'data' && (
         <>
           <Card>
-            <InfoRow label="الكود" value={student.public_code} />
-            <InfoRow label="الصف" value={student.grade} />
-            <InfoRow label="المدرسة" value={student.school} />
-            <InfoRow label="موبايل الطالب" value={student.phone} />
-            <InfoRow label="ولي الأمر" value={student.guardian_name} />
-            <InfoRow label="موبايل ولي الأمر" value={student.guardian_phone} />
-            <InfoRow label="ملاحظة المستوى" value={student.level_note} />
+            <InfoRow label={t('students.codeLabel')} value={student.public_code} />
+            <InfoRow label={t('students.gradeLabel')} value={student.grade} />
+            <InfoRow label={t('students.schoolLabel')} value={student.school} />
+            <InfoRow label={t('students.studentPhoneLabel')} value={student.phone} />
+            <InfoRow label={t('students.guardianLabel')} value={student.guardian_name} />
+            <InfoRow label={t('students.guardianPhoneLabel')} value={student.guardian_phone} />
+            <InfoRow label={t('students.detailLevelNoteLabel')} value={student.level_note} />
           </Card>
 
           {/* منطقة الخطر — حذف/أرشفة آمنة (خطوة 10):
@@ -246,7 +247,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
           <Card className="border-bad/50">
             <div className="flex items-center gap-2 mb-2">
               <TriangleAlert size={20} className="text-bad-text" />
-              <span className="font-extrabold text-[15px] text-bad-text">منطقة الخطر</span>
+              <span className="font-extrabold text-[15px] text-bad-text">{t('groups.dangerTitle')}</span>
             </div>
 
             {student.paused ? (
@@ -261,17 +262,17 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
                       {
                         onError: (e) =>
                           toast(
-                            e instanceof Error ? e.message : 'حصلت مشكلة في إلغاء الأرشفة — حاول تاني',
+                            e instanceof Error ? e.message : t('students.detailUnarchiveError'),
                             'error',
                           ),
                       },
                     )
                   }
                 >
-                  <ArchiveRestore size={20} /> استئناف الطالب (إلغاء الأرشفة)
+                  <ArchiveRestore size={20} /> {t('students.detailUnarchiveBtn')}
                 </Button>
                 <p className="text-muted text-[13.5px] mt-2 mb-0">
-                  الطالب مؤرشف حالياً: مستبعد من إصدار الفواتير وقوائم الحضور، ويظهر فقط في فلتر «موقوف / أرشيف»، وكل سجلاته محفوظة.
+                  {t('students.detailArchivedNote')}
                 </p>
               </>
             ) : (
@@ -285,10 +286,10 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
                     setDangerMode('archive')
                   }}
                 >
-                  <Archive size={20} /> أرشفة الطالب
+                  <Archive size={20} /> {t('students.detailArchiveBtn')}
                 </Button>
                 <p className="text-muted text-[13.5px] mt-2 mb-0">
-                  الأرشفة تُخفي الطالب من القوائم التشغيلية (فوترة وحضور وتسجيل) مع بقاء كل سجلاته المالية والتاريخية سليمة، ويمكن استئنافه في أي وقت.
+                  {t('students.detailArchiveNote')}
                 </p>
               </>
             )}
@@ -296,13 +297,13 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
             <div className="border-t border-border mt-3 pt-3">
               {isAssistant ? (
                 <p className="text-muted text-[13.5px] m-0">
-                  الحذف النهائي متاح لمالك الحساب فقط — السجلات المالية محجوبة عن المساعد.
+                  {t('groups.deleteOwnerOnly')}
                 </p>
               ) : footprintQ.isPending ? (
-                <p className="text-muted text-[13.5px] m-0">بنفحص سجلات الطالب قبل إتاحة الحذف…</p>
+                <p className="text-muted text-[13.5px] m-0">{t('students.detailFootprintChecking')}</p>
               ) : footprintQ.error ? (
                 <p className="text-bad-text text-[13.5px] m-0">
-                  تعذّر فحص سجلات الطالب، فالحذف النهائي غير متاح الآن. جرّب تحديث الصفحة.
+                  {t('students.detailFootprintError')}
                 </p>
               ) : footprintQ.data?.canDelete ? (
                 <>
@@ -314,17 +315,16 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
                       setDangerMode('delete')
                     }}
                   >
-                    <Trash2 size={20} /> حذف الطالب نهائياً
+                    <Trash2 size={20} /> {t('students.detailDeleteBtn')}
                   </Button>
                   <p className="text-muted text-[13.5px] mt-2 mb-0">
-                    الطالب بلا أي فواتير أو دفعات، فالحذف النهائي مسموح — وسيُطلب منك كتابة اسمه كاملاً للتأكيد.
+                    {t('students.detailDeleteAllowedNote')}
                   </p>
                 </>
               ) : (
                 <p className="text-[13.5px] m-0 leading-relaxed">
-                  <span className="font-bold text-bad-text">الحذف النهائي غير متاح: </span>
-                  الطالب له {footprintQ.data?.invoiceCount ?? 0} فاتورة و{footprintQ.data?.paymentCount ?? 0} دفعة.
-                  السجلات المالية لا تُحذف أبداً — المتاح لهذا الطالب هو الأرشفة فقط، وبياناته المالية والتاريخية ستبقى سليمة وقابلة للعرض.
+                  <span className="font-bold text-bad-text">{t('groups.deleteBlockedPrefix')}</span>
+                  {t('students.detailDeleteBlockedBody', { invoices: footprintQ.data?.invoiceCount ?? 0, payments: footprintQ.data?.paymentCount ?? 0 })}
                 </p>
               )}
             </div>
@@ -335,7 +335,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
       {tab === 'groups' && (
         <div>
           {enrollments.length === 0 ? (
-            <EmptyState icon={Users} title="غير مسجل في أي مجموعة" hint="سجّله في مجموعة علشان يبدأ الحضور والفوترة" />
+            <EmptyState icon={Users} title={t('students.detailNoGroupsTitle')} hint={t('students.detailNoGroupsHint')} />
           ) : (
             enrollments.map((e) => {
               const g = groupById.get(e.group_id)
@@ -351,32 +351,32 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
                       type="button"
                       className="text-bad-text text-[13.5px] font-semibold bg-transparent border-0 cursor-pointer"
                       onClick={() => {
-                        if (window.confirm(`إلغاء تسجيل «${student.name}» من مجموعة «${g.name}»؟`))
+                        if (window.confirm(t('students.detailCancelEnrollConfirm', { student: student.name, group: g.name })))
                           deleteEnrollment.mutate(e.id, {
                             onError: (err) =>
                               toast(
                                 err instanceof Error
                                   ? err.message
-                                  : 'حصلت مشكلة في إلغاء التسجيل — حاول تاني',
+                                  : t('students.detailCancelEnrollError'),
                                 'error',
                               ),
                           })
                       }}
                     >
-                      إلغاء التسجيل
+                      {t('students.detailCancelEnrollBtn')}
                     </button>
                   </div>
                   <div className="text-muted text-[13.5px] mt-0.5">
-                    {BILLING_LABELS[g.billing_type]} · السعر الفعلي: {formatMoney(effective)}
-                    {e.price_override != null ? ' (سعر خاص)' : ''}
-                    {e.prepaid_sessions != null ? ` · مدفوع مسبقاً: ${e.prepaid_sessions} حصة` : ''}
+                    {BILLING_LABELS[g.billing_type]}{t('students.detailEnrollPrice', { price: formatMoney(effective) })}
+                    {e.price_override != null ? t('groups.detailSpecialPrice') : ''}
+                    {e.prepaid_sessions != null ? t('groups.detailPrepaid', { count: e.prepaid_sessions }) : ''}
                   </div>
                 </Card>
               )
             })
           )}
           <Button full onClick={() => setEnrollOpen(true)}>
-            + تسجيل في مجموعة
+            {t('students.detailEnrollBtn')}
           </Button>
         </div>
       )}
@@ -394,8 +394,8 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
         (isAssistant ? (
           <EmptyState
             icon={Lock}
-            title="المدفوعات للمالك فقط"
-            hint="تبويب المدفوعات مخفي في وضع المساعد — المالية محجوبة بـ RLS أيضاً."
+            title={t('students.detailPayOwnerOnlyTitle')}
+            hint={t('students.detailPayOwnerOnlyHint')}
           />
         ) : (
           <StudentPaymentsTab
@@ -410,7 +410,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
       )}
 
       {tab === 'notes' && (
-        <EmptyState icon={Construction} title="قريباً" hint={UPCOMING[tab]} />
+        <EmptyState icon={Construction} title={t('students.detailComingSoonTitle')} hint={UPCOMING[tab]} />
       )}
 
       {editOpen && (
@@ -452,10 +452,10 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
 
       <DangerConfirmSheet
         open={dangerMode !== null}
-        title={dangerMode === 'delete' ? 'حذف الطالب نهائياً' : 'أرشفة الطالب'}
+        title={dangerMode === 'delete' ? t('students.detailDeleteBtn') : t('students.detailArchiveBtn')}
         entityName={student.name}
         mode={dangerMode === 'delete' ? 'delete' : 'archive'}
-        confirmLabel={dangerMode === 'delete' ? 'نعم، احذف نهائياً' : 'نعم، أرشف الطالب'}
+        confirmLabel={dangerMode === 'delete' ? t('groups.confirmDelete') : t('students.detailConfirmArchive')}
         pending={setPaused.isPending || deleteStudent.isPending}
         error={dangerError}
         onConfirm={confirmDanger}
@@ -463,14 +463,14 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
         lines={
           dangerMode === 'delete'
             ? [
-                `سيُحذف «${student.name}» نهائياً ولا يمكن التراجع.`,
-                'الطالب بلا أي فواتير أو دفعات (تحققنا من سجلاته)، فلن يضيع أي سجل مالي.',
-                `سيُحذف معه: تسجيلاته في المجموعات (${footprintQ.data?.enrollmentCount ?? 0}) وسجلات حضوره (${footprintQ.data?.attendanceCount ?? 0}) ودرجاته (${footprintQ.data?.scoreCount ?? 0}) وملاحظاته وروابط ولي الأمر الخاصة به.`,
+                t('students.detailDeleteLine1', { name: student.name }),
+                t('students.detailDeleteLine2'),
+                t('students.detailDeleteLine3', { enrollments: footprintQ.data?.enrollmentCount ?? 0, attendance: footprintQ.data?.attendanceCount ?? 0, scores: footprintQ.data?.scoreCount ?? 0 }),
               ]
             : [
-                `سيتم إيقاف «${student.name}» وأرشفته.`,
-                'سيختفي من القوائم التشغيلية: لن تصدُر له فواتير جديدة ولن يظهر في قوائم الحضور أو التسجيل، وسيظهر فقط في فلتر «موقوف / أرشيف».',
-                'كل سجلاته المالية والتاريخية (فواتير ودفعات وحضور ودرجات) ستبقى سليمة وقابلة للعرض، ويمكنك استئنافه في أي وقت من ملفه.',
+                t('students.detailArchiveLine1', { name: student.name }),
+                t('students.detailArchiveLine2'),
+                t('students.detailArchiveLine3'),
               ]
         }
       />

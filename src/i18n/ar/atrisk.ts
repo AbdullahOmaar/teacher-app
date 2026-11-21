@@ -16,4 +16,22 @@ export const atrisk = {
     few: '{count} شهور',
     other: '{count} شهراً',
   },
+  pageIntroPre: 'طالب نشط غاب ',
+  pageIntroAbsence: '3 حصص متتالية',
+  pageIntroMid: ' أو عليه اشتراك',
+  pageIntroOverdue: 'متأخر من شهرين أو أكتر',
+  pageIntroPost:
+    ' — القائمة بتتبني لوحدها من الحضور والفواتير، ومتابعة واحدة بدري ممكن تنقذ اشتراكه.',
+  pageIntroAssistantNote: ' (أسباب المتأخرات بتظهر لمالك الحساب بس.)',
+  pageFollowedUpToast: 'تمت المتابعة — هيظهر تاني بس لو حصل سبب خطر جديد',
+  pageFollowUpErrorToast: 'معلش، تسجيل المتابعة فشل — حاول تاني',
+  pageEmptyTitle: 'مفيش طلاب معرّضين للفقد',
+  pageEmptyHint:
+    'كل الطلاب النشطين حضورهم منتظم ومفيش متأخرات قديمة — القائمة هتظهر هنا لوحدها أول ما حد يستحق المتابعة.',
+  pageWhatsappBtn: 'متابعة واتساب',
+  pageNoWhatsapp: 'مفيش رقم ولي أمر صالح للواتساب',
+  pageStudentFileBtn: 'ملف الطالب',
+  pageFollowedUpBtn: 'تمت المتابعة',
+  pageFollowingUp: 'بيتسجل…',
+  pageReasonGroup: ' — {name}',
 } as const

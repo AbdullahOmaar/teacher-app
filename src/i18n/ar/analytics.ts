@@ -34,4 +34,10 @@ export const analytics = {
     'المتأخرات الحالية الآن موزعة على شهر استحقاق فواتيرها — فواتير أقدم من المدى تدخل في إجمالي البطاقة العليا فقط.',
   chartGrowthTitle: 'نمو الطلاب',
   chartGrowthHint: 'أعمدة: طلاب جدد كل شهر. خط: إجمالي الطلاب التراكمي حتى نهاية الشهر.',
+  chartNoRecords: 'لا تسجيلات',
+  chartCollectedName: 'التحصيل',
+  chartAttendanceName: 'نسبة الحضور',
+  chartOverdueName: 'متأخرات مستحقة',
+  chartNewStudentsName: 'طلاب جدد',
+  chartCumulativeName: 'الإجمالي التراكمي',
 } as const
