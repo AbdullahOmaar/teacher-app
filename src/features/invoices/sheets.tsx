@@ -31,6 +31,7 @@ import {
   useTeacherDisplayName,
   useWhatsappTemplate,
 } from './hooks'
+import { t } from '../../i18n'
 
 // ---------------------------------------------------------------------------
 // إصدار فواتير شهر — المرجع §4 مودال issueModal + §5.1:
@@ -62,16 +63,16 @@ export function IssueInvoicesSheet({
   return (
     <Sheet
       open
-      title={studentId ? `إصدار فواتير ${monthLabel} — ${studentName ?? 'الطالب'}` : `إصدار فواتير ${monthLabel}`}
+      title={studentId ? t('invoices.sheetIssueTitleStudent', { month: monthLabel, name: studentName ?? t('invoices.sheetStudentFallback') }) : t('invoices.sheetIssueTitle', { month: monthLabel })}
       onClose={onClose}
       footer={
         result ? undefined : (
           <>
             <Button full type="submit" form="issue-form" disabled={issue.isPending || !month}>
-              {issue.isPending ? 'بنصدر الفواتير…' : `إصدار فواتير ${monthLabel}`}
+              {issue.isPending ? t('invoices.sheetIssuing') : t('invoices.sheetIssueTitle', { month: monthLabel })}
             </Button>
             <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
-              إلغاء
+              {t('invoices.cancel')}
             </Button>
           </>
         )
@@ -85,18 +86,18 @@ export function IssueInvoicesSheet({
             </div>
             <div className="font-extrabold text-[16px]">
               {result.created > 0
-                ? `اتعمل ${result.created} فاتورة جديدة لشهر ${monthLabel}`
-                : 'كل فواتير الشهر صادرة بالفعل'}
+                ? t('invoices.sheetIssueCreated', { count: result.created, month: monthLabel })
+                : t('invoices.sheetIssueNoneCreated')}
             </div>
             <p className="text-muted text-[13.5px] mt-1 mb-0">
               {result.skipped > 0
-                ? `اتتخطى ${result.skipped} فاتورة موجودة من قبل (منع التكرار). `
+                ? t('invoices.sheetIssueSkipped', { count: result.skipped })
                 : ''}
-              إعادة الإصدار آمنة دائماً ومش هتعمل فواتير مكررة.
+              {t('invoices.sheetIssueSafeNote')}
             </p>
           </div>
           <Button full onClick={onClose}>
-            تمام
+            {t('invoices.sheetOk')}
           </Button>
         </div>
       ) : (
@@ -115,7 +116,7 @@ export function IssueInvoicesSheet({
             )
           }}
         >
-          <Field label="الشهر">
+          <Field label={t('invoices.sheetMonthLabel')}>
             <TextInput
               type="month"
               required
@@ -123,7 +124,7 @@ export function IssueInvoicesSheet({
               onChange={(e) => setMonth(e.target.value)}
             />
           </Field>
-          <Field label="خصم عام اختياري (ج) — يطبق على كل فاتورة ولا يتجاوز قيمتها الأساسية">
+          <Field label={t('invoices.sheetDiscountLabel')}>
             <TextInput
               type="number"
               min="0"
@@ -134,18 +135,18 @@ export function IssueInvoicesSheet({
               onChange={(e) => setDiscount(e.target.value)}
             />
           </Field>
-          <Field label="سبب الخصم (اختياري)">
+          <Field label={t('invoices.sheetDiscountReasonLabel')}>
             <TextInput
-              placeholder="خصم خاص"
+              placeholder={t('invoices.sheetDiscountPlaceholder')}
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
           </Field>
           <p className="text-muted text-[13.5px] mt-0">
             {studentId
-              ? 'هيتصدر للطالب ده في كل مجموعاته المسجل فيها (وهو نشط).'
-              : 'هيتصدر لكل طالب نشط مسجل في أي مجموعة، بسعره الفعلي (سعر المجموعة أو سعره الخاص) وحسب نظام فوترة مجموعته.'}{' '}
-            فواتير «حسب الحضور» بتتحسب بعدد الحصص المحضورة لحد النهاردة.
+              ? t('invoices.sheetIssueHintStudent')
+              : t('invoices.sheetIssueHintAll')}{' '}
+            {t('invoices.sheetIssueHintAttended')}
           </p>
           {issue.isError && <FormError message={errText(issue.error)} />}
         </form>
@@ -181,15 +182,15 @@ export function PaySheet({
   return (
     <Sheet
       open
-      title="تسجيل دفعة"
+      title={t('invoices.recordPayment')}
       onClose={onClose}
       footer={
         <>
           <Button full type="submit" form="pay-form" disabled={pay.isPending || !(amt > 0)}>
-            {pay.isPending ? 'بنسجل الدفعة…' : 'تسجيل الدفعة وإصدار الإيصال'}
+            {pay.isPending ? t('invoices.sheetPaying') : t('invoices.sheetPaySubmit')}
           </Button>
           <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
-            إلغاء
+            {t('invoices.cancel')}
           </Button>
         </>
       }
@@ -197,9 +198,8 @@ export function PaySheet({
       <div className="bg-soft rounded-xl px-3 py-2 mb-3 text-[13.5px]">
         <div className="font-bold">{invoice.student_name}</div>
         <div className="text-muted">
-          {invoice.group_name} · {periodLabel(invoice.period_month)} · المتبقي{' '}
-          <b className="text-text">{formatMoney(invoice.balance)}</b> من إجمالي{' '}
-          {formatMoney(invoice.total)}
+          {invoice.group_name} · {periodLabel(invoice.period_month)} · {t('invoices.remaining')}{' '}
+          <b className="text-text">{formatMoney(invoice.balance)}</b> {t('invoices.sheetPayOfTotal', { amount: formatMoney(invoice.total) })}
         </div>
       </div>
       <form
@@ -219,7 +219,7 @@ export function PaySheet({
             className="flex-1"
             onClick={() => setAmount(String(balance))}
           >
-            كامل المتبقي
+            {t('invoices.sheetPayFull')}
           </Button>
           {balance >= 100 && (
             <Button
@@ -228,11 +228,11 @@ export function PaySheet({
               className="flex-1"
               onClick={() => setAmount(String(balance / 2))}
             >
-              النصف ({formatMoney(balance / 2)})
+              {t('invoices.sheetPayHalf', { amount: formatMoney(balance / 2) })}
             </Button>
           )}
         </div>
-        <Field label="المبلغ (ج)">
+        <Field label={t('invoices.sheetAmountLabel')}>
           <TextInput
             type="number"
             min="0"
@@ -243,7 +243,7 @@ export function PaySheet({
             onChange={(e) => setAmount(e.target.value)}
           />
         </Field>
-        <Field label="طريقة الدفع">
+        <Field label={t('invoices.sheetMethodLabel')}>
           <Select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
             {PAYMENT_METHODS.map((m) => (
               <option key={m.code} value={m.code}>
@@ -252,7 +252,7 @@ export function PaySheet({
             ))}
           </Select>
         </Field>
-        <Field label="تاريخ الدفع">
+        <Field label={t('invoices.sheetPaidOnLabel')}>
           <TextInput
             type="date"
             required
@@ -262,7 +262,7 @@ export function PaySheet({
         </Field>
         {amt > balance && balance > 0 && (
           <p className="text-warn-text text-[13.5px] font-semibold">
-            المبلغ أكبر من المتبقي — الفاتورة هتتقفل والفرق هيظهر كرصيد مدفوع زيادة.
+            {t('invoices.sheetPayOverWarn')}
           </p>
         )}
         {pay.isError && <FormError message={errText(pay.error)} />}
@@ -300,7 +300,7 @@ export function ReceiptSheet({
   const { brand } = useBrandIdentity(teacherId, true)
 
   const student = studentQ.data ?? null
-  const guardian = student?.guardian_name?.trim() ? student.guardian_name : 'ولي الأمر'
+  const guardian = student?.guardian_name?.trim() ? student.guardian_name : t('invoices.guardianFallback')
 
   // رسالة الواتساب تُبنى من قالب الإعدادات عند اكتمال البيانات، وتحرير
   // المستخدم اليدوي يتغلب عليها (كما في المرجع: النص قابل للتحرير والرابط حي)
@@ -336,13 +336,13 @@ export function ReceiptSheet({
   const state = payStateOf(invoice)
 
   return (
-    <Sheet open title={`إيصال ${payment.receipt_no}`} onClose={onClose}>
+    <Sheet open title={t('invoices.sheetReceiptTitle', { receiptNo: payment.receipt_no })} onClose={onClose}>
       <ChipRow>
         <Chip active={paper === 'a4'} onClick={() => setPaper('a4')}>
-          ورق A4
+          {t('invoices.sheetPaperA4')}
         </Chip>
         <Chip active={paper === 'thermal'} onClick={() => setPaper('thermal')}>
-          حراري 80mm
+          {t('invoices.sheetPaperThermal')}
         </Chip>
       </ChipRow>
 
@@ -357,7 +357,7 @@ export function ReceiptSheet({
             {brand.logoUrl ? (
               <img
                 src={brand.logoUrl}
-                alt={brand.name ?? 'شعار السنتر'}
+                alt={brand.name ?? t('invoices.sheetCentreLogoAlt')}
                 className="h-[52px] max-w-[180px] object-contain"
               />
             ) : (
@@ -368,17 +368,17 @@ export function ReceiptSheet({
             className="font-extrabold text-[16px]"
             style={brand.accent ? { color: brand.accent } : undefined}
           >
-            {brand.name ?? (teacherNameQ.data ? teacherNameQ.data : 'إيصال دفع')}
+            {brand.name ?? (teacherNameQ.data ? teacherNameQ.data : t('invoices.sheetReceiptFallbackTitle'))}
           </div>
           <div className="text-[12px] text-slate-500">
-            إيصال رقم <span dir="ltr" className="font-bold text-slate-800">{payment.receipt_no}</span>
+            {t('invoices.sheetReceiptNoLabel')} <span dir="ltr" className="font-bold text-slate-800">{payment.receipt_no}</span>
             {' · '}
             {payment.paid_on}
           </div>
         </div>
         <div className="text-[13.5px] space-y-1">
           <div>
-            الطالب: <b>{invoice.student_name}</b>
+            {t('invoices.sheetReceiptStudent')} <b>{invoice.student_name}</b>
             {invoice.student_code ? (
               <>
                 {' '}
@@ -387,10 +387,10 @@ export function ReceiptSheet({
             ) : null}
           </div>
           <div>
-            المجموعة: <b>{invoice.group_name}</b>
+            {t('invoices.sheetReceiptGroup')} <b>{invoice.group_name}</b>
           </div>
           <div>
-            الشهر: <b>{periodLabel(invoice.period_month)}</b> (<span dir="ltr">{periodYm(invoice.period_month)}</span>)
+            {t('invoices.sheetReceiptMonth')} <b>{periodLabel(invoice.period_month)}</b> (<span dir="ltr">{periodYm(invoice.period_month)}</span>)
           </div>
         </div>
         <table className="w-full text-[13.5px] mt-3 border-t border-slate-200">
@@ -413,51 +413,51 @@ export function ReceiptSheet({
         </table>
         <div className="text-[13.5px] mt-2 space-y-1">
           <div className="flex justify-between">
-            <span>دفعة هذا الإيصال</span>
+            <span>{t('invoices.sheetReceiptThisPayment')}</span>
             <b dir="ltr">{formatMoney(payment.amount)}</b>
           </div>
           <div className="flex justify-between">
-            <span>إجمالي الفاتورة</span>
+            <span>{t('invoices.sheetReceiptInvoiceTotal')}</span>
             <span dir="ltr">{formatMoney(invoice.total)}</span>
           </div>
           <div className="flex justify-between">
-            <span>إجمالي المدفوع</span>
+            <span>{t('invoices.sheetReceiptTotalPaid')}</span>
             <span dir="ltr">{formatMoney(invoice.paid)}</span>
           </div>
           <div className="flex justify-between border-t border-slate-200 pt-1.5 font-extrabold">
-            <span>المتبقي</span>
+            <span>{t('invoices.remaining')}</span>
             <span dir="ltr">
-              {state === 'paid' ? 'مسدد بالكامل' : formatMoney(invoice.balance)}
+              {state === 'paid' ? t('invoices.paidInFull') : formatMoney(invoice.balance)}
             </span>
           </div>
         </div>
-        <div className="text-center text-[12px] text-slate-500 mt-3">شكراً لك</div>
+        <div className="text-center text-[12px] text-slate-500 mt-3">{t('invoices.sheetReceiptThanks')}</div>
       </div>
 
-      <Field label="رسالة واتساب لولي الأمر (قابلة للتحرير)">
+      <Field label={t('invoices.sheetReceiptWaLabel')}>
         <TextArea
           rows={3}
           value={message ?? ''}
           onChange={(e) => setEditedMessage(e.target.value)}
-          placeholder="بنجهّز الرسالة من قالب الإعدادات…"
+          placeholder={t('invoices.sheetReceiptWaPlaceholder')}
         />
       </Field>
       <div className="flex gap-2">
         <Button className="flex-1" onClick={() => window.print()}>
           <Printer size={20} />
-          طباعة الإيصال
+          {t('invoices.sheetReceiptPrint')}
         </Button>
         {waUrl && (
           <a href={waUrl} target="_blank" rel="noreferrer" className="flex-1 no-underline">
             <Button variant="soft" className="w-full" type="button">
               <MessageCircle size={20} />
-              إرسال واتساب
+              {t('invoices.sheetReceiptSendWa')}
             </Button>
           </a>
         )}
       </div>
       <Button full variant="ghost" onClick={onClose} className="mt-2">
-        إغلاق
+        {t('common.close')}
       </Button>
     </Sheet>
   )
@@ -492,7 +492,7 @@ export function AdjustSheet({
   return (
     <Sheet
       open
-      title="تسوية حضور"
+      title={t('invoices.sheetAdjustTitle')}
       onClose={onClose}
       footer={
         sessions.length > 0 && !sessionsQ.isPending && !sessionsQ.isError ? (
@@ -503,22 +503,22 @@ export function AdjustSheet({
               form="adjust-form"
               disabled={adjust.isPending || !selected || !reason.trim()}
             >
-              {adjust.isPending ? 'بنسجل التسوية…' : 'حفظ التسوية'}
+              {adjust.isPending ? t('invoices.sheetAdjusting') : t('invoices.sheetAdjustSave')}
             </Button>
             <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
-              إلغاء
+              {t('invoices.cancel')}
             </Button>
           </>
         ) : undefined
       }
     >
       {sessionsQ.isPending ? (
-        <p className="text-muted text-[13.5px]">بنحمّل حصص شهر الفاتورة…</p>
+        <p className="text-muted text-[13.5px]">{t('invoices.sheetAdjustLoading')}</p>
       ) : sessionsQ.isError ? (
         <p className="text-bad-text text-[13.5px] font-semibold">{errText(sessionsQ.error)}</p>
       ) : sessions.length === 0 ? (
         <p className="text-muted text-[13.5px]">
-          مفيش حصص مسجلة لمجموعة الفاتورة في شهرها لحد النهاردة — التسوية محتاجة حصة قائمة.
+          {t('invoices.sheetAdjustEmpty')}
         </p>
       ) : (
         <form
@@ -532,14 +532,14 @@ export function AdjustSheet({
                 onSuccess: ({ delta }) =>
                   onDone(
                     delta === 0
-                      ? 'اتحدثت حالة الحضور من غير فرق مالي (مفيش بند تسوية)'
-                      : `اتعملت التسوية: بند ${delta > 0 ? '+' : ''}${formatMoney(delta)} اتضاف للفاتورة`,
+                      ? t('invoices.sheetAdjustDoneNoDelta')
+                      : t('invoices.sheetAdjustDoneDelta', { delta: `${delta > 0 ? '+' : ''}${formatMoney(delta)}` }),
                   ),
               },
             )
           }}
         >
-          <Field label="حصة من شهر الفاتورة (حتى اليوم)">
+          <Field label={t('invoices.sheetAdjustSessionLabel')}>
             <Select
               value={selected?.session_id ?? ''}
               onChange={(e) => {
@@ -549,13 +549,13 @@ export function AdjustSheet({
             >
               {sessions.map((s) => (
                 <option key={s.session_id} value={s.session_id}>
-                  {s.session_date} · {formatTime12(s.start_time)} — حالياً:{' '}
-                  {s.status ? STATUS_LABELS[s.status] : 'بلا حالة'}
+                  {s.session_date} · {formatTime12(s.start_time)} — {t('invoices.sheetAdjustCurrently')}{' '}
+                  {s.status ? STATUS_LABELS[s.status] : t('invoices.sheetAdjustNoStatus')}
                 </option>
               ))}
             </Select>
           </Field>
-          <Field label="الحالة الجديدة">
+          <Field label={t('invoices.sheetAdjustNewStatusLabel')}>
             <Select
               value={newStatus}
               onChange={(e) => setStatusChoice(e.target.value as AttendanceStatus)}
@@ -567,17 +567,16 @@ export function AdjustSheet({
               ))}
             </Select>
           </Field>
-          <Field label="سبب التسوية (إلزامي — بيظهر تحت بند التسوية في الفاتورة)">
+          <Field label={t('invoices.sheetAdjustReasonLabel')}>
             <TextInput
               required
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="مثال: تصحيح غياب بالخطأ"
+              placeholder={t('invoices.sheetAdjustReasonPlaceholder')}
             />
           </Field>
           <p className="text-muted text-[13.5px] mt-0">
-            الفاتورة الأصلية مش هتتعدل؛ الفرق بين الحالتين × السعر الفعلي هيتضاف كبند تسوية
-            (موجب أو سالب)، وحالة الحضور نفسها هتتحدث.
+            {t('invoices.sheetAdjustNote')}
           </p>
           {adjust.isError && <FormError message={errText(adjust.error)} />}
         </form>

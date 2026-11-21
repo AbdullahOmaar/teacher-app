@@ -7,6 +7,7 @@ import { formatMoney } from '../../lib/format'
 import type { DailyClosingRow } from '../../types/database'
 import { diffState, DIFF_TEXT_CLS, type DaySummary } from './cashboxApi'
 import { useUpsertDailyClosing } from './cashboxHooks'
+import { t } from '../../i18n'
 
 function DiffPreviewRow({
   label,
@@ -23,10 +24,10 @@ function DiffPreviewRow({
     <div className="flex items-center justify-between gap-2 py-1.5">
       <span className="text-[13.5px] font-semibold text-muted">{label}</span>
       <span className="text-[13.5px]">
-        متوقع <b dir="ltr">{formatMoney(expected)}</b>
+        {t('money.cashboxExpected')} <b dir="ltr">{formatMoney(expected)}</b>
         {' · '}
         {diff == null || state == null ? (
-          <span className="text-muted">الفرق بعد إدخال المعدود</span>
+          <span className="text-muted">{t('money.closingDiffPending')}</span>
         ) : (
           <b dir="ltr" className={DIFF_TEXT_CLS[state]}>
             {diff > 0.005 ? `+${formatMoney(diff)}` : formatMoney(diff)}
@@ -93,7 +94,7 @@ export function ClosingFormSheet({
   return (
     <Sheet
       open
-      title={isEdit ? 'تعديل إغلاق اليوم' : 'إغلاق اليوم'}
+      title={isEdit ? t('money.closingEditTitle') : t('money.cashboxCloseDay')}
       onClose={onClose}
       footer={
         <>
@@ -103,10 +104,10 @@ export function ClosingFormSheet({
             form="closing-form"
             disabled={upsert.isPending || !valid}
           >
-            {upsert.isPending ? 'بنحفظ…' : isEdit ? 'حفظ تعديل الإغلاق' : 'حفظ الإغلاق'}
+            {upsert.isPending ? t('money.closingSaving') : isEdit ? t('money.closingSaveEdit') : t('money.closingSave')}
           </Button>
           <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
-            إلغاء
+            {t('money.cancel')}
           </Button>
         </>
       }
@@ -132,21 +133,21 @@ export function ClosingFormSheet({
             },
             {
               onSuccess: () =>
-                onSaved(isEdit ? 'اتعدّل إغلاق اليوم' : 'اتحفظ إغلاق اليوم'),
+                onSaved(isEdit ? t('money.closingSavedEdit') : t('money.closingSavedNew')),
               onError: (err) => setError(errText(err)),
             },
           )
         }}
       >
         <div className="rounded-xl bg-soft/60 px-3 py-2 mb-3">
-          <DiffPreviewRow label="نقدي" expected={summary.cash} counted={cashOk ? cashVal : null} />
+          <DiffPreviewRow label={t('money.cashboxCash')} expected={summary.cash} counted={cashOk ? cashVal : null} />
           <DiffPreviewRow
-            label="إلكتروني"
+            label={t('money.closingElectronic')}
             expected={summary.electronic}
             counted={elecOk ? elecVal : null}
           />
           <div className="border-t border-border mt-1 pt-2 flex items-center justify-between gap-2">
-            <span className="text-[13.5px] font-bold">فرق اليوم الإجمالي</span>
+            <span className="text-[13.5px] font-bold">{t('money.closingTotalDiffLabel')}</span>
             {totalDiff == null || totalState == null ? (
               <span className="text-muted text-[13.5px]">—</span>
             ) : (
@@ -157,13 +158,12 @@ export function ClosingFormSheet({
           </div>
           {summary.expenses > 0 && (
             <p className="text-muted text-[13.5px] mb-0 mt-1">
-              مصروفات اليوم <b dir="ltr">{formatMoney(summary.expenses)}</b> معروضة في الملخص
-              ولا تُخصم من المتوقع (المصروفات بلا طريقة دفع مسجلة).
+              {t('money.cashboxDayExpenses')} <b dir="ltr">{formatMoney(summary.expenses)}</b> {t('money.closingExpensesNoteSuffix')}
             </p>
           )}
         </div>
 
-        <Field label="المعدود فعلياً — نقدي (ج)">
+        <Field label={t('money.closingCountedCashLabel')}>
           <TextInput
             type="number"
             min="0"
@@ -175,7 +175,7 @@ export function ClosingFormSheet({
             placeholder={String(summary.cash)}
           />
         </Field>
-        <Field label="المعدود فعلياً — إلكتروني (ج)">
+        <Field label={t('money.closingCountedElectronicLabel')}>
           <TextInput
             type="number"
             min="0"
@@ -187,18 +187,17 @@ export function ClosingFormSheet({
             placeholder={String(summary.electronic)}
           />
         </Field>
-        <Field label="ملحوظة (اختياري)">
+        <Field label={t('money.noteOptional')}>
           <TextArea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="مثال: عجز بسيط — دفعة اتسجلت تاني يوم"
+            placeholder={t('money.closingNotePlaceholder')}
             rows={2}
           />
         </Field>
         {isEdit && (
           <p className="text-muted text-[13.5px] mt-0">
-            اليوم ده متسجل إغلاقه قبل كده — الحفظ هنا بيعدّل نفس السجل (المعدود ولقطة
-            المتوقع الحالية)، مش بيعمل سجل جديد.
+            {t('money.closingEditNote')}
           </p>
         )}
         {error && <FormError message={error} />}

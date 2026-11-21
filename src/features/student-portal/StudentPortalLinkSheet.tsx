@@ -15,6 +15,7 @@ import {
   useRevokeStudentPortalToken,
   useStudentPortalTokens,
 } from './hooks'
+import { t } from '../../i18n'
 
 interface StudentPortalLinkSheetProps {
   teacherId: string
@@ -23,9 +24,9 @@ interface StudentPortalLinkSheetProps {
 }
 
 const STATUS_META: Record<ReturnType<typeof studentTokenStatus>, { label: string; cls: string }> = {
-  active: { label: 'نشط', cls: 'bg-ok/10 text-ok-text border-ok/30' },
-  expired: { label: 'منتهي', cls: 'bg-warn/15 text-warn-text border-warn/40' },
-  revoked: { label: 'ملغي', cls: 'bg-bad/10 text-bad-text border-bad/30' },
+  active: { label: t('studentPortal.linkStatusActive'), cls: 'bg-ok/10 text-ok-text border-ok/30' },
+  expired: { label: t('studentPortal.linkStatusExpired'), cls: 'bg-warn/15 text-warn-text border-warn/40' },
+  revoked: { label: t('studentPortal.linkStatusRevoked'), cls: 'bg-bad/10 text-bad-text border-bad/30' },
 }
 
 function TokenRow({
@@ -50,23 +51,23 @@ function TokenRow({
             type="button"
             disabled={revoking}
             onClick={() => {
-              if (window.confirm('إلغاء الرابط ده؟ الطالب مش هيقدر يفتح بوابته بيه تاني.'))
+              if (window.confirm(t('studentPortal.linkRevokeConfirm')))
                 onRevoke()
             }}
             className="text-bad-text text-[13.5px] font-semibold bg-transparent border-0 cursor-pointer disabled:opacity-50"
           >
-            إلغاء الرابط
+            {t('studentPortal.linkRevokeAction')}
           </button>
         )}
       </div>
       <div className="text-muted text-[13.5px] mt-1.5 leading-relaxed">
-        اتعمل: {formatDateTimeAr(token.created_at)} · بيخلص: {formatDateTimeAr(token.expires_at)}
+        {t('studentPortal.linkCreatedLine', { created: formatDateTimeAr(token.created_at), expires: formatDateTimeAr(token.expires_at) })}
         <br />
-        آخر استخدام: {token.last_used_at ? formatDateTimeAr(token.last_used_at) : 'لسه ما اتفتحش'}
+        {t('studentPortal.linkLastUsedLine', { lastUsed: token.last_used_at ? formatDateTimeAr(token.last_used_at) : t('studentPortal.linkNeverUsed') })}
         {token.revoked_at ? (
           <>
             <br />
-            اتلغى: {formatDateTimeAr(token.revoked_at)}
+            {t('studentPortal.linkRevokedLine', { date: formatDateTimeAr(token.revoked_at) })}
           </>
         ) : null}
       </div>
@@ -110,17 +111,15 @@ export function StudentPortalLinkSheet({
   }
 
   return (
-    <Sheet open title={`رابط بوابة الطالب — ${student.name}`} onClose={onClose}>
+    <Sheet open title={t('studentPortal.linkSheetTitle', { name: student.name })} onClose={onClose}>
       <p className="text-muted text-[13.5px] mt-0">
-        الرابط صالح {STUDENT_PORTAL_TOKEN_TTL_DAYS} يوم وبيعرض للطالب نفسه: حصصه الجاية،
-        واجباته وحالتها، درجاته ونتائج امتحاناته الإلكترونية، ومدفوعاته ورصيده بس
-        (قراءة فقط). ده رابط مستقل عن رابط ولي الأمر — كل واحد فيهم بيتلغي لوحده.
+        {t('studentPortal.linkIntro', { days: STUDENT_PORTAL_TOKEN_TTL_DAYS })}
       </p>
 
       {freshLink && (
         <div className="rounded-xl border border-ok/40 bg-ok/5 p-3 mb-3">
           <div className="font-bold text-[13.5px] mb-1.5 flex items-center gap-1.5">
-            <Check size={18} className="text-ok-text" /> الرابط الجديد جاهز — بيظهر هنا مرة واحدة بس
+            <Check size={18} className="text-ok-text" /> {t('studentPortal.linkFreshTitle')}
           </div>
           <div
             dir="ltr"
@@ -132,11 +131,11 @@ export function StudentPortalLinkSheet({
             <Button variant="soft" onClick={copyLink}>
               {copied ? (
                 <>
-                  <Check size={20} /> اتنسخ
+                  <Check size={20} /> {t('studentPortal.linkCopied')}
                 </>
               ) : (
                 <>
-                  <Copy size={20} /> نسخ الرابط
+                  <Copy size={20} /> {t('studentPortal.linkCopy')}
                 </>
               )}
             </Button>
@@ -144,14 +143,13 @@ export function StudentPortalLinkSheet({
               <a href={waUrl} target="_blank" rel="noreferrer" className="no-underline">
                 <Button>
                   <MessageCircle size={20} />
-                  إرسال واتساب
+                  {t('studentPortal.linkSendWa')}
                 </Button>
               </a>
             )}
           </div>
           <p className="text-muted text-[12px] mt-2 mb-0">
-            لو ضاع الرابط ده مش هنقدر نعرضه تاني (القاعدة فيها بصمته بس) — ولّد واحد جديد
-            وخلاص، والقديم بيتلغي تلقائياً.
+            {t('studentPortal.linkLostNote')}
           </p>
         </div>
       )}
@@ -167,16 +165,16 @@ export function StudentPortalLinkSheet({
         }}
       >
         {createLink.isPending ? (
-          'بنولّد الرابط…'
+          t('studentPortal.linkGenerating')
         ) : hasActive ? (
           <>
             <RefreshCw size={20} />
-            إعادة توليد رابط جديد (يبطل القديم)
+            {t('studentPortal.linkRegenerate')}
           </>
         ) : (
           <>
             <Link2 size={20} />
-            توليد رابط بوابة الطالب
+            {t('studentPortal.linkGenerate')}
           </>
         )}
       </Button>
@@ -184,28 +182,28 @@ export function StudentPortalLinkSheet({
         <p className="text-bad-text text-[13.5px] mt-2 mb-0">
           {createLink.error instanceof Error
             ? createLink.error.message
-            : 'حصلت مشكلة في توليد الرابط'}
+            : t('studentPortal.linkGenerateError')}
         </p>
       )}
 
       <h4 className="type-section mt-4 mb-2 flex items-center gap-2">
-        <GraduationCap size={20} className="text-primary" /> روابط الطالب
+        <GraduationCap size={20} className="text-primary" /> {t('studentPortal.linkListTitle')}
       </h4>
       {tokensQ.isPending ? (
-        <div className="text-muted text-[13.5px]">بنحمّل الروابط…</div>
+        <div className="text-muted text-[13.5px]">{t('studentPortal.linkLoading')}</div>
       ) : tokensQ.isError ? (
-        <div className="text-bad-text text-[13.5px]">ماقدرناش نحمّل الروابط</div>
+        <div className="text-bad-text text-[13.5px]">{t('studentPortal.linkLoadError')}</div>
       ) : tokens.length === 0 ? (
-        <div className="text-muted text-[13.5px]">مفيش روابط معمولة للطالب ده لسه.</div>
+        <div className="text-muted text-[13.5px]">{t('studentPortal.linkEmpty')}</div>
       ) : (
-        tokens.map((t) => (
+        tokens.map((tok) => (
           <TokenRow
-            key={t.id}
-            token={t}
+            key={tok.id}
+            token={tok}
             revoking={revokeToken.isPending}
             onRevoke={() =>
-              revokeToken.mutate(t.id, {
-                onError: () => toast('حصلت مشكلة في إلغاء الرابط — حاول تاني', 'error'),
+              revokeToken.mutate(tok.id, {
+                onError: () => toast(t('studentPortal.linkRevokeErrorToast'), 'error'),
               })
             }
           />

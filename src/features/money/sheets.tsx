@@ -11,6 +11,7 @@ import {
   useUpdateExpense,
   useUpdateRecurring,
 } from './hooks'
+import { t } from '../../i18n'
 
 // ---------------------------------------------------------------------------
 // مصروف جديد / تعديل مصروف — المرجع §4 مودال expense:
@@ -54,15 +55,15 @@ export function ExpenseFormSheet({
   return (
     <Sheet
       open
-      title={isEdit ? 'تعديل مصروف' : 'تسجيل مصروف'}
+      title={isEdit ? t('money.expenseEditTitle') : t('money.expenseNewTitle')}
       onClose={onClose}
       footer={
         <>
           <Button full type="submit" form="expense-form" disabled={busy || !(amt > 0) || !date}>
-            {busy ? 'بنسجل…' : isEdit ? 'حفظ التعديل' : 'تسجيل المصروف'}
+            {busy ? t('money.expenseSaving') : isEdit ? t('money.expenseSaveEdit') : t('money.expenseSubmit')}
           </Button>
           <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
-            إلغاء
+            {t('money.cancel')}
           </Button>
         </>
       }
@@ -88,7 +89,7 @@ export function ExpenseFormSheet({
             setError(errText(err))
           }
           if (expense) {
-            update.mutate({ expenseId: expense.id, input }, { onSuccess: () => done('اتعدّل المصروف'), onError: fail })
+            update.mutate({ expenseId: expense.id, input }, { onSuccess: () => done(t('money.expenseSavedEdit')), onError: fail })
           } else {
             create.mutate(input, {
               onSuccess: () => {
@@ -96,12 +97,12 @@ export function ExpenseFormSheet({
                   createRecurring.mutate(
                     { category, amount: amt, note: input.note },
                     {
-                      onSuccess: () => done('اتسجل المصروف واتثبّت كمصروف شهري متكرر'),
+                      onSuccess: () => done(t('money.expenseSavedRecurring')),
                       onError: fail,
                     },
                   )
                 } else {
-                  done('اتسجل المصروف')
+                  done(t('money.expenseSaved'))
                 }
               },
               onError: fail,
@@ -109,10 +110,10 @@ export function ExpenseFormSheet({
           }
         }}
       >
-        <Field label="التاريخ">
+        <Field label={t('money.expenseDateLabel')}>
           <TextInput type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
         </Field>
-        <Field label="الفئة">
+        <Field label={t('money.expenseCategoryLabel')}>
           <Select value={category} onChange={(e) => setCategory(e.target.value)}>
             {EXPENSE_CATEGORIES.map((c) => (
               <option key={c} value={c}>
@@ -121,7 +122,7 @@ export function ExpenseFormSheet({
             ))}
           </Select>
         </Field>
-        <Field label="المبلغ (ج)">
+        <Field label={t('money.expenseAmountLabel')}>
           <TextInput
             type="number"
             min="0"
@@ -133,11 +134,11 @@ export function ExpenseFormSheet({
             placeholder="0"
           />
         </Field>
-        <Field label="ملحوظة (اختياري)">
+        <Field label={t('money.noteOptional')}>
           <TextInput
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="مثال: إيجار قاعة شهر نوفمبر"
+            placeholder={t('money.expenseNotePlaceholder')}
           />
         </Field>
         {!isEdit && (
@@ -148,7 +149,7 @@ export function ExpenseFormSheet({
               checked={makeRecurring}
               onChange={(e) => setMakeRecurring(e.target.checked)}
             />
-            تثبيت كمصروف شهري متكرر
+            {t('money.expenseMakeRecurring')}
           </label>
         )}
         {error && <FormError message={error} />}
@@ -187,15 +188,15 @@ export function RecurringFormSheet({
   return (
     <Sheet
       open
-      title={isEdit ? 'تعديل مصروف ثابت' : 'مصروف شهري ثابت جديد'}
+      title={isEdit ? t('money.recurringEditTitle') : t('money.recurringNewTitle')}
       onClose={onClose}
       footer={
         <>
           <Button full type="submit" form="recurring-form" disabled={busy || !(amt > 0)}>
-            {busy ? 'بنسجل…' : isEdit ? 'حفظ التعديل' : 'إضافة القالب'}
+            {busy ? t('money.expenseSaving') : isEdit ? t('money.expenseSaveEdit') : t('money.recurringSubmit')}
           </Button>
           <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
-            إلغاء
+            {t('money.cancel')}
           </Button>
         </>
       }
@@ -212,14 +213,14 @@ export function RecurringFormSheet({
           if (template) {
             update.mutate(
               { recurringId: template.id, input },
-              { onSuccess: () => onSaved('اتعدّل المصروف الثابت') },
+              { onSuccess: () => onSaved(t('money.recurringSavedEdit')) },
             )
           } else {
-            create.mutate(input, { onSuccess: () => onSaved('اتضاف المصروف الثابت') })
+            create.mutate(input, { onSuccess: () => onSaved(t('money.recurringSavedNew')) })
           }
         }}
       >
-        <Field label="الفئة">
+        <Field label={t('money.expenseCategoryLabel')}>
           <Select value={category} onChange={(e) => setCategory(e.target.value)}>
             {EXPENSE_CATEGORIES.map((c) => (
               <option key={c} value={c}>
@@ -228,7 +229,7 @@ export function RecurringFormSheet({
             ))}
           </Select>
         </Field>
-        <Field label="المبلغ الشهري (ج)">
+        <Field label={t('money.recurringAmountLabel')}>
           <TextInput
             type="number"
             min="0"
@@ -240,16 +241,15 @@ export function RecurringFormSheet({
             placeholder="0"
           />
         </Field>
-        <Field label="ملحوظة (اختياري)">
+        <Field label={t('money.noteOptional')}>
           <TextInput
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="مثال: إيجار القاعة الشهري"
+            placeholder={t('money.recurringNotePlaceholder')}
           />
         </Field>
         <p className="text-muted text-[13.5px] mt-0">
-          القالب نفسه مش مصروف فعلي؛ بيتحول لمصروفات حقيقية لما تضغط «إضافة الثوابت» في شهر
-          معين من شاشة الفلوس، وكل قالب بيضاف مرة واحدة بس في الشهر (مفيش تكرار).
+          {t('money.recurringNoteBody')}
         </p>
         {(create.isError || update.isError) && (
           <FormError message={errText(create.error ?? update.error)} />
