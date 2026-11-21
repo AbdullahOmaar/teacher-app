@@ -11,13 +11,25 @@
 // نستقبل الكود الجاهز في طلب موقّع ونوصّله عبر WhatsApp Cloud API.
 // لا كود يُخزَّن أو يُسجَّل عندنا في أي مكان (ولا حتى في الـ logs).
 //
+// النموذج (إعادة تشكيل 3A-300 — قرار المالك 2026-11-21 ~12:25):
+// القنوات اختيارية لكل مدرس وعلى حسابه — المنصة لا تملك أصول Meta.
+// المُرسِل هو واتساب المدرس نفسه والمستقبِل هو المدرس نفسه عند دخوله
+// بالهاتف. لذلك تُحلّ القناة لكل طلب من هوية المستخدم (user.id في
+// حمولة الـ Hook) عبر «مُحلِّل قناة» محقون (ResolveChannelFn): في
+// الإنتاج يستدعي RPC ‏resolve_whatsapp_channel_internal بالـ service
+// role (إعدادات السناتر المملوكة للمستخدم + التوكن من Vault)، وفي
+// المحاكاة المحلية دوال وهمية بنفس العقد. عند غياب المُحلِّل يسقط
+// الكود لمسار env الأحادي القديم (أصول مضبوطة في أسرار المشروع) —
+// وهو مسار اختبار/طوارئ فقط؛ مدخل الإنتاج يحقن المُحلِّل دائماً.
+//
 // البوابات بالترتيب قبل أي إرسال:
 // ١) توقيع Standard Webhooks صالح بسرّ SEND_SMS_HOOK_SECRET — غير ذلك 401.
-// ٢) Kill switch: ‏WHATSAPP_OTP_ENABLED=true وكل أسرار Meta موجودة —
-//    غير ذلك خطأ مضبوط (503/500) بلا أي إرسال أو تكلفة. هذا يسمح بتفعيل
-//    إعدادات Auth والـ Hook مسبقاً بأمان قبل وصول أصول Meta من المالك.
-// ٣) وضع المحاكاة WHATSAPP_OTP_MOCK=true يتخطى نداء Graph (اختبار محلي
-//    فقط — لا يُضبط في الإنتاج أبداً).
+// ٢) Kill switch المنصة: ‏WHATSAPP_OTP_ENABLED=true — غير ذلك 503
+//    مضبوط بلا أي حلّ مستأجر أو إرسال أو تكلفة.
+// ٣) حلّ القناة: لا إعداد واتساب مفعّل لهذا الحساب ⇒ 503 موثّق
+//    («not configured») بلا نداء Graph — العميل يوجّه المستخدم للإيميل.
+// ٤) وضع المحاكاة WHATSAPP_OTP_MOCK=true يتخطى نداء Graph بعد نجاح
+//    حلّ القناة (اختبار محلي فقط — لا يُضبط في الإنتاج أبداً).
 // ============================================================================
 
 export interface WhatsappOtpEnv {
@@ -31,6 +43,22 @@ export interface WhatsappOtpEnv {
   WHATSAPP_GRAPH_VERSION?: string
   WHATSAPP_GRAPH_BASE_URL?: string
 }
+
+/** قناة إرسال محلولة لمدرس واحد: أصول Meta بتاعته هو (من قاعدة البيانات/Vault) */
+export interface WhatsappChannel {
+  teacherId: string
+  accessToken: string
+  phoneNumberId: string
+  templateName: string
+  templateLang: string
+}
+
+/**
+ * مُحلِّل القناة: من معرّف مستخدم Auth إلى قناة الواتساب المفعّلة
+ * لحسابه، أو null عندما لا يوجد إعداد مفعّل (الرفض الرشيق).
+ * يُحقن من مدخل Deno في الإنتاج ومن المحاكاة في الاختبار.
+ */
+export type ResolveChannelFn = (userId: string) => Promise<WhatsappChannel | null>
 
 type FetchFn = (input: string, init?: RequestInit) => Promise<Response>
 
@@ -176,19 +204,21 @@ export function buildTemplatePayload(
 }
 
 interface HookPayload {
-  user?: { phone?: string }
+  user?: { id?: string; phone?: string }
   sms?: { otp?: string }
 }
 
 /**
  * معالج طلب الـ Hook. يُستدعى من مدخل Deno (index.ts) في الإنتاج ومن
- * المحاكاة المحلية بنفس الشكل.
+ * المحاكاة المحلية بنفس الشكل. المُحلِّل اختياري: غيابه = مسار env
+ * الأحادي (اختبار/طوارئ) كما هو موثّق في رأس الملف.
  */
 export async function handleSendWhatsappOtp(
   req: Request,
   env: WhatsappOtpEnv,
   fetchFn: FetchFn,
   log: (msg: string) => void = () => {},
+  resolveChannel?: ResolveChannelFn,
 ): Promise<Response> {
   if (req.method !== 'POST') return jsonError(405, 'method not allowed')
 
@@ -217,49 +247,82 @@ export async function handleSendWhatsappOtp(
     return jsonError(400, 'invalid json')
   }
   const phone = payload.user?.phone ?? ''
+  const userId = payload.user?.id ?? ''
   const otp = payload.sms?.otp ?? ''
   if (!phone || !/^\d{4,8}$/.test(otp)) {
     return jsonError(400, 'missing phone or otp')
   }
 
-  // Kill switch: لا إرسال قبل اكتمال أصول Meta وتفعيل العلم صراحة
+  // Kill switch المنصة: فوق الكل — لا حلّ مستأجر ولا إرسال قبله
   if (env.WHATSAPP_OTP_ENABLED !== 'true') {
     log(`send-whatsapp-otp: disabled by kill switch (phone ${maskPhone(phone)})`)
     return jsonError(503, 'whatsapp otp channel not enabled yet')
   }
 
-  // وضع المحاكاة المحلية: توقيع صالح + علم مفتوح، بلا أي نداء لـ Graph
+  // حلّ القناة: بأصول المدرس صاحب الحساب (محقون) أو مسار env الأحادي
+  let channel: WhatsappChannel
+  if (resolveChannel) {
+    if (!userId) return jsonError(400, 'missing user id')
+    let resolved: WhatsappChannel | null
+    try {
+      resolved = await resolveChannel(userId)
+    } catch {
+      // فشل الحلّ (قاعدة/شبكة) ليس «بلا إعداد» — خطأ خادمي صريح بلا إرسال
+      log(`send-whatsapp-otp: channel resolution failed (phone ${maskPhone(phone)})`)
+      return jsonError(502, 'whatsapp channel resolution failed')
+    }
+    if (!resolved) {
+      // فشل رشيق موثّق: الحساب لم يفعّل واتسابه — العميل يوجّه للإيميل
+      log(`send-whatsapp-otp: no whatsapp config for account (phone ${maskPhone(phone)})`)
+      return jsonError(503, 'whatsapp otp not configured for this account')
+    }
+    channel = resolved
+  } else {
+    // مسار env الأحادي (اختبار/طوارئ): المحاكاة تتخطى الاعتمادات أصلاً
+    if (env.WHATSAPP_OTP_MOCK === 'true') {
+      log(`send-whatsapp-otp: MOCK send accepted (phone ${maskPhone(phone)})`)
+      return new Response('{}', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    const token = env.WHATSAPP_ACCESS_TOKEN ?? ''
+    const phoneNumberId = env.WHATSAPP_PHONE_NUMBER_ID ?? ''
+    if (!token || !phoneNumberId) {
+      log('send-whatsapp-otp: Meta credentials incomplete — refusing')
+      return jsonError(500, 'whatsapp credentials not configured')
+    }
+    channel = {
+      teacherId: '',
+      accessToken: token,
+      phoneNumberId,
+      templateName: env.WHATSAPP_OTP_TEMPLATE_NAME ?? DEFAULT_TEMPLATE_NAME,
+      templateLang: env.WHATSAPP_OTP_TEMPLATE_LANG ?? DEFAULT_TEMPLATE_LANG,
+    }
+  }
+
+  // وضع المحاكاة المحلية (مسار المُحلِّل): الحلّ نجح، بلا نداء لـ Graph
   if (env.WHATSAPP_OTP_MOCK === 'true') {
-    log(`send-whatsapp-otp: MOCK send accepted (phone ${maskPhone(phone)})`)
+    log(
+      `send-whatsapp-otp: MOCK send accepted via teacher channel (phone ${maskPhone(phone)})`,
+    )
     return new Response('{}', {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     })
   }
 
-  const token = env.WHATSAPP_ACCESS_TOKEN ?? ''
-  const phoneNumberId = env.WHATSAPP_PHONE_NUMBER_ID ?? ''
-  if (!token || !phoneNumberId) {
-    log('send-whatsapp-otp: Meta credentials incomplete — refusing')
-    return jsonError(500, 'whatsapp credentials not configured')
-  }
-
   const base = (env.WHATSAPP_GRAPH_BASE_URL ?? DEFAULT_GRAPH_BASE).replace(/\/$/, '')
   const version = env.WHATSAPP_GRAPH_VERSION ?? DEFAULT_GRAPH_VERSION
-  const url = `${base}/${version}/${phoneNumberId}/messages`
-  const body = buildTemplatePayload(
-    phone,
-    otp,
-    env.WHATSAPP_OTP_TEMPLATE_NAME ?? DEFAULT_TEMPLATE_NAME,
-    env.WHATSAPP_OTP_TEMPLATE_LANG ?? DEFAULT_TEMPLATE_LANG,
-  )
+  const url = `${base}/${version}/${channel.phoneNumberId}/messages`
+  const body = buildTemplatePayload(phone, otp, channel.templateName, channel.templateLang)
 
   let graphRes: Response
   try {
     graphRes = await fetchFn(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${channel.accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
