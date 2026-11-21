@@ -9,17 +9,23 @@ import {
   buildBackupDownload,
   buildCsvFile,
   downloadTextFile,
+  fetchWhatsappConfig,
   importBackup,
   quickImportStudents,
   removeBrandLogo,
+  sendWhatsappTest,
+  setWhatsappToken,
   touchLastExportAt,
   updatePushDigestSettings,
   updateTeacherSettings,
   uploadBrandLogo,
+  upsertWhatsappConfig,
   type BackupFile,
   type CsvKind,
   type TeacherSettingsInput,
+  type WhatsappConfigInput,
 } from './api'
+import { confirmPhoneLink, requestPhoneLink } from '../auth/api'
 
 /** كل مفاتيح وحدة الإعدادات/التصدير تبدأ بـ 'settings' */
 export const SETTINGS = 'settings'
@@ -66,6 +72,70 @@ export function useUpdatePushDigestSettings(teacherId: string) {
       qc.setQueryData([SETTINGS, 'teacher-settings', teacherId], row)
       void qc.invalidateQueries({ queryKey: [SETTINGS] })
     },
+  })
+}
+
+/** إعداد واتساب السنتر (0026) — يقرأه قسم «واتساب» في الإعدادات فقط */
+export function useWhatsappConfig(teacherId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: [SETTINGS, 'whatsapp-config', teacherId],
+    enabled: Boolean(teacherId) && enabled,
+    queryFn: () => fetchWhatsappConfig(teacherId!),
+  })
+}
+
+/** حفظ حقول واتساب غير السرية — يحدّث كاش القسم بالصف الجديد */
+export function useUpsertWhatsappConfig(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: WhatsappConfigInput) => upsertWhatsappConfig(teacherId, input),
+    onSuccess: (row) => {
+      qc.setQueryData([SETTINGS, 'whatsapp-config', teacherId], row)
+      void qc.invalidateQueries({ queryKey: [SETTINGS, 'whatsapp-config', teacherId] })
+    },
+  })
+}
+
+/**
+ * كتابة/حذف التوكن (Vault) — بعده نبطّل كاش الإعداد حتى ينعكس
+ * token_updated_at (حالة «محفوظ») في البطاقة فوراً.
+ */
+export function useSetWhatsappToken(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (value: string) => setWhatsappToken(teacherId, value),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [SETTINGS, 'whatsapp-config', teacherId] })
+    },
+  })
+}
+
+/** إرسال كود تجريبي — بعده نبطّل الكاش لينعكس last_test_at وحدّ المعدل */
+export function useSendWhatsappTest(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => sendWhatsappTest(teacherId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [SETTINGS, 'whatsapp-config', teacherId] })
+    },
+  })
+}
+
+/** طلب كود ربط الهاتف بالحساب (updateUser — الكود يصل عبر واتساب المدرس) */
+export function useRequestPhoneLink() {
+  return useMutation({
+    mutationFn: (phoneE164: string) => requestPhoneLink(phoneE164),
+  })
+}
+
+/**
+ * تأكيد كود الربط — نجاحه يطلق حدث USER_UPDATED في AuthProvider
+ * فينعكس الرقم المربوط في البطاقة تلقائياً بلا إبطال كاش يدوي.
+ */
+export function useConfirmPhoneLink() {
+  return useMutation({
+    mutationFn: (input: { phoneE164: string; code: string }) =>
+      confirmPhoneLink(input.phoneE164, input.code),
   })
 }
 

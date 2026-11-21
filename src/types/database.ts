@@ -56,6 +56,26 @@ export interface TeacherSettingsRow {
   updated_at: string
 }
 
+/**
+ * إعدادات واتساب الاختيارية لكل سنتر (migration ‏0026 — نموذج 3A-300
+ * الاختياري per-teacher): حقول Meta غير السرية فقط. التوكن نفسه ليس
+ * هنا إطلاقاً — يعيش في Supabase Vault ولا يقرأه العميل أبداً؛ الصف
+ * يحمل مؤشر وجوده (token_vault_secret_id — لا يُختار من العميل أصلاً،
+ * انظر WHATSAPP_CONFIG_COLS) وطابع آخر حفظ له (token_updated_at).
+ */
+export interface TeacherWhatsappConfigRow {
+  teacher_id: string
+  enabled: boolean
+  phone_number_id: string
+  waba_id: string
+  template_name: string
+  template_language: string
+  token_updated_at: string | null
+  last_test_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 /** سجل ملخص Push اليومي (migration ‏0015) — كان بلا نوع صف (انحراف COD-1) */
 export interface PushDigestLogRow {
   id: string

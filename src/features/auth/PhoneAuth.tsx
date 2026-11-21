@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
 import { normalizeEgyptianPhone } from '../../lib/phone'
-import { claimTeacherInvites, ensureTeacherProfile, requestPhoneOtp, verifyPhoneOtp } from './api'
+import { claimTeacherInvites, requestPhoneOtp, verifyPhoneOtp } from './api'
 import { t } from '../../i18n'
 
 type Step = 'phone' | 'code'
@@ -12,18 +12,20 @@ type Step = 'phone' | 'code'
 const RESEND_SECONDS = 60
 
 /**
- * الدخول/التسجيل برقم الهاتف + كود واتساب (P5-3 / 3A-300) — لا يُعرَض
- * إلا خلف علم WHATSAPP_OTP_ENABLED (lib/phone.ts). خطوتان: رقم (+ اسم
- * لأول مرة) ثم كود 6 أرقام. بعد التحقق تُستكمل نفس خطوات ما بعد
- * التسجيل بالبريد: ادعاء الدعوات (سيعيد 0 لحساب هاتف صرف — قيد موثّق
- * في التصميم §٦) ثم إنشاء ملف المدرس إن وُجد اسم، وإبطال هوية الكاش
- * (درس H1 من تدقيق أول استخدام)، وتغيّر الجلسة يعيد التوجيه من
- * LoginPage. فشل أي خطوة لاحقة لا يمنع الدخول: Onboarding يكمل الناقص.
+ * الدخول برقم الهاتف + كود واتساب (P5-3 / 3A-300) — لا يُعرَض إلا خلف
+ * علم العميل VITE_WHATSAPP_OTP_ENABLED (lib/phone.ts).
+ *
+ * النموذج الاختياري per-teacher (0026): هذا دخول فقط، لا تسجيل —
+ * الرقم يجب أن يكون مربوطاً مسبقاً بحساب قائم من إعدادات «واتساب»
+ * (والقناة مفعّلة بأصول ذلك المدرس)، وrequestPhoneOtp يطلب بـ
+ * shouldCreateUser=false فلا تُنشأ حسابات من هنا إطلاقاً. الكود يصله
+ * من رقم واتسابه التجاري هو عبر Send SMS Hook. بعد التحقق: ادعاء
+ * دعوات معلّقة بنفس عقد ما بعد دخول البريد (JWT حساب مربوط يحمل
+ * البريد أيضاً)، وإبطال هوية الكاش، وتغيّر الجلسة يعيد التوجيه.
  */
 export function PhoneAuth() {
   const qc = useQueryClient()
   const [step, setStep] = useState<Step>('phone')
-  const [displayName, setDisplayName] = useState('')
   const [phoneRaw, setPhoneRaw] = useState('')
   const [phoneE164, setPhoneE164] = useState('')
   const [code, setCode] = useState('')
@@ -49,7 +51,7 @@ export function PhoneAuth() {
     }
     setBusy(true)
     try {
-      await requestPhoneOtp(normalized, displayName || undefined)
+      await requestPhoneOtp(normalized)
       setPhoneE164(normalized)
       setStep('code')
       setCode('')
@@ -66,7 +68,7 @@ export function PhoneAuth() {
     setError(null)
     setBusy(true)
     try {
-      await requestPhoneOtp(phoneE164, displayName || undefined)
+      await requestPhoneOtp(phoneE164)
       setResendIn(RESEND_SECONDS)
       setNotice(t('auth.codeSentNotice'))
     } catch (err) {
@@ -87,20 +89,12 @@ export function PhoneAuth() {
     try {
       const { userId } = await verifyPhoneOtp(phoneE164, code)
       if (userId) {
-        // نفس عقد ما بعد تسجيل البريد في LoginPage — الفشل هنا لا يمنع
-        // الدخول، فشاشة الإعداد (Onboarding) تستكمل إنشاء الملف.
-        let claimed = 0
+        // نفس عقد ما بعد دخول البريد في LoginPage — الفشل هنا لا يمنع
+        // الدخول (الحساب قائم أصلاً بحكم الربط المسبق).
         try {
-          claimed = (await claimTeacherInvites()).claimed
+          await claimTeacherInvites()
         } catch {
-          claimed = 0
-        }
-        if (claimed === 0 && displayName.trim()) {
-          try {
-            await ensureTeacherProfile(userId, displayName, phoneE164)
-          } catch {
-            // تجاهل: Onboarding سيعيد المحاولة بعد الدخول
-          }
+          // تجاهل: لا دعوات أو ستُدّعى في دخول قادم
         }
         await qc.invalidateQueries({ queryKey: ['current-teacher'] })
       }
@@ -125,14 +119,6 @@ export function PhoneAuth() {
 
       {step === 'phone' ? (
         <form onSubmit={handleSend}>
-          <Field label={t('auth.phoneNameLabel')}>
-            <TextInput
-              autoComplete="name"
-              placeholder={t('auth.teacherNamePlaceholder')}
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-          </Field>
           <Field label={t('auth.phoneNumberLabel')}>
             <TextInput
               type="tel"
@@ -149,6 +135,9 @@ export function PhoneAuth() {
             {busy ? t('auth.sendingCode') : t('auth.sendCode')}
           </Button>
           <p className="text-muted text-[12px] mt-3 mb-0 text-center">{t('auth.phoneSignupNote')}</p>
+          <p className="text-muted text-[12px] mt-1.5 mb-0 text-center">
+            {t('auth.phoneEmailFallbackHint')}
+          </p>
         </form>
       ) : (
         <form onSubmit={handleVerify}>

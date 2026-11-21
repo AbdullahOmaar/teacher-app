@@ -19,6 +19,9 @@ export function translateAuthError(message: string): string {
   if (m.includes('token has expired') || m.includes('otp expired'))
     return t('auth.errOtpExpired')
   if (m.includes('sending') && m.includes('sms')) return t('auth.errOtpSendFailed')
+  // رقم غير مربوط بأي حساب (shouldCreateUser=false في نموذج 0026):
+  // لا حسابات تُنشأ من مسار الهاتف إطلاقاً
+  if (m.includes('signups not allowed')) return t('auth.errPhoneNotLinked')
   if (m.includes('password should be at least')) return t('auth.passwordTooShort')
   if (m.includes('for security purposes'))
     return t('auth.authApiSecurityWait') // حد تكرار البريد (60 ثانية)
@@ -121,25 +124,28 @@ export async function requestPasswordReset(email: string): Promise<void> {
 // ---------------------------------------------------------------------------
 // Supabase Auth — رقم الهاتف + OTP عبر واتساب (P5-3 / 3A-300)
 // GoTrue يولّد الكود ويتحقق منه ويصدر الجلسة؛ التوصيل يتم عبر Send SMS
-// Hook عندنا (دالة send-whatsapp-otp ترسله بقالب Authentication على
-// واتساب). signInWithOtp بحساب جديد = تسجيل ودخول معاً (shouldCreateUser
-// افتراضياً true)، والرقم هوية الحساب. الواجهة كلها خلف علم
-// WHATSAPP_OTP_ENABLED — انظر lib/phone.ts والتصميم WHATSAPP-OTP-DESIGN.md.
-// ملحوظة هوية موثّقة: claim_teacher_invites يطابق بريد JWT فقط، فحساب
-// الهاتف الصرف لا يدّعي دعوات البريد تلقائياً (قرار §٦ في التصميم).
+// Hook عندنا (دالة send-whatsapp-otp) بقالب Authentication على واتساب.
+//
+// النموذج الاختياري per-teacher (قرار 2026-11-21 ~12:25 — التصميم §٢/§٦):
+// الإرسال يتم بأصول المدرس نفسه بعد حلّ قناته من user.id، فالدخول
+// بالهاتف قناة لحساب قائم ربط رقمه من إعداداته (requestPhoneLink /
+// confirmPhoneLink أدناه) وفعّل واتسابه. signInWithOtp برقم غير مربوط
+// كان سينشئ حساب هاتف منفصلاً — والـ Hook يرفضه مضبوطاً قبل أي إرسال
+// لأن المستخدم المؤقت لا يملك سنتراً ولا إعداداً (لا حسابات شبحية).
+// إنشاء الحساب الأول يبقى بالبريد دائماً. الواجهة خلف علم العميل
+// VITE_WHATSAPP_OTP_ENABLED — انظر lib/phone.ts والتصميم.
 // ---------------------------------------------------------------------------
 
-/** طلب كود تحقق للرقم (E.164) — يُرسل عبر واتساب بقناة الـ Hook */
-export async function requestPhoneOtp(
-  phoneE164: string,
-  displayName?: string,
-): Promise<void> {
+/**
+ * طلب كود تحقق للرقم (E.164) — يُرسل عبر واتساب بقناة الـ Hook.
+ * shouldCreateUser=false عمداً في النموذج الاختياري: مسار الهاتف
+ * للدخول فقط لحساب قائم ربط رقمه من إعداداته؛ أي رقم غير مربوط
+ * يرفضه GoTrue قبل الـ Hook أصلاً، فلا تُنشأ حسابات هاتف شبحية.
+ */
+export async function requestPhoneOtp(phoneE164: string): Promise<void> {
   const { error } = await db().auth.signInWithOtp({
     phone: phoneE164,
-    options: {
-      shouldCreateUser: true,
-      data: displayName?.trim() ? { display_name: displayName.trim() } : undefined,
-    },
+    options: { shouldCreateUser: false },
   })
   if (error) throw new Error(translateAuthError(error.message))
 }
@@ -156,6 +162,27 @@ export async function verifyPhoneOtp(
   })
   if (error) throw new Error(translateAuthError(error.message))
   return { userId: data.user?.id ?? null }
+}
+
+/**
+ * ربط رقم هاتف بالحساب القائم (من إعدادات «واتساب» — تسلسل التهيئة
+ * §٦-٩ في التصميم): updateUser يطلب كود تأكيد عبر نفس Send SMS Hook،
+ * فيصله الكود من واتسابه المفعّل هو، وبالتأكيد يصير الرقم عامل هوية
+ * ثانياً لنفس الحساب — وبعده فقط يعمل الدخول بالهاتف.
+ */
+export async function requestPhoneLink(phoneE164: string): Promise<void> {
+  const { error } = await db().auth.updateUser({ phone: phoneE164 })
+  if (error) throw new Error(translateAuthError(error.message))
+}
+
+/** تأكيد كود ربط الهاتف (نوع phone_change) — يكمل الربط لنفس الحساب */
+export async function confirmPhoneLink(phoneE164: string, code: string): Promise<void> {
+  const { error } = await db().auth.verifyOtp({
+    phone: phoneE164,
+    token: code.trim(),
+    type: 'phone_change',
+  })
+  if (error) throw new Error(translateAuthError(error.message))
 }
 
 /** تعيين كلمة مرور جديدة داخل جلسة الاستعادة (أو من داخل الحساب) */
