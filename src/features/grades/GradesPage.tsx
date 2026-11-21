@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
 import { NotebookPen } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -21,19 +22,25 @@ function AssessmentCard({ item }: { item: AssessmentListItem }) {
           <div className="font-bold text-[15px]">{item.title}</div>
           {item.avg_pct != null && (
             <span className="shrink-0 text-[12px] font-bold bg-soft text-primary border border-primary/25 rounded-full px-2 py-0.5">
-              متوسط {item.avg_pct}%
+              {t('grades.cardAvg', { pct: item.avg_pct })}
             </span>
           )}
         </div>
         <div className="text-muted text-[13.5px] mt-0.5">
-          {ASSESSMENT_TYPE_LABELS[item.type]} · {item.group_name} ·{' '}
-          {formatDateLabel(item.assess_date)} · النهائية {item.max_score}
-          {item.questions_count > 0 ? ` · ${item.questions_count} سؤال` : ''}
+          {t('grades.cardMeta', {
+            type: ASSESSMENT_TYPE_LABELS[item.type],
+            group: item.group_name,
+            date: formatDateLabel(item.assess_date),
+            max: item.max_score,
+          })}
+          {item.questions_count > 0
+            ? t('grades.cardQuestionsSuffix', { count: item.questions_count })
+            : ''}
         </div>
         <div className="text-muted text-[13.5px] mt-1">
           {item.scored_count > 0
-            ? `درجات مسجلة: ${item.scored_count} طالب`
-            : 'لسه مفيش درجات مسجلة — اضغط لإدخال الدرجات'}
+            ? t('grades.cardScored', { count: item.scored_count })
+            : t('grades.cardNoScores')}
         </div>
       </Card>
     </Link>
@@ -79,7 +86,7 @@ export function GradesPage() {
       {groups.length > 1 && (
         <ChipRow>
           <Chip active={groupFilter === 'all'} onClick={() => setGroupFilter('all')}>
-            كل المجموعات
+            {t('grades.allGroups')}
           </Chip>
           {groups.map((g) => (
             <Chip
@@ -94,10 +101,10 @@ export function GradesPage() {
       )}
 
       {pending ? (
-        <LoadingState label="بنحمّل التقييمات…" />
+        <LoadingState label={t('grades.loading')} />
       ) : error ? (
         <ErrorState
-          message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+          message={error instanceof Error ? error.message : t('common.unknownError')}
           onRetry={() => {
             void assessmentsQ.refetch()
             void groupsQ.refetch()
@@ -107,15 +114,15 @@ export function GradesPage() {
         <Card>
           <EmptyState
             icon={NotebookPen}
-            title={assessments.length === 0 ? 'لسه مفيش امتحانات أو واجبات' : 'مفيش تقييمات للمجموعة دي'}
+            title={assessments.length === 0 ? t('grades.emptyNoneTitle') : t('grades.emptyFilteredTitle')}
             hint={
               assessments.length === 0
-                ? 'أنشئ أول امتحان أو واجب من الزر العائم، وبعدين سجّل درجات الطلاب وأضف أسئلته من بنك الأسئلة.'
-                : 'جرّب مجموعة تانية أو أنشئ تقييماً جديداً لها.'
+                ? t('grades.emptyNoneHint')
+                : t('grades.emptyFilteredHint')
             }
             action={
               assessments.length === 0
-                ? { label: 'إنشاء امتحان أو واجب', onClick: () => setCreateOpen(true) }
+                ? { label: t('grades.createAction'), onClick: () => setCreateOpen(true) }
                 : undefined
             }
           />
@@ -124,7 +131,7 @@ export function GradesPage() {
         filtered.map((a) => <AssessmentCard key={a.id} item={a} />)
       )}
 
-      <Fab onClick={() => setCreateOpen(true)} ariaLabel="إنشاء امتحان أو واجب جديد" label="امتحان جديد" />
+      <Fab onClick={() => setCreateOpen(true)} ariaLabel={t('grades.fabAria')} label={t('grades.fabLabel')} />
 
       {createOpen && teacherId && (
         <AssessmentFormSheet
