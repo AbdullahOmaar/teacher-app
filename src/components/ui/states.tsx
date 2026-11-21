@@ -3,7 +3,6 @@ import { AlertTriangle, GraduationCap, Lock, RotateCcw } from 'lucide-react'
 import { Card } from './Card'
 import { Button } from './Button'
 import { MascotLoader } from '../mascot/MascotLoader'
-import { Mascot } from '../mascot/Mascot'
 import { useMascotVisible } from '../mascot/useMascotVisible'
 import { t } from '../../i18n'
 
@@ -30,31 +29,42 @@ export function SkeletonRows({ rows = 4 }: { rows?: number }) {
 }
 
 /**
- * رأس سكيليتون «بيفكّر» (خطة الهوية P-4): دُفّي صغير بوضع التفكير
- * الحقيقي + سطر التحميل من §٨ فوق عظام القائمة في التحميل الأول فقط.
- * الصورة ثابتة عمداً (نبض العظام هو الحركة الوحيدة الظاهرة)، وعند
- * إيقاف الماسكوت من الإعدادات يختفي الرأس كله وتبقى العظام وحدها —
- * السطر صوت دُفّي فلا يظهر من دونه.
+ * لودر الصفحة الموحّد — Overlay (ملاحظات المالك 2026-11-21، نقطة ٤):
+ * دُفّي المتحرك (MascotLoader — أنيميشن اللودنج المعتمد) + سطر §٨
+ * «ثواني… بقلّب في الدفتر.» في طبقة ثابتة متمركزة في منتصف الشاشة
+ * فوق المحتوى (position: fixed — صفر أثر في تدفق التخطيط)، فيتبني
+ * المحتوى/العظام تحتها وتختفي من فوقه بلا أي إزاحة. حلّ محلّ رأس
+ * «بيفكّر» داخل التدفق (P-4) الذي كان يحجز ~56px فوق القوائم فيقفز
+ * المحتوى عند ظهوره/اختفائه. محكوم بمفتاح «إظهار دُفّي»: عند إيقافه
+ * يعرض MascotLoader لوجو الكتاب تلقائياً ويحلّ سطر تحميل محايد محلّ
+ * سطر دُفّي (السطر صوته فلا يظهر من دونه)، وprefers-reduced-motion
+ * يجمّد الحركة داخل MascotLoader نفسه.
  */
-export function ThinkingSkeletonHead() {
+export function PageLoadingOverlay({ label }: { label?: string }) {
   const visible = useMascotVisible()
-  if (!visible) return null
   return (
-    <div className="flex items-center gap-2 pb-3" aria-hidden="true">
-      <Mascot state="thinking" size={44} still />
-      <span className="text-muted type-secondary">{t('mascot.loading')}</span>
+    <div
+      data-loading-overlay
+      role="status"
+      aria-label={label ?? t('common.loading')}
+      className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-bg/70 backdrop-blur-[2px]"
+    >
+      <MascotLoader size={96} />
+      <span className="text-muted type-secondary">
+        {visible ? t('mascot.loading') : (label ?? t('common.loading'))}
+      </span>
     </div>
   )
 }
 
 /**
- * تحميل أول لقائمة ثقيلة (طلاب/فواتير): رأس «بيفكّر» + هيكل صفوف.
- * للتحميلات العامة/الجلسة يبقى LoadingState بلوجو التحميل كما هو.
+ * تحميل أول لقائمة ثقيلة (طلاب/فواتير): لودر Overlay الموحّد فوق
+ * هيكل صفوف يبدأ من موضعه النهائي مباشرة (لا رأس داخل التدفق).
  */
 export function ListLoadingState({ label, rows = 5 }: { label?: string; rows?: number }) {
   return (
     <div role="status" aria-label={label ?? t('common.loading')}>
-      <ThinkingSkeletonHead />
+      <PageLoadingOverlay label={label} />
       <SkeletonRows rows={rows} />
     </div>
   )
@@ -105,16 +115,15 @@ export function NoTeacherProfile() {
 }
 
 /**
- * تحميل موحد: لوجو دُفّي المتحرك (قرار المالك: دُفّي هو لوجو التحميل
- * العام — MASCOT-PLAN §٤) فوق Skeleton بشكل المحتوى. عند إيقاف
- * الماسكوت من الإعدادات يعرض MascotLoader لوجو الكتاب مكانه تلقائياً.
+ * تحميل موحد: لودر Overlay الموحّد (دُفّي المتحرك في منتصف الشاشة —
+ * ملاحظات المالك نقطة ٤) فوق Skeleton بشكل المحتوى يبدأ من موضعه
+ * النهائي. كان اللودر هنا داخل التدفق (~104px فوق البطاقات) فيقفز
+ * المحتوى عند اختفائه؛ الآن بصمة اللودر في التخطيط صفر.
  */
 export function LoadingState({ label = t('common.loading') }: { label?: string }) {
   return (
     <div role="status" aria-label={label}>
-      <div className="flex justify-center pt-2 pb-4">
-        <MascotLoader size={72} />
-      </div>
+      <PageLoadingOverlay label={label} />
       <SkeletonCards cards={3} />
     </div>
   )

@@ -1,7 +1,8 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ListLoadingState, ThinkingSkeletonHead } from './states'
+import { ListLoadingState, PageLoadingOverlay } from './states'
 import { EmptyState } from './EmptyState'
+import { t } from '../../i18n'
 
 afterEach(() => {
   cleanup()
@@ -16,29 +17,37 @@ vi.mock('../mascot/useMascotVisible', () => ({
   MASCOT_MIRROR_KEY: 'teacher-app-show-mascot',
 }))
 
-describe('رأس سكيليتون «بيفكّر» (خطة الهوية P-4)', () => {
+describe('لودر Overlay الموحّد (ملاحظات المالك — نقطة ٤)', () => {
   beforeEach(() => {
     flags.visible = true
   })
 
-  it('يعرض رسمة التفكير الحقيقية + سطر التحميل من §٨', () => {
-    const { container } = render(<ThinkingSkeletonHead />)
-    const img = container.querySelector('img')
-    expect(img).not.toBeNull()
-    expect(img!.getAttribute('src')).toContain('thinking')
+  it('طبقة ثابتة فوق المحتوى (fixed) + سطر التحميل من §٨', () => {
+    const { container } = render(<PageLoadingOverlay />)
+    const overlay = container.querySelector('[data-loading-overlay]')
+    expect(overlay).not.toBeNull()
+    expect(overlay!.className).toContain('fixed')
+    expect(overlay!.className).toContain('inset-0')
     expect(screen.getByText('ثواني… بقلّب في الدفتر.')).toBeInTheDocument()
   })
 
-  it('يختفي كله عند إيقاف الماسكوت — العظام وحدها تكفي', () => {
+  it('عند إيقاف الماسكوت: الـ Overlay يبقى بسطر محايد وبلا سطر دُفّي', () => {
     flags.visible = false
-    const { container } = render(<ThinkingSkeletonHead />)
-    expect(container.firstChild).toBeNull()
+    const { container } = render(<PageLoadingOverlay />)
+    expect(container.querySelector('[data-loading-overlay]')).not.toBeNull()
+    expect(screen.queryByText('ثواني… بقلّب في الدفتر.')).toBeNull()
+    expect(screen.getByText(t('common.loading'))).toBeInTheDocument()
   })
 
-  it('ListLoadingState: الرأس فوق هيكل الصفوف بحالة status', () => {
+  it('ListLoadingState: Overlay + هيكل صفوف، ولا رسمة «بيفكّر» داخل التدفق', () => {
     const { container } = render(<ListLoadingState rows={3} />)
+    expect(container.querySelector('[data-loading-overlay]')).not.toBeNull()
     expect(screen.getByText('ثواني… بقلّب في الدفتر.')).toBeInTheDocument()
-    expect(container.querySelectorAll('[aria-hidden="true"] .animate-pulse, .animate-pulse').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
+    const thinkingImg = [...container.querySelectorAll('img')].find((i) =>
+      (i.getAttribute('src') ?? '').includes('thinking'),
+    )
+    expect(thinkingImg).toBeUndefined()
   })
 })
 

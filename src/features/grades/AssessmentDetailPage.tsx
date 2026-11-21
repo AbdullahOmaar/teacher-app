@@ -4,6 +4,7 @@ import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
+import { ActionTile, ActionTiles } from '../../components/ui/ActionTiles'
 import {
   AlertTriangle,
   Check,
@@ -303,24 +304,27 @@ export function AssessmentDetailPage() {
             {t('grades.detailBelow50', { count: below50Count })}
           </span>
         </div>
-        <div className="flex gap-2 mt-3 flex-wrap">
-          <Button variant="soft" onClick={() => setBuilderOpen(true)}>
-            <ListChecks size={20} />
-            {t('grades.detailQuestionsBtn', { count: questions.length })}
-          </Button>
-          <Button
-            variant="soft"
+        {/* إجراءات الترويسة: شبكة خلايا متساوية موحّدة (نقطة ٢) —
+            نفس الإجراءات والسلوك، بدل أزرار بعرض المحتوى */}
+        <ActionTiles className="mt-3">
+          <ActionTile
+            icon={ListChecks}
+            label={t('grades.detailQuestionsBtn', { count: questions.length })}
+            onClick={() => setBuilderOpen(true)}
+          />
+          <ActionTile
+            icon={Printer}
+            label={t('grades.examSheet')}
             onClick={() => setSheetOpen(true)}
             disabled={questionsQ.isPending}
-          >
-            <Printer size={20} />
-            {t('grades.examSheet')}
-          </Button>
-          <Button variant="ghost" onClick={() => setEditOpen(true)}>
-            <Pencil size={20} />
-            {t('grades.formEditTitle')}
-          </Button>
-        </div>
+          />
+          <ActionTile
+            variant="ghost"
+            icon={Pencil}
+            label={t('grades.formEditTitle')}
+            onClick={() => setEditOpen(true)}
+          />
+        </ActionTiles>
       </Card>
 
       {/* الامتحان الإلكتروني بتصحيح تلقائي — Phase 3 خطوة 4 */}

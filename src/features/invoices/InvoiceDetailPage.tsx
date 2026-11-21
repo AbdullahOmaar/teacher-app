@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
-import { Banknote, Lock, ReceiptText, UserRound } from 'lucide-react'
+import { Banknote, CalendarCog, Lock, ReceiptText, UserRound } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
@@ -175,27 +175,32 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mt-3">
-          <Link to={`/students/${invoice.student_id}`} className="no-underline">
-            <Button variant="soft">
+        {/* إجراءات الترويسة: شبكة خلايا متساوية (نقطة ٢) — كل خلية
+            بنفس العرض والارتفاع 48px مهما تغيّر عدد الإجراءات الظاهرة
+            (٢–٤)، بدل التفاف بعرض المحتوى. الألوان الدلالية كما هي
+            (تسجيل دفعة يبقى الأساسي) والسلوك لم يتغير */}
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <Link to={`/students/${invoice.student_id}`} className="flex no-underline">
+            <Button variant="soft" full className="flex-1">
               <UserRound size={20} />
               {t('invoices.detailStudentFile')}
             </Button>
           </Link>
           {invoice.balance > 0 && (
-            <Button onClick={() => setPayOpen(true)}>
+            <Button full onClick={() => setPayOpen(true)}>
               <Banknote size={20} />
               {t('invoices.recordPayment')}
             </Button>
           )}
           {latestPayment && (
-            <Button variant="ghost" onClick={() => setReceipt({ payment: latestPayment })}>
+            <Button variant="ghost" full onClick={() => setReceipt({ payment: latestPayment })}>
               <ReceiptText size={20} />
               {t('invoices.receiptWord')}
             </Button>
           )}
           {isAttendedGroup && (
-            <Button variant="ghost" onClick={() => setAdjustOpen(true)}>
+            <Button variant="ghost" full onClick={() => setAdjustOpen(true)}>
+              <CalendarCog size={20} />
               {t('invoices.detailAdjustAttendance')}
             </Button>
           )}

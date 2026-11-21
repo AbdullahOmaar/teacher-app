@@ -42,7 +42,7 @@ export function MorePage() {
           <button
             key={item.path}
             onClick={() => navigate(item.path)}
-            className={`w-full flex items-center gap-3 px-4 min-h-[64px] bg-transparent border-0 cursor-pointer text-text text-start hover:bg-soft ${
+            className={`w-full flex items-center gap-3 px-4 min-h-[64px] bg-transparent border-0 cursor-pointer text-text text-start hover:bg-soft active:bg-soft ${
               i < MENU.length - 1 ? 'border-b border-border' : ''
             }`}
           >

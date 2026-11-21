@@ -29,7 +29,7 @@ import {
 } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Chip } from '../../components/ui/form'
-import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton, ThinkingSkeletonHead } from '../../components/ui/states'
+import { ErrorState, LoadingState, NoTeacherProfile, PageLoadingOverlay, SignInRequired, Skeleton } from '../../components/ui/states'
 import { Avatar } from '../../components/ui/Avatar'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatClock12, formatTime12, safeExternalUrl } from '../../lib/format'
@@ -631,7 +631,7 @@ export function AttendancePage() {
           {/* قائمة الطلاب والحالات */}
           {rosterQ.isPending || attQ.isPending || !rowsReady ? (
             <>
-              <ThinkingSkeletonHead />
+              <PageLoadingOverlay />
               <Skeleton className="h-[72px] mb-3" />
               <Skeleton className="h-[72px] mb-3" />
               <Skeleton className="h-[72px]" />

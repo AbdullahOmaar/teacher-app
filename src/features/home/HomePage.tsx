@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton, ThinkingSkeletonHead } from '../../components/ui/states'
+import { ErrorState, LoadingState, NoTeacherProfile, PageLoadingOverlay, SignInRequired, Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { Logo } from '../../components/brand/Logo'
 import { formatMoney, formatTime12 } from '../../lib/format'
@@ -373,7 +373,7 @@ export function HomePage() {
 
       {primaryPending ? (
         <>
-          <ThinkingSkeletonHead />
+          <PageLoadingOverlay />
           <Skeleton className="h-[118px] mb-3" />
           <div className="grid grid-cols-2 gap-2 mb-3">
             <Skeleton className="h-[78px]" />

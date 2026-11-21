@@ -1,7 +1,6 @@
-import { Link } from 'react-router-dom'
-import { CalendarX2, CheckCheck, ReceiptText, ShieldCheck, UserRound } from 'lucide-react'
+import { CalendarX2, CheckCheck, MessageCircle, ReceiptText, ShieldCheck, UserRound } from 'lucide-react'
 import { Avatar } from '../../components/ui/Avatar'
-import { Button } from '../../components/ui/Button'
+import { ActionTile, ActionTiles } from '../../components/ui/ActionTiles'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -115,40 +114,42 @@ export function AtRiskPage() {
                 ))}
               </div>
 
-              {/* زر الواتساب موحّد اللون مع زر الإشعارات (W6 — R-3):
-                  أخضر ناعم بنص ok-text المضمون التباين في الثيمين، بدل
-                  الحشوة الخضراء الكاملة بنص أبيض (3.39:1 فقط) */}
-              <div className="flex flex-wrap gap-2">
+              {/* صف إجراءات واحد (ملاحظات المالك نقطة ١): ثلاث خلايا
+                  متساوية تماماً من نمط ActionTiles الموحّد (أيقونة فوق
+                  تسمية، 68px) — الصف الأفقي المدمج جُرّب أولاً وقُصّت
+                  تسميتاه الطويلتان («متابعة واتساب»/«تمت المتابعة») عند
+                  390px، والخلايا المكدّسة هي النمط الوحيد الذي تتسع فيه
+                  التسميات كاملة بسطر واحد وبلا سطر ثانٍ للأزرار.
+                  ترتيب الأهمية والسلوك كما هما، ولون الواتساب الأخضر
+                  الدلالي محفوظ (W6 — R-3: ok-text مضمون التباين) */}
+              <ActionTiles>
                 {waUrl ? (
-                  <a
+                  <ActionTile
+                    variant="ok"
+                    icon={MessageCircle}
+                    label={t('atrisk.pageWhatsappBtn')}
                     href={waUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 min-h-[48px] text-[15px] font-semibold bg-ok/10 text-ok-text border border-ok/30 no-underline hover:bg-ok/15"
-                  >
-                    {t('atrisk.pageWhatsappBtn')}
-                  </a>
+                  />
                 ) : (
-                  <span className="inline-flex items-center text-muted text-[13px]">
+                  <div className="h-[68px] flex items-center justify-center text-center text-muted text-[11px] leading-snug px-1">
                     {t('atrisk.pageNoWhatsapp')}
-                  </span>
+                  </div>
                 )}
-                <Link
+                <ActionTile
+                  variant="ghost"
+                  icon={UserRound}
+                  label={t('atrisk.pageStudentFileBtn')}
                   to={`/students/${item.student.id}`}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl px-4 min-h-[48px] text-[15px] font-semibold bg-transparent border border-border text-text no-underline hover:bg-soft"
-                >
-                  <UserRound size={18} />
-                  {t('atrisk.pageStudentFileBtn')}
-                </Link>
-                <Button
-                  variant="soft"
+                />
+                <ActionTile
+                  icon={CheckCheck}
+                  label={busy ? t('atrisk.pageFollowingUp') : t('atrisk.pageFollowedUpBtn')}
                   disabled={busy || !user}
                   onClick={() => onFollowedUp(item)}
-                >
-                  <CheckCheck size={18} />
-                  {busy ? t('atrisk.pageFollowingUp') : t('atrisk.pageFollowedUpBtn')}
-                </Button>
-              </div>
+                />
+              </ActionTiles>
             </Card>
           )
         })

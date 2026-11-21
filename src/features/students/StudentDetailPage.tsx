@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { Archive, ArchiveRestore, Construction, GraduationCap, IdCard, Link2, Lock, MessageCircle, Pencil, Phone, Trash2, TriangleAlert, UserRoundX, Users } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
+import { ActionTile, ActionTiles } from '../../components/ui/ActionTiles'
 import { DangerConfirmSheet } from '../../components/ui/DangerConfirmSheet'
 import { useToast } from '../../components/ui/toast'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -183,40 +184,31 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
           {student.grade ? t('students.metaItem', { value: student.grade ?? '' }) : ''}
           {student.school ? t('students.metaItem', { value: student.school ?? '' }) : ''}
         </div>
-        <div className="flex flex-wrap gap-2 mt-3">
+        {/* إجراءات الترويسة: شبكة خلايا متساوية موحّدة (ملاحظات المالك
+            نقطة ٢) بدل أزرار بعرض المحتوى كانت تلتفّ ٢+٢+٢ بمقاسات
+            مختلفة — نفس الإجراءات والترتيب والسلوك بالضبط */}
+        <ActionTiles className="mt-3">
           {student.phone && (
-            <a href={`tel:${student.phone}`} className="no-underline">
-              <Button variant="soft">
-                <Phone size={20} />
-                {t('students.detailCallBtn')}
-              </Button>
-            </a>
+            <ActionTile icon={Phone} label={t('students.detailCallBtn')} href={`tel:${student.phone}`} />
           )}
           {wa && (
-            <a href={wa} target="_blank" rel="noreferrer" className="no-underline">
-              <Button variant="soft">
-                <MessageCircle size={20} />
-                {t('students.detailWhatsappBtn')}
-              </Button>
-            </a>
+            <ActionTile
+              icon={MessageCircle}
+              label={t('students.detailWhatsappBtn')}
+              href={wa}
+              target="_blank"
+              rel="noreferrer"
+            />
           )}
-          <Button variant="soft" onClick={() => setCardOpen(true)}>
-            <IdCard size={20} />
-            {t('students.detailCardBtn')}
-          </Button>
-          <Button variant="soft" onClick={() => setPortalOpen(true)}>
-            <Link2 size={20} />
-            {t('students.detailPortalBtn')}
-          </Button>
-          <Button variant="soft" onClick={() => setStudentPortalOpen(true)}>
-            <GraduationCap size={20} />
-            {t('students.detailStudentPortalBtn')}
-          </Button>
-          <Button variant="ghost" onClick={() => setEditOpen(true)}>
-            <Pencil size={20} />
-            {t('groups.edit')}
-          </Button>
-        </div>
+          <ActionTile icon={IdCard} label={t('students.detailCardBtn')} onClick={() => setCardOpen(true)} />
+          <ActionTile icon={Link2} label={t('students.detailPortalBtn')} onClick={() => setPortalOpen(true)} />
+          <ActionTile
+            icon={GraduationCap}
+            label={t('students.detailStudentPortalBtn')}
+            onClick={() => setStudentPortalOpen(true)}
+          />
+          <ActionTile variant="ghost" icon={Pencil} label={t('groups.edit')} onClick={() => setEditOpen(true)} />
+        </ActionTiles>
       </Card>
 
       <ChipRow>
