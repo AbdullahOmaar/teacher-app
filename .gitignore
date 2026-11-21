@@ -31,3 +31,6 @@ pnpm-debug.log*
 
 # misc
 *.local
+
+# e2e smoke artifacts (لقطات الفشل — تُولّد محلياً ولا تُخزّن)
+e2e/artifacts/

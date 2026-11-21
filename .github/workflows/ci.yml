@@ -30,6 +30,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+        env:
+          # Puppeteer (اختبارات E2E — devDependency) ينزّل Chromium بعد
+          # التثبيت؛ هذه الوظيفة لا تحتاجه فتتخطى التنزيل (3A-311)
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
       - run: npm run check
 
   security-scan:
@@ -74,6 +78,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true' # كما في وظيفة الفحص (3A-311)
       - run: npm i --no-save typescript@5.9.3 dependency-cruiser@18.8.0
       - name: Depcruise (دوائر الاستيراد — تحذيرات فقط)
         run: |
@@ -86,3 +92,21 @@ jobs:
             for (const v of circ) console.log('::warning::circular dependency: ' + v.from + ' -> ' + v.to);
             console.log('depcruise: ' + total + ' modules cruised, ' + circ.length + ' circular violations');
           "
+
+  e2e-smoke:
+    # اختبارات E2E دخانية معلوماتية (R1 — 3A-311): ستة تدفقات حرجة
+    # بـ Puppeteer على بناء معاينة محلي ضد Supabase الحي بحساب الديمو
+    # العام (بياناته عامة عمداً بقرار المالك — لا أسرار في الوظيفة).
+    # continue-on-error في هذه المرحلة: تكسب الحزمة الثقة بأسابيع من
+    # التشغيلات الخضراء قبل أي ترقية لوظيفة حاجبة (قرار مالك لاحق
+    # مرتبط بحماية الفرع B4) — التفاصيل في e2e/README.md.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci # بلا تخطي: الوظيفة تحتاج Chromium الخاص بـ Puppeteer
+      - run: npm run test:e2e
