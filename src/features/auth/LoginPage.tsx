@@ -471,6 +471,12 @@ export function LoginPage() {
             </p>
           )}
         </Card>
+
+        {/* فوتر الإصدار (3A-312 — ملحق د): نفس مصدر الإعدادات الواحد
+            (package.json عبر __APP_VERSION__) — يسهّل الدعم قبل الدخول */}
+        <p className="text-muted text-[12px] mt-4 mb-0 text-center">
+          {t('auth.footerVersion', { version: __APP_VERSION__ })}
+        </p>
       </div>
     </div>
   )

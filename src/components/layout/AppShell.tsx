@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useTheme } from '../../hooks/useTheme'
+import { prefetchRoute } from '../../lib/routePrefetch'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { useHomeAlerts } from '../../features/home/hooks'
 import { Onboarding } from '../../features/auth/Onboarding'
@@ -101,9 +102,16 @@ export function AppShell() {
   // الإشعارات (useHomeAlerts → fetchAlerts بنفس مفتاح [HOME,'alerts',…])
   // — لا مصدر موازٍ، فالعدد هنا يطابق الشاشتين دائماً.
   const alertsQ = useHomeAlerts(teacherId, isOwner)
-  // الشارة تعدّ التنبيهات المعروضة بعد التجميع (W4 — R-8)، والتنبيهات
-  // الصامتة (النسخ الاحتياطي P3) لا ترفعها
-  const alertsCount = alertsQ.data?.filter((a) => !a.silent).length ?? 0
+  // الشارة تعدّ أنواع التنبيهات النشطة لا عناصرها (3A-312 — ملحق أ):
+  // التنبيهات مشتقّة لحظياً من البيانات (لا حالة مقروء/غير مقروء)،
+  // وعدّ العناصر كان يضخّم الرقم بأنواع فردية لكل طالب (باقات/متأخرات:
+  // ٥٩ من ٦٧ على الديمو) فيظهر كضوضاء مخيفة (٦٨ عند المالك) رغم أن
+  // المطلوب فعلياً هو عدد طوابير العمل المحتاجة تصرّفاً — وهو ما تعرضه
+  // صفحة الإشعارات أصلاً بأقسامها وعدّاداتها الكاملة خلف الجرس.
+  // التنبيهات الصامتة (النسخ الاحتياطي P3 — W4/R-8) لا ترفعها أصلاً
+  const alertsCount = alertsQ.data
+    ? new Set(alertsQ.data.filter((a) => !a.silent).map((a) => a.kind)).size
+    : 0
   const isDark =
     typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark'
   const avatarLetter =
@@ -136,6 +144,7 @@ export function AppShell() {
             <>
               <button
                 onClick={() => navigate('/notifications')}
+                onPointerDown={() => prefetchRoute('/notifications')}
                 className="relative w-12 h-12 shrink-0 flex items-center justify-center cursor-pointer bg-transparent border-0 text-text"
                 aria-label={t('shell.notifications')}
               >
@@ -155,6 +164,7 @@ export function AppShell() {
               </button>
               <button
                 onClick={() => navigate('/settings')}
+                onPointerDown={() => prefetchRoute('/settings')}
                 className="w-12 h-12 shrink-0 flex items-center justify-center cursor-pointer bg-transparent border-0"
                 aria-label={t('shell.settings')}
               >
@@ -177,13 +187,19 @@ export function AppShell() {
 
       {/* المحتوى — حاوية 640px وحشوة سفلية تترك مكاناً للشريط السفلي (64px + safe-area) */}
       <main className={`mx-auto ${containerCls} px-4 pt-[14px] pb-[calc(88px+env(safe-area-inset-bottom,0px))]`}>
-        {teacher.status === 'loading' ? (
-          <LoadingState />
-        ) : teacher.status === 'no-teacher' ? (
-          <Onboarding />
-        ) : (
-          <Outlet />
-        )}
+        {/* انتقال تنقّل خفيف (3A-312 — بند ٤): غلاف بمفتاح المسار يعيد
+            تشغيل route-in (عتامة فقط — انظر index.css لسبب غياب
+            الـ transform) عند كل تنقّل؛ ليس حاوية السكرول ولا يلمس
+            آلة السحب-للتحديث داخل الصفحات */}
+        <div key={location.pathname} className="route-in">
+          {teacher.status === 'loading' ? (
+            <LoadingState />
+          ) : teacher.status === 'no-teacher' ? (
+            <Onboarding />
+          ) : (
+            <Outlet />
+          )}
+        </div>
       </main>
 
       {/* الشريط السفلي — أيقونة + نص دائماً، pill خلف النشط بأيقونة ممتلئة،
@@ -197,6 +213,7 @@ export function AppShell() {
               <button
                 key={item.key}
                 onClick={() => navigate(item.path)}
+                onPointerDown={() => prefetchRoute(item.path)}
                 aria-current={active ? 'page' : undefined}
                 className={`flex-1 min-h-[64px] py-1.5 flex flex-col items-center justify-center gap-1 border-0 bg-transparent cursor-pointer type-badge ${
                   active ? 'text-primary' : 'text-muted'

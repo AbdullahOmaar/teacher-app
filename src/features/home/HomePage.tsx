@@ -115,14 +115,20 @@ function DeltaLine({
     delta.direction === 'flat' ? 'text-muted' : good ? 'text-ok-text' : 'text-bad-text'
   const Icon =
     delta.direction === 'up' ? TrendingUp : delta.direction === 'down' ? TrendingDown : Minus
+  // سطران مكدّسان لا صف واحد (3A-312 — ملحق ج): القيمة بسطرها ومرجع
+  // المقارنة بسطر مستقل تحتها؛ كانا في صف flex واحد داخل بطاقة نصف
+  // الشاشة فيلتفّان بفوضى مزدحمة/متداخلة عند 360–390px (ملاحظة المالك
+  // من لقطة حقيقية). التكديس يقرأ نظيفاً في العرضين ولا يقصّ شيئاً.
   return (
-    <span className={`flex items-center justify-center gap-1 text-[11.5px] font-semibold mt-0.5 ${cls}`}>
-      <Icon size={13} className="shrink-0" />
-      <span>
-        {formatAbs(Math.abs(delta.abs))}
-        {delta.pct != null && delta.direction !== 'flat' ? ` (${Math.abs(delta.pct)}%)` : ''}
+    <span className="block mt-0.5">
+      <span className={`flex items-center justify-center gap-1 text-[11.5px] font-semibold ${cls}`}>
+        <Icon size={13} className="shrink-0" />
+        <span>
+          {formatAbs(Math.abs(delta.abs))}
+          {delta.pct != null && delta.direction !== 'flat' ? ` (${Math.abs(delta.pct)}%)` : ''}
+        </span>
       </span>
-      <span className="text-muted font-normal">{t('home.kpi.deltaVs')}</span>
+      <span className="block text-muted text-[11.5px] font-normal">{t('home.kpi.deltaVs')}</span>
     </span>
   )
 }
@@ -360,7 +366,7 @@ export function HomePage() {
       )}
 
       {/* شبكة الإجراءات السريعة — وجهات حقيقية موجودة فقط (المرجع §3.1) */}
-      <div className="grid grid-cols-4 gap-2 mb-3">
+      <div className="grid grid-cols-4 gap-2 mb-3 rise-in">
         {quickActions.map((a) => {
           const ActionIcon = a.icon
           return (
@@ -384,13 +390,6 @@ export function HomePage() {
         <>
           <PageLoadingOverlay />
           <Skeleton className="h-[118px] mb-3" />
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <Skeleton className="h-[78px]" />
-            <Skeleton className="h-[78px]" />
-            {isOwner && <Skeleton className="h-[78px]" />}
-            {isOwner && <Skeleton className="h-[78px]" />}
-          </div>
-          <Skeleton className="h-[120px]" />
         </>
       ) : primaryError ? (
         <ErrorState
@@ -450,7 +449,7 @@ export function HomePage() {
 
           {/* Hero: الحصة القادمة بتدرّج نيلي — وبصمة الهوية: علامة
               الكتاب/الصح مائية بيضاء خفيفة جداً على التدرّج نفسه */}
-          <div className="relative overflow-hidden rounded-2xl p-4 mb-3 text-white bg-[linear-gradient(135deg,var(--primary),var(--primary-d))] shadow-raised">
+          <div className="rise-in relative overflow-hidden rounded-2xl p-4 mb-3 text-white bg-[linear-gradient(135deg,var(--primary),var(--primary-d))] shadow-raised" style={{ animationDelay: '50ms' }}>
             <div className="absolute -bottom-10 -end-10 pointer-events-none" aria-hidden="true">
               <Logo mono decorative size={190} className="text-white opacity-[0.09]" />
             </div>
@@ -511,17 +510,40 @@ export function HomePage() {
             </div>
           </div>
 
-          {/* بطاقات الإجراء المطلوب (W5 — R-12): المعرّضون للفقد ثم
-              إثباتات الدفع المعلّقة — قبل المؤشرات، وكلتاهما بهيكل
-              تحميل محجوز الارتفاع فلا قفزة عند ظهورها */}
-          <AtRiskCard />
-          <PendingProofsCard />
+        </>
+      )}
 
+      {/* بطاقتا الإجراء المطلوب (W5 — R-12) — تُركَّبان الآن فور جاهزية
+          المدرس لا خلف بوابة المحتوى الأساسي (3A-312 — بند ١ وملحق ب):
+          كانتا داخل فرع المحتوى فلا يبدأ استعلامهما إلا بعد انتهاء
+          الأساسي ثم يجري متسلسلاً، فيصل كارت المعرّضين متأخراً بثوانٍ
+          مقاسة عن باقي الشاشة. الآن يبدآن بالتوازي مع الأساسي من أول
+          تصيير (واستعلام المعرّضين نفسه صار موجات متوازية)، وكلتاهما
+          بهيكل تحميل محجوز الارتفاع في موضعه النهائي فلا قفزة — هذا هو
+          نموذج التحميل الموحّد بصيغة «خانة محجوزة لكل بطاقة» لا بصيغة
+          احتجاز المحتوى السريع رهينةً لأبطأ استعلام حتى يجهز الكل */}
+      <div className="rise-in" style={{ animationDelay: '90ms' }}>
+        <AtRiskCard />
+        <PendingProofsCard />
+      </div>
+
+      {primaryPending ? (
+        <>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <Skeleton className="h-[78px]" />
+            <Skeleton className="h-[78px]" />
+            {isOwner && <Skeleton className="h-[78px]" />}
+            {isOwner && <Skeleton className="h-[78px]" />}
+          </div>
+          <Skeleton className="h-[120px]" />
+        </>
+      ) : !primaryError ? (
+        <>
           {/* KPIs — صف واحد من أربعة على الشاشات الواسعة (R-16)، وكل
               مؤشر بدلتا نفس أيام الشهر الماضي (R-13) عدا «غير المسددة»
               فرقمها مخزون حالي لا يُعاد بناؤه تاريخياً — يحمل تعريفه
               بدلاً منها (R-15) */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3 rise-in" style={{ animationDelay: '140ms' }}>
             <KpiCard
               to="/students"
               value={String(activeStudentsQ.data ?? 0)}
@@ -622,7 +644,7 @@ export function HomePage() {
               في الشريط العلوي بعدّاده، وشاشة الإشعارات خلفه */}
 
           {/* حصص اليوم */}
-          <h2 className="type-section mb-2 mt-1">{t('home.today.title')}</h2>
+          <h2 className="type-section mb-2 mt-1 rise-in" style={{ animationDelay: '190ms' }}>{t('home.today.title')}</h2>
           {todaySessions.length === 0 ? (
             <Card>
               <EmptyState
@@ -643,7 +665,7 @@ export function HomePage() {
             ))
           )}
         </>
-      )}
+      ) : null}
     </div>
     </PullToRefresh>
   )

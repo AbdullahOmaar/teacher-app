@@ -40,6 +40,8 @@ export const auth = {
   demoLoading: 'جارٍ الدخول التجريبي…',
   demoCta: 'دخول تجريبي — جرّب التطبيق فوراً',
   demoWarning: 'الحساب التجريبي مشترك ومفتوح للكل — ما تدخّلش فيه بيانات حقيقية.',
+  /** فوتر صفحة الدخول (3A-312 — ملحق د): نفس رقم الإصدار من package.json */
+  footerVersion: 'إصدار {version}',
   notConfiguredNote: 'وضع تجريبي: لسه Supabase مش مربوط — عبّي قيم .env علشان الدخول يشتغل.',
   profileCreateFailed: 'تعذّر إنشاء ملف المدرس.',
   onboardingTitle: 'أهلاً بيك — كمّل إعداد حسابك',

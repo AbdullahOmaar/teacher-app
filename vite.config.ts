@@ -1,9 +1,20 @@
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
+import { readFileSync } from 'node:fs'
+
+/*
+ * مصدر الإصدار الواحد (3A-312 — بند ٥): رقم إصدار التطبيق المعروض في
+ * الإعدادات وفوتر الدخول يُقرأ من package.json وقت البناء ويُحقن ثابتاً
+ * (__APP_VERSION__) — تحديث الرقم هنا وحده يكفي لكل مواضع العرض.
+ */
+const pkgVersion = (JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }).version
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(pkgVersion),
+  },
   plugins: [react(), tailwindcss()],
   build: {
     rolldownOptions: {

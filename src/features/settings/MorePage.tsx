@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { prefetchRoute, prefetchRoutesIdle } from '../../lib/routePrefetch'
 import {
   BookOpenCheck,
   CalendarDays,
@@ -34,6 +36,11 @@ const MENU: { icon: LucideIcon; label: string; path: string }[] = [
 /** قائمة «المزيد» — صفوف تنقّل لبقية الأقسام (المرجع: renderMore) */
 export function MorePage() {
   const navigate = useNavigate()
+  // تسخين وجهات القائمة عند الخمول (3A-312 — بند ٢): أول ضغطة على أي
+  // صف كانت تدفع ثمن جلب حزمة الوجهة وتحليلها بعد الضغطة (مقاساً حتى
+  // 1207ms للتحليلات)؛ الآن تُسخَّن الحزم تسلسلياً أثناء وقوف المستخدم
+  // على هذه الصفحة، وبدء لمس أي صف يُسخّن وجهته فوراً احتياطاً
+  useEffect(() => prefetchRoutesIdle(MENU.map((m) => m.path)), [])
   return (
     <Card className="p-0 overflow-hidden">
       {MENU.map((item, i) => {
@@ -42,7 +49,9 @@ export function MorePage() {
           <button
             key={item.path}
             onClick={() => navigate(item.path)}
-            className={`w-full flex items-center gap-3 px-4 min-h-[64px] bg-transparent border-0 cursor-pointer text-text text-start hover:bg-soft active:bg-soft ${
+            onPointerDown={() => prefetchRoute(item.path)}
+            style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
+            className={`rise-in w-full flex items-center gap-3 px-4 min-h-[64px] bg-transparent border-0 cursor-pointer text-text text-start hover:bg-soft active:bg-soft ${
               i < MENU.length - 1 ? 'border-b border-border' : ''
             }`}
           >

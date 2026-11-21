@@ -47,7 +47,13 @@ export function PageLoadingOverlay({ label }: { label?: string }) {
       data-loading-overlay
       role="status"
       aria-label={label ?? t('common.loading')}
-      className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-bg/70 backdrop-blur-[2px]"
+      // منطقة المحتوى فقط (3A-312 — بند ٣): الأوفرلاي كان يغطي الشاشة
+      // كلها بخلفية ثقيلة العتمة والضبابية. الآن: خلفية شبه شفافة بلا
+      // ضبابية، ومقصور بين الشريط العلوي (49px = زر 48 + حدّ 1px)
+      // والشريط السفلي (64px + safe-area) فيبقيان ظاهرين وقابلين للمس
+      // أثناء التحميل، ودُفّي يتمركز في منطقة المحتوى نفسها. ما زال
+      // يمنع التفاعل مع المحتوى المحمَّل (طبقة ثابتة فوقه z-40)
+      className="fixed inset-x-0 top-[49px] bottom-[calc(64px+env(safe-area-inset-bottom,0px))] z-40 flex flex-col items-center justify-center gap-3 bg-bg/30"
     >
       <MascotLoader size={96} />
       <span className="text-muted type-secondary">

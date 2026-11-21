@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
-import { Bell, CalendarCheck2, Check, ChevronDown, ChevronUp, FolderCog, GraduationCap, Handshake, ImagePlus, Mail, MessageCircle, MonitorSmartphone, NotebookPen, Palette, SlidersHorizontal, Trash2, UserRound, type LucideIcon } from 'lucide-react'
+import { Bell, CalendarCheck2, Check, ChevronDown, ChevronUp, FolderCog, GraduationCap, Handshake, ImagePlus, Info, Mail, MessageCircle, MonitorSmartphone, NotebookPen, Palette, SlidersHorizontal, Trash2, UserRound, type LucideIcon } from 'lucide-react'
 import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Button } from '../../components/ui/Button'
 import { Chip, Field, TextArea, TextInput } from '../../components/ui/form'
@@ -499,6 +499,7 @@ export function SettingsPage() {
     ...(isOwnerWorkspace
       ? [{ id: 'enrol', title: t('settings.sectionEnrol'), icon: CalendarCheck2 }]
       : []),
+    { id: 'about', title: t('settings.sectionAbout'), icon: Info },
   ]
   const effectiveOpenSections = isDesktop
     ? new Set(sectionDefs.map((s) => s.id))
@@ -1264,6 +1265,17 @@ export function SettingsPage() {
           <EnrolLinkCard />
         </SettingsSection>
       )}
+
+      {/* حول التطبيق (3A-312 — بند ٥): الاسم + الإصدار من package.json
+          عبر __APP_VERSION__ — تحديث الرقم هناك يحدّث العرض تلقائياً */}
+      <SettingsSection {...sectionProps('about')}>
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-bold text-[15px]">{t('shell.appName')}</span>
+          <span className="text-muted text-[13.5px]">
+            {t('settings.aboutVersion', { version: __APP_VERSION__ })}
+          </span>
+        </div>
+      </SettingsSection>
 
       {/* تسجيل الخروج */}
       <Card>

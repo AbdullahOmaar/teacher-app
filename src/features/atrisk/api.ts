@@ -220,53 +220,90 @@ export async function fetchAtRisk(
   const supa = db()
   const currentMonth = monthStartStr(today)
 
-  // الطلاب النشطون (غير الموقوفين) — نطاق الاشتقاق كله
-  const { data: studentData, error: stErr } = await supa
-    .from('students')
-    .select(STUDENT_COLS)
-    .eq('teacher_id', teacherId)
-    .eq('paused', false)
-  if (stErr) throw stErr
-  const students = (studentData ?? []) as unknown as RosterStudent[]
-  if (students.length === 0) return []
-  const studentById = new Map(students.map((s) => [s.id, s]))
-
-  // أسماء المجموعات + تسجيلات الطلاب فيها
-  const { data: groupData, error: gErr } = await supa
-    .from('groups')
-    .select('id, name')
-    .eq('teacher_id', teacherId)
-  if (gErr) throw gErr
-  const groupNameById = new Map(
-    ((groupData ?? []) as { id: string; name: string }[]).map((g) => [g.id, g.name]),
-  )
-  const { data: enrData, error: eErr } = await supa
-    .from('enrollments')
-    .select('student_id, group_id')
-    .eq('teacher_id', teacherId)
-    .in('student_id', students.map((s) => s.id))
-  if (eErr) throw eErr
-  const groupsByStudent = new Map<string, string[]>()
-  for (const row of (enrData ?? []) as { student_id: string; group_id: string }[]) {
-    const list = groupsByStudent.get(row.student_id) ?? []
-    list.push(row.group_id)
-    groupsByStudent.set(row.student_id, list)
-  }
-
-  // (أ) الغياب المتتالي: حصص ≤ اليوم غير الملغاة بترتيبها الفعلي،
-  // وعلامات الحضور المسجلة عليها
-  const absenceReasonByStudent = new Map<string, Extract<AtRiskReason, { kind: 'absence' }>>()
-  {
-    const { data: sessData, error: sErr } = await supa
+  // الجلب بموجات متوازية (3A-312 — بند ١): كانت السلسلة تسع رحلات
+  // متسلسلة (طلاب ← مجموعات ← تسجيلات ← حصص ← حضور ← أرصدة ← فواتير
+  // ← متابعات ← جهات اتصال) فتصل البطاقة بعد باقي الصفحة بثوانٍ مقاسة.
+  // الموجة ١: أربعة استعلامات مستقلة (تتعلق بالمدرس/اليوم فقط) تنطلق
+  // معاً. الاشتقاقات نفسها لم تتغيّر إطلاقاً — تغيّر توقيت الجلب فقط.
+  const [studentsRes, groupsRes, sessionsRes, balancesRes] = await Promise.all([
+    supa
+      .from('students')
+      .select(STUDENT_COLS)
+      .eq('teacher_id', teacherId)
+      .eq('paused', false),
+    supa.from('groups').select('id, name').eq('teacher_id', teacherId),
+    supa
       .from('sessions')
       .select('id, group_id, session_date, start_time')
       .eq('teacher_id', teacherId)
       .lte('session_date', today)
       .neq('status', 'cancelled')
       .order('session_date', { ascending: true })
-      .order('start_time', { ascending: true })
-    if (sErr) throw sErr
-    const sessions = (sessData ?? []) as unknown as SessionLite[]
+      .order('start_time', { ascending: true }),
+    isOwner
+      ? supa
+          .from('invoice_balances')
+          .select('invoice_id, student_id, period_month, balance')
+          .eq('teacher_id', teacherId)
+          .gt('balance', 0)
+          .lt('period_month', currentMonth)
+      : Promise.resolve({ data: null, error: null }),
+  ])
+  if (studentsRes.error) throw studentsRes.error
+  const students = (studentsRes.data ?? []) as unknown as RosterStudent[]
+  if (students.length === 0) return []
+  const studentById = new Map(students.map((s) => [s.id, s]))
+  if (groupsRes.error) throw groupsRes.error
+  const groupNameById = new Map(
+    ((groupsRes.data ?? []) as { id: string; name: string }[]).map((g) => [g.id, g.name]),
+  )
+  if (sessionsRes.error) throw sessionsRes.error
+  const sessions = (sessionsRes.data ?? []) as unknown as SessionLite[]
+  if (isOwner && balancesRes.error) throw balancesRes.error
+  const balRows = (balancesRes.data ?? []) as unknown as {
+    invoice_id: string
+    student_id: string
+    period_month: string
+    balance: number | string
+  }[]
+
+  // الموجة ٢: التسجيلات (تحتاج معرّفات الطلاب) + علامات الحضور (تحتاج
+  // معرّفات الحصص) + لحظات إنشاء الفواتير المتأخرة (تحتاج معرّفات
+  // فواتير الأرصدة) — تنطلق معاً فور اكتمال الموجة ١
+  const [enrRes, attRes, invRes] = await Promise.all([
+    supa
+      .from('enrollments')
+      .select('student_id, group_id')
+      .eq('teacher_id', teacherId)
+      .in('student_id', students.map((s) => s.id)),
+    sessions.length > 0
+      ? supa
+          .from('attendance')
+          .select('session_id, student_id, status')
+          .eq('teacher_id', teacherId)
+          .not('status', 'is', null)
+          .in('session_id', sessions.map((s) => s.id))
+      : Promise.resolve({ data: null, error: null }),
+    isOwner && balRows.length > 0
+      ? supa
+          .from('invoices')
+          .select('id, created_at')
+          .eq('teacher_id', teacherId)
+          .in('id', balRows.map((r) => r.invoice_id))
+      : Promise.resolve({ data: null, error: null }),
+  ])
+  if (enrRes.error) throw enrRes.error
+  const groupsByStudent = new Map<string, string[]>()
+  for (const row of (enrRes.data ?? []) as { student_id: string; group_id: string }[]) {
+    const list = groupsByStudent.get(row.student_id) ?? []
+    list.push(row.group_id)
+    groupsByStudent.set(row.student_id, list)
+  }
+
+  // (أ) الغياب المتتالي: حصص ≤ اليوم غير الملغاة بترتيبها الفعلي،
+  // وعلامات الحضور المسجلة عليها (بيانات الموجتين ١+٢ أعلاه)
+  const absenceReasonByStudent = new Map<string, Extract<AtRiskReason, { kind: 'absence' }>>()
+  {
     const sessionsByGroup = new Map<string, SessionLite[]>()
     for (const s of sessions) {
       const list = sessionsByGroup.get(s.group_id) ?? []
@@ -274,15 +311,9 @@ export async function fetchAtRisk(
       sessionsByGroup.set(s.group_id, list)
     }
     if (sessions.length > 0) {
-      const { data: attData, error: aErr } = await supa
-        .from('attendance')
-        .select('session_id, student_id, status')
-        .eq('teacher_id', teacherId)
-        .not('status', 'is', null)
-        .in('session_id', sessions.map((s) => s.id))
-      if (aErr) throw aErr
+      if (attRes.error) throw attRes.error
       const markBySessionStudent = new Map<string, string>()
-      for (const row of (attData ?? []) as { session_id: string; student_id: string; status: string }[]) {
+      for (const row of (attRes.data ?? []) as { session_id: string; student_id: string; status: string }[]) {
         markBySessionStudent.set(`${row.session_id}|${row.student_id}`, row.status)
       }
       // لكل (طالب، مجموعة): سلسلة الغياب من الاشتقاق النقي absenceStreakOf
@@ -312,32 +343,15 @@ export async function fetchAtRisk(
     }
   }
 
-  // (ب) المتأخرات الممتدة — مالك فقط (انظر الترويسة)
+  // (ب) المتأخرات الممتدة — مالك فقط (انظر الترويسة)؛ الأرصدة من
+  // الموجة ١ ولحظات إنشاء فواتيرها من الموجة ٢
   const overdueReasonByStudent = new Map<string, Extract<AtRiskReason, { kind: 'overdue' }>>()
   if (isOwner) {
-    const { data: balData, error: bErr } = await supa
-      .from('invoice_balances')
-      .select('invoice_id, student_id, period_month, balance')
-      .eq('teacher_id', teacherId)
-      .gt('balance', 0)
-      .lt('period_month', currentMonth)
-    if (bErr) throw bErr
-    const balRows = (balData ?? []) as unknown as {
-      invoice_id: string
-      student_id: string
-      period_month: string
-      balance: number | string
-    }[]
     if (balRows.length > 0) {
       // لحظات إنشاء الفواتير — جزء من حساب «متى أصبحت متأخرة»
-      const { data: invData, error: iErr } = await supa
-        .from('invoices')
-        .select('id, created_at')
-        .eq('teacher_id', teacherId)
-        .in('id', balRows.map((r) => r.invoice_id))
-      if (iErr) throw iErr
+      if (invRes.error) throw invRes.error
       const createdById = new Map(
-        ((invData ?? []) as { id: string; created_at: string }[]).map((r) => [
+        ((invRes.data ?? []) as { id: string; created_at: string }[]).map((r) => [
           r.id,
           new Date(r.created_at).getTime(),
         ]),
@@ -370,13 +384,21 @@ export async function fetchAtRisk(
   ])
   if (candidateIds.size === 0) return []
 
-  const { data: fuData, error: fErr } = await supa
-    .from('at_risk_followups')
-    .select('student_id, followed_at')
-    .eq('teacher_id', teacherId)
-    .in('student_id', [...candidateIds])
-    .order('followed_at', { ascending: false })
-  if (fErr) throw fErr
+  // الموجة ٣: المتابعات وجهات اتصال المرشحين معاً بالتوازي — جهات
+  // الاتصال كانت تُجلب بعد الترشيح للظاهرين فقط فتضيف رحلة كاملة؛
+  // جلبها لكل المرشحين (عددهم قليل بطبيعة الاشتقاق) وترشيحها محلياً
+  // للظاهرين يعطي نفس النتيجة برحلة أقل
+  const [fuRes, contacts] = await Promise.all([
+    supa
+      .from('at_risk_followups')
+      .select('student_id, followed_at')
+      .eq('teacher_id', teacherId)
+      .in('student_id', [...candidateIds])
+      .order('followed_at', { ascending: false }),
+    fetchGuardianContacts(teacherId, [...candidateIds]),
+  ])
+  if (fuRes.error) throw fuRes.error
+  const fuData = fuRes.data
   const lastFollowByStudent = new Map<string, number>()
   for (const row of (fuData ?? []) as { student_id: string; followed_at: string }[]) {
     if (!lastFollowByStudent.has(row.student_id)) {
@@ -400,7 +422,7 @@ export async function fetchAtRisk(
   }
   if (visibleIds.length === 0) return []
 
-  const contacts = await fetchGuardianContacts(teacherId, visibleIds)
+  // جهات الاتصال جاهزة من الموجة ٣ (جُلبت للمرشحين وتُقرأ للظاهرين)
   const result: AtRiskStudent[] = visibleIds.map((id) => {
     const reasons = reasonsByStudent.get(id)!
     return {

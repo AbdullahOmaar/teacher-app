@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './lib/AuthProvider'
+import { registerRouteLoaders } from './lib/routePrefetch'
 import { ToastProvider } from './components/ui/Toast'
 import { AppShell } from './components/layout/AppShell'
 import { LoadingState } from './components/ui/states'
@@ -105,6 +106,34 @@ const AtRiskPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import('./features/notfound/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 )
+
+/*
+ * تسخين الحزم (3A-312 — بند ٢): تسجيل نفس import() الخاص بكل مسار
+ * كسول في سجلّ الجلب المقدم (lib/routePrefetch) — عناصر التنقّل
+ * (صفوف «المزيد» وتبويبات الشريط السفلي) تُسخّن وجهتها عند بدء اللمس،
+ * وصفحة «المزيد» تُسخّن وجهاتها كلها عند الخمول، فلا تدفع أول ضغطة
+ * ثمن الجلب والتحليل. نفس محمّلات الصفحات العامة (البوابات/الامتحان/
+ * الحجز) غير مسجّلة عمداً: لا تُفتح من تنقّل داخلي.
+ */
+registerRouteLoaders({
+  '/attendance': () => import('./features/attendance/AttendancePage'),
+  '/homework': () => import('./features/homework/HomeworkPage'),
+  '/students': () => import('./features/students/StudentsPage'),
+  '/groups': () => import('./features/groups/GroupsPage'),
+  '/invoices': () => import('./features/invoices/InvoicesPage'),
+  '/schedule': () => import('./features/schedule/SchedulePage'),
+  '/grades': () => import('./features/grades/GradesPage'),
+  '/money': () => import('./features/money/MoneyPage'),
+  '/notifications': () => import('./features/notifications/NotificationsPage'),
+  '/settings': () => import('./features/settings/SettingsPage'),
+  '/export': () => import('./features/settings/ExportPage'),
+  '/backup': () => import('./features/settings/BackupPage'),
+  '/more': () => import('./features/settings/MorePage'),
+  '/activity-log': () => import('./features/activity/ActivityLogPage'),
+  '/analytics': () => import('./features/analytics/AnalyticsPage'),
+  '/at-risk': () => import('./features/atrisk/AtRiskPage'),
+  '/portal-links': () => import('./features/portal/PortalManagePage'),
+})
 
 /** غلاف Suspense بسقوط Skeleton الموحّد — يُستخدم لكل مسار كسول */
 function LazyRoute({ children }: { children: ReactNode }) {

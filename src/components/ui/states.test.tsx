@@ -22,12 +22,18 @@ describe('لودر Overlay الموحّد (ملاحظات المالك — نق�
     flags.visible = true
   })
 
-  it('طبقة ثابتة فوق المحتوى (fixed) + سطر التحميل من §٨', () => {
+  it('طبقة ثابتة فوق منطقة المحتوى فقط (3A-312 بند ٣) + سطر التحميل من §٨', () => {
     const { container } = render(<PageLoadingOverlay />)
     const overlay = container.querySelector('[data-loading-overlay]')
     expect(overlay).not.toBeNull()
     expect(overlay!.className).toContain('fixed')
-    expect(overlay!.className).toContain('inset-0')
+    // مقصور بين الشريطين: لا يغطي العلوي (49px) ولا السفلي (64px+safe-area)
+    expect(overlay!.className).toContain('top-[49px]')
+    expect(overlay!.className).toContain('bottom-[calc(64px+env(safe-area-inset-bottom,0px))]')
+    expect(overlay!.className).not.toContain('inset-0')
+    // خلفية خفيفة بلا ضبابية (ملاحظة المالك: الخلفية كانت تقيلة جداً)
+    expect(overlay!.className).toContain('bg-bg/30')
+    expect(overlay!.className).not.toContain('backdrop-blur')
     expect(screen.getByText('ثواني… بقلّب في الدفتر.')).toBeInTheDocument()
   })
 
