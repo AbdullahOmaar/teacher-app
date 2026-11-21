@@ -1,3 +1,4 @@
+import { isUnpaid } from './api'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
@@ -33,7 +34,7 @@ export function StudentPaymentsTab({
   const invoices = useMemo(() => invoicesQ.data ?? [], [invoicesQ.data])
   const payments = useMemo(() => paymentsQ.data ?? [], [paymentsQ.data])
   const summary = useMemo(() => {
-    const due = invoices.filter((i) => i.balance > 0)
+    const due = invoices.filter(isUnpaid)
     return {
       dueTotal: due.reduce((s, i) => s + i.balance, 0),
       dueCount: due.length,

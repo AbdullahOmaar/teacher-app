@@ -1,3 +1,4 @@
+import { isUnpaid } from '../invoices/api'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
@@ -234,7 +235,7 @@ export function HomePage() {
   // مشتقات الفواتير من view ‏invoice_balances
   const invoiceStats = useMemo(() => {
     const rows = balancesQ.data ?? []
-    const unpaid = rows.filter((r) => r.balance > 0)
+    const unpaid = rows.filter(isUnpaid)
     return {
       unpaidCount: unpaid.length,
       arrearsTotal: unpaid.reduce((sum, r) => sum + r.balance, 0),

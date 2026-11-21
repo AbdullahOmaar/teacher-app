@@ -56,6 +56,16 @@ export function payStateOf(b: { total: number; paid: number; balance: number }):
   return b.paid > 0 ? 'partial' : 'due'
 }
 
+/**
+ * «غير مسدد» — التعريف الوحيد المعتمد (PAT-4): رصيد متبقٍّ أكبر من صفر.
+ * كانت الصيغة `balance > 0` مكررة inline في الرئيسية وقائمة الفواتير
+ * وتبويب مدفوعات الطالب وربط إثباتات الدفع؛ أي تغيير مستقبلي في
+ * التعريف يحدث هنا فقط.
+ */
+export function isUnpaid(b: { balance: number }): boolean {
+  return b.balance > 0
+}
+
 // ---------------------------------------------------------------------------
 // القراءات — الفواتير من جدول invoices + أرصدتها من view ‏invoice_balances
 // (الإجمالي/المدفوع/المتبقي محسوب في قاعدة البيانات دائماً، لا مخزّن)

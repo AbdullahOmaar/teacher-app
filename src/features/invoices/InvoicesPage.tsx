@@ -1,3 +1,4 @@
+import { isUnpaid } from './api'
 import { useMemo, useState } from 'react'
 import { t } from '../../i18n'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -154,7 +155,7 @@ export function InvoicesPage() {
         .sort((a, b) => b.total - a.total)
       return { rows, total: rows.reduce((s, r) => s + r.total, 0), count: rows.length }
     }
-    const unpaid = invoices.filter((inv) => inv.balance > 0)
+    const unpaid = invoices.filter(isUnpaid)
     return {
       overdue: aggregate(unpaid.filter((inv) => inv.period_month < currentMonth)),
       currentDue: aggregate(unpaid.filter((inv) => inv.period_month >= currentMonth)),

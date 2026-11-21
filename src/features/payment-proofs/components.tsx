@@ -1,3 +1,4 @@
+import { isUnpaid } from '../invoices/api'
 import { useMemo, useState } from 'react'
 import { errText } from '../../lib/supabaseErrors'
 import { ImageOff, ReceiptText, SearchCheck } from 'lucide-react'
@@ -141,7 +142,7 @@ function ReviewProofSheet({
   const reject = useRejectProof(teacherId, reviewerId)
 
   const dueInvoices = useMemo(
-    () => (invoicesQ.data ?? []).filter((i) => i.balance > 0),
+    () => (invoicesQ.data ?? []).filter(isUnpaid),
     [invoicesQ.data],
   )
   // الفاتورة المربوطة من الرفع إن وُجدت ومستحقة، وإلا أقدم مستحقة
