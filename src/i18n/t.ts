@@ -7,6 +7,13 @@ function lookup(key: string): Msg | undefined {
   let node: unknown = ar
   for (const part of key.split('.')) {
     if (typeof node !== 'object' || node === null) return undefined
+    // اجتياز بالخصائص الذاتية فقط (تصليب 3A-302 — نتيجة Semgrep
+    // ‏prototype-pollution-loop على هذا السطر): بلا hasOwn كان جزء مثل
+    // «__proto__» أو «constructor» يُقرأ من سلسلة البروتوتايب لا من القاموس
+    // نفسه. المفاتيح ثوابت مكتوبة في الكود أصلاً فلا مسار استغلال فعلياً،
+    // لكن الاجتياز الذاتي أصحّ دلالياً ويُسقط النتيجة من جذرها — وبلا أي
+    // تغيير سلوك لأي مفتاح حقيقي في القاموس.
+    if (!Object.hasOwn(node, part)) return undefined
     node = (node as Record<string, unknown>)[part]
   }
   return typeof node === 'string' || (typeof node === 'object' && node !== null)

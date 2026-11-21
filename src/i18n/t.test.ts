@@ -22,6 +22,13 @@ describe('t — قاموس i18n المنزلي (W7 — R-4/R-5)', () => {
   it('وسيط مفقود يبقى ظاهراً بدل فراغ صامت', () => {
     expect(t('common.resultsCount')).toBe('{count} نتيجة')
   })
+  it('أجزاء بروتوتايب لا تتسرب من سلسلة الوراثة (تصليب 3A-302)', () => {
+    const raw = t as unknown as (k: string) => string
+    expect(raw('__proto__')).toBe('__proto__')
+    expect(raw('common.__proto__')).toBe('common.__proto__')
+    expect(raw('common.constructor')).toBe('common.constructor')
+    expect(raw('common.toString')).toBe('common.toString')
+  })
 })
 
 describe('pluralCategory — فئات CLDR العربية الست', () => {
