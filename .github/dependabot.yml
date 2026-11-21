@@ -1,0 +1,20 @@
+# تحديثات اعتماديات أسبوعية (§9/§15 من المعيار — 3A-302).
+# PRs التحديث تُعامل كأي كود: بوابة CI خضراء + قراءة ملخص التغييرات
+# قبل الدمج (انظر docs/DEPENDENCY-POLICY.md).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # مهلة نضج (§9: تفضيل إصدارات عمرها 1–2 أسبوع للتحديثات غير العاجلة).
+    # إصلاحات الأمان العاجلة لا تنتظر Dependabot: بوابة OSV تُحمرّ فوراً
+    # على أي push، والترقية اليدوية الفورية بعد المراجعة هي مسارها.
+    cooldown:
+      default-days: 7
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

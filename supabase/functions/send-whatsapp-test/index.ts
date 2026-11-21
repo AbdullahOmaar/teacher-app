@@ -88,7 +88,8 @@ const deps: WhatsappTestDeps = {
       .update({ last_test_at: new Date().toISOString() })
       .eq('teacher_id', teacherId)
   },
-  fetchFn: (input, init) => fetch(input, init),
+  // مهلة شبكة 10 ثوانٍ لنداء Graph — نفس تصليب 3A-302 في دالة الـ Hook
+  fetchFn: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(10_000) }),
   now: () => Date.now(),
   randomCode: () => String(Math.floor(100000 + Math.random() * 900000)),
 }

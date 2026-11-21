@@ -170,7 +170,12 @@ export async function approveProof(
         // يدوياً من تفاصيل الفاتورة — لا نخفي الخطأ الأصلي
       }
     }
-    await releaseClaim(teacherId, reviewerId, proof.id).catch(() => {})
+    await releaseClaim(teacherId, reviewerId, proof.id).catch((relErr) => {
+      // تحرير المطالبة تعويض ثانوي: فشله لا يجب أن يخفي الخطأ الأصلي
+      // (يُعاد رميه في السطر التالي) — لكنه يُسجَّل بدل ابتلاعه صامتاً
+      // (3A-302 — §5/§7-A10: لا ابتلاع بلا مصير واضح)
+      console.warn('[payment-proofs] claim release failed during compensation', relErr)
+    })
     throw e
   }
 }

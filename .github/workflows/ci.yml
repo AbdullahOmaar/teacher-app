@@ -1,0 +1,55 @@
+name: CI
+
+# بوابة جودة وأمان دائمة (§15 من معيار Engineering & Security Standards):
+# كل push وكل PR يمرّ بـ lint + typecheck (strict) + build + اختبارات
+# الوحدة + بوابة i18n (كلها داخل `npm run check`)، وبوابات أمان منفصلة:
+# Gitleaks (أسرار — التاريخ كله) + OSV (اعتماديات) + Semgrep (SAST).
+#
+# ملحوظات:
+# - اختبارات التفويض الحية (test:authz) جزء من `npm run check` أيضاً،
+#   لكنها تتخطى نفسها بنعومة في CI (لا بيئة موصّل محلية) وتعمل كاملة
+#   على جهاز المطوّر — تشغيلها داخل CI متابعة موثقة (R4).
+# - تصليب 3A-302: صلاحيات التوكن قراءة فقط، وكل الأكشنات مثبّتة ببصمة
+#   commit SHA (لا tags قابلة للتحريك)، وحزمة Gitleaks تُتحقق بصمتها
+#   SHA-256 قبل فكّها، وSemgrep مثبّت برقم إصدار.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0 # gitleaks يفحص التاريخ كله
+      - name: Gitleaks (كشف أسرار في الكود والتاريخ)
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+          echo "79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e  /tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar -xz -C /tmp -f /tmp/gitleaks.tar.gz gitleaks
+          /tmp/gitleaks detect --source=. --redact --no-banner
+      - name: OSV-Scanner (ثغرات الاعتماديات من package-lock)
+        uses: google/osv-scanner-action/osv-scanner-action@2a387edfbe02a11d856b89172f6e978100177eb4 # v2.3.2
+        with:
+          scan-args: |-
+            --lockfile=package-lock.json
+      - name: Semgrep (تحليل ثابت SAST — قواعد auto)
+        run: |
+          python3 -m pip install --quiet semgrep==1.186.0
+          semgrep scan --config auto --error --skip-unknown-extensions

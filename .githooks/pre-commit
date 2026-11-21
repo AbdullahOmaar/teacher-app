@@ -1,0 +1,15 @@
+#!/bin/sh
+# خطاف ما قبل الالتزام الخفيف (3A-302 — §15 من معيار Engineering &
+# Security Standards): صيد مبكر رخيص، لا بديل عن بوابة CI الكاملة
+# (lint + build + اختبارات + Gitleaks/OSV/Semgrep) التي تبقى هي الحاسمة.
+# التفعيل مرة واحدة لكل استنساخ:  git config core.hooksPath .githooks
+set -e
+
+npm run lint
+npm run check:i18n
+
+# Gitleaks على التغييرات المرحّلة إن كانت الأداة مثبّتة محلياً —
+# غيابها لا يعطّل الالتزام لأن CI يفحص التاريخ كله في كل تشغيل.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --no-banner
+fi

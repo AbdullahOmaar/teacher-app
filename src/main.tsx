@@ -8,12 +8,17 @@ import '@fontsource/ibm-plex-sans-arabic/600.css'
 import '@fontsource/ibm-plex-sans-arabic/700.css'
 import './index.css'
 import App from './App.tsx'
+import { ErrorBoundary } from './components/ui/ErrorBoundary.tsx'
 // التقاط beforeinstallprompt مبكراً لبطاقة التثبيت في الإعدادات (خطوة 11)
 import './lib/installPrompt'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {/* حدّ خطأ جذري (3A-302): أي انهيار تصيير يعرض رسالة عامة + تحديث
+        بدل شاشة بيضاء — انظر components/ui/ErrorBoundary.tsx */}
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )
 
