@@ -5,6 +5,8 @@ import type {
   RecurringExpenseRow,
 } from '../../types/database'
 import { HOME } from '../home/hooks'
+import { ANALYTICS } from '../analytics/hooks'
+import { invalidatePrefixes } from '../../lib/invalidate'
 import {
   applyRecurringExpenses,
   createExpense,
@@ -65,10 +67,8 @@ export function useRecurringExpenses(teacherId: string | undefined, enabled: boo
  */
 function useInvalidateMoney() {
   const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [MONEY] })
-    void qc.invalidateQueries({ queryKey: [HOME] })
-  }
+  // المصروفات/الأسهم تغذي التحليلات أيضاً (صافي الربح) — PAT-1
+  return () => invalidatePrefixes(qc, [MONEY, HOME, ANALYTICS])
 }
 
 export function useCreateExpense(teacherId: string) {

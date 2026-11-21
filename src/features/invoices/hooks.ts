@@ -3,6 +3,10 @@ import type { AttendanceStatus, PaymentMethod, PaymentRow } from '../../types/da
 import { HOME } from '../home/hooks'
 import { SG } from '../students/hooks'
 import { ATT } from '../attendance/hooks'
+import { ANALYTICS } from '../analytics/hooks'
+import { ATRISK } from '../atrisk/hooks'
+import { MONEY } from '../money/hooks'
+import { invalidatePrefixes } from '../../lib/invalidate'
 import {
   applyAttendanceAdjustment,
   createPayment,
@@ -128,11 +132,9 @@ export function useWhatsappTemplate(teacherId: string | undefined, enabled: bool
  */
 function useInvalidateInvoices() {
   const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [INV] })
-    void qc.invalidateQueries({ queryKey: [HOME] })
-    void qc.invalidateQueries({ queryKey: [SG] })
-  }
+  // الفلوس تغذي أيضاً: وحدة الفلوس (الربح)، التحليلات، والمعرّضين
+  // (سبب المتأخرات) — PAT-1
+  return () => invalidatePrefixes(qc, [INV, HOME, SG, MONEY, ANALYTICS, ATRISK])
 }
 
 export function useIssueInvoices(teacherId: string) {

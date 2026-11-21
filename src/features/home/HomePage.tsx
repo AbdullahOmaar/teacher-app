@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
 import { Link } from 'react-router-dom'
 import {
@@ -32,6 +33,7 @@ import {
   type SessionWithGroup,
 } from './api'
 import {
+  HOME,
   useActiveCountsByGroup,
   useActiveStudentsCount,
   useAnyAttendanceCount,
@@ -43,6 +45,7 @@ import {
   useUpcomingSessions,
 } from './hooks'
 import { AtRiskCard } from '../atrisk/AtRiskCard'
+import { ATRISK } from '../atrisk/hooks'
 import { PendingProofsCard } from '../payment-proofs/PendingProofsCard'
 import { useGroups } from '../groups/hooks'
 import { useAuth } from '../../lib/AuthProvider'
@@ -128,6 +131,7 @@ function DeltaLine({
  * البطاقات المالية وهدف التحصيل مخفية في وضع المساعد (RLS تحجبها أصلاً).
  */
 export function HomePage() {
+  const qc = useQueryClient()
   const teacher = useCurrentTeacher()
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
   const isAssistant = teacher.status === 'ready' && teacher.role === 'assistant'
@@ -315,13 +319,11 @@ export function HomePage() {
         <ErrorState
           message={primaryError instanceof Error ? primaryError.message : t('common.unknownError')}
           onRetry={() => {
-            void activeStudentsQ.refetch()
-            void monthAttendanceQ.refetch()
-            void sessionsQ.refetch()
-            if (isOwner) {
-              void paymentsQ.refetch()
-              void balancesQ.refetch()
-            }
+            // إبطال بالمبادئ يعيد جلب كل استعلامات الصفحة النشطة دفعة
+            // واحدة (كانت قائمة يدوية بخمسة استعلامات تنقصها البطاقات
+            // الأحدث — PAT-1)؛ التنبيهات تحت HOME والمعرّضون تحت ATRISK
+            void qc.invalidateQueries({ queryKey: [HOME] })
+            void qc.invalidateQueries({ queryKey: [ATRISK] })
           }}
         />
       ) : (

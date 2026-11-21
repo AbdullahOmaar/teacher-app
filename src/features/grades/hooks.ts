@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { AssessmentInput, AssessmentRow, QuestionInput } from '../../types/database'
 import { HOME } from '../home/hooks'
 import { SG } from '../students/hooks'
+import { ANALYTICS } from '../analytics/hooks'
+import { invalidatePrefixes } from '../../lib/invalidate'
 import {
   addQuestion,
   createAssessment,
@@ -71,11 +73,8 @@ export function useStudentScores(teacherId: string | undefined, studentId: strin
  */
 function useInvalidateGrades() {
   const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [GRADES] })
-    void qc.invalidateQueries({ queryKey: [HOME] })
-    void qc.invalidateQueries({ queryKey: [SG] })
-  }
+  // الدرجات تغذي التحليلات أيضاً (متوسطات/توزيعات) — PAT-1
+  return () => invalidatePrefixes(qc, [GRADES, HOME, SG, ANALYTICS])
 }
 
 export function useCreateAssessment(teacherId: string) {

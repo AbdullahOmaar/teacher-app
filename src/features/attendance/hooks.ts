@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ANALYTICS } from '../analytics/hooks'
+import { ATRISK } from '../atrisk/hooks'
 import { HOME } from '../home/hooks'
+import { INV } from '../invoices/hooks'
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { SCHED } from '../schedule/hooks'
 import {
   clearStudentLeft,
@@ -97,11 +101,9 @@ export function useStudentAttendanceStats(
  */
 function useInvalidateAttendance() {
   const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [ATT] })
-    void qc.invalidateQueries({ queryKey: [HOME] })
-    void qc.invalidateQueries({ queryKey: [SCHED] })
-  }
+  // الحضور يغذي: الرئيسية (تقدّم اليوم/نسبة الشهر/التنبيهات)، الجدول،
+  // المعرّضين (سلسلة الغياب)، التحليلات، وتسويات الفواتير (PAT-1)
+  return () => invalidatePrefixes(qc, [ATT, HOME, SCHED, ATRISK, ANALYTICS, INV])
 }
 
 /**

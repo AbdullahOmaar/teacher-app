@@ -1,4 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ANALYTICS } from '../analytics/hooks'
+import { ATRISK } from '../atrisk/hooks'
+import { ATT } from '../attendance/hooks'
+import { GRADES } from '../grades/hooks'
+import { HOME } from '../home/hooks'
+import { invalidatePrefixes } from '../../lib/invalidate'
 import type { EnrollmentInput, StudentInput } from '../../types/database'
 import {
   createStudent,
@@ -60,9 +66,8 @@ export function useStudentBalances(teacherId: string | undefined) {
 
 function useInvalidateModule() {
   const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [SG] })
-  }
+  // الطلاب/التسجيلات تغذي عدّاد الرئيسية النشط أيضاً (PAT-1)
+  return () => invalidatePrefixes(qc, [SG, HOME])
 }
 
 export function useCreateStudent(teacherId: string) {
@@ -114,14 +119,14 @@ export function useStudentFootprint(
 
 /**
  * حذف نهائي لطالب بلا أثر مالي. الحذف يطال وحدات أخرى (حضور/درجات cascade)
- * لذا نُبطل كل كاش التطبيق لا مفاتيح SG فقط — فعل نادر ومدمّر يستحق ذلك.
+ * فنُبطل كل الوحدات المتأثرة صراحة بدل إبطال شامل أعمى (PAT-1).
  */
 export function useDeleteStudent(teacherId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (studentId: string) => deleteStudent(teacherId, studentId),
     onSuccess: () => {
-      void qc.invalidateQueries()
+      invalidatePrefixes(qc, [SG, HOME, ATT, GRADES, ATRISK, ANALYTICS])
     },
   })
 }
