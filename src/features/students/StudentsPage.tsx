@@ -209,6 +209,7 @@ export function StudentsPage() {
         />
       ) : filtered.length === 0 ? (
         <EmptyState
+          mascot
           icon={Users}
           title={(studentsQ.data?.length ?? 0) === 0 ? t('students.emptyNoneTitle') : t('students.emptyNoMatchTitle')}
           hint={

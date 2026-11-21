@@ -3,6 +3,7 @@ import { Sheet } from '../../components/ui/Sheet'
 import { MessageCircle, Printer, ReceiptText } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Logo } from '../../components/brand/Logo'
+import { Mascot } from '../../components/mascot/Mascot'
 import { useBrandIdentity } from '../../hooks/useBrandIdentity'
 import { Chip, ChipRow, Field, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import { formatMoney, formatTime12 } from '../../lib/format'
@@ -337,6 +338,12 @@ export function ReceiptSheet({
 
   return (
     <Sheet open title={t('invoices.sheetReceiptTitle', { receiptNo: payment.receipt_no })} onClose={onClose}>
+      {/* احتفال دُفّي بنجاح تسجيل الدفعة (MASCOT-PLAN §٤/§٦ — الورقة دي
+          لا تُفتح إلا من مسار نجاح الدفع مباشرة). خارج منطقة الطباعة
+          (print-area) تماماً فلا يصل للإيصال الورقي أبداً */}
+      <div className="flex justify-center mb-1">
+        <Mascot state="celebrate" size={64} />
+      </div>
       <ChipRow>
         <Chip active={paper === 'a4'} onClick={() => setPaper('a4')}>
           {t('invoices.sheetPaperA4')}

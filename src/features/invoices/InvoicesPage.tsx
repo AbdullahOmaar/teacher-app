@@ -326,6 +326,7 @@ export function InvoicesPage() {
           {filtered.length === 0 ? (
             <Card>
               <EmptyState
+                mascot
                 icon={ReceiptText}
                 title={invoices.length === 0 ? t('invoices.emptyNoneTitle') : t('invoices.emptyNoMatchTitle')}
                 hint={

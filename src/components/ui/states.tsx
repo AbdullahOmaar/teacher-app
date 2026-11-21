@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { AlertTriangle, GraduationCap, Lock, RotateCcw } from 'lucide-react'
 import { Card } from './Card'
 import { Button } from './Button'
+import { MascotLoader } from '../mascot/MascotLoader'
 import { t } from '../../i18n'
 
 /** هيكل تحميل بشكل المحتوى (Skeleton) — نبض موحد بلون الحاويات */
@@ -70,10 +71,17 @@ export function NoTeacherProfile() {
   )
 }
 
-/** تحميل موحد: Skeleton بشكل المحتوى بدل النص وحده */
+/**
+ * تحميل موحد: لوجو دُفّي المتحرك (قرار المالك: دُفّي هو لوجو التحميل
+ * العام — MASCOT-PLAN §٤) فوق Skeleton بشكل المحتوى. عند إيقاف
+ * الماسكوت من الإعدادات يعرض MascotLoader لوجو الكتاب مكانه تلقائياً.
+ */
 export function LoadingState({ label = t('common.loading') }: { label?: string }) {
   return (
     <div role="status" aria-label={label}>
+      <div className="flex justify-center pt-2 pb-4">
+        <MascotLoader size={72} />
+      </div>
       <SkeletonCards cards={3} />
     </div>
   )

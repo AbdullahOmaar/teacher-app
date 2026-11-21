@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { Mascot } from '../../components/mascot/Mascot'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -351,6 +352,7 @@ export function NotificationsPage() {
       ) : alerts.length === 0 ? (
         <Card>
           <EmptyState
+            mascot
             icon={Bell}
             title={t('notifications.page.emptyTitle')}
             hint={t('notifications.page.emptyHint')}
@@ -373,7 +375,11 @@ export function NotificationsPage() {
           />
 
           <Card>
+            {/* دُفّي القلقان + الجرس في رأس الصفحة (MASCOT-PLAN §٤/§٦):
+                داخل صفحة التنبيهات فقط وبجانب ملخصها — لا كروت تنبيهات
+                في الرئيسية أبداً (قاعدة المالك الثابتة §٧) */}
             <div className="flex items-center gap-2">
+              <Mascot state="alert" size={54} />
               <Bell size={24} className="text-primary" />
               <span className="font-bold text-[16px]">{t('notifications.page.summaryTitle', { count: alerts.length })}</span>
             </div>

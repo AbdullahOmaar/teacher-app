@@ -68,6 +68,7 @@ export function GroupsPage() {
       )}
       {allGroups.length === 0 ? (
         <EmptyState
+          mascot
           icon={Users}
           title={t('groups.listEmptyTitle')}
           hint={t('groups.listEmptyHint')}
@@ -75,6 +76,7 @@ export function GroupsPage() {
         />
       ) : groups.length === 0 ? (
         <EmptyState
+          mascot
           icon={Users}
           title={filter === 'archived' ? t('groups.listEmptyArchivedTitle') : t('groups.listEmptyActiveTitle')}
           hint={

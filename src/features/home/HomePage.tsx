@@ -45,6 +45,8 @@ import {
   useMonthlyAttendance,
   useUpcomingSessions,
 } from './hooks'
+import { Mascot } from '../../components/mascot/Mascot'
+import { useMascotVisible } from '../../components/mascot/useMascotVisible'
 import { AtRiskCard } from '../atrisk/AtRiskCard'
 import { ATRISK } from '../atrisk/hooks'
 import { PendingProofsCard } from '../payment-proofs/PendingProofsCard'
@@ -173,6 +175,39 @@ export function HomePage() {
     }
     setDismissTick((t) => t + 1)
   }
+
+  // ترحيب دُفّي اليومي (MASCOT-PLAN §٦): شريط ترحيب صغير يظهر في أول
+  // دخول كل يوم فقط (مفتاح محلي بقيمة تاريخ اليوم لكل مدرس)، وزر
+  // الإخفاء يطويه لبقية اليوم. حاكم الظهور الأعلى هو إعداد «إظهار
+  // دُفّي» نفسه (useMascotVisible) — عند إيقافه لا شريط ولا صورة.
+  // ملحوظة §٧: الترحيب تحية فقط — لا أي محتوى تنبيهات هنا أبداً.
+  const mascotVisible = useMascotVisible()
+  const welcomeKey = teacherId ? `doffy-welcome:${teacherId}` : null
+  const [welcomeTick, setWelcomeTick] = useState(0)
+  const welcomeShownToday = useMemo(() => {
+    void welcomeTick
+    if (!welcomeKey) return true
+    try {
+      return window.localStorage.getItem(welcomeKey) === today
+    } catch {
+      return false
+    }
+  }, [welcomeKey, welcomeTick, today])
+  const dismissWelcome = () => {
+    if (welcomeKey) {
+      try {
+        window.localStorage.setItem(welcomeKey, today)
+      } catch {
+        // تجاهل: الإخفاء للجلسة الحالية على الأقل
+      }
+    }
+    setWelcomeTick((t) => t + 1)
+  }
+  const showWelcome = mascotVisible && teacher.status === 'ready' && !welcomeShownToday
+  const welcomeName =
+    teacher.status === 'ready'
+      ? teacher.teacher?.display_name?.trim() || t('home.welcome.teacherFallback')
+      : ''
   const startSteps = [
     {
       done: (groupsQ.data?.length ?? 0) > 0,
@@ -275,6 +310,12 @@ export function HomePage() {
     (isOwner ? (paymentsQ.error ?? balancesQ.error) : null)
 
   const now = new Date()
+  // تحية الترحيب بحسب الساعة (صباحاً/مساءً) — من نفس «الآن» المحسوبة
+  // أصلاً لاشتقاقات الصفحة حتى لا تتضارب ساعتان في تصيير واحد
+  const welcomeGreeting =
+    now.getHours() < 12
+      ? t('home.welcome.morning', { name: welcomeName })
+      : t('home.welcome.evening', { name: welcomeName })
   const attRate = monthAttendanceQ.data?.rate ?? null
   const collectedMonth = paymentsQ.data?.collectedMonth ?? 0
   const goalPct =
@@ -284,6 +325,27 @@ export function HomePage() {
 
   return (
     <div>
+      {/* ترحيب دُفّي اليومي — أول دخول كل يوم فقط (MASCOT-PLAN §٦) */}
+      {showWelcome && (
+        <Card>
+          <div className="flex items-center gap-3">
+            <Mascot state="welcome" size={58} />
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-[15.5px]">{welcomeGreeting}</div>
+              <div className="text-muted text-[13px] mt-0.5">{t('home.welcome.subtitle')}</div>
+            </div>
+            <button
+              type="button"
+              onClick={dismissWelcome}
+              aria-label={t('home.welcome.hide')}
+              className="w-9 h-9 shrink-0 flex items-center justify-center bg-transparent border-0 text-muted cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </Card>
+      )}
+
       {/* شبكة الإجراءات السريعة — وجهات حقيقية موجودة فقط (المرجع §3.1) */}
       <div className="grid grid-cols-4 gap-2 mb-3">
         {quickActions.map((a) => {

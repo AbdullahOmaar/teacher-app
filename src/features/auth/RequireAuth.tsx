@@ -1,10 +1,11 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../lib/AuthProvider'
-import { t } from '../../i18n'
+import { MascotSplash } from '../../components/mascot/MascotLoader'
 
 /**
  * حماية المسارات الداخلية: لا محتوى بلا جلسة Supabase.
- * أثناء فحص الجلسة الأول تُعرض شاشة تحميل؛ وبدون جلسة يُعاد التوجيه
+ * أثناء فحص الجلسة الأول تُعرض شاشة تحميل بلوجو دُفّي (MascotSplash —
+ * أو لوجو الكتاب إن أوقف المالك الماسكوت)؛ وبدون جلسة يُعاد التوجيه
  * إلى /login مع حفظ المسار المطلوب للعودة إليه بعد الدخول.
  */
 export function RequireAuth() {
@@ -12,11 +13,7 @@ export function RequireAuth() {
   const location = useLocation()
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-bg text-text flex items-center justify-center">
-        <div className="text-muted text-[15px]">{t('common.loading')}</div>
-      </div>
-    )
+    return <MascotSplash />
   }
 
   if (!configured || !session) {
