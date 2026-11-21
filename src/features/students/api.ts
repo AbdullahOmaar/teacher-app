@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { logActivity } from '../activity/api'
@@ -147,7 +148,7 @@ export async function deleteEnrollment(teacherId: string, enrollmentId: string):
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', enrollmentId)
-  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
+  if (error) throw friendlyDbError(error, t('common.deleteError'))
 }
 
 /** خريطة سريعة: group_id → صف المجموعة */
@@ -242,7 +243,7 @@ export async function deleteStudent(teacherId: string, studentId: string): Promi
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', studentId)
-  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء حذف الطالب')
+  if (error) throw friendlyDbError(error, t('students.apiDeleteStudentError'))
   void logActivity(teacherId, {
     event_type: 'student_deleted',
     entity_type: 'student',

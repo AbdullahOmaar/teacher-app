@@ -97,7 +97,7 @@ export async function logActivity(teacherId: string, event: ActivityEventInput):
     })
     if (error) {
       // ابتلاع مقصود وموثّق: السجل طبقة تدقيق مساعدة، لا جزء من العملية
-      console.warn('[activity] تعذّر تسجيل حدث', event.event_type, error.message)
+      console.warn(t('activity.apiLogFailed'), event.event_type, error.message)
     }
   } catch {
     // ابتلاع مقصود: انظر عقد الـ fail-safe في الترويسة
@@ -235,7 +235,7 @@ export async function fetchActivityActors(teacherId: string): Promise<ActivityAc
     if (!seen.has(row.actor_id)) {
       seen.set(row.actor_id, {
         id: row.actor_id,
-        name: row.actor_name ?? 'مستخدم',
+        name: row.actor_name ?? t('activity.page.userFallback'),
         role: row.actor_role,
       })
     }

@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { db } from '../../lib/supabase'
 import { waLink } from '../../lib/format'
 import type { AttendanceRow, AttendanceStatus, StudentRow } from '../../types/database'
@@ -13,17 +14,17 @@ export type { SessionWithGroup }
 // ---------------------------------------------------------------------------
 
 export const ATTENDANCE_STATUSES: { code: AttendanceStatus; label: string }[] = [
-  { code: 'p', label: 'حاضر' },
-  { code: 'a', label: 'غائب' },
-  { code: 'l', label: 'متأخر' },
-  { code: 'm', label: 'تعويضية' },
+  { code: 'p', label: t('attendance.statusPresent') },
+  { code: 'a', label: t('attendance.statusAbsent') },
+  { code: 'l', label: t('attendance.statusLate') },
+  { code: 'm', label: t('attendance.statusMakeup') },
 ]
 
 export const STATUS_LABELS: Record<AttendanceStatus, string> = {
-  p: 'حاضر',
-  a: 'غائب',
-  l: 'متأخر',
-  m: 'تعويضية',
+  p: t('attendance.statusPresent'),
+  a: t('attendance.statusAbsent'),
+  l: t('attendance.statusLate'),
+  m: t('attendance.statusMakeup'),
 }
 
 /**
@@ -187,7 +188,9 @@ export function resolveGuardian(
       contact?.name ??
       (student.guardian_name?.trim()
         ? student.guardian_name
-        : `ولي أمر ${student.name.trim().split(/\s+/)[0] ?? ''}`.trim()),
+        : t('attendance.guardianFallback', {
+            firstName: student.name.trim().split(/\s+/)[0] ?? '',
+          }).trim()),
     phone: contact?.phone ?? student.guardian_phone ?? student.phone,
   }
 }
@@ -205,7 +208,11 @@ export function absenceWaUrl(
   const { name: guardianName, phone } = resolveGuardian(student, contact)
   const base = waLink(phone)
   if (!base) return null
-  const msg = `أهلاً ${guardianName}، نحيطكم علماً بتغيب الطالب ${student.name} عن حصة ${sessionDate}.`
+  const msg = t('attendance.absenceWaMessage', {
+    guardian: guardianName,
+    name: student.name,
+    date: sessionDate,
+  })
   return `${base}?text=${encodeURIComponent(msg)}`
 }
 
@@ -417,8 +424,14 @@ export function arrivalMessage(
   ctx: ArrivalWaContext,
 ): string {
   const { name: guardianName } = resolveGuardian(student, contact)
-  const place = ctx.centreName ? ` إلى ${ctx.centreName}` : ''
-  return `أهلاً ${guardianName}، نحيطكم علماً بوصول الطالب ${student.name}${place} — حصة ${ctx.groupName} بتاريخ ${ctx.sessionDate}.`
+  const place = ctx.centreName ? t('attendance.arrivalPlace', { centre: ctx.centreName }) : ''
+  return t('attendance.arrivalWaMessage', {
+    guardian: guardianName,
+    name: student.name,
+    place,
+    group: ctx.groupName,
+    date: ctx.sessionDate,
+  })
 }
 
 /** نص رسالة المغادرة الموحّد — يُستخدم في رابط wa.me وفي «نسخ الكل» معاً */
@@ -428,8 +441,14 @@ export function departureMessage(
   ctx: ArrivalWaContext,
 ): string {
   const { name: guardianName } = resolveGuardian(student, contact)
-  const place = ctx.centreName ? ` من ${ctx.centreName}` : ''
-  return `أهلاً ${guardianName}، نحيطكم علماً بمغادرة الطالب ${student.name}${place} — حصة ${ctx.groupName} بتاريخ ${ctx.sessionDate}.`
+  const place = ctx.centreName ? t('attendance.departurePlace', { centre: ctx.centreName }) : ''
+  return t('attendance.departureWaMessage', {
+    guardian: guardianName,
+    name: student.name,
+    place,
+    group: ctx.groupName,
+    date: ctx.sessionDate,
+  })
 }
 
 export function arrivalWaUrl(

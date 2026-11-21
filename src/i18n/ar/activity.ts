@@ -67,4 +67,6 @@ export const activity = {
     clearAll: 'مسح الكل',
     showResults: 'عرض النتائج',
   },
+  /** رسالة سجل وحدة النشاط عند تعذّر تسجيل حدث (console) */
+  apiLogFailed: '[activity] تعذّر تسجيل حدث',
 } as const

@@ -116,4 +116,9 @@ export const groups = {
   listCapacityCount: '{count}/{capacity} طالب',
   listEnrolledCount: '{count} طالب مسجل',
   fabAria: 'إنشاء مجموعة جديدة',
+  /** قيمة مخزّنة: تُكتب حرفياً في level_note للطالب عند قبول طلب حجز تجريبي */
+  apiTrialNote: 'طلب حصة تجريبية من صفحة الحجز',
+  /** قيمة مخزّنة: بادئة ملاحظة الحجز المنقولة إلى level_note للطالب */
+  apiBookingNote: 'ملاحظة الحجز: {note}',
+  apiDeleteGroupError: 'حصلت مشكلة أثناء حذف المجموعة',
 } as const

@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { db } from '../../lib/supabase'
 import { monthStartStr, todayStr } from '../home/api'
 import { fetchMonthlyProfit } from '../money/api'
@@ -343,15 +344,15 @@ export async function fetchAnalytics(
   const insights = buildInsights({
     months: monthRows,
     overdueByGroup: [...overdueByGroupId.entries()].map(([id, amount]) => ({
-      name: groupNames.get(id) ?? 'مجموعة',
+      name: groupNames.get(id) ?? t('common.groupFallback'),
       amount,
     })),
     absenceByGroup: [...attendance.absenceByGroup.entries()].map(([id, absences]) => ({
-      name: groupNames.get(id) ?? 'مجموعة',
+      name: groupNames.get(id) ?? t('common.groupFallback'),
       absences,
     })),
     absenceByStudent: [...attendance.absenceByStudent.entries()].map(([id, absences]) => ({
-      name: studentNames.get(id) ?? 'طالب',
+      name: studentNames.get(id) ?? t('analytics.fallbackStudent'),
       absences,
     })),
   })

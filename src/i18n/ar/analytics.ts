@@ -40,4 +40,6 @@ export const analytics = {
   chartOverdueName: 'متأخرات مستحقة',
   chartNewStudentsName: 'طلاب جدد',
   chartCumulativeName: 'الإجمالي التراكمي',
+  /** الاسم البديل لطالب مجهول في الرؤى */
+  fallbackStudent: 'طالب',
 } as const

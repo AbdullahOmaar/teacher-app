@@ -125,4 +125,19 @@ export const attendance = {
   syncNow: 'مزامنة الآن',
   syncing: 'جارٍ المزامنة…',
   syncDone: 'تمت المزامنة — {synced} تغيير وصل الخادم.',
+  /** تسميات حالات الحضور الأربع لطبقة البيانات (أكواد DB ‏p/a/l/m تبقى مفاتيح) */
+  statusPresent: 'حاضر',
+  statusAbsent: 'غائب',
+  statusLate: 'متأخر',
+  statusMakeup: 'تعويضية',
+  /** اسم ولي الأمر البديل عند غياب الاسم: «ولي أمر {الاسم الأول للطالب}» */
+  guardianFallback: 'ولي أمر {firstName}',
+  /** رسائل واتساب طبقة البيانات (غياب/وصول/مغادرة — روابط wa.me) */
+  absenceWaMessage: 'أهلاً {guardian}، نحيطكم علماً بتغيب الطالب {name} عن حصة {date}.',
+  arrivalPlace: ' إلى {centre}',
+  departurePlace: ' من {centre}',
+  arrivalWaMessage:
+    'أهلاً {guardian}، نحيطكم علماً بوصول الطالب {name}{place} — حصة {group} بتاريخ {date}.',
+  departureWaMessage:
+    'أهلاً {guardian}، نحيطكم علماً بمغادرة الطالب {name}{place} — حصة {group} بتاريخ {date}.',
 } as const

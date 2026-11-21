@@ -34,4 +34,13 @@ export const atrisk = {
   pageFollowedUpBtn: 'تمت المتابعة',
   pageFollowingUp: 'بيتسجل…',
   pageReasonGroup: ' — {name}',
+  /** نصوص طبقة البيانات: بدائل ورسالة متابعة واتساب لولي الأمر */
+  apiGroupFallback: 'مجموعته',
+  apiDefaultCentre: 'السنتر',
+  apiWaGreeting: 'أهلاً {guardian}، معاكم {centre}.',
+  apiWaAbsence:
+    'بنطمن على {name}: غاب عن {sessions} متتالية في مجموعة {group}، وحابين نتأكد إن مفيش مشكلة وإننا نقدر نساعد بأي شكل.',
+  apiWaOverdue:
+    'بنذكّركم إن على {name} اشتراكاً متأخراً ({span}) بمبلغ {amount} — شاكرين تعاونكم في السداد في أقرب وقت ممكن.',
+  apiWaClosing: 'شكراً لمتابعتكم، ويسعدنا دايماً تواصلكم معانا.',
 } as const

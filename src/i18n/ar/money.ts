@@ -116,4 +116,19 @@ export const money = {
   recurringNotePlaceholder: 'مثال: إيجار القاعة الشهري',
   recurringNoteBody:
     'القالب نفسه مش مصروف فعلي؛ بيتحول لمصروفات حقيقية لما تضغط «إضافة الثوابت» في شهر معين من شاشة الفلوس، وكل قالب بيضاف مرة واحدة بس في الشهر (مفيش تكرار).',
+  /** قيم مخزّنة: فئات المصروفات تُخزَّن حرفياً كقيمة category في القاعدة وتُقارن بها */
+  expenseCatHallRent: 'إيجار قاعات',
+  expenseCatPrinting: 'طباعة وتصوير',
+  expenseCatAssistantSalaries: 'رواتب مساعدين',
+  expenseCatSupplies: 'أدوات',
+  expenseCatOther: 'أخرى',
+  /** رسائل تحقق طبقة البيانات (مصروفات وخزنة) */
+  expenseAmountError: 'مبلغ المصروف لازم يكون أكبر من صفر',
+  recurringAmountError: 'مبلغ المصروف الثابت لازم يكون أكبر من صفر',
+  countedCashNegativeError: 'المعدود النقدي لا يمكن أن يكون سالباً',
+  countedElectronicNegativeError: 'المعدود الإلكتروني لا يمكن أن يكون سالباً',
+  /** تسميات حالة فرق إغلاق الخزنة (حالات match/surplus/shortage تبقى مفاتيح) */
+  diffMatch: 'مطابق',
+  diffSurplus: 'زيادة',
+  diffShortage: 'عجز',
 } as const

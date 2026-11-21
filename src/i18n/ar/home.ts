@@ -66,4 +66,13 @@ export const home = {
     mark: 'تحضير ({done}/{total})',
     loadingProgress: 'بنحمّل حالة التحضير…',
   },
+  /** نصوص طبقة البيانات: مدة ووقت نسبي لحصة اليوم (fmtDuration/relLabel) */
+  apiMinutes: '{mins} دقيقة',
+  apiHourOne: 'ساعة',
+  apiHourTwo: 'ساعتين',
+  apiHours: '{h} ساعة',
+  apiHoursAndMinutes: '{hTxt} و{m} دقيقة',
+  apiAfter: 'بعد {duration}',
+  apiStartedAgo: 'بدأت من {duration}',
+  apiFinished: 'خلصت',
 } as const

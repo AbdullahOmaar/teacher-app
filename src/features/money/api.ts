@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import type {
@@ -15,11 +16,11 @@ import { monthEndStr, monthStartStr } from '../home/api'
 // ---------------------------------------------------------------------------
 
 export const EXPENSE_CATEGORIES = [
-  'إيجار قاعات',
-  'طباعة وتصوير',
-  'رواتب مساعدين',
-  'أدوات',
-  'أخرى',
+  t('money.expenseCatHallRent'),
+  t('money.expenseCatPrinting'),
+  t('money.expenseCatAssistantSalaries'),
+  t('money.expenseCatSupplies'),
+  t('money.expenseCatOther'),
 ] as const
 
 // ---------------------------------------------------------------------------
@@ -153,7 +154,7 @@ export async function createExpense(
   teacherId: string,
   input: ExpenseInput,
 ): Promise<ExpenseRow> {
-  if (!(input.amount > 0)) throw new Error('مبلغ المصروف لازم يكون أكبر من صفر')
+  if (!(input.amount > 0)) throw new Error(t('money.expenseAmountError'))
   const { data, error } = await db()
     .from('expenses')
     .insert({ teacher_id: teacherId, ...input })
@@ -168,7 +169,7 @@ export async function updateExpense(
   expenseId: string,
   input: ExpenseInput,
 ): Promise<ExpenseRow> {
-  if (!(input.amount > 0)) throw new Error('مبلغ المصروف لازم يكون أكبر من صفر')
+  if (!(input.amount > 0)) throw new Error(t('money.expenseAmountError'))
   const { data, error } = await db()
     .from('expenses')
     .update(input)
@@ -187,7 +188,7 @@ export async function deleteExpense(teacherId: string, expenseId: string): Promi
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', expenseId)
-  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
+  if (error) throw friendlyDbError(error, t('common.deleteError'))
 }
 
 // ---------------------------------------------------------------------------
@@ -225,7 +226,7 @@ export async function createRecurringExpense(
   teacherId: string,
   input: RecurringExpenseInput,
 ): Promise<RecurringExpenseRow> {
-  if (!(input.amount > 0)) throw new Error('مبلغ المصروف الثابت لازم يكون أكبر من صفر')
+  if (!(input.amount > 0)) throw new Error(t('money.recurringAmountError'))
   const { data, error } = await db()
     .from('recurring_expenses')
     .insert({ teacher_id: teacherId, ...input })
@@ -240,7 +241,7 @@ export async function updateRecurringExpense(
   recurringId: string,
   input: RecurringExpenseInput,
 ): Promise<RecurringExpenseRow> {
-  if (!(input.amount > 0)) throw new Error('مبلغ المصروف الثابت لازم يكون أكبر من صفر')
+  if (!(input.amount > 0)) throw new Error(t('money.recurringAmountError'))
   const { data, error } = await db()
     .from('recurring_expenses')
     .update(input)
@@ -261,7 +262,7 @@ export async function deleteRecurringExpense(
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', recurringId)
-  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
+  if (error) throw friendlyDbError(error, t('common.deleteError'))
 }
 
 export interface ApplyRecurringResult {

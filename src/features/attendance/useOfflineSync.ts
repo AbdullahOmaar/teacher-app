@@ -4,6 +4,7 @@ import { ANALYTICS } from '../analytics/hooks'
 import { ATRISK } from '../atrisk/hooks'
 import { HOME } from '../home/hooks'
 import { INV } from '../invoices/hooks'
+import { t } from '../../i18n'
 import { invalidatePrefixes } from '../../lib/invalidate'
 import { SCHED } from '../schedule/hooks'
 import { ATT } from './hooks'
@@ -137,7 +138,7 @@ async function runSync(
           result.stoppedByNetwork = true
           break
         }
-        const message = err instanceof Error ? err.message : 'خطأ غير معروف'
+        const message = err instanceof Error ? err.message : t('common.unknownError')
         if (markFailedIfUnchanged(item, message)) result.failedNow += 1
       }
     }

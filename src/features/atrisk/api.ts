@@ -302,7 +302,7 @@ export async function fetchAtRisk(
                 kind: 'absence',
                 text: t('atrisk.reasonAbsence', { sessions: sessionsWord(streak) }),
                 streak,
-                groupName: groupNameById.get(groupId) ?? 'مجموعته',
+                groupName: groupNameById.get(groupId) ?? t('atrisk.apiGroupFallback'),
                 eventAt: lastAbsenceAt,
               })
             }
@@ -460,19 +460,27 @@ export function atRiskWaUrl(
   const { name: guardianName, phone } = resolveGuardian(item.student, item.contact)
   const base = waLink(phone)
   if (!base) return null
-  const centre = centreName?.trim() ? centreName.trim() : 'السنتر'
-  const lines = [`أهلاً ${guardianName}، معاكم ${centre}.`]
+  const centre = centreName?.trim() ? centreName.trim() : t('atrisk.apiDefaultCentre')
+  const lines = [t('atrisk.apiWaGreeting', { guardian: guardianName, centre })]
   for (const reason of item.reasons) {
     if (reason.kind === 'absence') {
       lines.push(
-        `بنطمن على ${item.student.name}: غاب عن ${sessionsWord(reason.streak)} متتالية في مجموعة ${reason.groupName}، وحابين نتأكد إن مفيش مشكلة وإننا نقدر نساعد بأي شكل.`,
+        t('atrisk.apiWaAbsence', {
+          name: item.student.name,
+          sessions: sessionsWord(reason.streak),
+          group: reason.groupName,
+        }),
       )
     } else {
       lines.push(
-        `بنذكّركم إن على ${item.student.name} اشتراكاً متأخراً (${monthsSpanWord(reason.monthsSpan)}) بمبلغ ${formatMoney(reason.amount)} — شاكرين تعاونكم في السداد في أقرب وقت ممكن.`,
+        t('atrisk.apiWaOverdue', {
+          name: item.student.name,
+          span: monthsSpanWord(reason.monthsSpan),
+          amount: formatMoney(reason.amount),
+        }),
       )
     }
   }
-  lines.push('شكراً لمتابعتكم، ويسعدنا دايماً تواصلكم معانا.')
+  lines.push(t('atrisk.apiWaClosing'))
   return `${base}?text=${encodeURIComponent(lines.join('\n'))}`
 }

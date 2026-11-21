@@ -21,6 +21,7 @@ import { groups } from './groups'
 import { schedule } from './schedule'
 import { settings } from './settings'
 import { paymentProofs } from './paymentProofs'
+import { format } from './format'
 
 /**
  * قاموس العربية — اللغة الوحيدة حالياً (W7 — R-4/R-5).
@@ -51,4 +52,5 @@ export const ar = {
   schedule,
   settings,
   paymentProofs,
+  format,
 } as const

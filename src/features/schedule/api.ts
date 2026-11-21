@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { DAY_NAMES } from '../../lib/format'
@@ -21,8 +22,10 @@ export type { SessionWithGroup }
 // ---------------------------------------------------------------------------
 
 export const MONTH_NAMES = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+  t('format.monthJanuary'), t('format.monthFebruary'), t('format.monthMarch'),
+  t('format.monthApril'), t('format.monthMay'), t('format.monthJune'),
+  t('format.monthJuly'), t('format.monthAugust'), t('format.monthSeptember'),
+  t('format.monthOctober'), t('format.monthNovember'), t('format.monthDecember'),
 ]
 
 export function parseDate(dateStr: string): Date {
@@ -200,7 +203,7 @@ export async function deleteHoliday(teacherId: string, holiday: HolidayRow): Pro
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', holiday.id)
-  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
+  if (error) throw friendlyDbError(error, t('common.deleteError'))
   const { error: sessErr } = await db()
     .from('sessions')
     .update({ status: 'scheduled' })

@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { db } from '../../lib/supabase'
 import type { InvoiceBalanceRow, SessionRow } from '../../types/database'
 
@@ -42,20 +43,20 @@ export function sessionEnd(s: { session_date: string; start_time: string; durati
 
 function fmtDuration(ms: number): string {
   const mins = Math.max(1, Math.round(ms / 60_000))
-  if (mins < 60) return `${mins} دقيقة`
+  if (mins < 60) return t('home.apiMinutes', { mins })
   const h = Math.floor(mins / 60)
   const m = mins % 60
-  const hTxt = h === 1 ? 'ساعة' : h === 2 ? 'ساعتين' : `${h} ساعة`
-  return m ? `${hTxt} و${m} دقيقة` : hTxt
+  const hTxt = h === 1 ? t('home.apiHourOne') : h === 2 ? t('home.apiHourTwo') : t('home.apiHours', { h })
+  return m ? t('home.apiHoursAndMinutes', { hTxt, m }) : hTxt
 }
 
 /** الوقت النسبي لحصة اليوم (المرجع §5.5 ‏relTime): «بعد…» / «بدأت من…» / «خلصت» */
 export function relLabel(s: { session_date: string; start_time: string; duration_minutes: number }, now: Date): string {
   const start = sessionStart(s)
   const end = sessionEnd(s)
-  if (now < start) return `بعد ${fmtDuration(start.getTime() - now.getTime())}`
-  if (now <= end) return `بدأت من ${fmtDuration(now.getTime() - start.getTime())}`
-  return 'خلصت'
+  if (now < start) return t('home.apiAfter', { duration: fmtDuration(start.getTime() - now.getTime()) })
+  if (now <= end) return t('home.apiStartedAgo', { duration: fmtDuration(now.getTime() - start.getTime()) })
+  return t('home.apiFinished')
 }
 
 // ---------------------------------------------------------------------------

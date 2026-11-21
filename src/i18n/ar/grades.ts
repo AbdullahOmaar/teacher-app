@@ -110,4 +110,16 @@ export const grades = {
   sheetEmpty: 'لسه مفيش أسئلة في التقييم ده — أضف أسئلة من بنك الأسئلة الأول.',
   sheetPointsSuffix: '({points} درجة)',
   sheetPrint: 'طباعة الورقة',
+  /** تسميات أنواع التقييم والأسئلة لطبقة البيانات (أكواد DB تبقى مفاتيح) */
+  typeExam: 'امتحان',
+  typeHomework: 'واجب',
+  questionMcq: 'اختيار من متعدد',
+  questionEssay: 'مقالي',
+  /** حروف اختيارات الـ MCQ في ورقة الامتحان بالترتيب */
+  optionLetterA: 'أ',
+  optionLetterB: 'ب',
+  optionLetterC: 'ج',
+  optionLetterD: 'د',
+  /** رسالة درجة ولي الأمر عبر واتساب (wa.me) من طبقة البيانات */
+  scoreWaMessage: 'أهلاً {guardian}، درجة {name} في {title} هي {score} من {max} ({pct}%).',
 } as const

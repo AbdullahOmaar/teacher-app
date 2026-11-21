@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { waLink } from '../../lib/format'
@@ -28,27 +29,32 @@ export type { RosterStudent, GuardianContact }
 // ---------------------------------------------------------------------------
 
 export const ASSESSMENT_TYPES: { code: AssessmentType; label: string }[] = [
-  { code: 'exam', label: 'امتحان' },
-  { code: 'homework', label: 'واجب' },
+  { code: 'exam', label: t('grades.typeExam') },
+  { code: 'homework', label: t('grades.typeHomework') },
 ]
 
 export const ASSESSMENT_TYPE_LABELS: Record<AssessmentType, string> = {
-  exam: 'امتحان',
-  homework: 'واجب',
+  exam: t('grades.typeExam'),
+  homework: t('grades.typeHomework'),
 }
 
 export const QUESTION_TYPES: { code: QuestionType; label: string }[] = [
-  { code: 'mcq', label: 'اختيار من متعدد' },
-  { code: 'essay', label: 'مقالي' },
+  { code: 'mcq', label: t('grades.questionMcq') },
+  { code: 'essay', label: t('grades.questionEssay') },
 ]
 
 export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
-  mcq: 'اختيار من متعدد',
-  essay: 'مقالي',
+  mcq: t('grades.questionMcq'),
+  essay: t('grades.questionEssay'),
 }
 
 /** حروف اختيارات الـ MCQ في ورقة الامتحان (المرجع §4 مودال examSheet) */
-export const OPTION_LETTERS = ['أ', 'ب', 'ج', 'د']
+export const OPTION_LETTERS = [
+  t('grades.optionLetterA'),
+  t('grades.optionLetterB'),
+  t('grades.optionLetterC'),
+  t('grades.optionLetterD'),
+]
 
 // ---------------------------------------------------------------------------
 // النسب والتقدير — المرجع §3.4/§3.11: النسبة = الدرجة ÷ النهائية × 100.
@@ -238,7 +244,7 @@ export async function deleteAssessment(teacherId: string, assessmentId: string):
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', assessmentId)
-  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
+  if (error) throw friendlyDbError(error, t('common.deleteError'))
 }
 
 // ---------------------------------------------------------------------------
@@ -319,7 +325,14 @@ export function scoreWaUrl(
   const base = waLink(phone)
   if (!base) return null
   const pct = pctOf(score, assessment.max_score)
-  const msg = `أهلاً ${guardianName}، درجة ${student.name} في ${assessment.title} هي ${fmtScore(score)} من ${fmtScore(assessment.max_score)} (${pct ?? 0}%).`
+  const msg = t('grades.scoreWaMessage', {
+    guardian: guardianName,
+    name: student.name,
+    title: assessment.title,
+    score: fmtScore(score),
+    max: fmtScore(assessment.max_score),
+    pct: pct ?? 0,
+  })
   return `${base}?text=${encodeURIComponent(msg)}`
 }
 
@@ -379,7 +392,7 @@ export async function deleteQuestion(teacherId: string, questionId: string): Pro
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', questionId)
-  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
+  if (error) throw friendlyDbError(error, t('common.deleteError'))
 }
 
 /**

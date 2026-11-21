@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { supabase } from './supabase'
 import type { PushSubscriptionRow } from '../types/database'
 
@@ -136,20 +137,18 @@ export async function currentPushEndpoint(): Promise<string | null> {
  */
 export async function subscribeBrowserPush(): Promise<BrowserPushKeys> {
   if (!isPushSupported()) {
-    throw new Error('المتصفح ده لا يدعم إشعارات Push — على آيفون لازم التطبيق يكون مثبّتاً على الشاشة الرئيسية (iOS 16.4 أو أحدث).')
+    throw new Error(t('common.pushUnsupported'))
   }
   if (!isPushConfigured() || !VAPID_PUBLIC_KEY) {
-    throw new Error('مفتاح إشعارات Push العام غير مضبوط في هذا البناء بعد.')
+    throw new Error(t('common.pushUnconfigured'))
   }
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') {
-    throw new Error('إذن الإشعارات غير ممنوح — فعّله من إعدادات المتصفح للموقع ثم حاول تاني.')
+    throw new Error(t('common.pushPermissionDenied'))
   }
   const reg = await swReadyWithTimeout()
   if (!reg) {
-    throw new Error(
-      'تعذّر الوصول لخدمة الإشعارات في المتصفح ده (الـ Service Worker مش جاهز) — حدّث الصفحة وحاول تاني، ولو استمرت جرّب متصفحاً حديثاً.',
-    )
+    throw new Error(t('common.pushSwUnavailable'))
   }
   const existing = await reg.pushManager.getSubscription()
   const sub =
@@ -162,7 +161,7 @@ export async function subscribeBrowserPush(): Promise<BrowserPushKeys> {
   const p256dh = json.keys?.p256dh
   const auth = json.keys?.auth
   if (!p256dh || !auth) {
-    throw new Error('المتصفح رجّع اشتراكاً ناقص المفاتيح — حدّث الصفحة وحاول تاني.')
+    throw new Error(t('common.pushIncompleteKeys'))
   }
   return {
     endpoint: sub.endpoint,
@@ -216,7 +215,7 @@ export async function subscribeTeacherPush(params: {
   teacherId: string
   userId: string
 }): Promise<PushSubscriptionRow> {
-  if (!supabase) throw new Error('الاتصال بقاعدة البيانات غير مضبوط.')
+  if (!supabase) throw new Error(t('common.dbNotConfigured'))
   const keys = await subscribeBrowserPush()
   const { data, error } = await supabase
     .from('push_subscriptions')

@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { db } from '../../lib/supabase'
 import type {
   DailyClosingInput,
@@ -167,8 +168,8 @@ export async function upsertDailyClosing(
   closedBy: string,
   input: DailyClosingInput,
 ): Promise<DailyClosingRow> {
-  if (!(input.counted_cash >= 0)) throw new Error('المعدود النقدي لا يمكن أن يكون سالباً')
-  if (!(input.counted_electronic >= 0)) throw new Error('المعدود الإلكتروني لا يمكن أن يكون سالباً')
+  if (!(input.counted_cash >= 0)) throw new Error(t('money.countedCashNegativeError'))
+  if (!(input.counted_electronic >= 0)) throw new Error(t('money.countedElectronicNegativeError'))
   const { data, error } = await db()
     .from('daily_closings')
     .upsert(
@@ -229,9 +230,9 @@ export function diffState(diff: number): DiffState {
 }
 
 export const DIFF_LABELS: Record<DiffState, string> = {
-  match: 'مطابق',
-  surplus: 'زيادة',
-  shortage: 'عجز',
+  match: t('money.diffMatch'),
+  surplus: t('money.diffSurplus'),
+  shortage: t('money.diffShortage'),
 }
 
 /** ألوان حالة الفرق بنسختيها المصححتي التباين (بحث §5): خلفية ناعمة + نص */

@@ -26,4 +26,8 @@ export const paymentProofs = {
   amountFieldLabel: 'المبلغ المعتمد (ج) — زي ما ظاهر في اللقطة فعلياً',
   rejectReasonLabel: 'سبب الرفض (اختياري — بيظهر لولي الأمر في البوابة لو رفضت)',
   rejectReasonPlaceholder: 'مثال: اللقطة مش واضحة، ابعت لقطة أوضح',
+  /** رسائل طبقة البيانات (أخطاء مراجعة الإثباتات) */
+  apiImageUrlError: 'ماقدرناش نجهز رابط صورة الإثبات',
+  apiAlreadyProcessed: 'الإثبات ده اتراجع خلاص — حدّث القائمة وحاول تاني لو محتاج',
+  apiAmountError: 'مبلغ الاعتماد لازم يكون أكبر من صفر',
 } as const

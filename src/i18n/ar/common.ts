@@ -17,6 +17,33 @@ export const common = {
   copyUnavailable: 'النسخ مش متاح في المتصفح ده',
   copiedOverdueList: 'اتنسخت قائمة المتأخرات',
   groupFallback: 'مجموعة',
+  /** رسالة الحذف الافتراضية المشتركة لطبقة البيانات (friendlyDbError) */
+  deleteError: 'حصلت مشكلة أثناء الحذف',
+  /** رسائل طبقة البيانات المشتركة (lib/push + lib/supabase + lib/supabaseErrors) */
+  pushUnsupported:
+    'المتصفح ده لا يدعم إشعارات Push — على آيفون لازم التطبيق يكون مثبّتاً على الشاشة الرئيسية (iOS 16.4 أو أحدث).',
+  pushUnconfigured: 'مفتاح إشعارات Push العام غير مضبوط في هذا البناء بعد.',
+  pushPermissionDenied:
+    'إذن الإشعارات غير ممنوح — فعّله من إعدادات المتصفح للموقع ثم حاول تاني.',
+  pushSwUnavailable:
+    'تعذّر الوصول لخدمة الإشعارات في المتصفح ده (الـ Service Worker مش جاهز) — حدّث الصفحة وحاول تاني، ولو استمرت جرّب متصفحاً حديثاً.',
+  pushIncompleteKeys: 'المتصفح رجّع اشتراكاً ناقص المفاتيح — حدّث الصفحة وحاول تاني.',
+  dbNotConfigured: 'الاتصال بقاعدة البيانات غير مضبوط.',
+  deleteBlockedByLinks:
+    'مينفعش الحذف النهائي: العنصر مرتبط بسجلات مالية أو تاريخية محفوظة في القاعدة. الأرشفة هي الخيار المتاح.',
+  unexpectedError: 'حصل خطأ غير متوقع',
+  supabaseEnvMissing:
+    '[تطبيق المدرس] متغيرات VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY غير موجودة — التطبيق يعمل في وضع تجريبي بلا اتصال بـ Supabase. انسخ .env.example إلى .env واملأ القيم.',
+  supabaseNotConnected: 'Supabase غير مربوط — راجع إعدادات .env',
+  /** أسماء ألوان اللهجة الجاهزة في منتقي الهوية (lib/brand) */
+  accentIndigo: 'نيلي (الافتراضي)',
+  accentViolet: 'بنفسجي',
+  accentBlue: 'أزرق',
+  accentTeal: 'تركوازي',
+  accentGreen: 'أخضر',
+  accentAmber: 'كهرماني',
+  accentPink: 'وردي',
+  accentRed: 'أحمر',
   filter: 'تصفية',
   filterAdvanced: 'تصفية متقدمة',
   close: 'إغلاق',
