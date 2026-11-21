@@ -7,6 +7,8 @@ import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/AuthProvider'
 import { Logo } from '../../components/brand/Logo'
+import { useMascotVisible } from '../../components/mascot/useMascotVisible'
+import doffyIcon from '../../assets/mascot/icon.webp'
 import {
   claimTeacherInvites,
   ensureTeacherProfile,
@@ -51,6 +53,10 @@ export function LoginPage() {
   const [demoBusy, setDemoBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  // لوك أب الدخول (خطة الهوية P-1): وش دُفّي هو وجه التطبيق — وقبل
+  // الجلسة يحسم القرار مرآة الجهاز المحلية/الافتراضي (نفس نمط سبلاش
+  // الإقلاع)، وعند إيقاف الماسكوت يرجع لوجو الكتاب كما كان
+  const mascotVisible = useMascotVisible()
 
   if (!loading && session) {
     return <Navigate to={from} replace />
@@ -214,7 +220,19 @@ export function LoginPage() {
       <div className="relative w-full max-w-[640px] px-4 pt-14 pb-10">
         <div className="text-center mb-6">
           <div className="flex justify-center mb-3">
-            <Logo size={76} />
+            {mascotVisible ? (
+              <img
+                src={doffyIcon}
+                alt=""
+                aria-hidden="true"
+                width={84}
+                height={84}
+                draggable={false}
+                className="rounded-[22px] shadow-card select-none"
+              />
+            ) : (
+              <Logo size={76} />
+            )}
           </div>
           <h1 className="type-screen m-0">{t('auth.appTitle')}</h1>
           <p className="text-muted text-[13.5px] mt-1">

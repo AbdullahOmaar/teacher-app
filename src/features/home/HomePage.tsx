@@ -312,10 +312,10 @@ export function HomePage() {
   const now = new Date()
   // تحية الترحيب بحسب الساعة (صباحاً/مساءً) — من نفس «الآن» المحسوبة
   // أصلاً لاشتقاقات الصفحة حتى لا تتضارب ساعتان في تصيير واحد
+  // تحية دُفّي بنص MASCOT-PLAN §٨ حرفياً (خطة الهوية P-3) — اسم المدرس
+  // عنصر مصاحب في السطر الفرعي تحتها، لا جزءاً من جملة دُفّي نفسها
   const welcomeGreeting =
-    now.getHours() < 12
-      ? t('home.welcome.morning', { name: welcomeName })
-      : t('home.welcome.evening', { name: welcomeName })
+    now.getHours() < 12 ? t('home.welcome.morning') : t('home.welcome.evening')
   const attRate = monthAttendanceQ.data?.rate ?? null
   const collectedMonth = paymentsQ.data?.collectedMonth ?? 0
   const goalPct =
@@ -332,7 +332,11 @@ export function HomePage() {
             <Mascot state="welcome" size={58} />
             <div className="flex-1 min-w-0">
               <div className="font-bold text-[15.5px]">{welcomeGreeting}</div>
-              <div className="text-muted text-[13px] mt-0.5">{t('home.welcome.subtitle')}</div>
+              <div className="text-muted text-[13px] mt-0.5">
+                <span className="font-semibold text-text">{welcomeName}</span>
+                {' — '}
+                {t('home.welcome.subtitle')}
+              </div>
             </div>
             <button
               type="button"

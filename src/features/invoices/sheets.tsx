@@ -4,6 +4,7 @@ import { MessageCircle, Printer, ReceiptText } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Logo } from '../../components/brand/Logo'
 import { Mascot } from '../../components/mascot/Mascot'
+import { useMascotVisible } from '../../components/mascot/useMascotVisible'
 import { useBrandIdentity } from '../../hooks/useBrandIdentity'
 import { Chip, ChipRow, Field, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import { formatMoney, formatTime12 } from '../../lib/format'
@@ -299,6 +300,9 @@ export function ReceiptSheet({
   // الإيصال إن وُجدت — الاسم التجاري يتقدم اسم المدرس، وغيابها = الشكل
   // الحالي حرفياً (شعار التطبيق + اسم المدرس).
   const { brand } = useBrandIdentity(teacherId, true)
+  // احتفال الدفعة (دُفّي + جملته) نقطة ظهور ماسكوت: مفتاح الإظهار يحكم
+  // الشريط كله — صورةً ونصاً — كما في باقي النقاط (MASCOT-PLAN §٧)
+  const mascotVisible = useMascotVisible()
 
   const student = studentQ.data ?? null
   const guardian = student?.guardian_name?.trim() ? student.guardian_name : t('invoices.guardianFallback')
@@ -340,10 +344,14 @@ export function ReceiptSheet({
     <Sheet open title={t('invoices.sheetReceiptTitle', { receiptNo: payment.receipt_no })} onClose={onClose}>
       {/* احتفال دُفّي بنجاح تسجيل الدفعة (MASCOT-PLAN §٤/§٦ — الورقة دي
           لا تُفتح إلا من مسار نجاح الدفع مباشرة). خارج منطقة الطباعة
-          (print-area) تماماً فلا يصل للإيصال الورقي أبداً */}
-      <div className="flex justify-center mb-1">
-        <Mascot state="celebrate" size={64} />
-      </div>
+          (print-area) تماماً فلا يصل للإيصال الورقي أبداً. جملة النجاح
+          من §٨ حرفياً (خطة الهوية P-8) — الاحتفال بصري + صوتي */}
+      {mascotVisible && (
+        <div className="flex flex-col items-center gap-1.5 mb-1">
+          <Mascot state="celebrate" size={64} />
+          <div className="font-bold text-[14.5px] text-center">{t('mascot.paymentSuccess')}</div>
+        </div>
+      )}
       <ChipRow>
         <Chip active={paper === 'a4'} onClick={() => setPaper('a4')}>
           {t('invoices.sheetPaperA4')}

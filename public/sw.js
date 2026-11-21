@@ -32,7 +32,8 @@ const SHELL_URLS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
-  '/favicon.svg',
+  '/favicon.png',
+  '/apple-touch-icon.png',
   '/logo.svg',
   // صورة سبلاش الإقلاع (دُفّي — MASCOT-PLAN §٦): تُخزّن مع القشرة حتى
   // يرسم السبلاش فوراً وبلا شبكة من أول زيارة تالية
