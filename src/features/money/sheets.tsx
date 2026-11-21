@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { errText } from '../../lib/supabaseErrors'
 import { Sheet } from '../../components/ui/Sheet'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, Select, TextInput } from '../../components/ui/form'
@@ -10,10 +11,6 @@ import {
   useUpdateExpense,
   useUpdateRecurring,
 } from './hooks'
-
-function errText(e: unknown): string {
-  return e instanceof Error ? e.message : 'حصل خطأ غير متوقع'
-}
 
 // ---------------------------------------------------------------------------
 // مصروف جديد / تعديل مصروف — المرجع §4 مودال expense:

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { formatDateTimeAr } from '../../lib/format'
 import { Banknote, CalendarDays, CheckCircle2, ReceiptText } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -15,13 +16,6 @@ import { diffOf, diffState } from './cashboxApi'
 import { useDailyClosing, useDailyClosings, useDaySummary } from './cashboxHooks'
 import { ClosingFormSheet } from './ClosingFormSheet'
 import { DiffBadge } from './diffUi'
-
-function fmtDateTime(iso: string): string {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime())
-    ? ''
-    : d.toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })
-}
 
 function SummaryCell({
   label,
@@ -255,9 +249,9 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
                   <p className="text-[13.5px] mb-0 mt-2">ملحوظة: {closing.note}</p>
                 )}
                 <p className="text-muted text-[12px] mb-0 mt-2">
-                  آخر حفظ: {fmtDateTime(closing.updated_at)}
+                  آخر حفظ: {formatDateTimeAr(closing.updated_at)}
                   {closing.updated_at !== closing.created_at
-                    ? ` · أول إغلاق: ${fmtDateTime(closing.created_at)}`
+                    ? ` · أول إغلاق: ${formatDateTimeAr(closing.created_at)}`
                     : ''}
                 </p>
                 <Button full variant="soft" className="mt-3" onClick={() => setSheetOpen(true)}>

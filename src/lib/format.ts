@@ -83,3 +83,13 @@ export function waLink(phone: string | null | undefined): string | null {
   if (digits.startsWith('0')) digits = '20' + digits.slice(1)
   return `https://wa.me/${digits}`
 }
+
+/**
+ * تاريخ+وقت بصيغة عربية متوسطة (COD-3: كانت 3 نسخ محلية). عند قيمة
+ * غير صالحة يُعاد البديل — افتراضياً أول 10 أحرف من النص كما هو.
+ */
+export function formatDateTimeAr(iso: string, fallback?: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return fallback ?? iso.slice(0, 10)
+  return d.toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { formatDateTimeAr } from '../../lib/format'
 import { Sheet } from '../../components/ui/Sheet'
 import { useToast } from '../../components/ui/toast'
 import { Check, Copy, GraduationCap, Link2, MessageCircle, RefreshCw } from 'lucide-react'
@@ -25,12 +26,6 @@ const STATUS_META: Record<ReturnType<typeof studentTokenStatus>, { label: string
   active: { label: 'نشط', cls: 'bg-ok/10 text-ok-text border-ok/30' },
   expired: { label: 'منتهي', cls: 'bg-warn/15 text-warn-text border-warn/40' },
   revoked: { label: 'ملغي', cls: 'bg-bad/10 text-bad-text border-bad/30' },
-}
-
-function fmtDateTime(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso.slice(0, 10)
-  return d.toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 function TokenRow({
@@ -65,13 +60,13 @@ function TokenRow({
         )}
       </div>
       <div className="text-muted text-[13.5px] mt-1.5 leading-relaxed">
-        اتعمل: {fmtDateTime(token.created_at)} · بيخلص: {fmtDateTime(token.expires_at)}
+        اتعمل: {formatDateTimeAr(token.created_at)} · بيخلص: {formatDateTimeAr(token.expires_at)}
         <br />
-        آخر استخدام: {token.last_used_at ? fmtDateTime(token.last_used_at) : 'لسه ما اتفتحش'}
+        آخر استخدام: {token.last_used_at ? formatDateTimeAr(token.last_used_at) : 'لسه ما اتفتحش'}
         {token.revoked_at ? (
           <>
             <br />
-            اتلغى: {fmtDateTime(token.revoked_at)}
+            اتلغى: {formatDateTimeAr(token.revoked_at)}
           </>
         ) : null}
       </div>

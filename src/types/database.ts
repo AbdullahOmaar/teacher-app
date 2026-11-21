@@ -47,9 +47,24 @@ export interface TeacherSettingsRow {
   push_daily_digest_enabled: boolean
   push_daily_digest_time: string // 'HH:MM:SS' (time في القاعدة)
   push_daily_digest_last_sent_on: string | null
+  // عمود migration ‏0017 (الماسكوت الموقوف بقرار المالك): موجود في المخطط
+  // الحي ولا تستخدمه أي ميزة — يُوثَّق هنا لتصحيح انحراف الأنواع (COD-1)
+  // دون بناء أي سلوك فوقه
+  mascot_accessory: string | null
   last_export_at: string | null
   created_at: string
   updated_at: string
+}
+
+/** سجل ملخص Push اليومي (migration ‏0015) — كان بلا نوع صف (انحراف COD-1) */
+export interface PushDigestLogRow {
+  id: string
+  teacher_id: string
+  digest_date: string
+  sessions_count: number
+  overdue_count: number
+  overdue_amount: number
+  sent_at: string
 }
 
 export interface TeacherMemberRow {

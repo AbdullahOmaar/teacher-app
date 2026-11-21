@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { errText } from '../../lib/supabaseErrors'
 import { Sheet } from '../../components/ui/Sheet'
 import { useToast } from '../../components/ui/toast'
 import { Check, Printer, Trash2 } from 'lucide-react'
@@ -29,10 +30,6 @@ import {
   useQuestions,
   useUpdateAssessment,
 } from './hooks'
-
-function errText(e: unknown): string {
-  return e instanceof Error ? e.message : 'حصل خطأ غير متوقع'
-}
 
 // ---------------------------------------------------------------------------
 // امتحان أو واجب جديد / تعديل — المرجع §4 مودال assessment:

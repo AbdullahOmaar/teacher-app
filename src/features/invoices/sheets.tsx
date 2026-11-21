@@ -6,6 +6,7 @@ import { Logo } from '../../components/brand/Logo'
 import { useBrandIdentity } from '../../hooks/useBrandIdentity'
 import { Chip, ChipRow, Field, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import { formatMoney, formatTime12 } from '../../lib/format'
+import { errText } from '../../lib/supabaseErrors'
 import type { AttendanceStatus, PaymentMethod, PaymentRow } from '../../types/database'
 import { todayStr } from '../home/api'
 import { ATTENDANCE_STATUSES, STATUS_LABELS } from '../attendance/api'
@@ -30,10 +31,6 @@ import {
   useTeacherDisplayName,
   useWhatsappTemplate,
 } from './hooks'
-
-function errText(e: unknown): string {
-  return e instanceof Error ? e.message : 'حصل خطأ غير متوقع'
-}
 
 // ---------------------------------------------------------------------------
 // إصدار فواتير شهر — المرجع §4 مودال issueModal + §5.1:

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { errText } from '../../lib/supabaseErrors'
 import { ImageOff, ReceiptText, SearchCheck } from 'lucide-react'
 import { Avatar } from '../../components/ui/Avatar'
 import { Button } from '../../components/ui/Button'
@@ -13,10 +14,6 @@ import { PAYMENT_METHOD_LABELS, periodLabel } from '../invoices/api'
 import { useStudentInvoices } from '../invoices/hooks'
 import type { PendingProofItem } from './api'
 import { useApproveProof, usePendingProofs, useProofImageUrl, useRejectProof } from './hooks'
-
-function errText(e: unknown): string {
-  return e instanceof Error ? e.message : 'حصل خطأ غير متوقع'
-}
 
 /** تاريخ ووقت رفع الإثبات بصيغة مقروءة (التوقيت المحلي للمتصفح) */
 function proofDateTime(iso: string): string {

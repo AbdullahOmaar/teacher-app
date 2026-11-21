@@ -14,3 +14,8 @@ export function friendlyDbError(error: unknown, fallback: string): Error {
   if (error instanceof Error) return error
   return new Error(fallback)
 }
+
+/** نص خطأ آمن للعرض من أي قيمة مرمية (COD-3: كانت 5 نسخ متطابقة في الشيتات) */
+export function errText(e: unknown): string {
+  return e instanceof Error ? e.message : 'حصل خطأ غير متوقع'
+}

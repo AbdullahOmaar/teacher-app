@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { errText } from '../../lib/supabaseErrors'
 import { Sheet } from '../../components/ui/Sheet'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, TextArea, TextInput } from '../../components/ui/form'
@@ -6,10 +7,6 @@ import { formatMoney } from '../../lib/format'
 import type { DailyClosingRow } from '../../types/database'
 import { diffState, DIFF_TEXT_CLS, type DaySummary } from './cashboxApi'
 import { useUpsertDailyClosing } from './cashboxHooks'
-
-function errText(e: unknown): string {
-  return e instanceof Error ? e.message : 'حصل خطأ غير متوقع'
-}
 
 function DiffPreviewRow({
   label,
