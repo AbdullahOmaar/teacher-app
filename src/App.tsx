@@ -7,6 +7,7 @@ import { AppShell } from './components/layout/AppShell'
 import { LoadingState } from './components/ui/states'
 import { HomePage } from './features/home/HomePage'
 import { LoginPage } from './features/auth/LoginPage'
+import { ResetPasswordPage } from './features/auth/ResetPasswordPage'
 import { RequireAuth } from './features/auth/RequireAuth'
 
 /*
@@ -128,6 +129,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             {/* بوابة ولي الأمر: صفحة عامة بلا جلسة مدرس — الاعتماد هو
                 الرابط الموقّع في الاستعلام (?student=&t=) عبر RPC فقط */}
             <Route

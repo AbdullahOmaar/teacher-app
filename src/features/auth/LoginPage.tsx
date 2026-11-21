@@ -11,11 +11,13 @@ import {
   claimTeacherInvites,
   ensureTeacherProfile,
   signInDemo,
+  requestPasswordReset,
+  resendConfirmation,
   signInWithEmail,
   signUpWithEmail,
 } from './api'
 
-type Mode = 'signin' | 'signup'
+type Mode = 'signin' | 'signup' | 'forgot'
 
 /**
  * الدخول والتسجيل الحقيقي بـ Supabase Auth (بريد + كلمة مرور).
@@ -36,6 +38,9 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [busy, setBusy] = useState(false)
+  const [resendBusy, setResendBusy] = useState(false)
+  // إظهار زر إعادة إرسال التأكيد: بعد تسجيل بلا جلسة أو خطأ «بريد غير مؤكد»
+  const [canResend, setCanResend] = useState(false)
   const [demoBusy, setDemoBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -48,6 +53,42 @@ export function LoginPage() {
     setMode(next)
     setError(null)
     setNotice(null)
+    setCanResend(false)
+  }
+
+  const handleResend = async () => {
+    if (!email.trim()) {
+      setError('اكتب بريدك الإلكتروني الأول علشان نبعت رسالة التأكيد.')
+      return
+    }
+    setResendBusy(true)
+    setError(null)
+    try {
+      await resendConfirmation(email)
+      setNotice('أعدنا إرسال رسالة التأكيد — راجع بريدك (ومجلد الرسائل غير المرغوبة)، وافتح الرابط وبعدين سجّل دخولك.')
+      setCanResend(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّرت إعادة الإرسال.')
+    } finally {
+      setResendBusy(false)
+    }
+  }
+
+  const handleForgot = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setNotice(null)
+    setBusy(true)
+    try {
+      await requestPasswordReset(email)
+      // رد محايد دائماً: لا نؤكد ولا ننفي تسجيل البريد
+      setNotice('لو البريد ده مسجل عندنا، هتوصلك رسالة فيها رابط لتعيين كلمة مرور جديدة خلال دقائق.')
+      setMode('signin')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر إرسال رسالة الاستعادة.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const handleSignIn = async (e: FormEvent) => {
@@ -59,7 +100,9 @@ export function LoginPage() {
       await signInWithEmail(email, password)
       // تغيّر الجلسة في AuthProvider يعيد التوجيه تلقائياً بالأعلى
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر تسجيل الدخول.')
+      const msg = err instanceof Error ? err.message : 'تعذّر تسجيل الدخول.'
+      setError(msg)
+      if (msg.includes('لسه مش متأكد')) setCanResend(true)
     } finally {
       setBusy(false)
     }
@@ -87,8 +130,8 @@ export function LoginPage() {
       setError('اكتب اسمك (هيظهر كاسم المدرس في التطبيق).')
       return
     }
-    if (password.length < 6) {
-      setError('كلمة المرور قصيرة — لازم 6 أحرف على الأقل.')
+    if (password.length < 8) {
+      setError('كلمة المرور قصيرة — لازم 8 أحرف على الأقل.')
       return
     }
     if (password !== passwordConfirm) {
@@ -138,6 +181,7 @@ export function LoginPage() {
         setNotice(
           'تم إنشاء حسابك — افتح رسالة التأكيد في بريدك الإلكتروني، وبعدين سجّل دخولك من هنا.',
         )
+        setCanResend(true)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذّر إنشاء الحساب.')
@@ -162,7 +206,11 @@ export function LoginPage() {
           </div>
           <h1 className="type-screen m-0">تطبيق المدرس</h1>
           <p className="text-muted text-[13.5px] mt-1">
-            {mode === 'signin' ? 'سجّل دخولك علشان تكمل' : 'أنشئ حساب مدرس جديد'}
+            {mode === 'signin'
+              ? 'سجّل دخولك علشان تكمل'
+              : mode === 'signup'
+                ? 'أنشئ حساب مدرس جديد'
+                : 'استعادة كلمة المرور'}
           </p>
         </div>
 
@@ -228,6 +276,49 @@ export function LoginPage() {
               <Button full type="submit" disabled={busy || !configured}>
                 {busy ? 'جارٍ تسجيل الدخول…' : 'دخول'}
               </Button>
+              <button
+                type="button"
+                onClick={() => switchMode('forgot')}
+                className="block mx-auto mt-3 bg-transparent border-0 cursor-pointer text-primary font-bold text-[13.5px]"
+              >
+                نسيت كلمة المرور؟
+              </button>
+              {canResend && (
+                <Button
+                  full
+                  variant="soft"
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendBusy}
+                  className="mt-2"
+                >
+                  {resendBusy ? 'جارٍ الإرسال…' : 'إعادة إرسال رسالة التأكيد'}
+                </Button>
+              )}
+            </form>
+          ) : mode === 'forgot' ? (
+            <form onSubmit={handleForgot}>
+              <Field label="البريد الإلكتروني">
+                <TextInput
+                  type="email"
+                  dir="ltr"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </Field>
+              <Button full type="submit" disabled={busy || !configured}>
+                {busy ? 'جارٍ الإرسال…' : 'إرسال رابط الاستعادة'}
+              </Button>
+              <button
+                type="button"
+                onClick={() => switchMode('signin')}
+                className="block mx-auto mt-3 bg-transparent border-0 cursor-pointer text-primary font-bold text-[13.5px]"
+              >
+                رجوع لتسجيل الدخول
+              </button>
             </form>
           ) : (
             <form onSubmit={handleSignUp}>
@@ -266,7 +357,7 @@ export function LoginPage() {
                   type="password"
                   dir="ltr"
                   autoComplete="new-password"
-                  placeholder="6 أحرف على الأقل"
+                  placeholder="8 أحرف على الأقل"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

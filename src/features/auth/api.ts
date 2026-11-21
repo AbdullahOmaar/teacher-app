@@ -10,7 +10,9 @@ export function translateAuthError(message: string): string {
     return 'الحساب ده مسجل بالفعل — جرّب تسجيل الدخول.'
   if (m.includes('email not confirmed'))
     return 'البريد لسه مش متأكد — افتح رسالة التأكيد في بريدك الأول وبعدين سجّل دخول.'
-  if (m.includes('password should be at least')) return 'كلمة المرور قصيرة — لازم 6 أحرف على الأقل.'
+  if (m.includes('password should be at least')) return 'كلمة المرور قصيرة — لازم 8 أحرف على الأقل.'
+  if (m.includes('for security purposes'))
+    return 'لأسباب أمنية لازم تستنى دقيقة بين كل طلب إرسال وطلب.' // حد تكرار البريد (60 ثانية)
   if (m.includes('weak password') || m.includes('password is too weak'))
     return 'كلمة المرور ضعيفة — اختر كلمة أقوى (أحرف وأرقام).'
   if (m.includes('invalid email') || m.includes('unable to validate email'))
@@ -56,6 +58,8 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
     email: input.email.trim(),
     password: input.password,
     options: {
+      // رابط التأكيد يرجع لصفحة الدخول في نفس الأصل (ضمن uri_allow_list)
+      emailRedirectTo: `${window.location.origin}/login`,
       data: {
         display_name: input.displayName.trim(),
         phone: input.phone?.trim() || null,
@@ -76,6 +80,38 @@ export async function signInWithEmail(email: string, password: string): Promise<
     email: email.trim(),
     password,
   })
+  if (error) throw new Error(translateAuthError(error.message))
+}
+
+/**
+ * إعادة إرسال رسالة تأكيد البريد (SEC-1 — مسار إغلاق autoconfirm):
+ * لازمة بعد تفعيل تأكيد البريد حتى لا يعلق مستخدم لم تصله الرسالة.
+ * حد الإرسال من الخادم: رسالة كل 60 ثانية وحد إرسال البريد العام.
+ */
+export async function resendConfirmation(email: string): Promise<void> {
+  const { error } = await db().auth.resend({
+    type: 'signup',
+    email: email.trim(),
+    options: { emailRedirectTo: `${window.location.origin}/login` },
+  })
+  if (error) throw new Error(translateAuthError(error.message))
+}
+
+/**
+ * طلب استعادة كلمة المرور (SEC-5 جزئي — لم يكن موجوداً أصلاً):
+ * يرسل رابطاً لصفحة /reset-password حيث تُعيَّن كلمة جديدة داخل
+ * جلسة الاستعادة. الرد محايد دائماً من الخادم (لا يكشف تسجيل البريد).
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const { error } = await db().auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${window.location.origin}/reset-password`,
+  })
+  if (error) throw new Error(translateAuthError(error.message))
+}
+
+/** تعيين كلمة مرور جديدة داخل جلسة الاستعادة (أو من داخل الحساب) */
+export async function updatePassword(newPassword: string): Promise<void> {
+  const { error } = await db().auth.updateUser({ password: newPassword })
   if (error) throw new Error(translateAuthError(error.message))
 }
 
