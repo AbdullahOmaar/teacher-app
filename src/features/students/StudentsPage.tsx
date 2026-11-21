@@ -6,7 +6,11 @@ import { Check, Upload, Users, X } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
-import { PageToolBar, StickyGroupHeader } from '../../components/ui/PageToolBar'
+import {
+  PageToolBar,
+  StickyGroupHeader,
+  GROUP_HEADER_TOP_WITH_SEARCH,
+} from '../../components/ui/PageToolBar'
 import { Sheet } from '../../components/ui/Sheet'
 import { Chip } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -228,7 +232,7 @@ export function StudentsPage() {
         {sections.map((section) => (
           <div key={section.title ?? '__all'}>
             {section.title && (
-              <StickyGroupHeader bleed={false}>
+              <StickyGroupHeader bleed={false} top={GROUP_HEADER_TOP_WITH_SEARCH}>
                 {t('students.sectionHeader', { title: section.title, count: section.items.length })}
               </StickyGroupHeader>
             )}

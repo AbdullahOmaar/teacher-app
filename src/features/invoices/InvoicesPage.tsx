@@ -9,7 +9,11 @@ import { AlertTriangle, Lock, ReceiptText } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
 import { Chip } from '../../components/ui/form'
-import { PageToolBar, StickyGroupHeader } from '../../components/ui/PageToolBar'
+import {
+  PageToolBar,
+  StickyGroupHeader,
+  GROUP_HEADER_TOP_WITH_SEARCH,
+} from '../../components/ui/PageToolBar'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
@@ -345,7 +349,7 @@ export function InvoicesPage() {
             <>
               {invoiceSections.map((section) => (
                 <div key={section.period}>
-                  <StickyGroupHeader bleed={false}>
+                  <StickyGroupHeader bleed={false} top={GROUP_HEADER_TOP_WITH_SEARCH}>
                     {periodLabel(section.period)} · {section.items.length} فاتورة
                   </StickyGroupHeader>
                   <Card className="p-0 overflow-hidden">

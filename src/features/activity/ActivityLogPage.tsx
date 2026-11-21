@@ -4,7 +4,11 @@ import { History, X } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { PageToolBar, StickyGroupHeader } from '../../components/ui/PageToolBar'
+import {
+  PageToolBar,
+  StickyGroupHeader,
+  GROUP_HEADER_TOP_WITH_SEARCH,
+} from '../../components/ui/PageToolBar'
 import { Sheet } from '../../components/ui/Sheet'
 import { Chip, Field, Select, TextInput } from '../../components/ui/form'
 import {
@@ -216,7 +220,7 @@ export function ActivityLogPage() {
       ) : (
         groups.map((g) => (
           <div key={g.day} className="mb-4">
-            <StickyGroupHeader>{formatDateLabel(g.day)}</StickyGroupHeader>
+            <StickyGroupHeader top={GROUP_HEADER_TOP_WITH_SEARCH}>{formatDateLabel(g.day)}</StickyGroupHeader>
             <Card className="p-0 overflow-hidden">
               {g.items.map((row, i) => {
                 const details = detailsText(row)
