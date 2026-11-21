@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { csvEsc, toCsv } from '../../lib/csv'
 
 export { csvEsc, toCsv }
@@ -14,11 +14,6 @@ import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import { STATUS_LABELS } from '../attendance/api'
 import { createStudent, upsertEnrollment } from '../students/api'
 import { fetchGroups } from '../groups/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ===========================================================================
 // الخطوة 10 — التصدير والنسخ الاحتياطي والإعدادات (المواصفات §3.14/§3.15/

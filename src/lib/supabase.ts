@@ -18,3 +18,13 @@ if (!isSupabaseConfigured) {
 export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(supabaseUrl as string, supabaseAnonKey as string)
   : null
+
+/**
+ * عميل جاهز للاستخدام أو رمي خطأ واضح (COD-4): نقطة الدخول الوحيدة
+ * لملفات api بدل نسخة `db()` مكررة في كل وحدة. في الوضع التجريبي
+ * (بلا متغيرات بيئة) يرمي بدل إرجاع null حتى لا تتسرب استعلامات فارغة.
+ */
+export function db(): SupabaseClient {
+  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
+  return supabase
+}

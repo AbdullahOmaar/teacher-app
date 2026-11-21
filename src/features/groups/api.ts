@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { logActivity } from '../activity/api'
 import type {
@@ -8,11 +8,6 @@ import type {
   GroupWaitlistRow,
   WaitlistInput,
 } from '../../types/database'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 const GROUP_COLS =
   'id, teacher_id, name, billing_type, price, days, start_time, duration_minutes, room, capacity, assistant_name, links, archived_at, created_at, updated_at'

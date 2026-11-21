@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { logActivity } from '../activity/api'
 import type {
@@ -9,11 +9,6 @@ import type {
   StudentInput,
   StudentRow,
 } from '../../types/database'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 const STUDENT_COLS =
   'id, teacher_id, public_code, name, grade, school, paused, phone, guardian_name, guardian_phone, level_note, created_at, updated_at'

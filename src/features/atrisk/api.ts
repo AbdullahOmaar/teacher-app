@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
 import { formatMoney, waLink } from '../../lib/format'
 import {
@@ -8,11 +8,6 @@ import {
   type RosterStudent,
 } from '../attendance/api'
 import { monthStartStr } from '../home/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // «معرّضون للفقد» (At-Risk) — Phase 5 / الخطوة 1 (خطة P5-1)

@@ -1,10 +1,5 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import type { InvoiceBalanceRow, SessionRow } from '../../types/database'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // مساعدات التاريخ — بالتوقيت المحلي للجهاز، وبصيغة 'YYYY-MM-DD' مثل المخطط

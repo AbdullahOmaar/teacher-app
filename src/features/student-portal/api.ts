@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import { waLink } from '../../lib/format'
 import type {
@@ -9,11 +9,6 @@ import type {
   StudentRow,
 } from '../../types/database'
 import { generateRawToken, sha256Hex } from '../portal/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ===========================================================================
 // بوابة الطالب — Phase 3 خطوة 5 (migration ‏0011).

@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
 import { formatMoney, shortTime, waLink } from '../../lib/format'
 import {
@@ -15,11 +15,6 @@ import {
 } from '../attendance/api'
 import { fmtScore, pctOf, scoreWaUrl } from '../grades/api'
 import { MONTH_NAMES } from '../schedule/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // مصدر الاشتقاق الواحد للتنبيهات — الخطوة 8 (المواصفات §3.13 + §5.7،

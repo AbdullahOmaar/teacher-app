@@ -1,11 +1,6 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import type { TeacherMemberRow, TeacherRow, TeacherSettingsRow } from '../../types/database'
 import { logActivity } from '../activity/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 /** ترجمة أخطاء Supabase Auth الشائعة لرسائل عربية واضحة */
 export function translateAuthError(message: string): string {

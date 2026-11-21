@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { DAY_NAMES } from '../../lib/format'
 import type { ExtraSessionInput, GroupRow, HolidayRow, SessionRow } from '../../types/database'
 import {
@@ -13,11 +13,6 @@ import {
 
 export { fetchSessionsInRange, todayStr }
 export type { SessionWithGroup }
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // مساعدات التاريخ — كل التواريخ بصيغة 'YYYY-MM-DD' بالتوقيت المحلي مثل المخطط.

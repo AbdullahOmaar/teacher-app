@@ -1,13 +1,8 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import type { PaymentProofRow } from '../../types/database'
 import { todayStr } from '../home/api'
 import { createPayment, voidPayment, PAYMENT_METHOD_LABELS } from '../invoices/api'
 import { logActivity } from '../activity/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // إثباتات الدفع — Phase 2 خطوة 7 (migration ‏0005).

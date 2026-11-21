@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import type {
   ExamAttemptRow,
@@ -9,11 +9,6 @@ import type {
   OnlineExamTokenRow,
 } from '../../types/database'
 import { generateRawToken, sha256Hex } from '../portal/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ===========================================================================
 // الامتحانات الإلكترونية بتصحيح تلقائي — Phase 3 خطوة 4 (migration ‏0010).

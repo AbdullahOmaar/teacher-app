@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db, supabase } from '../../lib/supabase'
 import { t } from '../../i18n'
 import type {
   ActivityActorRole,
@@ -177,8 +177,7 @@ export async function fetchActivityLog(
   teacherId: string,
   filters: ActivityFilters = {},
 ): Promise<ActivityLogRow[]> {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  let q = supabase
+  let q = db()
     .from('activity_log')
     .select(LOG_COLS)
     .eq('teacher_id', teacherId)
@@ -219,8 +218,7 @@ export interface ActivityActorOption {
  * للمستخدم الحالي (المالك: كل الفاعلين؛ المساعد: نفسه فقط بفعل RLS).
  */
 export async function fetchActivityActors(teacherId: string): Promise<ActivityActorOption[]> {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('activity_log')
     .select('actor_id, actor_name, actor_role')
     .eq('teacher_id', teacherId)

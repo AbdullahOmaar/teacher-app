@@ -1,12 +1,7 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import type { EnrolmentLinkRow } from '../../types/database'
 import { generateRawToken, sha256Hex } from '../portal/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ===========================================================================
 // صفحة الحجز/التسجيل العامة — Phase 5 خطوة 2 (migration ‏0019).

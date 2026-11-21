@@ -1,15 +1,10 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import type {
   DailyClosingInput,
   DailyClosingRow,
   PaymentMethod,
 } from '../../types/database'
 import { logActivity } from '../activity/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // الإغلاق اليومي للخزنة (Phase 2 — الخطوة 5) — طبقة فوق الدفعات الحالية،

@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import type {
   ExpenseInput,
   ExpenseRow,
@@ -7,11 +7,6 @@ import type {
   RecurringExpenseRow,
 } from '../../types/database'
 import { monthEndStr, monthStartStr } from '../home/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // فئات المصروفات — قيد المخطط على expenses.category و recurring_expenses.category

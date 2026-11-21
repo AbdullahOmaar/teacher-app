@@ -1,11 +1,6 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { monthStartStr, todayStr } from '../home/api'
 import { fetchMonthlyProfit } from '../money/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // لوحة التحليلات (Phase 3 — الخطوة 3): مصادر البيانات وتعريفاتها.

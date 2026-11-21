@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { waLink } from '../../lib/format'
 import type { AttendanceRow, AttendanceStatus, StudentRow } from '../../types/database'
 import { fetchSessionsInRange, monthStartStr, type SessionWithGroup } from '../home/api'
@@ -6,11 +6,6 @@ import { logActivity, logAttendanceTouch } from '../activity/api'
 
 export { fetchSessionsInRange, monthStartStr }
 export type { SessionWithGroup }
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // حالات الحضور الأربع — enum ‏attendance_status في المخطط حرفياً (p/a/l/m)،

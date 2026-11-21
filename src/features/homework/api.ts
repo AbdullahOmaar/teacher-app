@@ -1,11 +1,6 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import type { AttendanceStatus, SessionRow } from '../../types/database'
 import { isAttended } from '../attendance/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // متابعة الواجبات (خطوة 6 — Phase 2): قراءات فقط فوق نفس جداول الحضور.

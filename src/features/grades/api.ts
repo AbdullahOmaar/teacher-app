@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { waLink } from '../../lib/format'
 import type {
   AssessmentInput,
@@ -20,11 +20,6 @@ import {
 
 export { fetchSessionRoster, fetchGuardianContacts, resolveGuardian, todayStr }
 export type { RosterStudent, GuardianContact }
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // الأنواع — enums المخطط حرفياً: assessment_type ('exam'|'homework')

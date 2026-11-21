@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import { waLink } from '../../lib/format'
 import type {
@@ -8,11 +8,6 @@ import type {
   PaymentProofStatus,
   StudentRow,
 } from '../../types/database'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // بوابة ولي الأمر بالروابط الموقّعة — الخطوة 9 (المواصفات §3.17،

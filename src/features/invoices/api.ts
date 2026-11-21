@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import { formatMoney, waLink } from '../../lib/format'
 import type {
   AttendanceStatus,
@@ -14,11 +14,6 @@ import { MONTH_NAMES, ensureSessionsGenerated } from '../schedule/api'
 import { isAttended, saveAttendance } from '../attendance/api'
 import { fetchGroups } from '../groups/api'
 import { logActivity } from '../activity/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // طرق الدفع — enum ‏payment_method في المخطط حرفياً
