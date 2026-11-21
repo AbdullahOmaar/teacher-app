@@ -3,6 +3,7 @@ import { CameraOff, CheckCircle2, Keyboard, ScanQrCode, TriangleAlert, X } from 
 import { Button } from '../../components/ui/Button'
 import { TextInput } from '../../components/ui/form'
 import { normalizeScannedCode, shouldAcceptScan } from './qr'
+import { t } from '../../i18n'
 
 /** نتيجة معالجة كود واحد — يقررها الأب (شاشة الحضور) من قائمة الحصة الحالية */
 export type ScanOutcome =
@@ -49,25 +50,23 @@ function cameraErrorState(err: unknown): CameraState {
 }
 
 const CAMERA_MESSAGES: Record<Exclude<CameraState, 'starting' | 'scanning'>, string> = {
-  denied:
-    'لم يتم السماح بالكاميرا. فعّل إذن الكاميرا من إعدادات المتصفح لهذا الموقع ثم أعد المحاولة — أو سجّل من القائمة/بالكود اليدوي تحت.',
-  unavailable:
-    'لا توجد كاميرا متاحة، أو الصفحة ليست على اتصال آمن (HTTPS) — الكاميرا لا تعمل إلا على HTTPS. جرّب من رابط الإنتاج، أو سجّل من القائمة/بالكود اليدوي تحت.',
-  busy: 'الكاميرا مشغولة بتطبيق تاني. اقفله وحاول تاني — أو سجّل من القائمة/بالكود اليدوي تحت.',
-  error: 'حصلت مشكلة في تشغيل الكاميرا. حاول تاني — أو سجّل من القائمة/بالكود اليدوي تحت.',
+  denied: t('attendance.cameraDenied'),
+  unavailable: t('attendance.cameraUnavailable'),
+  busy: t('attendance.cameraBusy'),
+  error: t('attendance.cameraError'),
 }
 
 function feedbackText(f: Feedback): string {
   const o = f.outcome
   switch (o.kind) {
     case 'marked':
-      return `تم تسجيل حضور ${o.studentName} ✓ — امسح الكارت اللي بعده`
+      return t('attendance.feedbackMarked', { name: o.studentName })
     case 'already':
-      return `${o.studentName} مسجّل حاضر بالفعل`
+      return t('attendance.feedbackAlready', { name: o.studentName })
     case 'unknown':
-      return `الكود ${o.code} مش موجود في الحصة دي — لم يتم تسجيل أي حضور`
+      return t('attendance.feedbackUnknown', { code: o.code })
     case 'cancelled':
-      return 'الحصة ملغاة — الحضور مقفول'
+      return t('attendance.feedbackCancelled')
   }
 }
 
@@ -211,21 +210,21 @@ export function QrScannerSheet({ sessionLabel, done, total, onScan, onClose }: Q
   const cameraBlocked = camState !== 'starting' && camState !== 'scanning'
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black flex flex-col" role="dialog" aria-modal="true" aria-label="مسح QR للحضور">
+    <div className="fixed inset-0 z-[60] bg-black flex flex-col" role="dialog" aria-modal="true" aria-label={t('attendance.scannerAria')}>
       {/* الترويسة: الحصة الحالية + إغلاق */}
       <div className="flex items-center gap-2 px-4 pt-[max(12px,env(safe-area-inset-top))] pb-3 text-white">
         <ScanQrCode size={24} className="shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="font-extrabold text-[16px] leading-[1.5]">مسح QR — تسجيل حضور عند الباب</div>
+          <div className="font-extrabold text-[16px] leading-[1.5]">{t('attendance.scannerTitle')}</div>
           <div className="text-white/70 text-[13.5px] leading-[1.5] truncate">{sessionLabel}</div>
         </div>
         <span className="shrink-0 text-[13.5px] font-bold bg-white/15 rounded-full px-3 py-1.5" aria-live="polite">
-          {done}/{total} اتحضّروا
+          {t('attendance.scannedCount', { done, total })}
         </span>
         <button
           type="button"
           onClick={onClose}
-          aria-label="إغلاق الماسح"
+          aria-label={t('attendance.closeScannerAria')}
           className="shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-white/15 text-white border-0 cursor-pointer"
         >
           <X size={24} />
@@ -254,7 +253,7 @@ export function QrScannerSheet({ sessionLabel, done, total, onScan, onClose }: Q
         )}
         {camState === 'starting' && (
           <div className="absolute inset-0 flex items-center justify-center text-white/85 text-[15px] font-semibold px-6 text-center">
-            بنشغّل الكاميرا… اسمح بالوصول للكاميرا لو ظهر طلب الإذن.
+            {t('attendance.cameraStarting')}
           </div>
         )}
         {cameraBlocked && (
@@ -271,7 +270,7 @@ export function QrScannerSheet({ sessionLabel, done, total, onScan, onClose }: Q
                   setAttempt((a) => a + 1)
                 }}
               >
-                إعادة محاولة الكاميرا
+                {t('attendance.cameraRetry')}
               </Button>
             </div>
           </div>
@@ -296,8 +295,8 @@ export function QrScannerSheet({ sessionLabel, done, total, onScan, onClose }: Q
           ) : (
             <p className="text-white/70 text-[13.5px] text-center pt-2 mb-0">
               {camState === 'scanning'
-                ? 'قرّب كارت الطالب من الكاميرا — التسجيل فوري والمسح بيكمل للطالب اللي بعده'
-                : 'تقدر تسجّل يدوياً بالكود أو ترجع لقائمة الحضور'}
+                ? t('attendance.scannerHintScanning')
+                : t('attendance.scannerHintManual')}
             </p>
           )}
         </div>
@@ -311,14 +310,14 @@ export function QrScannerSheet({ sessionLabel, done, total, onScan, onClose }: Q
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') submitManual()
                 }}
-                placeholder="Student code — كود الطالب"
+                placeholder={t('attendance.manualCodePlaceholder')}
                 autoFocus
                 autoCapitalize="characters"
                 autoCorrect="off"
               />
             </div>
             <Button onClick={submitManual} disabled={!manualCode.trim()}>
-              تسجيل حاضر
+              {t('attendance.markPresentAction')}
             </Button>
           </div>
         ) : (
@@ -328,7 +327,7 @@ export function QrScannerSheet({ sessionLabel, done, total, onScan, onClose }: Q
             className="inline-flex items-center justify-center gap-2 rounded-xl px-4 min-h-[48px] text-[15px] font-semibold cursor-pointer bg-white/10 text-white border border-white/25 hover:bg-white/20"
           >
             <Keyboard size={20} />
-            إدخال الكود يدوياً
+            {t('attendance.manualEntry')}
           </button>
         )}
         <button
@@ -336,7 +335,7 @@ export function QrScannerSheet({ sessionLabel, done, total, onScan, onClose }: Q
           onClick={onClose}
           className="inline-flex items-center justify-center gap-2 rounded-xl px-4 min-h-[48px] text-[15px] font-semibold cursor-pointer bg-transparent text-white/85 border border-white/25 hover:bg-white/10"
         >
-          الرجوع لقائمة الحضور
+          {t('attendance.backToList')}
         </button>
       </div>
     </div>
