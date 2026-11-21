@@ -1,4 +1,5 @@
 import { db } from '../../lib/supabase'
+import { t } from '../../i18n'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import type {
@@ -32,9 +33,9 @@ import { generateRawToken, sha256Hex } from '../portal/api'
 // ===========================================================================
 
 export const ONLINE_EXAM_STATUS_LABELS: Record<OnlineExamStatus, string> = {
-  draft: 'مسودة — غير منشور',
-  published: 'منشور — الطلاب يقدروا يدخلوا',
-  closed: 'مغلق — لا دخول جديد',
+  draft: t('exams.apiStatusDraft'),
+  published: t('exams.apiStatusPublished'),
+  closed: t('exams.apiStatusClosed'),
 }
 
 const EXAM_COLS =
@@ -116,12 +117,12 @@ export async function updateOnlineExam(
   examId: string,
   input: OnlineExamInput,
 ): Promise<OnlineExamRow> {
-  if (!(input.max_attempts >= 1)) throw new Error('حد المحاولات لازم يكون 1 على الأقل')
+  if (!(input.max_attempts >= 1)) throw new Error(t('exams.apiErrorMaxAttempts'))
   if (input.duration_minutes != null && !(input.duration_minutes > 0)) {
-    throw new Error('مدة الامتحان لازم تكون أكبر من صفر — أو سيبها فاضية لامتحان بلا مؤقّت')
+    throw new Error(t('exams.apiErrorDuration'))
   }
   if (input.starts_at && input.ends_at && input.ends_at <= input.starts_at) {
-    throw new Error('نهاية نافذة الإتاحة لازم تكون بعد بدايتها')
+    throw new Error(t('exams.apiErrorWindowOrder'))
   }
   const { data, error } = await db()
     .from('online_exams')
@@ -141,7 +142,7 @@ export async function deleteOnlineExam(teacherId: string, examId: string): Promi
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', examId)
-  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
+  if (error) throw friendlyDbError(error, t('exams.apiErrorDelete'))
 }
 
 // ---------------------------------------------------------------------------
@@ -466,72 +467,72 @@ export function examErrorInfo(error: unknown): { title: string; hint: string } {
   const msg = error instanceof Error ? error.message : String(error ?? '')
   if (msg.includes('invalid or expired')) {
     return {
-      title: 'رابط الامتحان غير صالح',
-      hint: 'الرابط ده منتهي أو ملغي. اطلب من المدرس رابط الامتحان الجديد.',
+      title: t('exams.apiErrInvalidTitle'),
+      hint: t('exams.apiErrInvalidHint'),
     }
   }
   if (msg.includes('exam not published')) {
     return {
-      title: 'الامتحان لسه مش منشور',
-      hint: 'المدرس لسه ما نشّرش الامتحان ده. جرّب تاني بعد ما يعلن إنه جاهز.',
+      title: t('exams.apiErrNotPublishedTitle'),
+      hint: t('exams.apiErrNotPublishedHint'),
     }
   }
   if (msg.includes('exam not started yet')) {
     return {
-      title: 'الامتحان لسه ما بدأش',
-      hint: 'نافذة الامتحان لسه ما فتحتش. ارجع في الوقت اللي المدرس حدده.',
+      title: t('exams.apiErrNotStartedTitle'),
+      hint: t('exams.apiErrNotStartedHint'),
     }
   }
   if (msg.includes('exam window closed')) {
     return {
-      title: 'نافذة الامتحان قفلت',
-      hint: 'وقت إتاحة الامتحان انتهى خلاص. تواصل مع المدرس لو في ظرف خاص.',
+      title: t('exams.apiErrWindowClosedTitle'),
+      hint: t('exams.apiErrWindowClosedHint'),
     }
   }
   if (msg.includes('too many attempts')) {
     return {
-      title: 'محاولات كتير في وقت قصير',
-      hint: 'جرّبت تدخل مرات كتير ورا بعض. استنى 10 دقايق وجرّب تاني، واتأكد إن الكود مكتوب زي ما هو في كارت الطالب بالظبط.',
+      title: t('exams.apiErrTooManyTitle'),
+      hint: t('exams.apiErrTooManyHint'),
     }
   }
   if (msg.includes('student code not found')) {
     return {
-      title: 'الكود غير صحيح',
-      hint: 'الكود ده مش موجود عند المدرس. اتأكد إنك كاتبه زي ما هو في كارت الطالب بالظبط.',
+      title: t('exams.apiErrCodeNotFoundTitle'),
+      hint: t('exams.apiErrCodeNotFoundHint'),
     }
   }
   if (msg.includes('student not in exam group')) {
     return {
-      title: 'الكود مش في مجموعة الامتحان',
-      hint: 'الامتحان ده لمجموعة تانية. اتأكد من الكود، أو اسأل المدرس عن رابط مجموعتك.',
+      title: t('exams.apiErrNotInGroupTitle'),
+      hint: t('exams.apiErrNotInGroupHint'),
     }
   }
   if (msg.includes('student is paused')) {
     return {
-      title: 'الحساب موقوف مؤقتاً',
-      hint: 'اشتراكك موقوف حالياً عند المدرس — تواصل معاه قبل دخول الامتحان.',
+      title: t('exams.apiErrPausedTitle'),
+      hint: t('exams.apiErrPausedHint'),
     }
   }
   if (msg.includes('attempt limit reached')) {
     return {
-      title: 'خلصت محاولاتك',
-      hint: 'استخدمت كل المحاولات المتاحة للامتحان ده. نتيجتك المسجلة هي أفضل محاولة، ولو محتاج محاولة إضافية كلّم المدرس.',
+      title: t('exams.apiErrLimitTitle'),
+      hint: t('exams.apiErrLimitHint'),
     }
   }
   if (msg.includes('exam has no gradable questions')) {
     return {
-      title: 'الامتحان مش جاهز',
-      hint: 'لسه مفيش أسئلة اختيارية قابلة للتصحيح في الامتحان ده. بلّغ المدرس.',
+      title: t('exams.apiErrNoQuestionsTitle'),
+      hint: t('exams.apiErrNoQuestionsHint'),
     }
   }
   if (msg.includes('time expired')) {
     return {
-      title: 'انتهى وقت الامتحان',
-      hint: 'مهلة المحاولة خلصت قبل التسليم فاتقفلت المحاولة. تواصل مع المدرس لو محتاج محاولة جديدة.',
+      title: t('exams.apiErrTimeExpiredTitle'),
+      hint: t('exams.apiErrTimeExpiredHint'),
     }
   }
   return {
-    title: 'حصلت مشكلة',
-    hint: 'ماقدرناش نكمل العملية دي. اتأكد من النت وحاول تاني، ولو اتكررت بلّغ المدرس.',
+    title: t('exams.apiErrGenericTitle'),
+    hint: t('exams.apiErrGenericHint'),
   }
 }

@@ -1,4 +1,5 @@
 import { db } from '../../lib/supabase'
+import { t } from '../../i18n'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import { waLink } from '../../lib/format'
 import type {
@@ -135,9 +136,11 @@ export function studentPortalLinkWaUrl(student: StudentRow, link: string): strin
   const phone = student.phone?.trim() || student.guardian_phone?.trim() || null
   const base = waLink(phone)
   if (!base) return null
-  const msg =
-    `أهلاً ${student.name}، ده رابط بوابة الطالب الخاصة بيك ` +
-    `(حصصك الجاية وواجباتك ودرجاتك ومدفوعاتك): ${link} — الرابط صالح لمدة ${STUDENT_PORTAL_TOKEN_TTL_DAYS} يوم.`
+  const msg = t('studentPortal.apiStudentLinkWa', {
+    name: student.name,
+    link,
+    days: STUDENT_PORTAL_TOKEN_TTL_DAYS,
+  })
   return `${base}?text=${encodeURIComponent(msg)}`
 }
 
@@ -308,13 +311,13 @@ export function studentPortalErrorInfo(error: unknown): { title: string; hint: s
   const msg = error instanceof Error ? error.message : String(error ?? '')
   if (msg.includes('invalid or expired')) {
     return {
-      title: 'الرابط منتهي أو ملغي',
-      hint: 'رابط بوابتك انتهت صلاحيته (30 يوم) أو المدرس ألغاه. اطلب من المدرس رابط جديد وهيوصلك على واتساب.',
+      title: t('studentPortal.apiErrorExpiredTitle'),
+      hint: t('studentPortal.apiErrorExpiredHint'),
     }
   }
   return {
-    title: 'الرابط غير صالح',
-    hint: 'ماقدرناش نفتح البوابة بالرابط ده. تأكد إنك فتحته زي ما وصلك بالظبط، أو اطلب من المدرس رابط جديد.',
+    title: t('studentPortal.apiErrorInvalidTitle'),
+    hint: t('studentPortal.apiErrorGenericHint'),
   }
 }
 
@@ -330,12 +333,12 @@ export function studentPortalErrorInfo(error: unknown): { title: string; hint: s
 function pushErrorMessage(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error ?? '')
   if (msg.includes('invalid or expired')) {
-    return 'رابط بوابتك منتهي أو مش صالح — اطلب من المدرس رابط جديد قبل تفعيل الإشعارات.'
+    return t('studentPortal.apiPushErrorInvalidLink')
   }
   if (msg.includes('invalid subscription')) {
-    return 'المتصفح رجّع اشتراكاً ناقصاً — حدّث الصفحة وحاول تاني.'
+    return t('studentPortal.apiPushErrorInvalidSub')
   }
-  return 'ماقدرناش نغيّر حالة الإشعارات — اتأكد من النت وحاول تاني.'
+  return t('studentPortal.apiPushErrorGeneric')
 }
 
 /** حالة اشتراك هذا المتصفح لبوابة الطالب (نشط؟) */
@@ -377,8 +380,8 @@ export async function unsubscribeStudentPush(rawToken: string, endpoint: string)
 
 /** حالات الحضور في سجل الواجبات — نفس شارات بوابة ولي الأمر */
 export const STUDENT_PORTAL_ATT_META: Record<string, { label: string; badge: string }> = {
-  p: { label: 'حاضر', badge: 'bg-ok/10 text-ok border-ok/30' },
-  a: { label: 'غائب', badge: 'bg-bad/10 text-bad border-bad/30' },
-  l: { label: 'متأخر', badge: 'bg-warn/15 text-warn border-warn/40' },
-  m: { label: 'تعويضية', badge: 'bg-soft text-primary border-primary/30' },
+  p: { label: t('studentPortal.apiAttPresent'), badge: 'bg-ok/10 text-ok border-ok/30' },
+  a: { label: t('studentPortal.apiAttAbsent'), badge: 'bg-bad/10 text-bad border-bad/30' },
+  l: { label: t('studentPortal.apiAttLate'), badge: 'bg-warn/15 text-warn border-warn/40' },
+  m: { label: t('studentPortal.apiAttMakeup'), badge: 'bg-soft text-primary border-primary/30' },
 }

@@ -1,4 +1,5 @@
 import { db } from '../../lib/supabase'
+import { t } from '../../i18n'
 import { formatMoney, waLink } from '../../lib/format'
 import type {
   AttendanceStatus,
@@ -20,17 +21,17 @@ import { logActivity } from '../activity/api'
 // ---------------------------------------------------------------------------
 
 export const PAYMENT_METHODS: { code: PaymentMethod; label: string }[] = [
-  { code: 'cash', label: 'كاش' },
-  { code: 'vodafone_cash', label: 'فودافون كاش' },
-  { code: 'instapay', label: 'إنستاباي' },
-  { code: 'bank_transfer', label: 'تحويل بنكي' },
+  { code: 'cash', label: t('invoices.apiMethodCash') },
+  { code: 'vodafone_cash', label: t('invoices.apiMethodVodafone') },
+  { code: 'instapay', label: t('invoices.apiMethodInstapay') },
+  { code: 'bank_transfer', label: t('invoices.apiMethodBank') },
 ]
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  cash: 'كاش',
-  vodafone_cash: 'فودافون كاش',
-  instapay: 'إنستاباي',
-  bank_transfer: 'تحويل بنكي',
+  cash: t('invoices.apiMethodCash'),
+  vodafone_cash: t('invoices.apiMethodVodafone'),
+  instapay: t('invoices.apiMethodInstapay'),
+  bank_transfer: t('invoices.apiMethodBank'),
 }
 
 // ---------------------------------------------------------------------------
@@ -328,18 +329,18 @@ export function baseChargeFor(input: BaseChargeInput): BaseCharge {
   const { price, ym } = input
   switch (input.billingType) {
     case 'monthly_fixed':
-      return { amount: price, desc: `اشتراك ${ym}` }
+      return { amount: price, desc: t('invoices.apiChargeMonthly', { ym }) }
     case 'weekly_package':
-      return { amount: 4 * price, desc: `باقة شهر ${ym} (4 أسابيع)` }
+      return { amount: 4 * price, desc: t('invoices.apiChargeWeekly', { ym }) }
     case 'per_session_prepaid':
       return {
         amount: input.prepaidQty * price,
-        desc: `${input.prepaidQty} حصة مدفوعة مسبقاً`,
+        desc: t('invoices.apiChargePrepaid', { qty: input.prepaidQty }),
       }
     case 'per_session_attended':
       return {
         amount: input.attendedCount * price,
-        desc: `حصص حضرها (${input.attendedCount})`,
+        desc: t('invoices.apiChargeAttended', { count: input.attendedCount }),
       }
   }
 }
@@ -498,7 +499,7 @@ export async function generateInvoices(
       if (discAmt > 0) {
         lines.push({
           line_type: 'discount',
-          description: `خصم (${opts.discountNote?.trim() ? opts.discountNote.trim() : 'خصم خاص'})`,
+          description: t('invoices.apiDiscountDesc', { note: opts.discountNote?.trim() ? opts.discountNote.trim() : t('invoices.apiDiscountFallback') }),
           amount: -discAmt,
           reason: opts.discountNote?.trim() ? opts.discountNote.trim() : null,
         })
@@ -632,7 +633,7 @@ export async function createPayment(
   invoiceId: string,
   input: { amount: number; method: PaymentMethod; paid_on: string },
 ): Promise<PaymentRow> {
-  if (!(input.amount > 0)) throw new Error('مبلغ الدفعة لازم يكون أكبر من صفر')
+  if (!(input.amount > 0)) throw new Error(t('invoices.apiErrorPaymentAmount'))
   const { data: receiptNo, error: rpcErr } = await db().rpc('next_receipt_no', {
     p_teacher_id: teacherId,
     p_date: input.paid_on,
@@ -660,7 +661,7 @@ export async function createPayment(
     event_type: 'payment_created',
     entity_type: 'payment',
     entity_id: payment.id,
-    entity_label: `إيصال ${payment.receipt_no}`,
+    entity_label: t('invoices.apiReceiptLabel', { receiptNo: payment.receipt_no }),
     details: {
       amount: payment.amount,
       method: payment.method,
@@ -719,7 +720,7 @@ export async function voidPayment(teacherId: string, payment: PaymentRow): Promi
     event_type: 'payment_voided',
     entity_type: 'payment',
     entity_id: payment.id,
-    entity_label: `إيصال ${payment.receipt_no}`,
+    entity_label: t('invoices.apiReceiptLabel', { receiptNo: payment.receipt_no }),
     details: {
       amount: payment.amount,
       method: payment.method,
@@ -813,7 +814,7 @@ export async function applyAttendanceAdjustment(
   reason: string,
 ): Promise<{ delta: number }> {
   const trimmed = reason.trim()
-  if (!trimmed) throw new Error('سبب التسوية إلزامي')
+  if (!trimmed) throw new Error(t('invoices.apiErrorAdjustmentReason'))
 
   // السعر الفعّال من التسجيل (price_override وإلا سعر المجموعة)
   const { data: enr, error: enrErr } = await db()
@@ -846,7 +847,7 @@ export async function applyAttendanceAdjustment(
       teacher_id: teacherId,
       invoice_id: invoice.invoice_id,
       line_type: 'adjustment',
-      description: `تسوية حصة ${session.session_date}`,
+      description: t('invoices.apiAdjustmentDesc', { date: session.session_date }),
       amount: deltaAmount,
       reason: trimmed,
     })
@@ -880,8 +881,7 @@ export async function fetchWhatsappTemplate(teacherId: string): Promise<string |
   return tpl?.trim() ? tpl : null
 }
 
-export const DEFAULT_WA_TEMPLATE =
-  'أهلاً {guardian}، إيصال الطالب {name} عن {period}: المدفوع {paid} من {total}، والمتبقي {balance}. شكراً لك.'
+export const DEFAULT_WA_TEMPLATE = t('invoices.apiDefaultWaTemplate')
 
 /** تعويض متغيرات قالب الإيصال (المرجع §5.6) — {period} بصيغة YYYY-MM */
 export function buildReceiptMessage(
