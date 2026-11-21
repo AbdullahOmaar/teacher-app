@@ -3,6 +3,16 @@ name: CI
 # بوابة جودة دائمة (موجة التحسينات W2): كل push وكل PR يمرّ بـ
 # lint + typecheck (strict) + build ثم اختبارات Vitest — نفس ما يشغّله
 # المطوّر محلياً بـ npm run check && npm test.
+#
+# تحديث 3A-299 (فجوات معيار Engineering & Security Standards):
+# - بوابة i18n (check:i18n) مربوطة داخل `npm run check` على main نفسه،
+#   فتورثها هذه البوابة تلقائياً دون خطوة إضافية هنا.
+# - اختبارات التفويض الحية (test:authz) جزء من `npm run check` أيضاً،
+#   لكنها تتخطى نفسها بنعومة في CI (لا بيئة موصل محلية) وتعمل كاملة
+#   على جهاز المطوّر.
+# - job منفصل `security-scan` تحت: Gitleaks (أسرار) + OSV (اعتماديات)
+#   + Semgrep (SAST) — يُفعَّل فعلياً عند دفع هذا الفرع (الدفع معلّق على
+#   خطوة المالك: gh auth refresh -h github.com -s workflow).
 on:
   push:
   pull_request:
@@ -19,3 +29,23 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks يفحص التاريخ كله
+      - name: Gitleaks (كشف أسرار في الكود والتاريخ)
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz | tar -xz -C /tmp gitleaks
+          /tmp/gitleaks detect --source=. --redact --no-banner
+      - name: OSV-Scanner (ثغرات الاعتماديات من package-lock)
+        uses: google/osv-scanner-action/osv-scanner-action@v2.3.2
+        with:
+          scan-args: |-
+            --lockfile=package-lock.json
+      - name: Semgrep (تحليل ثابت SAST — قواعد auto)
+        run: |
+          python3 -m pip install --quiet semgrep
+          semgrep scan --config auto --error --skip-unknown-extensions
