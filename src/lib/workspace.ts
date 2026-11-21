@@ -10,7 +10,7 @@ const EVENT = 'teacher-workspace-changed'
  * وكل الهوكس تقرأ البيانات بهذا المعرّف — فتعمل وحدتا الطلاب والمجموعات
  * في الحالتين دون أي تغيير.
  */
-export function getActiveTeacherId(): string | null {
+function getActiveTeacherId(): string | null {
   try {
     return localStorage.getItem(STORAGE_KEY)
   } catch {

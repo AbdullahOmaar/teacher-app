@@ -89,11 +89,6 @@ export function darken(hex: string, ratio: number): string {
 }
 
 /** تفتيح لون باتجاه الأبيض بنسبة (0..1) — لخلفيات ناعمة بلون اللهجة */
-export function tint(hex: string, ratio: number): string {
-  const [r, g, b] = hexToRgb(hex)
-  const f = Math.max(0, Math.min(1, ratio))
-  return rgbToHex(r + (255 - r) * f, g + (255 - g) * f, b + (255 - b) * f)
-}
 
 /** ألوان لهجة جاهزة للمنتقي في الإعدادات (القيم الداكنة نسبياً للتباين) */
 export const ACCENT_PRESETS: { hex: string; label: string }[] = [

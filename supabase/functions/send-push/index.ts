@@ -75,9 +75,20 @@ function endpointHost(endpoint: string): string | null {
   }
 }
 
+/** مقارنة ثابتة الزمن لسرّ الصيانة (SEC-L7) — بلا خروج مبكر عند أول اختلاف */
+function secretEquals(provided: string | null, expected: string): boolean {
+  if (provided === null) return false;
+  const maxLen = Math.max(provided.length, expected.length);
+  let diff = provided.length ^ expected.length;
+  for (let i = 0; i < maxLen; i++) {
+    diff |= (provided.charCodeAt(i) || 0) ^ (expected.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
-  if (!PUSH_INTERNAL_SECRET || req.headers.get("x-push-secret") !== PUSH_INTERNAL_SECRET) {
+  if (!PUSH_INTERNAL_SECRET || !secretEquals(req.headers.get("x-push-secret"), PUSH_INTERNAL_SECRET)) {
     return json({ error: "unauthorized" }, 401);
   }
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {

@@ -19,7 +19,7 @@ import type { PushSubscriptionRow } from '../types/database'
  * بطبيعته — نظيره الخاص سرّ في Supabase فقط ولا يصل للمتصفح أبداً).
  */
 
-export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as
   | string
   | undefined
 
@@ -91,7 +91,7 @@ async function browserSubscription(): Promise<PushSubscription | null> {
 // ---------------------------------------------------------------------------
 
 /** جهاز iOS (آيفون/آيباد — يشمل آيباد الذي يعرف نفسه كماكنتوش لمسي) */
-export function isIosDevice(): boolean {
+function isIosDevice(): boolean {
   if (typeof navigator === 'undefined') return false
   const ua = navigator.userAgent
   if (/iphone|ipad|ipod/i.test(ua)) return true
@@ -99,7 +99,7 @@ export function isIosDevice(): boolean {
 }
 
 /** هل التطبيق يعمل مثبّتاً على الشاشة الرئيسية (standalone)؟ */
-export function isStandalonePwa(): boolean {
+function isStandalonePwa(): boolean {
   if (typeof window === 'undefined') return false
   return (
     window.matchMedia?.('(display-mode: standalone)').matches ||
