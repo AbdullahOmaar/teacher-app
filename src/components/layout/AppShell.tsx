@@ -15,6 +15,7 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { useHomeAlerts } from '../../features/home/hooks'
 import { Onboarding } from '../../features/auth/Onboarding'
 import { AttendanceSyncBridge } from '../../features/attendance/SyncBridge'
+import { OfflineStrip } from './OfflineStrip'
 import { LoadingState } from '../ui/states'
 import { t } from '../../i18n'
 import { Logo } from '../brand/Logo'
@@ -169,6 +170,10 @@ export function AppShell() {
           )}
         </div>
       </header>
+
+      {/* شريط الأوفلاين العام (خطة الهوية P-9) — كل الشاشات عدا
+          الحضور (شريط مزامنتها الوظيفي يغطيها ودُفّي مدمج فيه) */}
+      {screen !== 'att' && <OfflineStrip containerCls={containerCls} />}
 
       {/* المحتوى — حاوية 640px وحشوة سفلية تترك مكاناً للشريط السفلي (64px + safe-area) */}
       <main className={`mx-auto ${containerCls} px-4 pt-[14px] pb-[calc(88px+env(safe-area-inset-bottom,0px))]`}>

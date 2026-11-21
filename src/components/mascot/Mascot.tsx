@@ -92,10 +92,18 @@ interface MascotProps {
    * غيابه = لا شيء (النقطة نفسها اختيارية الظهور بالكامل).
    */
   fallback?: ReactNode
+  /**
+   * تجاوز رؤية خارجي (خطة الهوية P-10): للأسطح العامة بلا جلسة
+   * (البوابات) حيث تأتي الرؤية من حمولة خادمية — إعداد مدرس السنتر
+   * كما أعاده RPC البوابة في brand.show_mascot — لا من جلسة متصفح
+   * الزائر. عند تمريره يحسم وحده ويُتجاهَل مصدر الجلسة تماماً.
+   */
+  visibleOverride?: boolean
 }
 
-export function Mascot({ state, size = 96, className = '', still = false, fallback = null }: MascotProps) {
-  const visible = useMascotVisible()
+export function Mascot({ state, size = 96, className = '', still = false, fallback = null, visibleOverride }: MascotProps) {
+  const sessionVisible = useMascotVisible()
+  const visible = visibleOverride ?? sessionVisible
   // سلسلة السقوط مشتقة لا مرحلية: الرسمة التي فشل تحميلها تُستبعَد من
   // الترشيح (وضع ← لوجو ثابت ← لوجو الكتاب) — بلا إفكتات ولا إعادة ضبط
   const [failedSrcs, setFailedSrcs] = useState<ReadonlySet<string>>(new Set())

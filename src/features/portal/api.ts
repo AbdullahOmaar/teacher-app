@@ -300,6 +300,12 @@ export interface PortalBrand {
   logo_url: string | null
   /** لون اللهجة #RRGGBB أو null */
   accent: string | null
+  /**
+   * إظهار دُفّي عند مدرس السنتر (0029 — خطة الهوية P-10): يأتي من
+   * teacher_settings.show_mascot داخل حمولة الـ RPC الخادمية نفسها؛
+   * غيابه (RPC أقدم) = true بالافتراضي «يظهر» كما في 0028.
+   */
+  show_mascot: boolean
 }
 
 /** عرض البوابة كما يعيده portal_build_overview حرفياً — حقول محدودة بالتصميم */
@@ -336,6 +342,7 @@ export async function fetchPortalOverview(
       teacher_name?: string | null
       logo_path?: string | null
       accent?: string | null
+      show_mascot?: boolean | null
     } | null
   }
   return {
@@ -347,6 +354,9 @@ export async function fetchPortalOverview(
       name: raw.brand?.name?.trim() || raw.brand?.teacher_name?.trim() || null,
       logo_url: brandLogoUrl(raw.brand?.logo_path),
       accent: isValidAccent(raw.brand?.accent) ? raw.brand.accent.toLowerCase() : null,
+      // مفتاح دُفّي لمدرس السنتر من الحمولة الخادمية (0029): لا يُخفى
+      // إلا بقيمة false صريحة — الغياب/القيم الشاذة تسقط للافتراضي true
+      show_mascot: raw.brand?.show_mascot !== false,
     },
     attendance_rate: raw.attendance_rate == null ? null : num(raw.attendance_rate),
     balance: num(raw.balance),

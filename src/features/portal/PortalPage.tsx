@@ -37,6 +37,7 @@ import {
   type PortalBrand,
 } from './api'
 import { PortalPushToggle, type PortalPushAdapter } from '../../components/PortalPushToggle'
+import { Mascot } from '../../components/mascot/Mascot'
 import { darken } from '../../lib/brand'
 import { t } from '../../i18n'
 import {
@@ -100,10 +101,39 @@ function PortalShell({
               <div className="text-muted text-[12px] leading-[1.4]">{t('portal.pageShellSubtitle')}</div>
             )}
           </div>
+          {/* دُفّي ضيف صغير بجانب الترويسة (خطة الهوية P-10): يظهر فقط
+              بعد تحميل العرض (brand موجود) وبمفتاح مدرس السنتر القادم
+              في الحمولة نفسها (visibleOverride) — هوية السنتر أولاً
+              دائماً ودُفّي لا ينافسها أبداً */}
+          {brand && (
+            <Mascot
+              state="welcome"
+              size={30}
+              visibleOverride={brand.show_mascot}
+              className="ms-auto shrink-0"
+            />
+          )}
         </div>
       </header>
       <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-10">{children}</main>
     </div>
+  )
+}
+
+/**
+ * بطاقة فراغ داخل البوابة (خطة الهوية P-10): دُفّي بوضع empty صغيراً
+ * بجانب النص الوظيفي القائم كما هو — بلا أي سطر ناطق جديد (صوت دُفّي
+ * من §٨ حصراً ولا سطر بوابات فيها). عند إيقاف مدرس السنتر يختفي
+ * دُفّي وحده وتبقى البطاقة بنصها الأصلي حرفياً.
+ */
+function PortalEmptyNote({ text, showMascot }: { text: string; showMascot: boolean }) {
+  return (
+    <Card>
+      <div className="flex items-center gap-3">
+        <Mascot state="empty" size={40} visibleOverride={showMascot} className="shrink-0" />
+        <p className="text-muted text-[13.5px] mb-0">{text}</p>
+      </div>
+    </Card>
   )
 }
 
@@ -483,9 +513,7 @@ export function PortalPage() {
       {/* مواعيد الحصص */}
       <SectionTitle icon={CalendarDays}>{t('portal.pageScheduleTitle')}</SectionTitle>
       {o.groups.length === 0 ? (
-        <Card>
-          <p className="text-muted text-[13.5px] mb-0">{t('portal.pageNotEnrolled')}</p>
-        </Card>
+        <PortalEmptyNote text={t('portal.pageNotEnrolled')} showMascot={o.brand.show_mascot} />
       ) : (
         o.groups.map((g) => (
           <Card key={g.name}>
@@ -522,9 +550,7 @@ export function PortalPage() {
       {/* آخر الدرجات */}
       <SectionTitle icon={NotebookPen}>{t('portal.pageScoresTitle')}</SectionTitle>
       {o.latest_scores.length === 0 ? (
-        <Card>
-          <p className="text-muted text-[13.5px] mb-0">{t('portal.pageNoScores')}</p>
-        </Card>
+        <PortalEmptyNote text={t('portal.pageNoScores')} showMascot={o.brand.show_mascot} />
       ) : (
         <Card className="p-0 overflow-hidden">
           {o.latest_scores.map((s, i) => {
@@ -577,9 +603,7 @@ export function PortalPage() {
       {/* سجل الحضور الأخير */}
       <SectionTitle icon={CalendarCheck2}>{t('portal.pageAttendanceTitle')}</SectionTitle>
       {o.recent_attendance.length === 0 ? (
-        <Card>
-          <p className="text-muted text-[13.5px] mb-0">{t('portal.pageNoAttendance')}</p>
-        </Card>
+        <PortalEmptyNote text={t('portal.pageNoAttendance')} showMascot={o.brand.show_mascot} />
       ) : (
         <Card className="p-0 overflow-hidden">
           {o.recent_attendance.map((a, i) => {

@@ -70,6 +70,7 @@ import { findStudentByCode, normalizeScannedCode } from './qr'
 import { enqueueStored, itemsForSession } from './offlineQueue'
 import { useOfflineSync, useOnlineStatus } from './useOfflineSync'
 import { SyncStatusBar } from './SyncStatusBar'
+import { AttendanceCelebration } from './AttendanceCelebration'
 
 /**
  * الحضور (المواصفات §3.2): تسجيل حضور حصة واحدة من جدول sessions الحقيقي —
@@ -403,6 +404,21 @@ export function AttendancePage() {
     <div>
       {/* حالة الأوفلاين/المزامنة (خطوة 11) — تظهر فقط عند الحاجة */}
       <SyncStatusBar online={online} sync={sync} />
+
+      {/* احتفال إكمال الحضور (خطة الهوية P-7): يظهر فقط عند الانتقال
+          للاكتمال أثناء العمل على الجلسة، مرة واحدة لكل جلسة */}
+      <AttendanceCelebration
+        sessionId={selectedId ?? null}
+        isComplete={
+          // البوابة تتطلب بيانات الحضور والقائمة معاً: القائمتان
+          // تُجلبان باستعلامين منفصلين، ووصول الحضور أولاً بقائمة
+          // فارغة مؤقتاً كان سيُقرأ «غير مكتمل» ثم «مكتمل» عند وصول
+          // القائمة فينطلق احتفال كاذب لجلسة مكتملة أصلاً عند الفتح
+          rowsReady && rosterQ.data && selected && !cancelled
+            ? total > 0 && done === total
+            : null
+        }
+      />
 
       {/* ترويسة مدمجة واحدة: منتقي التاريخ + بيانات الحصة + التقدّم +
           إدارة الحصة في بطاقة واحدة — كانت ترويستين مكررتين تدفعان

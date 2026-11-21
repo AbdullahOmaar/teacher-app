@@ -72,6 +72,30 @@ describe('Mascot — مكوّن دُفّي', () => {
   })
 })
 
+describe('Mascot — تجاوز الرؤية الخارجي (بوابات P-10)', () => {
+  beforeEach(() => {
+    flags.visible = true
+    flags.reducedMotion = false
+  })
+
+  it('visibleOverride=false يخفي دُفّي حتى لو جلسة المتصفح تقول يظهر', () => {
+    flags.visible = true
+    const { container } = render(
+      <Mascot state="welcome" visibleOverride={false} fallback={<span data-testid="fb" />} />,
+    )
+    expect(container.querySelector('img')).toBeNull()
+    expect(screen.getByTestId('fb')).toBeInTheDocument()
+  })
+
+  it('visibleOverride=true يظهر دُفّي حتى لو جلسة المتصفح تقول مخفي', () => {
+    flags.visible = false
+    const { container } = render(<Mascot state="welcome" visibleOverride={true} />)
+    const img = container.querySelector('img')
+    expect(img).not.toBeNull()
+    expect(img!.getAttribute('src')).toContain('welcome')
+  })
+})
+
 describe('MascotLoader — لوجو التحميل', () => {
   beforeEach(() => {
     flags.visible = true

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, CloudOff, RefreshCw, TriangleAlert } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
+import { Mascot } from '../../components/mascot/Mascot'
 import type { OfflineSyncState } from './useOfflineSync'
 import { t } from '../../i18n'
 
@@ -41,7 +42,17 @@ export function SyncStatusBar({
         role="status"
         className="border border-warn/50 bg-warn-soft rounded-xl px-3 py-2.5 mb-3 text-[13.5px] font-semibold text-warn-text flex items-center gap-2 flex-wrap"
       >
-        <CloudOff size={20} className="shrink-0" />
+        {/* دمج شريط الأوفلاين العام (خطة الهوية P-9): على صفحة الحضور
+            لا شريط ثانياً فوق هذا — دُفّي النايم يصاحب فرع الأوفلاين
+            هنا نفسه، وعند إيقاف الماسكوت تعود أيقونة CloudOff كما
+            كانت (fallback) فيبقى الشريط وظيفياً خالصاً */}
+        <Mascot
+          state="empty"
+          size={26}
+          still
+          className="shrink-0"
+          fallback={<CloudOff size={20} className="shrink-0" />}
+        />
         <span className="flex-1">
           {t('attendance.syncOffline')}
           {pendingCount > 0 ? t('attendance.syncOfflinePending', { count: pendingCount }) : ''}

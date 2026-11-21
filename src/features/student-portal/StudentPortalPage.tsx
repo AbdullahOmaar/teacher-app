@@ -31,6 +31,7 @@ import {
   type StudentPortalBrand,
 } from './api'
 import { PortalPushToggle, type PortalPushAdapter } from '../../components/PortalPushToggle'
+import { Mascot } from '../../components/mascot/Mascot'
 import { useStudentPortalOverview } from './hooks'
 import { t } from '../../i18n'
 
@@ -85,10 +86,39 @@ function StudentPortalShell({
               <div className="text-muted text-[12px] leading-[1.4]">{t('studentPortal.pageTitle')}</div>
             )}
           </div>
+          {/* دُفّي ضيف صغير بجانب الترويسة (خطة الهوية P-10): يظهر فقط
+              بعد تحميل العرض (brand موجود) وبمفتاح مدرس السنتر القادم
+              في الحمولة نفسها (visibleOverride) — هوية السنتر أولاً
+              دائماً ودُفّي لا ينافسها أبداً */}
+          {brand && (
+            <Mascot
+              state="welcome"
+              size={30}
+              visibleOverride={brand.show_mascot}
+              className="ms-auto shrink-0"
+            />
+          )}
         </div>
       </header>
       <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-10">{children}</main>
     </div>
+  )
+}
+
+/**
+ * بطاقة فراغ داخل البوابة (خطة الهوية P-10): دُفّي بوضع empty صغيراً
+ * بجانب النص الوظيفي القائم كما هو — بلا أي سطر ناطق جديد (صوت دُفّي
+ * من §٨ حصراً ولا سطر بوابات فيها). عند إيقاف مدرس السنتر يختفي
+ * دُفّي وحده وتبقى البطاقة بنصها الأصلي حرفياً.
+ */
+function StudentPortalEmptyNote({ text, showMascot }: { text: string; showMascot: boolean }) {
+  return (
+    <Card>
+      <div className="flex items-center gap-3">
+        <Mascot state="empty" size={40} visibleOverride={showMascot} className="shrink-0" />
+        <p className="text-muted text-[13.5px] mb-0">{text}</p>
+      </div>
+    </Card>
   )
 }
 
@@ -215,11 +245,7 @@ export function StudentPortalPage() {
       {/* ١) حصصي القادمة */}
       <SectionTitle icon={CalendarDays}>{t('studentPortal.pageUpcomingTitle')}</SectionTitle>
       {o.upcoming_sessions.length === 0 ? (
-        <Card>
-          <p className="text-muted text-[13.5px] mb-0">
-            {t('studentPortal.pageUpcomingEmpty')}
-          </p>
-        </Card>
+        <StudentPortalEmptyNote text={t('studentPortal.pageUpcomingEmpty')} showMascot={o.brand.show_mascot} />
       ) : (
         <Card className="p-0 overflow-hidden">
           {o.upcoming_sessions.map((s, i) => (
@@ -301,9 +327,7 @@ export function StudentPortalPage() {
         </Card>
       )}
       {o.homework.length === 0 ? (
-        <Card>
-          <p className="text-muted text-[13.5px] mb-0">{t('studentPortal.pageHomeworkEmpty')}</p>
-        </Card>
+        <StudentPortalEmptyNote text={t('studentPortal.pageHomeworkEmpty')} showMascot={o.brand.show_mascot} />
       ) : (
         <Card className="p-0 overflow-hidden">
           {o.homework.map((h, i) => {
@@ -345,9 +369,7 @@ export function StudentPortalPage() {
       {/* ٣) درجاتي ونتائج امتحاناتي الإلكترونية */}
       <SectionTitle icon={NotebookPen}>{t('studentPortal.pageGradesTitle')}</SectionTitle>
       {o.grades.length === 0 ? (
-        <Card>
-          <p className="text-muted text-[13.5px] mb-0">{t('studentPortal.pageGradesEmpty')}</p>
-        </Card>
+        <StudentPortalEmptyNote text={t('studentPortal.pageGradesEmpty')} showMascot={o.brand.show_mascot} />
       ) : (
         <Card className="p-0 overflow-hidden">
           {o.grades.map((s, i) => {
@@ -413,9 +435,7 @@ export function StudentPortalPage() {
       {/* ٤) مدفوعاتي */}
       <SectionTitle icon={Wallet}>{t('studentPortal.pagePaymentsTitle')}</SectionTitle>
       {o.invoices.length === 0 ? (
-        <Card>
-          <p className="text-muted text-[13.5px] mb-0">{t('studentPortal.pageInvoicesEmpty')}</p>
-        </Card>
+        <StudentPortalEmptyNote text={t('studentPortal.pageInvoicesEmpty')} showMascot={o.brand.show_mascot} />
       ) : (
         <Card className="p-0 overflow-hidden">
           {o.invoices.map((inv, i) => (
