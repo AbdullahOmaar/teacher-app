@@ -3,6 +3,8 @@ import { AlertTriangle, GraduationCap, Lock, RotateCcw } from 'lucide-react'
 import { Card } from './Card'
 import { Button } from './Button'
 import { MascotLoader } from '../mascot/MascotLoader'
+import { Mascot } from '../mascot/Mascot'
+import { useMascotVisible } from '../mascot/useMascotVisible'
 import { t } from '../../i18n'
 
 /** هيكل تحميل بشكل المحتوى (Skeleton) — نبض موحد بلون الحاويات */
@@ -23,6 +25,37 @@ export function SkeletonRows({ rows = 4 }: { rows?: number }) {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+/**
+ * رأس سكيليتون «بيفكّر» (خطة الهوية P-4): دُفّي صغير بوضع التفكير
+ * الحقيقي + سطر التحميل من §٨ فوق عظام القائمة في التحميل الأول فقط.
+ * الصورة ثابتة عمداً (نبض العظام هو الحركة الوحيدة الظاهرة)، وعند
+ * إيقاف الماسكوت من الإعدادات يختفي الرأس كله وتبقى العظام وحدها —
+ * السطر صوت دُفّي فلا يظهر من دونه.
+ */
+export function ThinkingSkeletonHead() {
+  const visible = useMascotVisible()
+  if (!visible) return null
+  return (
+    <div className="flex items-center gap-2 pb-3" aria-hidden="true">
+      <Mascot state="thinking" size={44} still />
+      <span className="text-muted type-secondary">{t('mascot.loading')}</span>
+    </div>
+  )
+}
+
+/**
+ * تحميل أول لقائمة ثقيلة (طلاب/فواتير): رأس «بيفكّر» + هيكل صفوف.
+ * للتحميلات العامة/الجلسة يبقى LoadingState بلوجو التحميل كما هو.
+ */
+export function ListLoadingState({ label, rows = 5 }: { label?: string; rows?: number }) {
+  return (
+    <div role="status" aria-label={label ?? t('common.loading')}>
+      <ThinkingSkeletonHead />
+      <SkeletonRows rows={rows} />
     </div>
   )
 }

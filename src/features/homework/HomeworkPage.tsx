@@ -254,6 +254,8 @@ export function HomeworkPage() {
   if (groups.length === 0)
     return (
       <EmptyState
+        mascot
+        mascotPose="writing"
         icon={BookOpenCheck}
         title={t('homework.noGroupsTitle')}
         hint={t('homework.noGroupsHint')}
@@ -420,6 +422,8 @@ export function HomeworkPage() {
       ) : sessions.length === 0 ? (
         <Card>
           <EmptyState
+            mascot
+            mascotPose="writing"
             icon={CalendarX2}
             title={t('homework.noSessionsTitle')}
             hint={t('homework.noSessionsHint')}
@@ -579,6 +583,8 @@ export function HomeworkPage() {
           ) : roster.length === 0 ? (
             <Card>
               <EmptyState
+                mascot
+                mascotPose="writing"
                 icon={Users}
                 title={t('homework.noStudentsTitle')}
                 hint={t('homework.noStudentsHint')}

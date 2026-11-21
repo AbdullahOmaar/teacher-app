@@ -116,7 +116,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
   const student = studentQ.data
   if (!student) {
     return (
-      <EmptyState icon={UserRoundX} title={t('students.detailNotFoundTitle')} hint={t('students.detailNotFoundHint')} />
+      <EmptyState mascot mascotPose="oops" icon={UserRoundX} title={t('students.detailNotFoundTitle')} hint={t('students.detailNotFoundHint')} />
     )
   }
 

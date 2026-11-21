@@ -181,6 +181,7 @@ export function SchedulePage() {
       ) : groups.length === 0 ? (
         <Card>
           <EmptyState
+            mascot
             icon={CalendarDays}
             title={t('schedule.emptyTitle')}
             hint={t('schedule.emptyHint')}

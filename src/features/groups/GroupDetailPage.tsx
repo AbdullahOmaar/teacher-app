@@ -87,7 +87,7 @@ export function GroupDetailPage() {
     )
 
   const group = groupQ.data
-  if (!group) return <EmptyState icon={Users} title={t('groups.detailNotFoundTitle')} hint={t('groups.detailNotFoundHint')} />
+  if (!group) return <EmptyState mascot mascotPose="oops" icon={Users} title={t('groups.detailNotFoundTitle')} hint={t('groups.detailNotFoundHint')} />
 
   const roster = rosterQ.data ?? []
   const waitlist = waitlistQ.data ?? []
@@ -236,7 +236,7 @@ export function GroupDetailPage() {
 
       <h3 className="type-section mt-5 mb-2">{t('groups.rosterTitle', { count: roster.length })}</h3>
       {roster.length === 0 ? (
-        <EmptyState icon={Users} title={t('groups.rosterEmptyTitle')} hint={t('groups.rosterEmptyHint')} />
+        <EmptyState mascot icon={Users} title={t('groups.rosterEmptyTitle')} hint={t('groups.rosterEmptyHint')} />
       ) : (
         <Card className="p-0 overflow-hidden">
           {roster.map((r, i) => (

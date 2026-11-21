@@ -113,6 +113,8 @@ export function GradesPage() {
       ) : filtered.length === 0 ? (
         <Card>
           <EmptyState
+            mascot
+            mascotPose="writing"
             icon={NotebookPen}
             title={assessments.length === 0 ? t('grades.emptyNoneTitle') : t('grades.emptyFilteredTitle')}
             hint={

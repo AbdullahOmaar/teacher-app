@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
+import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton, ThinkingSkeletonHead } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { Logo } from '../../components/brand/Logo'
 import { formatMoney, formatTime12 } from '../../lib/format'
@@ -373,6 +373,7 @@ export function HomePage() {
 
       {primaryPending ? (
         <>
+          <ThinkingSkeletonHead />
           <Skeleton className="h-[118px] mb-3" />
           <div className="grid grid-cols-2 gap-2 mb-3">
             <Skeleton className="h-[78px]" />
@@ -401,6 +402,9 @@ export function HomePage() {
             <Card>
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="font-bold text-[15px] flex items-center gap-2">
+                  {/* دُفّي الشارح يرافق خطوات الإعداد (خطة الهوية P-6) —
+                      عند إيقاف الماسكوت يختفي وحده وتبقى البطاقة كما هي */}
+                  <Mascot state="explaining" size={44} />
                   <ListChecks size={20} className="text-primary" />
                   {t('home.startHere.title')}
                 </span>

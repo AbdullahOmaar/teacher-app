@@ -70,6 +70,8 @@ export function AtRiskPage() {
       ) : items.length === 0 ? (
         <Card>
           <EmptyState
+            mascot
+            mascotPose="inspector"
             icon={ShieldCheck}
             title={t('atrisk.pageEmptyTitle')}
             hint={t('atrisk.pageEmptyHint')}

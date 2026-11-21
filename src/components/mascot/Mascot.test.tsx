@@ -28,10 +28,20 @@ describe('Mascot — مكوّن دُفّي', () => {
     expect(img!.getAttribute('width')).toBe('80')
   })
 
-  it('وضع thinking مربوط برسمة لوجو التحميل (موثّق — لا رسمة تفكير بعد)', () => {
+  it('وضع thinking مربوط برسمة التفكير الحقيقية من الشيت الثاني (أُغلق ربط 3A-303 المؤقت)', () => {
     const { container } = render(<Mascot state="thinking" />)
     const img = container.querySelector('img')
-    expect(img!.getAttribute('src')).toContain('loading')
+    expect(img!.getAttribute('src')).toContain('thinking')
+  })
+
+  it('أوضاع الشيت الثاني مسجّلة كلها برسوماتها (دفعة الهوية ٢)', () => {
+    for (const state of ['oops', 'inspector', 'writing', 'explaining', 'star'] as const) {
+      const { container, unmount } = render(<Mascot state={state} />)
+      const img = container.querySelector('img')
+      expect(img, `state=${state}`).not.toBeNull()
+      expect(img!.getAttribute('src'), `state=${state}`).toContain(state)
+      unmount()
+    }
   })
 
   it('still يلغي الحركة الخفيفة', () => {

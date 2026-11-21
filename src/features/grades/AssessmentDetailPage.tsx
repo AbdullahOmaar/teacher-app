@@ -136,7 +136,7 @@ export function AssessmentDetailPage() {
   }
   if (!assessment) {
     return (
-      <EmptyState icon={NotebookPen} title={t('grades.detailNotFoundTitle')} hint={t('grades.detailNotFoundHint')} />
+      <EmptyState mascot mascotPose="oops" icon={NotebookPen} title={t('grades.detailNotFoundTitle')} hint={t('grades.detailNotFoundHint')} />
     )
   }
 
@@ -391,6 +391,8 @@ export function AssessmentDetailPage() {
       ) : roster.length === 0 ? (
         <Card>
           <EmptyState
+            mascot
+            mascotPose="writing"
             icon={Users}
             title={t('grades.detailNoStudentsTitle')}
             hint={t('grades.detailNoStudentsHint')}

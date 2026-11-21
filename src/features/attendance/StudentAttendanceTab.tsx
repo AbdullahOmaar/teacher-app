@@ -117,6 +117,7 @@ export function StudentAttendanceTab({
       {records.length === 0 ? (
         <Card>
           <EmptyState
+            mascot
             icon={CalendarCheck2}
             title={t('attendance.noHistoryTitle')}
             hint={t('attendance.noHistoryHint')}

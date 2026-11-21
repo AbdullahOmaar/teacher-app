@@ -210,6 +210,7 @@ export function ActivityLogPage() {
         />
       ) : rows.length === 0 ? (
         <EmptyState
+          mascot
           title={hasFilters ? t('activity.page.emptyFilteredTitle') : t('activity.page.emptyTitle')}
           hint={
             hasFilters

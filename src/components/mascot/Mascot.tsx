@@ -8,14 +8,22 @@ import emptyImg from '../../assets/mascot/empty.webp'
 import alertImg from '../../assets/mascot/alert.webp'
 import successImg from '../../assets/mascot/success.webp'
 import loadingImg from '../../assets/mascot/loading.webp'
+import thinkingImg from '../../assets/mascot/thinking.webp'
+import oopsImg from '../../assets/mascot/oops.webp'
+import inspectorImg from '../../assets/mascot/inspector.webp'
+import writingImg from '../../assets/mascot/writing.webp'
+import explainingImg from '../../assets/mascot/explaining.webp'
+import starImg from '../../assets/mascot/star.webp'
 
 // ===========================================================================
 // دُفّي — مكوّن الماسكوت (MASCOT-PLAN §٦ بند ٢)
 //
-// الأوضاع الستة من الشيت المعتمد + ربط موثّق لوضع thinking: رسمة
-// «بيفكّر» لم تُنتَج بعد (§٣ بند ٩ «يُنتج تاليًا»)، فـ thinking يستخدم
-// رسمة لوجو التحميل (الوقوف والتلويح) — وهي رسمة مؤشرات التحميل داخل
-// الصفحات في خطة الأنيميشن (§٤) أصلاً — حتى تُنتج رسمة التفكير.
+// الأوضاع الستة من الشيت الأول المعتمد + أوضاع الشيت الثاني (دفعة الهوية
+// ٢ — خطة الهوية P-4/P-5/P-6): thinking برسمة التفكير الحقيقية (أُغلق
+// ربط 3A-303 المؤقت بلوجو التحميل)، oops للخطأ والـ404 و«غير موجود»،
+// inspector للمخاطر، writing للدرجات/الواجبات، explaining للشرح و«ابدأ
+// هنا». حالة star مقصوصة ومسجّلة لكن بلا موضع عرض بعد — لحظات الإنجاز
+// المميز مرحلة تالية (P-12) بقرار الخطة.
 // لقطة اللابتوب (§٣ بند ٧) أصل هوية/بطل محفوظ في assets/mascot/laptop.webp
 // لاستخدامات لاحقة (صفحة تعريف/سوشيال) ولا حالة عرض لها هنا.
 //
@@ -34,6 +42,11 @@ export type MascotState =
   | 'alert'
   | 'success'
   | 'thinking'
+  | 'oops'
+  | 'inspector'
+  | 'writing'
+  | 'explaining'
+  | 'star'
 
 const POSES: Record<MascotState, string> = {
   welcome: welcomeImg,
@@ -42,8 +55,12 @@ const POSES: Record<MascotState, string> = {
   empty: emptyImg,
   alert: alertImg,
   success: successImg,
-  // ربط موثّق (انظر الترويسة): لا رسمة تفكير بعد — رسمة لوجو التحميل
-  thinking: loadingImg,
+  thinking: thinkingImg,
+  oops: oopsImg,
+  inspector: inspectorImg,
+  writing: writingImg,
+  explaining: explainingImg,
+  star: starImg,
 }
 
 /** كلاس الحركة الخفيفة لكل حالة — بلا حركة = سلسلة فارغة */
@@ -54,7 +71,12 @@ const MOTION_CLASS: Record<MascotState, string> = {
   empty: 'mascot-breathe',
   alert: 'mascot-nudge',
   success: 'mascot-bob',
-  thinking: '',
+  thinking: 'mascot-bob',
+  oops: '',
+  inspector: '',
+  writing: '',
+  explaining: 'mascot-bob',
+  star: 'mascot-jump',
 }
 
 interface MascotProps {

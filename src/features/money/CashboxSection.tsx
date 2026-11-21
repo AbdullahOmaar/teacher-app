@@ -281,6 +281,7 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
           ) : closings.length === 0 ? (
             <Card>
               <EmptyState
+                mascot
                 icon={ReceiptText}
                 title={t('money.cashboxHistoryEmptyTitle')}
                 hint={t('money.cashboxHistoryEmptyHint')}

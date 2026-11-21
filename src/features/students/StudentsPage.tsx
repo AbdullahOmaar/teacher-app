@@ -13,7 +13,7 @@ import {
 } from '../../components/ui/PageToolBar'
 import { Sheet } from '../../components/ui/Sheet'
 import { Chip } from '../../components/ui/form'
-import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
+import { ErrorState, ListLoadingState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
@@ -201,7 +201,7 @@ export function StudentsPage() {
       </Button>
 
       {loading ? (
-        <LoadingState label={t('students.loading')} />
+        <ListLoadingState label={t('students.loading')} />
       ) : error ? (
         <ErrorState
           message={error instanceof Error ? error.message : t('common.unknownError')}

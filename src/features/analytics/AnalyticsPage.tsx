@@ -152,6 +152,7 @@ export function AnalyticsPage() {
       ) : data && !data.hasAnyData ? (
         <Card className="p-0">
           <EmptyState
+            mascot
             icon={ChartColumn}
             title={t('analytics.emptyTitle')}
             hint={t('analytics.emptyHint')}

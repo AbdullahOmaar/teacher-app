@@ -52,6 +52,8 @@ export function StudentGradesTab({
     return (
       <Card>
         <EmptyState
+          mascot
+          mascotPose="writing"
           icon={NotebookPen}
           title={t('grades.tabEmptyTitle')}
           hint={t('grades.tabEmptyHint')}

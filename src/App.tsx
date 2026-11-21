@@ -102,6 +102,9 @@ const AnalyticsPage = lazy(() =>
 const AtRiskPage = lazy(() =>
   import('./features/atrisk/AtRiskPage').then((m) => ({ default: m.AtRiskPage })),
 )
+const NotFoundPage = lazy(() =>
+  import('./features/notfound/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
+)
 
 /** غلاف Suspense بسقوط Skeleton الموحّد — يُستخدم لكل مسار كسول */
 function LazyRoute({ children }: { children: ReactNode }) {
@@ -350,8 +353,27 @@ export default function App() {
                   </LazyRoute>
                 }
               />
+              {/* catch-all داخل الجلسة (خطة الهوية P-5): أي مسار مجهول
+                  داخل القشرة يعرض صفحة 404 بدُفّي الأوبس بدل الفراغ */}
+              <Route
+                path="*"
+                element={
+                  <LazyRoute>
+                    <NotFoundPage />
+                  </LazyRoute>
+                }
+              />
             </Route>
             </Route>
+            {/* catch-all علوي: مسارات مجهولة خارج شجرة الجلسة أصلاً */}
+            <Route
+              path="*"
+              element={
+                <LazyRoute>
+                  <NotFoundPage standalone />
+                </LazyRoute>
+              }
+            />
           </Routes>
         </BrowserRouter>
         </ToastProvider>

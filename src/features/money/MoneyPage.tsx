@@ -314,6 +314,7 @@ export function MoneyPage() {
           {expenses.length === 0 ? (
             <Card>
               <EmptyState
+                mascot
                 icon={Wallet}
                 title={t('money.emptyExpensesTitle')}
                 hint={t('money.emptyExpensesHint')}

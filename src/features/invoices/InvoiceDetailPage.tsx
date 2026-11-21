@@ -80,7 +80,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
     )
   if (!invoice) {
     return (
-      <EmptyState icon={ReceiptText} title={t('invoices.detailNotFoundTitle')} hint={t('invoices.detailNotFoundHint')} />
+      <EmptyState mascot mascotPose="oops" icon={ReceiptText} title={t('invoices.detailNotFoundTitle')} hint={t('invoices.detailNotFoundHint')} />
     )
   }
 

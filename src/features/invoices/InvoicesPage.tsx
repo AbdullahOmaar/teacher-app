@@ -14,7 +14,7 @@ import {
   StickyGroupHeader,
   GROUP_HEADER_TOP_WITH_SEARCH,
 } from '../../components/ui/PageToolBar'
-import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
+import { ErrorState, ListLoadingState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
@@ -226,7 +226,7 @@ export function InvoicesPage() {
       )}
 
       {invoicesQ.isPending ? (
-        <LoadingState label={t('invoices.loading')} />
+        <ListLoadingState label={t('invoices.loading')} />
       ) : invoicesQ.isError ? (
         <ErrorState
           message={invoicesQ.error instanceof Error ? invoicesQ.error.message : t('common.unknownError')}
