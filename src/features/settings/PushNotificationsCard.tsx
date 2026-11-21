@@ -13,6 +13,7 @@ import {
 } from '../../lib/push'
 import { useTeacherSettings, useUpdatePushDigestSettings } from './hooks'
 import { isValidDigestTime } from './api'
+import { t } from '../../i18n'
 
 /**
  * بطاقة «إشعارات Push» في الإعدادات (Phase 4 — الخطوة 1: البنية،
@@ -78,10 +79,10 @@ export function PushNotificationsCard() {
     setMsg(null)
     try {
       await subscribeTeacherPush({ teacherId, userId: user.id })
-      setMsg('تمام — إشعارات Push مفعّلة على المتصفح ده.')
+      setMsg(t('settings.pushEnabledMsg'))
       await refresh()
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : 'حصلت مشكلة في التفعيل — حاول تاني.')
+      setMsg(err instanceof Error ? err.message : t('settings.pushSubscribeFailed'))
     } finally {
       setBusy(false)
     }
@@ -92,10 +93,10 @@ export function PushNotificationsCard() {
     setMsg(null)
     try {
       await unsubscribeTeacherPush()
-      setMsg('اتوقفت إشعارات Push على المتصفح ده.')
+      setMsg(t('settings.pushDisabledMsg'))
       await refresh()
     } catch {
-      setMsg('حصلت مشكلة في الإيقاف — حاول تاني.')
+      setMsg(t('settings.pushUnsubscribeFailed'))
     } finally {
       setBusy(false)
     }
@@ -104,58 +105,55 @@ export function PushNotificationsCard() {
   return (
     <Card>
       <h2 className="type-section mt-0 mb-3 flex items-center gap-2">
-        <Bell size={22} className="text-primary" /> إشعارات Push
+        <Bell size={22} className="text-primary" /> {t('settings.pushTitle')}
       </h2>
       <p className="text-muted text-[13.5px] mt-0 mb-3">
-        فعّل إشعارات المتصفح على الجهاز ده عشان توصلك تنبيهات التطبيق
-        (زي إثباتات الدفع الجديدة ونتائج الامتحانات) حتى والتطبيق مقفول.
+        {t('settings.pushIntro')}
       </p>
       {state === 'loading' && (
-        <p className="text-muted text-[13.5px] mb-0">جارٍ فحص حالة الإشعارات…</p>
+        <p className="text-muted text-[13.5px] mb-0">{t('settings.pushChecking')}</p>
       )}
       {state === 'unsupported' && (
         <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-0">
-          المتصفح ده لا يدعم إشعارات Push. على آيفون: ثبّت التطبيق على
-          الشاشة الرئيسية الأول (iOS 16.4 أو أحدث) وافتحه من هناك.
+          {t('settings.pushUnsupported')}
         </p>
       )}
       {state === 'unconfigured' && (
         <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-0">
-          إشعارات Push لسه مش مضبوطة في نسخة التطبيق دي.
+          {t('settings.pushUnconfigured')}
         </p>
       )}
       {state === 'denied' && (
         <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-0">
-          إذن الإشعارات مرفوض للموقع ده — فعّله من إعدادات إشعارات
-          المتصفح للموقع ثم حدّث الصفحة.
+          {t('settings.pushDenied')}
         </p>
       )}
       {state === 'subscribed' && (
         <>
           <p className="text-[13.5px] bg-ok-soft text-ok-text rounded-xl px-3 py-2 mb-3 mt-0 flex items-center gap-2 font-semibold">
             <CheckCircle2 size={18} className="shrink-0" />
-            إشعارات Push مفعّلة على المتصفح ده.
+            {t('settings.pushEnabledBanner')}
           </p>
           <Button full variant="ghost" onClick={handleUnsubscribe} disabled={busy}>
             <BellOff size={20} />
-            {busy ? 'جارٍ الإيقاف…' : 'إيقاف إشعارات Push على الجهاز ده'}
+            {busy ? t('settings.pushStopping') : t('settings.pushStop')}
           </Button>
         </>
       )}
       {state === 'error' && (
         <div>
           <p className="text-muted text-[13.5px] mt-0">
-            حصلت مشكلة في قراءة حالة الإشعارات على المتصفح ده — ممكن تكون مشكلة شبكة مؤقتة.
+            {t('settings.pushErrorBody')}
           </p>
           <Button variant="soft" disabled={busy} onClick={() => void refresh()}>
-            إعادة المحاولة
+            {t('common.retry')}
           </Button>
         </div>
       )}
       {state === 'not-subscribed' && (
         <Button full onClick={handleSubscribe} disabled={busy || !teacherId}>
           <Bell size={20} />
-          {busy ? 'جارٍ التفعيل…' : 'تفعيل إشعارات Push على الجهاز ده'}
+          {busy ? t('settings.pushStarting') : t('settings.pushStart')}
         </Button>
       )}
       {msg && (
@@ -185,35 +183,34 @@ function DailyDigestSection({ teacherId }: { teacherId: string }) {
   const save = (next: { enabled: boolean; time: string }) => {
     setMsg(null)
     if (!isValidDigestTime(next.time)) {
-      setMsg('اختار وقتاً صالحاً للملخص اليومي.')
+      setMsg(t('settings.digestInvalidTime'))
       return
     }
     updateDigest.mutate(next, {
-      onSuccess: () => setMsg('تم حفظ إعدادات الملخص اليومي.'),
+      onSuccess: () => setMsg(t('settings.digestSaved')),
       onError: (err) =>
-        setMsg(err instanceof Error ? err.message : 'تعذّر حفظ إعدادات الملخص — حاول تاني.'),
+        setMsg(err instanceof Error ? err.message : t('settings.digestSaveFailed')),
     })
   }
 
   return (
     <div className="mt-5 border-t border-border pt-4">
       <h3 className="type-section mt-0 mb-2 flex items-center gap-2 text-[15px]">
-        <Newspaper size={20} className="text-primary" /> الملخص اليومي
+        <Newspaper size={20} className="text-primary" /> {t('settings.digestTitle')}
       </h3>
       <p className="text-muted text-[13.5px] mt-0 mb-3">
-        Push واحد كل يوم فيه حصص اليوم وعدد المتأخرات وقيمتها — بيتبعت
-        في الوقت اللي تختاره (بتوقيت القاهرة) لأجهزتك المشتركة فوق.
+        {t('settings.digestIntro')}
       </p>
       {settingsQ.isPending ? (
-        <p className="text-muted text-[13.5px] mb-0">جارٍ تحميل إعدادات الملخص…</p>
+        <p className="text-muted text-[13.5px] mb-0">{t('settings.digestLoading')}</p>
       ) : settingsQ.isError ? (
         <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-0">
-          تعذّر تحميل إعدادات الملخص اليومي دلوقتي — حدّث الصفحة وحاول تاني.
+          {t('settings.digestLoadFailed')}
         </p>
       ) : (
         <>
           <label className="flex items-center justify-between gap-3 mb-3 cursor-pointer">
-            <span className="text-[14px] font-semibold">تفعيل الملخص اليومي</span>
+            <span className="text-[14px] font-semibold">{t('settings.digestEnableLabel')}</span>
             <input
               type="checkbox"
               className="h-6 w-6 shrink-0 accent-primary"
@@ -226,7 +223,7 @@ function DailyDigestSection({ teacherId }: { teacherId: string }) {
             />
           </label>
           <label className="block mb-1 text-[13.5px] font-semibold" htmlFor="digest-time">
-            وقت إرسال الملخص
+            {t('settings.digestTimeLabel')}
           </label>
           <TextInput
             id="digest-time"
@@ -242,7 +239,7 @@ function DailyDigestSection({ teacherId }: { teacherId: string }) {
           />
           {row?.push_daily_digest_last_sent_on && (
             <p className="text-muted text-[12.5px] mb-0 mt-2">
-              آخر ملخص اتبعت بتاريخ {row.push_daily_digest_last_sent_on}.
+              {t('settings.digestLastSent', { date: row.push_daily_digest_last_sent_on ?? '' })}
             </p>
           )}
         </>

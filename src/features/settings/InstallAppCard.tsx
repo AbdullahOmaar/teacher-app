@@ -3,6 +3,7 @@ import { CheckCircle2, Download, MonitorSmartphone, Share } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { useInstallPrompt } from '../../lib/installPrompt'
+import { t } from '../../i18n'
 
 /**
  * بطاقة «تثبيت التطبيق» في الإعدادات (خطوة 11 — PWA): المكان الوحيد
@@ -24,9 +25,9 @@ export function InstallAppCard() {
     setMsg(null)
     try {
       const outcome = await promptInstall()
-      if (outcome === 'accepted') setMsg('تمام — التطبيق بيُثبّت على جهازك دلوقتي.')
-      else if (outcome === 'dismissed') setMsg('اتأجل التثبيت — الزر هيفضل هنا وقت ما تحب.')
-      else setMsg('التثبيت المباشر مش متاح من المتصفح ده — جرّب الإرشاد اليدوي تحت.')
+      if (outcome === 'accepted') setMsg(t('settings.installAccepted'))
+      else if (outcome === 'dismissed') setMsg(t('settings.installDismissed'))
+      else setMsg(t('settings.installUnavailable'))
     } finally {
       setBusy(false)
     }
@@ -35,23 +36,22 @@ export function InstallAppCard() {
   return (
     <Card>
       <h2 className="type-section mt-0 mb-3 flex items-center gap-2">
-        <MonitorSmartphone size={22} className="text-primary" /> تثبيت التطبيق
+        <MonitorSmartphone size={22} className="text-primary" /> {t('settings.installTitle')}
       </h2>
       {isInstalled ? (
         <p className="text-[13.5px] bg-ok-soft text-ok-text rounded-xl px-3 py-2 mb-0 mt-0 flex items-center gap-2 font-semibold">
           <CheckCircle2 size={18} className="shrink-0" />
-          التطبيق مثبّت على جهازك وبيفتح في وضع التطبيق الكامل.
+          {t('settings.installInstalled')}
         </p>
       ) : (
         <>
           <p className="text-muted text-[13.5px] mt-0 mb-3">
-            ثبّت «تطبيق المدرس» على شاشة جهازك: بيفتح أسرع وبملء الشاشة،
-            وتسجيل الحضور بيشتغل حتى لو النت قطع (بيتزامن لما يرجع).
+            {t('settings.installIntro')}
           </p>
           {canPrompt && (
             <Button full onClick={handleInstall} disabled={busy} className="mb-3">
               <Download size={20} />
-              {busy ? 'جارٍ التثبيت…' : 'تثبيت التطبيق على الجهاز'}
+              {busy ? t('settings.installing') : t('settings.installAction')}
             </Button>
           )}
           {msg && (
@@ -60,9 +60,7 @@ export function InstallAppCard() {
           <p className="text-muted text-[13.5px] mb-0 flex items-start gap-2">
             <Share size={18} className="shrink-0 mt-0.5" />
             <span>
-              لو مفيش زر تثبيت (زي Safari في آيفون): من قائمة المشاركة في
-              المتصفح اختر «إضافة إلى الشاشة الرئيسية». وفي Chrome/Edge
-              هتلاقي «تثبيت التطبيق» في قائمة المتصفح كمان.
+              {t('settings.installManualHint')}
             </span>
           </p>
         </>

@@ -44,6 +44,7 @@ import {
 import { ACCENT_PRESETS, brandLogoUrl } from '../../lib/brand'
 import { Logo } from '../../components/brand/Logo'
 import type { TeacherMemberRow } from '../../types/database'
+import { t } from '../../i18n'
 
 /** متغيرات قالب رسالة واتساب المتاحة في الإيصال (المرجع §3.16) */
 const WA_TEMPLATE_VARS = ['{guardian}', '{name}', '{period}', '{paid}', '{total}', '{balance}']
@@ -239,7 +240,7 @@ export function SettingsPage() {
   }, [teacher.status])
 
   if (teacher.status === 'loading') return <LoadingState />
-  if (teacher.status !== 'ready') return <LoadingState label="بنجهّز الإعدادات…" />
+  if (teacher.status !== 'ready') return <LoadingState label={t('settings.preparing')} />
 
   const memberships = teacher.memberships
 
@@ -276,7 +277,7 @@ export function SettingsPage() {
         switchWorkspace(centre.id)
       },
       onError: (err) =>
-        setCentreMsg(err instanceof Error ? err.message : 'تعذّر إنشاء السنتر.'),
+        setCentreMsg(err instanceof Error ? err.message : t('settings.createCentreFailed')),
     })
   }
 
@@ -291,9 +292,9 @@ export function SettingsPage() {
         avatar_url: (profileAvatar ?? managedCentre.avatar_url ?? '').trim() || null,
       },
       {
-        onSuccess: () => setProfileMsg('تم حفظ بياناتك'),
+        onSuccess: () => setProfileMsg(t('settings.profileSaved')),
         onError: (err) =>
-          setProfileMsg(err instanceof Error ? err.message : 'تعذّر حفظ البيانات.'),
+          setProfileMsg(err instanceof Error ? err.message : t('settings.profileSaveFailed')),
       },
     )
   }
@@ -332,17 +333,17 @@ export function SettingsPage() {
       payload.center_share_percent < 0 ||
       payload.center_share_percent > 100
     ) {
-      setSettingsMsg('نسبة السنتر لازم تكون رقم بين 0 و 100.')
+      setSettingsMsg(t('settings.centreShareInvalid'))
       return
     }
     if (!payload.whatsapp_template.trim()) {
-      setSettingsMsg('قالب رسالة الواتساب لا يمكن أن يكون فارغاً.')
+      setSettingsMsg(t('settings.waTemplateEmpty'))
       return
     }
     updateSettings.mutate(payload, {
-      onSuccess: () => setSettingsMsg('تم حفظ الإعدادات'),
+      onSuccess: () => setSettingsMsg(t('settings.settingsSaved')),
       onError: (err) =>
-        setSettingsMsg(err instanceof Error ? err.message : 'تعذّر حفظ الإعدادات.'),
+        setSettingsMsg(err instanceof Error ? err.message : t('settings.settingsSaveFailed')),
     })
   }
 
@@ -351,9 +352,9 @@ export function SettingsPage() {
     e.preventDefault()
     setBrandMsg(null)
     updateSettings.mutate(settingsPayload(), {
-      onSuccess: () => setBrandMsg('تم حفظ هوية السنتر'),
+      onSuccess: () => setBrandMsg(t('settings.brandSaved')),
       onError: (err) =>
-        setBrandMsg(err instanceof Error ? err.message : 'تعذّر حفظ الهوية.'),
+        setBrandMsg(err instanceof Error ? err.message : t('settings.brandSaveFailed')),
     })
   }
 
@@ -362,9 +363,9 @@ export function SettingsPage() {
     setBrandMsg(null)
     setConfirmLogoRemove(false)
     uploadLogo.mutate(file, {
-      onSuccess: () => setBrandMsg('تم رفع الشعار — هيظهر على الكارت والإيصالات والبوابة.'),
+      onSuccess: () => setBrandMsg(t('settings.logoUploaded')),
       onError: (err) =>
-        setBrandMsg(err instanceof Error ? err.message : 'تعذّر رفع الشعار.'),
+        setBrandMsg(err instanceof Error ? err.message : t('settings.logoUploadFailed')),
     })
   }
 
@@ -373,10 +374,10 @@ export function SettingsPage() {
     removeLogo.mutate(undefined, {
       onSuccess: () => {
         setConfirmLogoRemove(false)
-        setBrandMsg('تم حذف الشعار — رجعنا لشعار التطبيق الافتراضي.')
+        setBrandMsg(t('settings.logoRemoved'))
       },
       onError: (err) =>
-        setBrandMsg(err instanceof Error ? err.message : 'تعذّر حذف الشعار.'),
+        setBrandMsg(err instanceof Error ? err.message : t('settings.logoRemoveFailed')),
     })
   }
 
@@ -388,7 +389,7 @@ export function SettingsPage() {
     updateSettings.mutate(settingsPayload({ theme: mode }), {
       onError: (err) =>
         setSettingsMsg(
-          err instanceof Error ? err.message : 'اتطبّق المظهر هنا بس تعذّر حفظه في حسابك.',
+          err instanceof Error ? err.message : t('settings.themeSaveFailed'),
         ),
     })
   }
@@ -398,11 +399,11 @@ export function SettingsPage() {
     setInviteMsg(null)
     const id = assistantId.trim()
     if (!UUID_RE.test(id)) {
-      setInviteMsg('معرّف الحساب شكله مش صح — لازم يكون معرّف كامل (UUID) من إعدادات حساب المساعد.')
+      setInviteMsg(t('settings.inviteInvalidId'))
       return
     }
     if (id === ownId) {
-      setInviteMsg('ده معرّف حسابك إنت — اكتب معرّف حساب المساعد.')
+      setInviteMsg(t('settings.inviteOwnId'))
       return
     }
     invite.mutate(
@@ -410,10 +411,10 @@ export function SettingsPage() {
       {
         onSuccess: () => {
           setAssistantId('')
-          setInviteMsg('تمت إضافة المساعد لفريقك — هيقدر يشتغل بصلاحياته فوراً.')
+          setInviteMsg(t('settings.inviteAdded'))
         },
         onError: (err) =>
-          setInviteMsg(err instanceof Error ? err.message : 'تعذّرت إضافة المساعد.'),
+          setInviteMsg(err instanceof Error ? err.message : t('settings.inviteAddFailed')),
       },
     )
   }
@@ -423,11 +424,11 @@ export function SettingsPage() {
     setEmailInviteMsg(null)
     const email = normalizeInviteEmail(inviteEmail)
     if (!INVITE_EMAIL_RE.test(email)) {
-      setEmailInviteMsg('صيغة البريد الإلكتروني غير صحيحة — اتأكد من البريد وحاول تاني.')
+      setEmailInviteMsg(t('settings.emailInviteInvalid'))
       return
     }
     if (user?.email && email === normalizeInviteEmail(user.email)) {
-      setEmailInviteMsg('ده بريدك إنت — اكتب بريد المساعد.')
+      setEmailInviteMsg(t('settings.emailInviteOwn'))
       return
     }
     inviteByEmail.mutate(
@@ -436,11 +437,11 @@ export function SettingsPage() {
         onSuccess: () => {
           setInviteEmail('')
           setEmailInviteMsg(
-            'تم إنشاء الدعوة — لما المساعد ينشئ حسابه بنفس البريد (أو يسجّل دخول لو عنده حساب أصلاً) هينضم لفريقك تلقائياً بالصلاحيات دي، من غير ما يبعت لك أي معرّف.',
+            t('settings.emailInviteCreated'),
           )
         },
         onError: (err) =>
-          setEmailInviteMsg(err instanceof Error ? err.message : 'تعذّرت إنشاء الدعوة.'),
+          setEmailInviteMsg(err instanceof Error ? err.message : t('settings.emailInviteFailed')),
       },
     )
   }
@@ -454,7 +455,7 @@ export function SettingsPage() {
     next[key] = !next[key]
     updatePerms.mutate(
       { memberId: member.id, permissions: next },
-      { onError: () => toast('حصلت مشكلة في حفظ الصلاحية — حاول تاني', 'error') },
+      { onError: () => toast(t('settings.permSaveFailedToast'), 'error') },
     )
   }
 
@@ -471,24 +472,24 @@ export function SettingsPage() {
   // الأول مفتوح افتراضياً) + رقائق أنكورز في الشريط الموحّد؛ وعلى
   // الديسكتوب (≥1024px): عمود أنكورز جانبي وكل الأقسام مفتوحة.
   const sectionDefs: SettingsSectionDef[] = [
-    { id: 'account', title: 'حسابي', icon: UserRound },
+    { id: 'account', title: t('settings.sectionAccount'), icon: UserRound },
     ...(managedCentre
       ? [
-          { id: 'profile', title: 'ملف المدرس', icon: GraduationCap },
-          { id: 'app', title: 'إعدادات التطبيق', icon: SlidersHorizontal },
-          { id: 'brand', title: 'هوية السنتر', icon: Palette },
+          { id: 'profile', title: t('settings.sectionProfile'), icon: GraduationCap },
+          { id: 'app', title: t('settings.sectionApp'), icon: SlidersHorizontal },
+          { id: 'brand', title: t('settings.sectionBrand'), icon: Palette },
         ]
       : []),
     ...(ownTeachers.length > 0 || memberships.length > 0
-      ? [{ id: 'centres', title: 'السناتر ومساحات العمل', icon: FolderCog }]
+      ? [{ id: 'centres', title: t('settings.sectionCentres'), icon: FolderCog }]
       : []),
     ...(ownTeacher && isOwnerWorkspace
-      ? [{ id: 'team', title: 'فريق العمل (المساعدون)', icon: Handshake }]
+      ? [{ id: 'team', title: t('settings.sectionTeam'), icon: Handshake }]
       : []),
-    { id: 'install', title: 'تثبيت التطبيق', icon: MonitorSmartphone },
-    { id: 'push', title: 'إشعارات Push', icon: Bell },
+    { id: 'install', title: t('settings.installTitle'), icon: MonitorSmartphone },
+    { id: 'push', title: t('settings.pushTitle'), icon: Bell },
     ...(isOwnerWorkspace
-      ? [{ id: 'enrol', title: 'صفحة الحجز العامة', icon: CalendarCheck2 }]
+      ? [{ id: 'enrol', title: t('settings.sectionEnrol'), icon: CalendarCheck2 }]
       : []),
   ]
   const effectiveOpenSections = isDesktop
@@ -561,25 +562,25 @@ export function SettingsPage() {
         <div className="min-w-0">
       {/* حسابي */}
       <SettingsSection {...sectionProps('account')}>
-        <div className="text-[13.5px] text-muted mb-1">البريد الإلكتروني</div>
+        <div className="text-[13.5px] text-muted mb-1">{t('settings.emailLabel')}</div>
         <div className="font-semibold mb-3 break-all" dir="ltr" style={{ textAlign: 'start' }}>
           {user?.email ?? '—'}
         </div>
         <div className="text-[13.5px] text-muted mb-1">
-          معرّف حسابي — شاركه مع مدرس لو عايز يضيفك كمساعد في فريقه
+          {t('settings.accountIdLabel')}
         </div>
         <div className="flex items-center gap-2 mb-1">
           <code className="flex-1 text-[12px] bg-soft rounded-xl px-2 py-2 overflow-hidden text-ellipsis whitespace-nowrap" dir="ltr">
             {ownId}
           </code>
           <Button variant="soft" onClick={copyMyId} className="min-h-[48px] px-3 text-[13.5px]">
-            {copied ? (<><Check size={18} /> تم النسخ</>) : 'نسخ'}
+            {copied ? (<><Check size={18} /> {t('settings.copied')}</>) : t('settings.copy')}
           </Button>
         </div>
         <div className="text-[13.5px] text-muted mt-2 mb-0">
-          دورك الحالي:{' '}
+          {t('settings.currentRoleLabel')}{' '}
           <b className="text-text">
-            {teacher.role === 'owner' ? 'مدرس (مالك الحساب)' : 'مساعد عند مدرس آخر'}
+            {teacher.role === 'owner' ? t('settings.roleOwner') : t('settings.roleAssistant')}
           </b>
         </div>
       </SettingsSection>
@@ -589,14 +590,14 @@ export function SettingsPage() {
         <SettingsSection {...sectionProps('profile')}>
           {profileMsg && <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{profileMsg}</p>}
           <form onSubmit={handleProfileSave}>
-            <Field label="اسم المدرس">
+            <Field label={t('settings.teacherNameLabel')}>
               <TextInput
                 value={profileName ?? managedCentre.display_name}
                 onChange={(e) => setProfileName(e.target.value)}
                 required
               />
             </Field>
-            <Field label="رقم الموبايل">
+            <Field label={t('settings.phoneLabel')}>
               <TextInput
                 type="tel"
                 dir="ltr"
@@ -605,7 +606,7 @@ export function SettingsPage() {
                 placeholder="01xxxxxxxxx"
               />
             </Field>
-            <Field label="رابط صورة شخصية (اختياري — يظهر في الشريط العلوي)">
+            <Field label={t('settings.avatarUrlLabel')}>
               <TextInput
                 type="url"
                 dir="ltr"
@@ -618,14 +619,14 @@ export function SettingsPage() {
               <div className="flex items-center gap-2 mb-3">
                 <img
                   src={profileAvatar ?? managedCentre.avatar_url ?? ''}
-                  alt="صورة المدرس"
+                  alt={t('settings.teacherPhotoAlt')}
                   className="w-10 h-10 rounded-full object-cover border border-border"
                 />
-                <span className="text-muted text-[12px]">معاينة الصورة الحالية</span>
+                <span className="text-muted text-[12px]">{t('settings.photoPreview')}</span>
               </div>
             )}
             <Button full type="submit" disabled={updateProfile.isPending}>
-              {updateProfile.isPending ? 'جارٍ الحفظ…' : 'حفظ'}
+              {updateProfile.isPending ? t('settings.saving') : t('settings.save')}
             </Button>
           </form>
         </SettingsSection>
@@ -635,17 +636,17 @@ export function SettingsPage() {
       {managedCentre && (
         <SettingsSection {...sectionProps('app')}>
           {settingsQ.isPending ? (
-            <LoadingState label="بنحمّل إعداداتك…" />
+            <LoadingState label={t('settings.loadingSettingsForm')} />
           ) : settingsQ.isError ? (
             <ErrorState
               message={
-                settingsQ.error instanceof Error ? settingsQ.error.message : 'خطأ غير معروف'
+                settingsQ.error instanceof Error ? settingsQ.error.message : t('common.unknownError')
               }
               onRetry={() => void settingsQ.refetch()}
             />
           ) : (
             <form onSubmit={handleSettingsSave}>
-              <Field label="قالب رسالة واتساب للإيصال (بيستخدم في زر إرسال الإيصال)">
+              <Field label={t('settings.waTemplateLabel')}>
                 <TextArea
                   rows={3}
                   value={waTpl ?? settingsRow?.whatsapp_template ?? DEFAULT_WA_TEMPLATE}
@@ -664,7 +665,7 @@ export function SettingsPage() {
                 ))}
               </div>
 
-              <Field label="نسبة السنتر % (بتتخصم من محصّل الشهر في شاشة الفلوس)">
+              <Field label={t('settings.centreShareLabel')}>
                 <TextInput
                   type="number"
                   dir="ltr"
@@ -680,7 +681,7 @@ export function SettingsPage() {
 
               <div className="mb-4">
                 <div className="text-[13.5px] text-muted font-semibold mb-2">
-                  التذكير قبل الحصة
+                  {t('settings.reminderLabel')}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {REMINDER_OPTIONS.map((opt) => (
@@ -696,7 +697,7 @@ export function SettingsPage() {
               </div>
 
               <div className="mb-4">
-                <div className="text-[13.5px] text-muted font-semibold mb-2">المظهر</div>
+                <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.themeLabel')}</div>
                 <div className="flex flex-wrap gap-2">
                   {THEME_MODES.map((opt) => (
                     <Chip
@@ -709,25 +710,25 @@ export function SettingsPage() {
                   ))}
                 </div>
                 <p className="text-muted text-[12px] mb-0 mt-2">
-                  المظهر بيطبّق فوراً وبيتحفظ في حسابك — «تلقائي» بيتبع إعدادات جهازك.
+                  {t('settings.themeHint')}
                 </p>
               </div>
 
               <div className="text-[13.5px] text-muted mb-3">
-                آخر تصدير/نسخة احتياطية:{' '}
+                {t('settings.lastExportLabel')}{' '}
                 <b className="text-text">
                   {settingsRow?.last_export_at
                     ? formatDateLabel(settingsRow.last_export_at.slice(0, 10))
-                    : 'لسه معملتش أي تصدير'}
+                    : t('settings.noExportYet')}
                 </b>{' '}
-                — <Link to="/backup" className="text-primary font-semibold">النسخ الاحتياطي</Link>
+                — <Link to="/backup" className="text-primary font-semibold">{t('settings.backup')}</Link>
               </div>
 
               {settingsMsg && (
                 <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{settingsMsg}</p>
               )}
               <Button full type="submit" disabled={updateSettings.isPending}>
-                {updateSettings.isPending ? 'جارٍ الحفظ…' : 'حفظ الإعدادات'}
+                {updateSettings.isPending ? t('settings.saving') : t('settings.saveSettings')}
               </Button>
             </form>
           )}
@@ -741,16 +742,14 @@ export function SettingsPage() {
       {managedCentre && (
         <SettingsSection {...sectionProps('brand')}>
           <p className="text-muted text-[13.5px] mt-0 mb-3">
-            خصّص شكل سنترك: الاسم والشعار ولون اللهجة بيظهروا على كارت الطالب
-            والإيصالات وأوراق الامتحان وبوابة ولي الأمر. سيب أي عنصر فاضي
-            وبيظهر بداله شكل التطبيق الافتراضي.
+            {t('settings.brandIntro')}
           </p>
           {settingsQ.isPending ? (
-            <LoadingState label="بنحمّل هويتك…" />
+            <LoadingState label={t('settings.loadingBrand')} />
           ) : settingsQ.isError ? (
             <ErrorState
               message={
-                settingsQ.error instanceof Error ? settingsQ.error.message : 'خطأ غير معروف'
+                settingsQ.error instanceof Error ? settingsQ.error.message : t('common.unknownError')
               }
               onRetry={() => void settingsQ.refetch()}
             />
@@ -761,7 +760,7 @@ export function SettingsPage() {
                 {settingsRow?.brand_logo_path && brandLogoUrl(settingsRow.brand_logo_path) ? (
                   <img
                     src={brandLogoUrl(settingsRow.brand_logo_path) ?? ''}
-                    alt="شعار السنتر"
+                    alt={t('settings.centreLogoAlt')}
                     className="w-16 h-16 rounded-2xl object-contain bg-soft border border-border p-1 shrink-0"
                   />
                 ) : (
@@ -771,10 +770,10 @@ export function SettingsPage() {
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-[15px]">
-                    {settingsRow?.brand_logo_path ? 'شعار السنتر الحالي' : 'لسه مفيش شعار مرفوع'}
+                    {settingsRow?.brand_logo_path ? t('settings.logoCurrent') : t('settings.logoNone')}
                   </div>
                   <div className="text-muted text-[12px]">
-                    صورة JPG أو PNG أو WebP — لحد 2 ميجا. الشعار الافتراضي بيظهر لحد ما ترفع شعارك.
+                    {t('settings.logoHint')}
                   </div>
                 </div>
               </div>
@@ -782,10 +781,10 @@ export function SettingsPage() {
                 <label className="flex-1 inline-flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-primary text-on-primary font-semibold text-[15px] cursor-pointer px-3">
                   <ImagePlus size={20} />
                   {uploadLogo.isPending
-                    ? 'جارٍ الرفع…'
+                    ? t('settings.uploading')
                     : settingsRow?.brand_logo_path
-                      ? 'استبدال الشعار'
-                      : 'رفع شعار'}
+                      ? t('settings.logoReplace')
+                      : t('settings.logoUpload')}
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
@@ -806,14 +805,14 @@ export function SettingsPage() {
                         disabled={removeLogo.isPending}
                         onClick={handleLogoRemove}
                       >
-                        أيوه، حذف
+                        {t('settings.confirmDelete')}
                       </Button>
                       <Button
                         variant="ghost"
                         className="min-h-[48px] text-[13.5px]"
                         onClick={() => setConfirmLogoRemove(false)}
                       >
-                        تراجع
+                        {t('settings.undo')}
                       </Button>
                     </>
                   ) : (
@@ -822,24 +821,24 @@ export function SettingsPage() {
                       className="min-h-[48px] text-[13.5px] text-bad-text"
                       onClick={() => setConfirmLogoRemove(true)}
                     >
-                      <Trash2 size={18} /> حذف
+                      <Trash2 size={18} /> {t('settings.delete')}
                     </Button>
                   ))}
               </div>
 
               <form onSubmit={handleBrandSave}>
-                <Field label="اسم السنتر / الاسم التجاري (اختياري)">
+                <Field label={t('settings.brandNameLabel')}>
                   <TextInput
                     value={brandName ?? settingsRow?.brand_name ?? ''}
                     onChange={(e) => setBrandName(e.target.value)}
-                    placeholder="مثال: سنتر النور التعليمي"
+                    placeholder={t('settings.brandNamePlaceholder')}
                     maxLength={80}
                   />
                 </Field>
 
                 <div className="mb-4">
                   <div className="text-[13.5px] text-muted font-semibold mb-2">
-                    لون اللهجة (اختياري)
+                    {t('settings.accentLabel')}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {ACCENT_PRESETS.map((p) => {
@@ -865,7 +864,7 @@ export function SettingsPage() {
                     })}
                     <label
                       className="inline-flex items-center gap-2 min-h-[48px] px-3 rounded-full border border-border cursor-pointer text-[13.5px] font-semibold"
-                      title="لون مخصص"
+                      title={t('settings.customColorTitle')}
                     >
                       <input
                         type="color"
@@ -877,7 +876,7 @@ export function SettingsPage() {
                         }
                         onChange={(e) => setBrandAccent(e.target.value.toLowerCase())}
                       />
-                      مخصص
+                      {t('settings.custom')}
                     </label>
                     <button
                       type="button"
@@ -890,11 +889,11 @@ export function SettingsPage() {
                           : 'bg-card text-muted border-border'
                       }`}
                     >
-                      الافتراضي (بدون لهجة)
+                      {t('settings.accentDefault')}
                     </button>
                   </div>
                   <p className="text-muted text-[12px] mb-0 mt-2">
-                    اللهجة بتلوّن تدرّج كارت الطالب وترويسات الإيصالات وأوراق الامتحان وبوابة ولي الأمر.
+                    {t('settings.accentHint')}
                   </p>
                 </div>
 
@@ -902,7 +901,7 @@ export function SettingsPage() {
                   <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{brandMsg}</p>
                 )}
                 <Button full type="submit" disabled={updateSettings.isPending}>
-                  {updateSettings.isPending ? 'جارٍ الحفظ…' : 'حفظ الهوية'}
+                  {updateSettings.isPending ? t('settings.saving') : t('settings.saveBrand')}
                 </Button>
               </form>
             </>
@@ -916,22 +915,22 @@ export function SettingsPage() {
       {(ownTeachers.length > 0 || memberships.length > 0) && (
         <SettingsSection {...sectionProps('centres')}>
           <p className="text-muted text-[13.5px] mt-0 mb-3">
-            اختر السنتر اللي هتشتغل عليه دلوقتي — بيانات كل سنتر منفصلة تماماً.
+            {t('settings.centresIntro')}
           </p>
-          {ownTeachers.map((t) => {
-            const active = activeCentreId === t.id
+          {ownTeachers.map((tok) => {
+            const active = activeCentreId === tok.id
             return (
               <button
-                key={t.id}
+                key={tok.id}
                 type="button"
-                onClick={() => switchWorkspace(t.id)}
+                onClick={() => switchWorkspace(tok.id)}
                 className={`w-full flex items-center gap-2 px-3 min-h-[48px] rounded-xl border cursor-pointer mb-2 text-start ${
                   active ? 'border-primary bg-soft font-bold' : 'border-border bg-card'
                 }`}
               >
-                <span className="flex-1">{t.display_name || 'سنتر بدون اسم'}</span>
-                <span className="text-muted text-[12px]">مالك</span>
-                {active && <span className="text-primary text-[13.5px]">الحالي</span>}
+                <span className="flex-1">{tok.display_name || t('settings.centreNoName')}</span>
+                <span className="text-muted text-[12px]">{t('settings.ownerBadge')}</span>
+                {active && <span className="text-primary text-[13.5px]">{t('settings.currentBadge')}</span>}
               </button>
             )
           })}
@@ -947,10 +946,10 @@ export function SettingsPage() {
                 }`}
               >
                 <span className="flex-1">
-                  مساعد عند مدرس <span dir="ltr">{shortId(m.teacher_id)}</span>
+                  {t('settings.assistantAtTeacher')} <span dir="ltr">{shortId(m.teacher_id)}</span>
                 </span>
-                <span className="text-muted text-[12px]">مساعد</span>
-                {active && <span className="text-primary text-[13.5px]">الحالي</span>}
+                <span className="text-muted text-[12px]">{t('settings.assistantBadge')}</span>
+                {active && <span className="text-primary text-[13.5px]">{t('settings.currentBadge')}</span>}
               </button>
             )
           })}
@@ -959,12 +958,12 @@ export function SettingsPage() {
               وننتقل إليه فوراً */}
           {user && (
             <form onSubmit={handleCreateCentre} className="mt-4 border-t border-border pt-4">
-              <div className="text-[13.5px] text-muted font-semibold mb-2">إنشاء سنتر جديد</div>
-              <Field label="اسم السنتر الجديد">
+              <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.createCentreTitle')}</div>
+              <Field label={t('settings.newCentreNameLabel')}>
                 <TextInput
                   value={newCentreName}
                   onChange={(e) => setNewCentreName(e.target.value)}
-                  placeholder="مثال: سنتر الفرع الثاني"
+                  placeholder={t('settings.newCentrePlaceholder')}
                   required
                 />
               </Field>
@@ -972,7 +971,7 @@ export function SettingsPage() {
                 <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{centreMsg}</p>
               )}
               <Button full type="submit" disabled={createCentre.isPending || !newCentreName.trim()}>
-                {createCentre.isPending ? 'جارٍ الإنشاء…' : 'إنشاء السنتر والانتقال إليه'}
+                {createCentre.isPending ? t('settings.creating') : t('settings.createCentreAction')}
               </Button>
             </form>
           )}
@@ -983,15 +982,12 @@ export function SettingsPage() {
       {ownTeacher && isOwnerWorkspace && (
         <SettingsSection {...sectionProps('team')}>
           <p className="text-muted text-[13.5px] mt-0 mb-3">
-            طريقتان لإضافة مساعد: بالبريد الإلكتروني (الدعوة بتتفعّل تلقائياً لما
-            صاحب البريد يدخل التطبيق)، أو بمعرّف الحساب لو المساعد عنده حساب
-            أصلاً وعايز تضيفه فوراً. البيانات المالية (فواتير/أرباح) محجوبة عن
-            المساعدين في قاعدة البيانات نفسها.
+            {t('settings.teamIntro')}
           </p>
 
-          <div className="text-[13.5px] text-muted font-semibold mb-2">دعوة بالبريد الإلكتروني</div>
+          <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.emailInviteTitle')}</div>
           <form onSubmit={handleEmailInvite} className="mb-4">
-            <Field label="بريد المساعد">
+            <Field label={t('settings.assistantEmailLabel')}>
               <TextInput
                 type="email"
                 dir="ltr"
@@ -1005,17 +1001,17 @@ export function SettingsPage() {
               <a
                 className="inline-flex items-center gap-1.5 min-h-[48px] text-primary text-[13.5px] font-semibold mb-3 -mt-1"
                 href={`mailto:${normalizeInviteEmail(inviteEmail)}?subject=${encodeURIComponent(
-                  'دعوة للانضمام كمساعد في تطبيق المدرس',
+                  t('settings.inviteEmailSubject'),
                 )}&body=${encodeURIComponent(
-                  'أهلاً،\n\nبدعوك تنضم لفريقي كمساعد في تطبيق المدرس.\nالخطوات:\n1) أنشئ حساباً جديداً في التطبيق بنفس البريد ده وكلمة مرور (أو سجّل دخول لو عندك حساب بنفس البريد).\n2) هتلاقي نفسك منضم لفريقي تلقائياً بصلاحياتك — مش محتاج تبعت أي معرّف.\n\nشكراً لك.',
+                  t('settings.inviteEmailBody'),
                 )}`}
               >
                 <Mail size={18} />
-                إخطار المساعد بالبريد (اختياري)
+                {t('settings.notifyByEmail')}
               </a>
             )}
             <div className="mb-3">
-              <div className="text-[13.5px] text-muted font-semibold mb-2">صلاحيات المساعد</div>
+              <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.assistantPermsLabel')}</div>
               <div className="flex flex-wrap gap-2">
                 {Object.keys(PERMISSION_LABELS).map((key) => (
                   <button
@@ -1037,14 +1033,14 @@ export function SettingsPage() {
               <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{emailInviteMsg}</p>
             )}
             <Button full type="submit" disabled={inviteByEmail.isPending}>
-              {inviteByEmail.isPending ? 'جارٍ إنشاء الدعوة…' : 'إرسال الدعوة'}
+              {inviteByEmail.isPending ? t('settings.creatingInvite') : t('settings.sendInvite')}
             </Button>
           </form>
 
           {pendingInvites.length > 0 && (
             <div className="mb-4">
               <div className="text-[13.5px] text-muted font-semibold mb-2">
-                دعوات معلّقة ({pendingInvites.length}) — بتتفعّل تلقائياً عند دخول صاحب البريد
+                {t('settings.pendingInvitesTitle', { count: pendingInvites.length })}
               </div>
               {pendingInvites.map((inv) => {
                 const invPerms = (inv.permissions ?? {}) as Record<string, unknown>
@@ -1055,7 +1051,7 @@ export function SettingsPage() {
                         {inv.invited_email}
                       </span>
                       <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
-                        معلّقة
+                        {t('settings.pendingBadge')}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-1.5 mb-2">
@@ -1082,14 +1078,14 @@ export function SettingsPage() {
                             })
                           }
                         >
-                          أيوه، إلغاء الدعوة
+                          {t('settings.confirmCancelInvite')}
                         </Button>
                         <Button
                           variant="ghost"
                           className="flex-1 min-h-[48px] text-[13.5px]"
                           onClick={() => setConfirmCancelId(null)}
                         >
-                          تراجع
+                          {t('settings.undo')}
                         </Button>
                       </div>
                     ) : (
@@ -1098,7 +1094,7 @@ export function SettingsPage() {
                         className="min-h-[48px] text-[13.5px] text-bad-text"
                         onClick={() => setConfirmCancelId(inv.id)}
                       >
-                        إلغاء الدعوة
+                        {t('settings.cancelInvite')}
                       </Button>
                     )}
                   </div>
@@ -1107,9 +1103,9 @@ export function SettingsPage() {
             </div>
           )}
 
-          <div className="text-[13.5px] text-muted font-semibold mb-2">إضافة بمعرّف الحساب</div>
+          <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.addByIdTitle')}</div>
           <form onSubmit={handleInvite} className="mb-4">
-            <Field label="معرّف حساب المساعد (UUID)">
+            <Field label={t('settings.assistantIdLabel')}>
               <TextInput
                 dir="ltr"
                 placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
@@ -1119,7 +1115,7 @@ export function SettingsPage() {
               />
             </Field>
             <div className="mb-3">
-              <div className="text-[13.5px] text-muted font-semibold mb-2">صلاحيات المساعد</div>
+              <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.assistantPermsLabel')}</div>
               <div className="flex flex-wrap gap-2">
                 {Object.keys(PERMISSION_LABELS).map((key) => (
                   <button
@@ -1141,20 +1137,20 @@ export function SettingsPage() {
               <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{inviteMsg}</p>
             )}
             <Button full type="submit" disabled={invite.isPending}>
-              {invite.isPending ? 'جارٍ الإضافة…' : '+ إضافة مساعد للفريق'}
+              {invite.isPending ? t('settings.adding') : t('settings.addAssistant')}
             </Button>
           </form>
 
-          <div className="text-[13.5px] text-muted font-semibold mb-2">أعضاء الفريق الحاليون</div>
+          <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.teamMembersTitle')}</div>
           {membersQ.isPending ? (
-            <LoadingState label="بنحمّل الفريق…" />
+            <LoadingState label={t('settings.loadingTeam')} />
           ) : membersQ.isError ? (
             <ErrorState
-              message={membersQ.error instanceof Error ? membersQ.error.message : 'خطأ غير معروف'}
+              message={membersQ.error instanceof Error ? membersQ.error.message : t('common.unknownError')}
               onRetry={() => void membersQ.refetch()}
             />
           ) : teamMembers.length === 0 ? (
-            <EmptyState icon={Handshake} title="لا يوجد مساعدون بعد" hint="أضف أول مساعد بالبريد أو بمعرّف حسابه من النماذج بالأعلى" />
+            <EmptyState icon={Handshake} title={t('settings.teamEmptyTitle')} hint={t('settings.teamEmptyHint')} />
           ) : (
             teamMembers.map((m) => {
               const memberPerms = (m.permissions ?? {}) as Record<string, unknown>
@@ -1163,13 +1159,13 @@ export function SettingsPage() {
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-bold text-[15px] flex-1">
                       {m.invited_email ? (
-                        <>مساعد — <span dir="ltr">{m.invited_email}</span></>
+                        <>{t('settings.memberAssistantPrefix')} <span dir="ltr">{m.invited_email}</span></>
                       ) : (
-                        <>مساعد — <span dir="ltr">{shortId(m.user_id ?? '')}</span></>
+                        <>{t('settings.memberAssistantPrefix')} <span dir="ltr">{shortId(m.user_id ?? '')}</span></>
                       )}
                     </span>
                     <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
-                      {m.status === 'active' ? 'فعّال' : m.status === 'invited' ? 'مدعو' : 'موقوف'}
+                      {m.status === 'active' ? t('settings.statusActive') : m.status === 'invited' ? t('settings.statusInvited') : t('settings.statusSuspended')}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5 mb-2">
@@ -1204,14 +1200,14 @@ export function SettingsPage() {
                           })
                         }
                       >
-                        أيوه، إزالة نهائية
+                        {t('settings.confirmRemoveMember')}
                       </Button>
                       <Button
                         variant="ghost"
                         className="flex-1 min-h-[48px] text-[13.5px]"
                         onClick={() => setConfirmRemoveId(null)}
                       >
-                        إلغاء
+                        {t('settings.cancel')}
                       </Button>
                     </div>
                   ) : (
@@ -1220,7 +1216,7 @@ export function SettingsPage() {
                       className="min-h-[48px] text-[13.5px] text-bad-text"
                       onClick={() => setConfirmRemoveId(m.id)}
                     >
-                      إزالة من الفريق
+                      {t('settings.removeFromTeam')}
                     </Button>
                   )}
                 </div>
@@ -1250,7 +1246,7 @@ export function SettingsPage() {
       {/* تسجيل الخروج */}
       <Card>
         <Button full variant="danger" onClick={handleSignOut} disabled={signingOut}>
-          {signingOut ? 'جارٍ تسجيل الخروج…' : 'تسجيل الخروج'}
+          {signingOut ? t('settings.signingOut') : t('settings.signOut')}
         </Button>
       </Card>
         </div>
