@@ -10,6 +10,7 @@
  */
 import { TEMPLATE_EXAMPLE_ROW, TEMPLATE_HEADERS } from './logic'
 import { csvEsc } from '../../../lib/csv'
+import { t } from '../../../i18n'
 
 export interface ParsedFile {
   fileName: string
@@ -25,11 +26,11 @@ export const MAX_DATA_ROWS = 1000
 
 export async function parseStudentFile(file: File): Promise<ParsedFile> {
   if (file.size > MAX_FILE_BYTES) {
-    throw new Error('الملف أكبر من 5 ميجا — قسّمه على دفعتين وجرّب تاني.')
+    throw new Error(t('students.impFileTooLarge'))
   }
   const lower = file.name.toLowerCase()
   if (!/\.(xlsx|xls|csv)$/.test(lower)) {
-    throw new Error('صيغة الملف غير مدعومة — اختر ملف Excel ‏(xlsx) أو CSV.')
+    throw new Error(t('students.impFileUnsupported'))
   }
   const XLSX = await import('xlsx')
   const buf = await file.arrayBuffer()
@@ -37,22 +38,22 @@ export async function parseStudentFile(file: File): Promise<ParsedFile> {
   try {
     wb = XLSX.read(buf, { type: 'array' })
   } catch {
-    throw new Error('تعذّرت قراءة الملف — اتأكد إنه ملف Excel/CSV سليم.')
+    throw new Error(t('students.impFileUnreadable'))
   }
   const sheetName = wb.SheetNames[0]
-  if (!sheetName) throw new Error('الملف فاضي — مفيش أي ورقة بيانات.')
+  if (!sheetName) throw new Error(t('students.impFileNoSheet'))
   const sheet = wb.Sheets[sheetName]
   const aoa = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
     header: 1,
     defval: '',
     raw: true,
   })
-  if (aoa.length === 0) throw new Error('الملف فاضي — مفيش صف ترويسات.')
+  if (aoa.length === 0) throw new Error(t('students.impFileNoHeaders'))
   const headers = (aoa[0] ?? []).map((h) => String(h ?? '').trim())
   const rawRows = aoa.slice(1)
   if (rawRows.length > MAX_DATA_ROWS) {
     throw new Error(
-      `الملف فيه ${rawRows.length} صف — الحد الأقصى للاستيراد الواحد ${MAX_DATA_ROWS} صف. قسّمه وجرّب تاني.`,
+      t('students.impFileTooManyRows', { count: rawRows.length, max: MAX_DATA_ROWS }),
     )
   }
   return { fileName: file.name, headers, rawRows }

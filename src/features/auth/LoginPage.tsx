@@ -103,7 +103,7 @@ export function LoginPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('auth.signInFailed')
       setError(msg)
-      if (msg.includes('لسه مش متأكد')) setCanResend(true)
+      if (msg === t('auth.errEmailNotConfirmed')) setCanResend(true)
     } finally {
       setBusy(false)
     }
