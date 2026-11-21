@@ -8,12 +8,18 @@ function lookup(key: string): Msg | undefined {
   for (const part of key.split('.')) {
     if (typeof node !== 'object' || node === null) return undefined
     // اجتياز بالخصائص الذاتية فقط (تصليب 3A-302 — نتيجة Semgrep
-    // ‏prototype-pollution-loop على هذا السطر): بلا hasOwn كان جزء مثل
+    // ‏prototype-pollution-loop على سطر الاجتياز): بلا hasOwn كان جزء مثل
     // «__proto__» أو «constructor» يُقرأ من سلسلة البروتوتايب لا من القاموس
     // نفسه. المفاتيح ثوابت مكتوبة في الكود أصلاً فلا مسار استغلال فعلياً،
-    // لكن الاجتياز الذاتي أصحّ دلالياً ويُسقط النتيجة من جذرها — وبلا أي
-    // تغيير سلوك لأي مفتاح حقيقي في القاموس.
+    // لكن الاجتياز الذاتي أصحّ دلالياً — وبلا أي تغيير سلوك لأي مفتاح
+    // حقيقي في القاموس.
     if (!Object.hasOwn(node, part)) return undefined
+    // كتم موضعي مبرر (لا إضعاف للبوابة): قاعدة Semgrep نمطية وتظل تُطلق
+    // على أي فهرسة داخل حلقة رغم الحارس. الإيجابية كاذبة هنا بالإثبات:
+    // الدالة قراءة فقط (لا إسناد لأي خاصية في أي مسار)، الاجتياز مقيد
+    // بالخصائص الذاتية بالحارس أعلاه، والمفاتيح ثوابت I18nKey من الكود
+    // لا مدخلات مستخدم. الاختبار «أجزاء بروتوتايب لا تتسرب» يثبّت ذلك.
+    // nosemgrep: javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop
     node = (node as Record<string, unknown>)[part]
   }
   return typeof node === 'string' || (typeof node === 'object' && node !== null)
