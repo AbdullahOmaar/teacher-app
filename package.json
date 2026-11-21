@@ -6,11 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "check": "npm run lint && npm run build",
+    "check": "npm run lint && npm run build && npm run test:authz",
     "test": "vitest run",
     "lint": "oxlint",
     "preview": "vite preview",
-    "check:i18n": "node scripts/check-i18n.mjs"
+    "check:i18n": "node scripts/check-i18n.mjs",
+    "test:authz": "python3 scripts/authz_tests.py"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans-arabic": "^5.3.0",
