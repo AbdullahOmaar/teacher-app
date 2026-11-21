@@ -17,8 +17,11 @@ import {
   signUpWithEmail,
 } from './api'
 import { t } from '../../i18n'
+import { WHATSAPP_OTP_ENABLED } from '../../lib/phone'
+import { PhoneAuth } from './PhoneAuth'
 
 type Mode = 'signin' | 'signup' | 'forgot'
+type Method = 'email' | 'phone'
 
 /**
  * الدخول والتسجيل الحقيقي بـ Supabase Auth (بريد + كلمة مرور).
@@ -33,6 +36,9 @@ export function LoginPage() {
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   const [mode, setMode] = useState<Mode>('signin')
+  // طريقة الدخول: البريد افتراضياً دائماً؛ الهاتف لا يظهر إلا بعلم
+  // WHATSAPP_OTP_ENABLED (P5-3) — عند قفله لا أثر لهذا الحقل مرئياً
+  const [method, setMethod] = useState<Method>('email')
   const [displayName, setDisplayName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -52,6 +58,13 @@ export function LoginPage() {
 
   const switchMode = (next: Mode) => {
     setMode(next)
+    setError(null)
+    setNotice(null)
+    setCanResend(false)
+  }
+
+  const switchMethod = (next: Method) => {
+    setMethod(next)
     setError(null)
     setNotice(null)
     setCanResend(false)
@@ -205,14 +218,44 @@ export function LoginPage() {
           </div>
           <h1 className="type-screen m-0">{t('auth.appTitle')}</h1>
           <p className="text-muted text-[13.5px] mt-1">
-            {mode === 'signin'
-              ? t('auth.signInSubtitle')
-              : mode === 'signup'
-                ? t('auth.signUpSubtitle')
-                : t('auth.forgotSubtitle')}
+            {method === 'phone'
+              ? t('auth.phoneSubtitle')
+              : mode === 'signin'
+                ? t('auth.signInSubtitle')
+                : mode === 'signup'
+                  ? t('auth.signUpSubtitle')
+                  : t('auth.forgotSubtitle')}
           </p>
         </div>
 
+        {WHATSAPP_OTP_ENABLED && (
+          <div className="flex bg-soft rounded-xl p-1 mb-4" role="tablist" aria-label={t('auth.methodLabel')}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={method === 'email'}
+              onClick={() => switchMethod('email')}
+              className={`flex-1 min-h-[48px] rounded-xl border-0 cursor-pointer font-bold text-[15px] ${
+                method === 'email' ? 'bg-card text-primary shadow-card' : 'bg-transparent text-muted'
+              }`}
+            >
+              {t('auth.methodEmail')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={method === 'phone'}
+              onClick={() => switchMethod('phone')}
+              className={`flex-1 min-h-[48px] rounded-xl border-0 cursor-pointer font-bold text-[15px] ${
+                method === 'phone' ? 'bg-card text-primary shadow-card' : 'bg-transparent text-muted'
+              }`}
+            >
+              {t('auth.methodPhone')}
+            </button>
+          </div>
+        )}
+
+        {method === 'email' && (
         <div className="flex bg-soft rounded-xl p-1 mb-4" role="tablist" aria-label={t('auth.authTabsLabel')}>
           <button
             type="button"
@@ -237,6 +280,7 @@ export function LoginPage() {
             {t('auth.signUpTab')}
           </button>
         </div>
+        )}
 
         <Card>
           {notice && (
@@ -248,7 +292,9 @@ export function LoginPage() {
             </p>
           )}
 
-          {mode === 'signin' ? (
+          {method === 'phone' ? (
+            <PhoneAuth />
+          ) : mode === 'signin' ? (
             <form onSubmit={handleSignIn}>
               <Field label={t('auth.emailLabel')}>
                 <TextInput

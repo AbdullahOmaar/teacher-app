@@ -20,7 +20,8 @@ export function Onboarding() {
   const meta = (user?.user_metadata ?? {}) as { display_name?: string; phone?: string | null }
 
   const [displayName, setDisplayName] = useState(meta.display_name ?? '')
-  const [phone, setPhone] = useState(meta.phone ?? '')
+  // حسابات الهاتف (P5-3): الرقم هوية الحساب نفسه فيُعبَّأ منه مباشرة
+  const [phone, setPhone] = useState(meta.phone ?? user?.phone ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -53,7 +54,7 @@ export function Onboarding() {
         {/* البريد داخل جملة عربية: عزل اتجاه (bdi + dir=ltr) حتى لا
             ينكسر ترتيب أجزائه عبر الأسطر (تدقيق أول استخدام — M2) */}
         {t('auth.onboardingBodyBefore')}
-        <bdi dir="ltr">{user?.email ?? ''}</bdi>
+        <bdi dir="ltr">{user?.email ?? user?.phone ?? ''}</bdi>
         {t('auth.onboardingBodyAfter')}
       </p>
       {error && (

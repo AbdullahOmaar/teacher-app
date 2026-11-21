@@ -11,6 +11,14 @@ export function translateAuthError(message: string): string {
     return t('auth.authApiAlreadyRegistered')
   if (m.includes('email not confirmed'))
     return t('auth.errEmailNotConfirmed')
+  // أخطاء مسار الهاتف/OTP (P5-3): صيغة الرقم، فشل الإرسال عبر الـ Hook،
+  // وكود منتهٍ أو غير صحيح عند التحقق
+  if (m.includes('invalid phone number') || m.includes('phone number format'))
+    return t('auth.errInvalidPhone')
+  if (m.includes('expired or is invalid')) return t('auth.errOtpInvalid')
+  if (m.includes('token has expired') || m.includes('otp expired'))
+    return t('auth.errOtpExpired')
+  if (m.includes('sending') && m.includes('sms')) return t('auth.errOtpSendFailed')
   if (m.includes('password should be at least')) return t('auth.passwordTooShort')
   if (m.includes('for security purposes'))
     return t('auth.authApiSecurityWait') // حد تكرار البريد (60 ثانية)
@@ -108,6 +116,46 @@ export async function requestPasswordReset(email: string): Promise<void> {
     redirectTo: `${window.location.origin}/reset-password`,
   })
   if (error) throw new Error(translateAuthError(error.message))
+}
+
+// ---------------------------------------------------------------------------
+// Supabase Auth — رقم الهاتف + OTP عبر واتساب (P5-3 / 3A-300)
+// GoTrue يولّد الكود ويتحقق منه ويصدر الجلسة؛ التوصيل يتم عبر Send SMS
+// Hook عندنا (دالة send-whatsapp-otp ترسله بقالب Authentication على
+// واتساب). signInWithOtp بحساب جديد = تسجيل ودخول معاً (shouldCreateUser
+// افتراضياً true)، والرقم هوية الحساب. الواجهة كلها خلف علم
+// WHATSAPP_OTP_ENABLED — انظر lib/phone.ts والتصميم WHATSAPP-OTP-DESIGN.md.
+// ملحوظة هوية موثّقة: claim_teacher_invites يطابق بريد JWT فقط، فحساب
+// الهاتف الصرف لا يدّعي دعوات البريد تلقائياً (قرار §٦ في التصميم).
+// ---------------------------------------------------------------------------
+
+/** طلب كود تحقق للرقم (E.164) — يُرسل عبر واتساب بقناة الـ Hook */
+export async function requestPhoneOtp(
+  phoneE164: string,
+  displayName?: string,
+): Promise<void> {
+  const { error } = await db().auth.signInWithOtp({
+    phone: phoneE164,
+    options: {
+      shouldCreateUser: true,
+      data: displayName?.trim() ? { display_name: displayName.trim() } : undefined,
+    },
+  })
+  if (error) throw new Error(translateAuthError(error.message))
+}
+
+/** التحقق من الكود وإصدار الجلسة — يعيد معرّف المستخدم الجديد/القائم */
+export async function verifyPhoneOtp(
+  phoneE164: string,
+  token: string,
+): Promise<{ userId: string | null }> {
+  const { data, error } = await db().auth.verifyOtp({
+    phone: phoneE164,
+    token: token.trim(),
+    type: 'sms',
+  })
+  if (error) throw new Error(translateAuthError(error.message))
+  return { userId: data.user?.id ?? null }
 }
 
 /** تعيين كلمة مرور جديدة داخل جلسة الاستعادة (أو من داخل الحساب) */
