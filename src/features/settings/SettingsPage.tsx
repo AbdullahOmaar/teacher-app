@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
+import { useToast } from '../../components/ui/toast'
 import { Bell, CalendarCheck2, Check, ChevronDown, ChevronUp, FolderCog, GraduationCap, Handshake, ImagePlus, Mail, MonitorSmartphone, Palette, SlidersHorizontal, Trash2, UserRound, type LucideIcon } from 'lucide-react'
 import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Button } from '../../components/ui/Button'
@@ -124,6 +125,7 @@ function SettingsSection({
  */
 export function SettingsPage() {
   const { user, signOut } = useAuth()
+  const toast = useToast()
   const teacher = useCurrentTeacher()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -450,7 +452,10 @@ export function SettingsPage() {
       next[k] = current[k] === true
     }
     next[key] = !next[key]
-    updatePerms.mutate({ memberId: member.id, permissions: next })
+    updatePerms.mutate(
+      { memberId: member.id, permissions: next },
+      { onError: () => toast('حصلت مشكلة في حفظ الصلاحية — حاول تاني', 'error') },
+    )
   }
 
   const handleSignOut = async () => {

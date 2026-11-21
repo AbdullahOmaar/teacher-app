@@ -147,7 +147,7 @@ export async function deleteEnrollment(teacherId: string, enrollmentId: string):
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', enrollmentId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
 }
 
 /** خريطة سريعة: group_id → صف المجموعة */

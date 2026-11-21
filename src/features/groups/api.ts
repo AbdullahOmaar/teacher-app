@@ -116,7 +116,7 @@ export async function deleteWaitlistEntry(teacherId: string, entryId: string): P
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', entryId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
 }
 
 /**

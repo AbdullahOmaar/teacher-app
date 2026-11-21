@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Sheet } from '../../components/ui/Sheet'
+import { useToast } from '../../components/ui/toast'
 import { Check, Printer, Trash2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Chip, ChipRow, Field, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
@@ -232,6 +233,7 @@ export function ExamBuilderSheet({
   const questions = useMemo(() => questionsQ.data ?? [], [questionsQ.data])
   const add = useAddQuestion(teacherId)
   const del = useDeleteQuestion(teacherId)
+  const toast = useToast()
 
   const [qType, setQType] = useState<QuestionType>('mcq')
   const [text, setText] = useState('')
@@ -271,7 +273,10 @@ export function ExamBuilderSheet({
                 points,
               },
             },
-            { onSuccess: resetForm },
+            {
+              onSuccess: resetForm,
+              onError: () => toast('حصلت مشكلة في إضافة السؤال — حاول تاني', 'error'),
+            },
           )
         }}
       >
@@ -368,7 +373,11 @@ export function ExamBuilderSheet({
                     type="button"
                     className="shrink-0 text-bad-text text-[13.5px] font-semibold bg-transparent border-0 cursor-pointer"
                     disabled={del.isPending}
-                    onClick={() => del.mutate(q.id)}
+                    onClick={() =>
+                      del.mutate(q.id, {
+                        onError: () => toast('حصلت مشكلة في حذف السؤال — حاول تاني', 'error'),
+                      })
+                    }
                   >
                     حذف
                   </button>

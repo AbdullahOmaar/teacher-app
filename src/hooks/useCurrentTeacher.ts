@@ -115,8 +115,11 @@ export function useCurrentTeacher(): TeacherResolution {
         claimAttemptedFor.add(uid)
         try {
           await claimTeacherInvites()
-        } catch {
-          // تجاهل متعمّد: المحاولة التالية عند دخول جديد
+        } catch (err) {
+          // تجاهل متعمّد (لا يكسر حلّ الهوية) لكنه يُسجَّل، وتُرفع
+          // علامة المحاولة حتى يُعاد الادعاء عند الحلّ التالي (PAT-2)
+          console.warn('[identity] invite claim failed, will retry on next resolution', err)
+          claimAttemptedFor.delete(uid)
         }
       }
 

@@ -36,7 +36,7 @@ export function PushNotificationsCard() {
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : ''
   // المالك = دوره في السنتر النشط مالك (0016: أي سنتر يملكه، لا الأساسي فقط)
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
-  const [state, setState] = useState<BrowserPushState | 'loading'>('loading')
+  const [state, setState] = useState<BrowserPushState | 'loading' | 'error'>('loading')
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -44,8 +44,11 @@ export function PushNotificationsCard() {
     if (!user) return
     try {
       setState(await getBrowserPushState(user.id))
-    } catch {
-      setState('not-subscribed')
+    } catch (err) {
+      // خطأ قراءة الحالة ليس «غير مشترك» — حالة خطأ صريحة بإعادة محاولة
+      // بدل تصنيف خاطئ يخفي مشاكل الخادم (PAT-2)
+      console.warn('[push] failed to read browser push state', err)
+      setState('error')
     }
   }, [user])
 
@@ -59,8 +62,9 @@ export function PushNotificationsCard() {
       try {
         const s = await getBrowserPushState(user.id)
         if (!cancelled) setState(s)
-      } catch {
-        if (!cancelled) setState('not-subscribed')
+      } catch (err) {
+        console.warn('[push] failed to read browser push state', err)
+        if (!cancelled) setState('error')
       }
     })()
     return () => {
@@ -137,6 +141,16 @@ export function PushNotificationsCard() {
             {busy ? 'جارٍ الإيقاف…' : 'إيقاف إشعارات Push على الجهاز ده'}
           </Button>
         </>
+      )}
+      {state === 'error' && (
+        <div>
+          <p className="text-muted text-[13.5px] mt-0">
+            حصلت مشكلة في قراءة حالة الإشعارات على المتصفح ده — ممكن تكون مشكلة شبكة مؤقتة.
+          </p>
+          <Button variant="soft" disabled={busy} onClick={() => void refresh()}>
+            إعادة المحاولة
+          </Button>
+        </div>
       )}
       {state === 'not-subscribed' && (
         <Button full onClick={handleSubscribe} disabled={busy || !teacherId}>

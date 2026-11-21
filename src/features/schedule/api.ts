@@ -1,4 +1,5 @@
 import { db } from '../../lib/supabase'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import { DAY_NAMES } from '../../lib/format'
 import type { ExtraSessionInput, GroupRow, HolidayRow, SessionRow } from '../../types/database'
 import {
@@ -199,7 +200,7 @@ export async function deleteHoliday(teacherId: string, holiday: HolidayRow): Pro
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', holiday.id)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
   const { error: sessErr } = await db()
     .from('sessions')
     .update({ status: 'scheduled' })

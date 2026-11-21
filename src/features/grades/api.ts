@@ -1,4 +1,5 @@
 import { db } from '../../lib/supabase'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import { waLink } from '../../lib/format'
 import type {
   AssessmentInput,
@@ -237,7 +238,7 @@ export async function deleteAssessment(teacherId: string, assessmentId: string):
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', assessmentId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
 }
 
 // ---------------------------------------------------------------------------
@@ -378,7 +379,7 @@ export async function deleteQuestion(teacherId: string, questionId: string): Pro
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', questionId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
 }
 
 /**

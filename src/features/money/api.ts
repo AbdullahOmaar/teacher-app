@@ -1,4 +1,5 @@
 import { db } from '../../lib/supabase'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import type {
   ExpenseInput,
   ExpenseRow,
@@ -186,7 +187,7 @@ export async function deleteExpense(teacherId: string, expenseId: string): Promi
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', expenseId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
 }
 
 // ---------------------------------------------------------------------------
@@ -260,7 +261,7 @@ export async function deleteRecurringExpense(
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', recurringId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
 }
 
 export interface ApplyRecurringResult {

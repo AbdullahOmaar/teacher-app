@@ -256,7 +256,16 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
                   full
                   disabled={setPaused.isPending}
                   onClick={() =>
-                    setPaused.mutate({ studentId: student.id, paused: false })
+                    setPaused.mutate(
+                      { studentId: student.id, paused: false },
+                      {
+                        onError: (e) =>
+                          toast(
+                            e instanceof Error ? e.message : 'حصلت مشكلة في إلغاء الأرشفة — حاول تاني',
+                            'error',
+                          ),
+                      },
+                    )
                   }
                 >
                   <ArchiveRestore size={20} /> استئناف الطالب (إلغاء الأرشفة)
@@ -343,7 +352,15 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
                       className="text-bad-text text-[13.5px] font-semibold bg-transparent border-0 cursor-pointer"
                       onClick={() => {
                         if (window.confirm(`إلغاء تسجيل «${student.name}» من مجموعة «${g.name}»؟`))
-                          deleteEnrollment.mutate(e.id)
+                          deleteEnrollment.mutate(e.id, {
+                            onError: (err) =>
+                              toast(
+                                err instanceof Error
+                                  ? err.message
+                                  : 'حصلت مشكلة في إلغاء التسجيل — حاول تاني',
+                                'error',
+                              ),
+                          })
                       }}
                     >
                       إلغاء التسجيل

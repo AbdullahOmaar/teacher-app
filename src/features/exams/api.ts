@@ -1,4 +1,5 @@
 import { db } from '../../lib/supabase'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import type {
   ExamAttemptRow,
@@ -140,7 +141,7 @@ export async function deleteOnlineExam(teacherId: string, examId: string): Promi
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', examId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء الحذف')
 }
 
 // ---------------------------------------------------------------------------

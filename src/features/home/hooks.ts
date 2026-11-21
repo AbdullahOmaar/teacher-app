@@ -126,8 +126,10 @@ export function useUpcomingSessions(teacherId: string | undefined) {
       try {
         const groups = await fetchGroups(teacherId!)
         await ensureSessionsGenerated(teacherId!, groups, generationWindowMonths(today))
-      } catch {
-        // التوليد خطوة مساعدة — نعرض ما هو موجود في الجدول على أي حال
+      } catch (err) {
+        // التوليد خطوة مساعدة — نعرض ما هو موجود في الجدول على أي حال،
+        // لكن الفشل يُسجَّل ولا يُبتلع صامتاً (PAT-2)
+        console.warn('[home] session generation failed, showing existing sessions', err)
       }
       return fetchSessionsInRange(teacherId!, today, tomorrow)
     },

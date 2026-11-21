@@ -121,6 +121,9 @@ export function ExamPage() {
   const [attempt, setAttempt] = useState<ExamStartResult | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [result, setResult] = useState<ExamSubmitResult | null>(null)
+  // فشل التسليم التلقائي عند انتهاء الوقت (PAT-2): يحتاج لافتة بارزة
+  // أعلى الشاشة — خطأ أسفل صفحة طويلة لا يراه الطالب والمؤقّت صفر
+  const [autoSubmitFailed, setAutoSubmitFailed] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
   const autoSubmittedRef = useRef<string | null>(null)
 
@@ -147,7 +150,13 @@ export function ExamPage() {
     submitMut.mutate(
       { attemptId: attempt.attempt_id, answers },
       {
+        onError: () => {
+          // الإجابات محفوظة محلياً فلا ضياع؛ التسليم اليدوي يظل متاحاً
+          // كإعادة محاولة، والتلقائي الفاشل يرفع لافتة بارزة (PAT-2)
+          if (auto) setAutoSubmitFailed(true)
+        },
         onSuccess: (res) => {
+          setAutoSubmitFailed(false)
           setResult(res)
           try {
             localStorage.removeItem(answersStorageKey(attempt.attempt_id))
@@ -364,6 +373,16 @@ export function ExamPage() {
             </span>
           </div>
         </div>
+
+        {autoSubmitFailed && (
+          <p
+            role="alert"
+            className="flex items-start gap-2 bg-bad-soft text-bad-text text-[13.5px] font-bold rounded-xl px-3 py-2.5 mb-3 mt-0"
+          >
+            <XCircle size={18} className="shrink-0 mt-0.5" />
+            <span>انتهى الوقت وحصلت مشكلة في تسليم إجاباتك — إجاباتك محفوظة على الجهاز ده. انزل لآخر الصفحة واضغط «تسليم الامتحان» عشان تحاول تاني.</span>
+          </p>
+        )}
 
         {attempt.resumed && (
           <p className="flex items-start gap-2 bg-warn-soft text-warn-text text-[13.5px] font-semibold rounded-xl px-3 py-2.5 mb-3 mt-0">

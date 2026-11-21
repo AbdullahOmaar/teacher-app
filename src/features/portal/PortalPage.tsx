@@ -16,6 +16,7 @@ import {
   Users,
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
 import { Chip, ChipRow, Field, FormError, TextInput } from '../../components/ui/form'
 import { SkeletonCards } from '../../components/ui/states'
@@ -309,6 +310,7 @@ function NotificationsSection({
 }) {
   const notifQ = usePortalNotifications(studentId, rawToken)
   const markRead = useMarkPortalNotificationsRead(studentId, rawToken)
+  const toast = useToast()
   const notifications = notifQ.data?.notifications ?? []
   const unread = notifQ.data?.unread_count ?? 0
 
@@ -374,7 +376,11 @@ function NotificationsSection({
               variant="soft"
               className="mt-2 min-h-[48px] text-[13.5px] px-3"
               disabled={markRead.isPending}
-              onClick={() => markRead.mutate(undefined)}
+              onClick={() =>
+                markRead.mutate(undefined, {
+                  onError: () => toast('حصلت مشكلة في تعليم الإشعارات — حاول تاني', 'error'),
+                })
+              }
             >
               <Check size={18} />
               {markRead.isPending ? 'بنعلّم…' : 'تعليم الكل كمقروء'}

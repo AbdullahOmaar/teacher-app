@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Sheet } from '../../components/ui/Sheet'
+import { useToast } from '../../components/ui/toast'
 import { Check, Copy, GraduationCap, Link2, MessageCircle, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import type { StudentAccessTokenRow, StudentRow } from '../../types/database'
@@ -94,6 +95,7 @@ export function StudentPortalLinkSheet({
   const tokensQ = useStudentPortalTokens(teacherId, student.id)
   const createLink = useCreateStudentPortalLink(teacherId)
   const revokeToken = useRevokeStudentPortalToken(teacherId)
+  const toast = useToast()
   const [freshLink, setFreshLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -206,7 +208,11 @@ export function StudentPortalLinkSheet({
             key={t.id}
             token={t}
             revoking={revokeToken.isPending}
-            onRevoke={() => revokeToken.mutate(t.id)}
+            onRevoke={() =>
+              revokeToken.mutate(t.id, {
+                onError: () => toast('حصلت مشكلة في إلغاء الرابط — حاول تاني', 'error'),
+              })
+            }
           />
         ))
       )}
