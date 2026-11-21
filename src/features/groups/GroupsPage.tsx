@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Card } from '../../components/ui/Card'
 import { Users } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -9,7 +11,7 @@ import { Chip, ChipRow } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { BILLING_LABELS, daysLabel, formatMoney, formatTime12 } from '../../lib/format'
-import { useEnrollments } from '../students/hooks'
+import { SG, useEnrollments } from '../students/hooks'
 import { countByGroup } from './api'
 import { useGroups } from './hooks'
 import { GroupFormSheet } from './GroupFormSheet'
@@ -21,6 +23,7 @@ import { GroupFormSheet } from './GroupFormSheet'
 type GroupFilter = 'active' | 'archived'
 
 export function GroupsPage() {
+  const qc = useQueryClient()
   const teacher = useCurrentTeacher()
   const [formOpen, setFormOpen] = useState(false)
   const [filter, setFilter] = useState<GroupFilter>('active')
@@ -55,6 +58,7 @@ export function GroupsPage() {
   const hasArchived = allGroups.some((g) => g.archived_at != null)
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [SG] })}>
     <div>
       {allGroups.length > 0 && (
         <ChipRow>
@@ -152,5 +156,6 @@ export function GroupsPage() {
         />
       )}
     </div>
+    </PullToRefresh>
   )
 }

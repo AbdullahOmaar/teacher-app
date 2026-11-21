@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
 import { Link } from 'react-router-dom'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
+import { HOME } from '../home/hooks'
 import {
   AlertTriangle,
   Bell,
@@ -249,6 +252,7 @@ function SectionBlock({
  * المنخفضة، والنسخ الاحتياطي (للمالك فقط). «لا تنبيهات» حالة نجاح.
  */
 export function NotificationsPage() {
+  const qc = useQueryClient()
   const teacher = useCurrentTeacher()
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
@@ -337,6 +341,7 @@ export function NotificationsPage() {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [HOME] })}>
     <div ref={rootRef}>
       {alertsQ.isPending ? (
         <>
@@ -435,5 +440,6 @@ export function NotificationsPage() {
       )}
 
     </div>
+    </PullToRefresh>
   )
 }

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Card } from '../../components/ui/Card'
 import { Building2, Lock, Pin, Wallet } from 'lucide-react'
 import { useToast } from '../../components/ui/toast'
@@ -17,6 +19,7 @@ import { formatDateLabel } from '../schedule/api'
 import { lastSixMonths, summaryOf, type MonthSummary } from './api'
 import { CashboxSection } from './CashboxSection'
 import {
+  MONEY,
   useApplyRecurring,
   useCenterSharePercent,
   useDeleteExpense,
@@ -106,6 +109,7 @@ function MonthBarRow({
  * ومالك فقط كسائر المالية.
  */
 export function MoneyPage() {
+  const qc = useQueryClient()
   const teacher = useCurrentTeacher()
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
@@ -185,6 +189,7 @@ export function MoneyPage() {
   const defaultExpenseDate = isCurrentMonth ? todayStr() : selectedMonth
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [MONEY] })}>
     <div>
       {/* شريط الشهور الموحّد (W3 — R-10): رقائق آخر 6 شهور بدل زرّي
           السابق/التالي — اختيار شهر أقدم من خارج الستة يبقى ظاهراً
@@ -452,5 +457,6 @@ export function MoneyPage() {
         />
       )}
     </div>
+    </PullToRefresh>
   )
 }

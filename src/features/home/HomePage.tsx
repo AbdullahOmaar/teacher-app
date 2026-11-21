@@ -45,6 +45,7 @@ import {
   useMonthlyAttendance,
   useUpcomingSessions,
 } from './hooks'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Mascot } from '../../components/mascot/Mascot'
 import { useMascotVisible } from '../../components/mascot/useMascotVisible'
 import { AtRiskCard } from '../atrisk/AtRiskCard'
@@ -324,6 +325,14 @@ export function HomePage() {
       : null
 
   return (
+    <PullToRefresh
+      onRefresh={async () => {
+        // نفس إبطال زر إعادة المحاولة أعلاه: HOME للصفحة والتنبيهات،
+        // وATRISK لبطاقة المعرّضين — مبادئ الصفحة كاملة دفعة واحدة
+        await qc.invalidateQueries({ queryKey: [HOME] })
+        await qc.invalidateQueries({ queryKey: [ATRISK] })
+      }}
+    >
     <div>
       {/* ترحيب دُفّي اليومي — أول دخول كل يوم فقط (MASCOT-PLAN §٦) */}
       {showWelcome && (
@@ -636,6 +645,7 @@ export function HomePage() {
         </>
       )}
     </div>
+    </PullToRefresh>
   )
 }
 

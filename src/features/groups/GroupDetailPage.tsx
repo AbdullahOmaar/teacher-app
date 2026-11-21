@@ -28,6 +28,7 @@ import {
   useWaitlist,
 } from './hooks'
 import { GroupFormSheet } from './GroupFormSheet'
+import { GroupStarCheer } from './GroupStarCheer'
 
 /**
  * تفاصيل مجموعة: بيانات الجدول والفوترة، قائمة الطلاب (roster)،
@@ -159,6 +160,16 @@ export function GroupDetailPage() {
 
   return (
     <div>
+      {/* احتفال النجم عند محطات المجموعة (خطة الهوية P-12): يُشتق من
+          قائمة المجموعة المحمّلة هنا وبصمتها — مرة واحدة لكل محطة */}
+      {teacherId && id && (
+        <GroupStarCheer
+          teacherId={teacherId}
+          groupId={id}
+          studentsCount={roster.length}
+          sessionsCount={footprintQ.data?.sessionCount ?? null}
+        />
+      )}
       <Card>
         <div className="flex items-start justify-between gap-2">
           <div className="text-[16px] font-extrabold">

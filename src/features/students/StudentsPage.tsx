@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
 import { Link, useSearchParams } from 'react-router-dom'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Card } from '../../components/ui/Card'
 import { Check, Upload, Users, X } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
@@ -19,7 +21,7 @@ import { ListRow } from '../../components/ui/ListRow'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import { useGroups } from '../groups/hooks'
-import { useEnrollments, useStudentBalances, useStudents } from './hooks'
+import { SG, useEnrollments, useStudentBalances, useStudents } from './hooks'
 import { StudentDetailPage } from './StudentDetailPage'
 import { StudentFormSheet } from './StudentFormSheet'
 import { StudentImportSheet } from './import/StudentImportSheet'
@@ -39,6 +41,7 @@ const STATUS_CHIPS: { key: StatusFilter; label: string }[] = [
  * فلتر «موقوف» هو الوحيد الذي يُظهر الموقوفين.
  */
 export function StudentsPage() {
+  const qc = useQueryClient()
   const teacher = useCurrentTeacher()
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
@@ -158,6 +161,7 @@ export function StudentsPage() {
       : (filtered[0]?.id ?? null)
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [SG] })}>
     <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-5 lg:items-start">
       <div className="min-w-0">
       {/* شريط الأدوات الموحّد (W3 — R-10): بحث + رقائق حالة + تصفية
@@ -394,5 +398,6 @@ export function StudentsPage() {
         </div>
       </Sheet>
     </div>
+    </PullToRefresh>
   )
 }

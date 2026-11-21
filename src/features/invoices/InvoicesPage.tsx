@@ -1,7 +1,9 @@
 import { isUnpaid } from './api'
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
 import { Link, useSearchParams } from 'react-router-dom'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
@@ -21,7 +23,7 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import { monthStartStr, todayStr } from '../home/api'
 import { payStateOf, periodLabel, periodYm, type InvoiceListItem } from './api'
-import { useInvoices } from './hooks'
+import { INV, useInvoices } from './hooks'
 import { InvoiceDetailPage } from './InvoiceDetailPage'
 import { IssueInvoicesSheet } from './sheets'
 import { ProofsReviewSection } from '../payment-proofs/components'
@@ -105,6 +107,7 @@ export function InvoiceCard({
  * المالية محجوبة عن المساعد: RLS تمنع القراءة أصلاً، والواجهة تعرض قفلاً.
  */
 export function InvoicesPage() {
+  const qc = useQueryClient()
   const teacher = useCurrentTeacher()
   const [params] = useSearchParams()
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
@@ -203,6 +206,7 @@ export function InvoicesPage() {
       : (filtered[0]?.invoice_id ?? null)
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [INV] })}>
     <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-5 lg:items-start">
       <div className="min-w-0">
       {/* شريط الأدوات الموحّد (W3 — R-10): بحث + رقائق حالة + عدّاد */}
@@ -400,5 +404,6 @@ export function InvoicesPage() {
         <IssueInvoicesSheet teacherId={teacherId} onClose={() => setIssueOpen(false)} />
       )}
     </div>
+    </PullToRefresh>
   )
 }

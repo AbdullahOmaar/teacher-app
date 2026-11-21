@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { History, X } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -28,7 +30,7 @@ import {
   EVENT_TYPE_OPTIONS,
   type ActivityFilters,
 } from './api'
-import { useActivityActors, useActivityLog } from './hooks'
+import { ACTIVITY, useActivityActors, useActivityLog } from './hooks'
 
 /** وقت الحدث بصيغة محلية مختصرة (ساعة:دقيقة) */
 function timeLabel(iso: string): string {
@@ -90,6 +92,7 @@ function detailsText(row: ActivityLogRow): string | null {
  * السجل للقراءة فقط: لا تعديل ولا حذف من التطبيق (لا سياسات لهما أصلاً).
  */
 export function ActivityLogPage() {
+  const qc = useQueryClient()
   const teacher = useCurrentTeacher()
   const isReady = teacher.status === 'ready'
   const teacherId = isReady ? teacher.teacherId : ''
@@ -146,6 +149,7 @@ export function ActivityLogPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [ACTIVITY] })}>
     <div>
       {/* شريط الأدوات الموحّد (W3 — R-10): بحث + فلاتر مفعّلة + تصفية */}
       <PageToolBar
@@ -297,5 +301,6 @@ export function ActivityLogPage() {
         </div>
       </Sheet>
     </div>
+    </PullToRefresh>
   )
 }
