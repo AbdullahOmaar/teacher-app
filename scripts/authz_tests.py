@@ -314,6 +314,99 @@ def main():
         check("owner reads exactly his own invoices",
               s == 200 and len(b) == admin_invoices,
               f"got {s} admin={admin_invoices}")
+
+        # ---------- WHATSAPP CONFIG (0026 — النموذج الاختياري per-teacher) ----------
+        print("WHATSAPP CONFIG:")
+        # توكن اختبار وهمي يُولّد لكل تشغيل ولا يُطبع أبداً — الغرض إثبات
+        # أنه لا يظهر في أي رد عميل وأنه يعيش في Vault فقط.
+        dummy_token = "authtest-" + secrets.token_urlsafe(24)
+        try:
+            s, b = rest(url, anon, "POST", "/rest/v1/teacher_whatsapp_config",
+                        jwt=demo_jwt,
+                        body={"teacher_id": demo_teacher, "enabled": True,
+                              "phone_number_id": "555000111",
+                              "waba_id": "555222",
+                              "template_name": "otp_code",
+                              "template_language": "ar"})
+            check("owner creates his whatsapp config row", s in (200, 201),
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/set_teacher_whatsapp_token",
+                        jwt=demo_jwt,
+                        body={"p_teacher_id": demo_teacher, "p_token": dummy_token})
+            check("owner stores his token via the write-only RPC",
+                  s in (200, 204),  # دالة void ترجع 204 من PostgREST
+                  f"got {s} {str(b)[:120]}")
+            vault_rows = sql(
+                ref,
+                "select count(*) as c from vault.decrypted_secrets "
+                f"where name = 'wa_token_{demo_teacher}'",
+            )
+            check("token landed in Vault under the teacher key",
+                  vault_rows and int(vault_rows[0]["c"]) == 1,
+                  f"got {vault_rows}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/teacher_whatsapp_config?select=*"
+                        f"&teacher_id=eq.{demo_teacher}",
+                        jwt=demo_jwt)
+            check("owner reads his own config row",
+                  s == 200 and isinstance(b, list) and len(b) == 1,
+                  f"got {s} {str(b)[:120]}")
+            check("the token value never appears in any client response",
+                  dummy_token not in json.dumps(b), "token leaked in config GET")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/teacher_whatsapp_config?select=*"
+                        f"&teacher_id=eq.{demo_teacher}",
+                        jwt=other_jwt)
+            check("other teacher reads none of demo's whatsapp config",
+                  s == 200 and b == [], f"got {s} {str(b)[:80]}")
+            s, b = rest(url, anon, "PATCH",
+                        f"/rest/v1/teacher_whatsapp_config?teacher_id=eq.{demo_teacher}",
+                        jwt=other_jwt, body={"enabled": False})
+            still = sql(
+                ref,
+                "select enabled from teacher_whatsapp_config "
+                f"where teacher_id = '{demo_teacher}'",
+            )
+            check("other teacher cannot modify demo's whatsapp config",
+                  still and still[0]["enabled"] is True, f"got {still}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/set_teacher_whatsapp_token",
+                        jwt=other_jwt,
+                        body={"p_teacher_id": demo_teacher,
+                              "p_token": "intruder-token"})
+            check("other teacher cannot set demo's token (RPC guard)",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/teacher_whatsapp_config?select=*"
+                        f"&teacher_id=eq.{demo_teacher}",
+                        jwt=asst_jwt)
+            check("assistant reads no whatsapp config (owner-only)",
+                  s == 200 and b == [], f"got {s}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/teacher_whatsapp_config?select=*")
+            check("anon reads no whatsapp config", s == 200 and b == [],
+                  f"got {s}")
+            s, b = rest(url, anon, "POST",
+                        "/rest/v1/rpc/resolve_whatsapp_channel_internal",
+                        body={"p_user_id": demo_uid})
+            check("anon cannot execute the internal channel resolver",
+                  s in (401, 403, 404) and dummy_token not in json.dumps(b),
+                  f"got {s}")
+            s, b = rest(url, anon, "POST",
+                        "/rest/v1/rpc/get_teacher_whatsapp_token_internal",
+                        jwt=demo_jwt, body={"p_teacher_id": demo_teacher})
+            check("even the owner cannot execute the token reader RPC",
+                  s in (401, 403, 404) and dummy_token not in json.dumps(b),
+                  f"got {s}")
+        finally:
+            # تنظيف القسم نفسه: حذف التوكن من Vault عبر RPC المالك ثم الصف
+            try:
+                rest(url, anon, "POST", "/rest/v1/rpc/set_teacher_whatsapp_token",
+                     jwt=demo_jwt,
+                     body={"p_teacher_id": demo_teacher, "p_token": ""})
+            except Exception:
+                pass
+            sql(ref, "delete from teacher_whatsapp_config "
+                     f"where teacher_id = '{demo_teacher}'")
     finally:
         # ---------- cleanup ----------
         ids = [u for u in (other_uid, asst_uid) if u]
