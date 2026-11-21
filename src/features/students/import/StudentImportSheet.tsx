@@ -182,7 +182,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
           <input
             ref={fileInputRef}
             type="file"
-            accept=".xlsx,.xls,.csv"
+            accept=".xlsx,.csv"
             className="hidden"
             onChange={(e) => {
               void onFileChosen(e.target.files?.[0])
