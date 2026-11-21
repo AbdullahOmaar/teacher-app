@@ -25,6 +25,13 @@
         var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
         document.documentElement.dataset.theme =
           savedTheme === 'dark' || (savedTheme !== 'light' && prefersDark) ? 'dark' : 'light'
+        // مرآة إظهار الماسكوت (0028): يكتبها التطبيق عند كل قراءة/حفظ
+        // لإعداد «إظهار دُفّي» (useMascotVisible) — قراءتها هنا قبل أول
+        // رسم تجعل سبلاش الإقلاع يختار لوجو الكتاب بدل دُفّي بلا وميض
+        // عندما أوقف المالك الماسكوت.
+        if (localStorage.getItem('teacher-app-show-mascot') === '0') {
+          document.documentElement.dataset.mascot = 'off'
+        }
       } catch (e) {
         /* بلا وصول للتخزين: يبقى الافتراضي الفاتح من CSS */
       }
@@ -33,7 +40,34 @@
     <!-- الخط (IBM Plex Sans Arabic) مضمّن محلياً عبر @fontsource في main.tsx — لا روابط خطوط خارجية -->
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- سبلاش إقلاع ثابت (MASCOT-PLAN §٦): دُفّي هو لوجو التحميل بقرار
+           المالك — يُرسم قبل وصول حزمة JS ويستبدله React عند تركيبه.
+           عند إيقاف الماسكوت (data-mascot=off من سكربت التهيئة) يظهر
+           لوجو الكتاب الأصلي. الألوان هي توكنات --bg/--text نفسها. -->
+      <div id="boot-splash">
+        <img id="boot-doffy" src="/mascot/doffy-splash.webp" alt="" width="150" height="154" />
+        <img id="boot-logo" src="/logo.svg" alt="" width="92" height="92" />
+        <div class="boot-name">تطبيق المدرس</div>
+      </div>
+      <style>
+        #boot-splash { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: #f7f8fc; }
+        :root[data-theme="dark"] #boot-splash { background: #0e1120; }
+        #boot-doffy { animation: boot-bounce 1.2s ease-in-out infinite; }
+        #boot-logo { display: none; }
+        :root[data-mascot="off"] #boot-doffy { display: none; }
+        :root[data-mascot="off"] #boot-logo { display: block; }
+        .boot-name { font-family: "IBM Plex Sans Arabic", system-ui, sans-serif; font-weight: 800; font-size: 21px; color: #141a2e; }
+        :root[data-theme="dark"] .boot-name { color: #f2f4fa; }
+        @keyframes boot-bounce {
+          0%, 100% { transform: translateY(0) scale(1, 1); }
+          30% { transform: translateY(-10px) scale(0.98, 1.03); }
+          55% { transform: translateY(0) scale(1.04, 0.95); }
+          75% { transform: translateY(-4px) scale(1, 1.01); }
+        }
+        @media (prefers-reduced-motion: reduce) { #boot-doffy { animation: none; } }
+      </style>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

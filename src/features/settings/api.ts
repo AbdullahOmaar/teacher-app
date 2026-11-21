@@ -34,7 +34,7 @@ import { fetchGroups } from '../groups/api'
 // ===========================================================================
 
 const SETTINGS_COLS =
-  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, last_export_at, created_at, updated_at'
+  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, show_mascot, last_export_at, created_at, updated_at'
 
 export const THEME_MODES: { code: ThemeMode; label: string }[] = [
   { code: 'auto', label: t('settings.settingsApiThemeAuto') },
@@ -182,6 +182,26 @@ export async function updatePushDigestSettings(
       },
       { onConflict: 'teacher_id' },
     )
+    .select(SETTINGS_COLS)
+    .single()
+  if (error) throw error
+  const row = data as unknown as TeacherSettingsRow
+  return { ...row, center_share_percent: Number(row.center_share_percent) || 0 }
+}
+
+/**
+ * حفظ إظهار الماسكوت «دُفّي» وحده (0028 — MASCOT-PLAN §٦) — upsert
+ * جزئي بنمط updatePushDigestSettings: يكتب show_mascot فقط ولا يمسّ
+ * أي عمود آخر. عند الإيقاف يختفي دُفّي من كل نقاط الظهور ويرجع لوجو
+ * التحميل/السبلاش للكتاب الأصلي (انظر components/mascot).
+ */
+export async function updateMascotVisibility(
+  teacherId: string,
+  showMascot: boolean,
+): Promise<TeacherSettingsRow> {
+  const { data, error } = await db()
+    .from('teacher_settings')
+    .upsert({ teacher_id: teacherId, show_mascot: showMascot }, { onConflict: 'teacher_id' })
     .select(SETTINGS_COLS)
     .single()
   if (error) throw error

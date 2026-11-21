@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
-import { Bell, CalendarCheck2, Check, ChevronDown, ChevronUp, FolderCog, GraduationCap, Handshake, ImagePlus, Mail, MessageCircle, MonitorSmartphone, Palette, SlidersHorizontal, Trash2, UserRound, type LucideIcon } from 'lucide-react'
+import { Bell, CalendarCheck2, Check, ChevronDown, ChevronUp, FolderCog, GraduationCap, Handshake, ImagePlus, Mail, MessageCircle, MonitorSmartphone, NotebookPen, Palette, SlidersHorizontal, Trash2, UserRound, type LucideIcon } from 'lucide-react'
 import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Button } from '../../components/ui/Button'
 import { Chip, Field, TextArea, TextInput } from '../../components/ui/form'
@@ -33,6 +33,7 @@ import { DEFAULT_WA_TEMPLATE } from '../invoices/api'
 import { InstallAppCard } from './InstallAppCard'
 import { EnrolLinkCard } from '../enrol/EnrolLinkCard'
 import { PushNotificationsCard } from './PushNotificationsCard'
+import { MascotSettingsCard } from './MascotSettingsCard'
 import { WhatsAppSettingsCard } from './WhatsAppSettingsCard'
 import { formatDateLabel } from '../schedule/api'
 import { REMINDER_OPTIONS, THEME_MODES, type TeacherSettingsInput } from './api'
@@ -489,6 +490,9 @@ export function SettingsPage() {
       : []),
     { id: 'install', title: t('settings.installTitle'), icon: MonitorSmartphone },
     { id: 'push', title: t('settings.pushTitle'), icon: Bell },
+    ...(isOwnerWorkspace
+      ? [{ id: 'mascot', title: t('settings.sectionMascot'), icon: NotebookPen }]
+      : []),
     ...(isOwnerWorkspace
       ? [{ id: 'whatsapp', title: t('settings.sectionWhatsapp'), icon: MessageCircle }]
       : []),
@@ -1239,6 +1243,13 @@ export function SettingsPage() {
       <SettingsSection {...sectionProps('push')} bare>
         <PushNotificationsCard />
       </SettingsSection>
+
+      {/* الماسكوت دُفّي (MASCOT-PLAN §٦ — 0028): البطاقة مالك فقط */}
+      {isOwnerWorkspace && (
+        <SettingsSection {...sectionProps('mascot')} bare>
+          <MascotSettingsCard />
+        </SettingsSection>
+      )}
 
       {/* واتساب الاختياري per-teacher (3A-300 — 0026): البطاقة مالك فقط */}
       {isOwnerWorkspace && (

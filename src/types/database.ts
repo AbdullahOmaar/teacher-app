@@ -47,10 +47,14 @@ export interface TeacherSettingsRow {
   push_daily_digest_enabled: boolean
   push_daily_digest_time: string // 'HH:MM:SS' (time في القاعدة)
   push_daily_digest_last_sent_on: string | null
-  // عمود migration ‏0017 (الماسكوت الموقوف بقرار المالك): موجود في المخطط
-  // الحي ولا تستخدمه أي ميزة — يُوثَّق هنا لتصحيح انحراف الأنواع (COD-1)
-  // دون بناء أي سلوك فوقه
+  // عمود migration ‏0017 (ماسكوت قديم موقوف): موجود في المخطط الحي ولا
+  // تستخدمه أي ميزة — يُوثَّق هنا لتصحيح انحراف الأنواع (COD-1) دون
+  // بناء أي سلوك فوقه. مفتاح دُفّي الفعلي هو show_mascot (0028) تحت.
   mascot_accessory: string | null
+  // إظهار الماسكوت «دُفّي» (migration ‏0028 — MASCOT-PLAN §٦): افتراضي
+  // true، والمالك يوقفه من بطاقة «الماسكوت» في الإعدادات فيختفي دُفّي
+  // من كل نقاط الظهور ويرجع لوجو التحميل/السبلاش للكتاب الأصلي
+  show_mascot: boolean
   last_export_at: string | null
   created_at: string
   updated_at: string

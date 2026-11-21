@@ -34,6 +34,9 @@ const SHELL_URLS = [
   '/manifest.webmanifest',
   '/favicon.svg',
   '/logo.svg',
+  // صورة سبلاش الإقلاع (دُفّي — MASCOT-PLAN §٦): تُخزّن مع القشرة حتى
+  // يرسم السبلاش فوراً وبلا شبكة من أول زيارة تالية
+  '/mascot/doffy-splash.webp',
   '/icon-192.png',
   '/icon-512.png',
   '/icon-maskable-512.png',

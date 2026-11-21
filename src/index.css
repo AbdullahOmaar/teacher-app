@@ -189,6 +189,46 @@
 }
 .att-row-flash { animation: att-row-flash 2s ease-out; }
 
+/*
+ * حركات الماسكوت «دُفّي» الخفيفة (MASCOT-PLAN §٤): تلويح الترحيب، قفزة
+ * الاحتفال، تنفّس النوم في الحالات الفارغة، هزّة جرس التنبيهات (دفعة
+ * قصيرة في أول الحلقة ثم سكون طويل حتى لا تُزعج)، وتمايل النجاحات
+ * الصغيرة. كلها transform فقط (لا إعادة رسم تخطيط)، وقاعدة
+ * prefers-reduced-motion العامة أسفل الملف توقفها كلها تلقائياً.
+ */
+@keyframes mascot-wave-kf {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3.5deg); }
+  75% { transform: rotate(3.5deg); }
+}
+.mascot-wave { transform-origin: 50% 92%; animation: mascot-wave-kf 2.4s ease-in-out infinite; }
+@keyframes mascot-jump-kf {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  30% { transform: translateY(-9px) scale(0.98, 1.03); }
+  55% { transform: translateY(0) scale(1.04, 0.95); }
+  75% { transform: translateY(-4px) scale(1, 1.01); }
+}
+.mascot-jump { transform-origin: 50% 95%; animation: mascot-jump-kf 0.95s ease-in-out infinite; }
+@keyframes mascot-breathe-kf {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.025) translateY(-1.5px); }
+}
+.mascot-breathe { transform-origin: 50% 90%; animation: mascot-breathe-kf 3.6s ease-in-out infinite; }
+@keyframes mascot-nudge-kf {
+  0%, 100% { transform: rotate(0deg); }
+  2% { transform: rotate(-2.6deg); }
+  4% { transform: rotate(2.6deg); }
+  6% { transform: rotate(-1.8deg); }
+  8% { transform: rotate(1.2deg); }
+  10% { transform: rotate(0deg); }
+}
+.mascot-nudge { transform-origin: 50% 88%; animation: mascot-nudge-kf 4.5s ease-in-out infinite; }
+@keyframes mascot-bob-kf {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3.5px); }
+}
+.mascot-bob { animation: mascot-bob-kf 2.8s ease-in-out infinite; }
+
 /* حركة موحدة (بحث §5): انتقالات 150–250ms ease-out للعناصر التفاعلية */
 button,
 a {

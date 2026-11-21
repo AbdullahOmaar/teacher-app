@@ -215,7 +215,7 @@ export async function signInDemo(): Promise<void> {
 
 const TEACHER_COLS = 'id, owner_user_id, display_name, avatar_url, phone, created_at, updated_at'
 const SETTINGS_COLS =
-  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, last_export_at, created_at, updated_at'
+  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, show_mascot, last_export_at, created_at, updated_at'
 const MEMBER_COLS =
   'id, teacher_id, user_id, invited_email, role, permissions, status, created_at, updated_at'
 

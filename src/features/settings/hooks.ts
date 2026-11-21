@@ -16,6 +16,7 @@ import {
   sendWhatsappTest,
   setWhatsappToken,
   touchLastExportAt,
+  updateMascotVisibility,
   updatePushDigestSettings,
   updateTeacherSettings,
   uploadBrandLogo,
@@ -68,6 +69,22 @@ export function useUpdatePushDigestSettings(teacherId: string) {
   return useMutation({
     mutationFn: (input: { enabled: boolean; time: string }) =>
       updatePushDigestSettings(teacherId, input),
+    onSuccess: (row: TeacherSettingsRow) => {
+      qc.setQueryData([SETTINGS, 'teacher-settings', teacherId], row)
+      void qc.invalidateQueries({ queryKey: [SETTINGS] })
+    },
+  })
+}
+
+/**
+ * حفظ إظهار الماسكوت «دُفّي» (0028) من بطاقة «الماسكوت» — تحديث جزئي
+ * (show_mascot فقط) يحدّث كاش إعدادات الوحدة بصف القاعدة الجديد، فتنعكس
+ * الحالة فوراً على كل نقاط الظهور التي تقرأ نفس الكاش.
+ */
+export function useUpdateMascotVisibility(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (showMascot: boolean) => updateMascotVisibility(teacherId, showMascot),
     onSuccess: (row: TeacherSettingsRow) => {
       qc.setQueryData([SETTINGS, 'teacher-settings', teacherId], row)
       void qc.invalidateQueries({ queryKey: [SETTINGS] })
