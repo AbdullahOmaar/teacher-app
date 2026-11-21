@@ -443,8 +443,22 @@ export async function generateInvoices(
     }
   }
 
-  let created = 0
   let skipped = 0
+
+  // بناء كل الفواتير وبنودها محلياً أولاً — لا أي طلب شبكة داخل الحلقة
+  // (أداء 3A-296: كان الإصدار يرسل طلبين لكل تسجيل: فاتورة ثم بنودها).
+  interface PlannedLine {
+    line_type: 'base' | 'discount'
+    description: string
+    amount: number
+    reason: string | null
+  }
+  interface PlannedInvoice {
+    studentId: string
+    groupId: string
+    lines: PlannedLine[]
+  }
+  const planned: PlannedInvoice[] = []
 
   for (const e of enrollments) {
     const group = groupById.get(e.group_id)
@@ -470,50 +484,14 @@ export async function generateInvoices(
       attendedCount: attendedCount.get(key) ?? 0,
     })
 
-    const { data: inv, error: invErr } = await supa
-      .from('invoices')
-      .insert({
-        teacher_id: teacherId,
-        student_id: e.student_id,
-        group_id: e.group_id,
-        period_month: period,
-      })
-      .select('id')
-      .single()
-    if (invErr) {
-      // سباق نادر: فاتورة أُنشئت بين الفحص والإدراج — القيد الفريد يمنع التكرار
-      if ((invErr as { code?: string }).code === '23505') {
-        skipped += 1
-        continue
-      }
-      throw invErr
-    }
-    const invoiceId = (inv as unknown as { id: string }).id
-
-    const lines: {
-      teacher_id: string
-      invoice_id: string
-      line_type: 'base' | 'discount'
-      description: string
-      amount: number
-      reason: string | null
-    }[] = [
-      {
-        teacher_id: teacherId,
-        invoice_id: invoiceId,
-        line_type: 'base',
-        description: baseDesc,
-        amount: baseAmount,
-        reason: null,
-      },
+    const lines: PlannedLine[] = [
+      { line_type: 'base', description: baseDesc, amount: baseAmount, reason: null },
     ]
     // الخصم العام (المرجع §5.1): بند سالب لا يتجاوز قيمة البند الأساسي أبداً
     if (opts.discount > 0) {
       const discAmt = clampedDiscount(opts.discount, baseAmount)
       if (discAmt > 0) {
         lines.push({
-          teacher_id: teacherId,
-          invoice_id: invoiceId,
           line_type: 'discount',
           description: `خصم (${opts.discountNote?.trim() ? opts.discountNote.trim() : 'خصم خاص'})`,
           amount: -discAmt,
@@ -521,15 +499,97 @@ export async function generateInvoices(
         })
       }
     }
+    planned.push({ studentId: e.student_id, groupId: e.group_id, lines })
+  }
 
-    const { error: lineErr } = await supa.from('invoice_lines').insert(lines)
-    if (lineErr) {
-      // تعويض: لا نترك فاتورة بلا بنود (لا توجد معاملة متعددة الجداول هنا)
-      await supa.from('invoices').delete().eq('teacher_id', teacherId).eq('id', invoiceId)
-      throw lineErr
+  // الإدراج الجماعي: طلب واحد للفواتير + طلب واحد لكل البنود.
+  // فشل البنود يعوّض بحذف الفواتير المدرجة (لا فاتورة بلا بنود)، وفشل
+  // القيد الفريد (سباق نادر: فاتورة أُنشئت بين الفحص والإدراج) يهبط بنا
+  // للمسار الفردي لعزل المتعارض وعدّه متخطّى — نفس الدلالات الأصلية.
+  let created = 0
+  if (planned.length > 0) {
+    const insertLinesFor = async (invoiceIdByKey: Map<string, string>) => {
+      const allLines = planned.flatMap((p) =>
+        p.lines.map((l) => ({
+          teacher_id: teacherId,
+          invoice_id: invoiceIdByKey.get(`${p.studentId}|${p.groupId}`)!,
+          line_type: l.line_type,
+          description: l.description,
+          amount: l.amount,
+          reason: l.reason,
+        })),
+      )
+      const { error } = await supa.from('invoice_lines').insert(allLines)
+      if (error) throw error
     }
-    existingKeys.add(key)
-    created += 1
+    try {
+      const { data: inserted, error: bulkErr } = await supa
+        .from('invoices')
+        .insert(
+          planned.map((p) => ({
+            teacher_id: teacherId,
+            student_id: p.studentId,
+            group_id: p.groupId,
+            period_month: period,
+          })),
+        )
+        .select('id, student_id, group_id')
+      if (bulkErr) throw bulkErr
+      const idByKey = new Map(
+        ((inserted ?? []) as unknown as { id: string; student_id: string; group_id: string }[]).map(
+          (r) => [`${r.student_id}|${r.group_id}`, r.id] as const,
+        ),
+      )
+      try {
+        await insertLinesFor(idByKey)
+      } catch (lineErr) {
+        await supa
+          .from('invoices')
+          .delete()
+          .eq('teacher_id', teacherId)
+          .in('id', [...idByKey.values()])
+        throw lineErr
+      }
+      created = planned.length
+    } catch (bulkFailure) {
+      if ((bulkFailure as { code?: string }).code !== '23505') throw bulkFailure
+      // مسار فردي احتياطي عند سباق القيد الفريد فقط
+      for (const p of planned) {
+        const { data: inv, error: invErr } = await supa
+          .from('invoices')
+          .insert({
+            teacher_id: teacherId,
+            student_id: p.studentId,
+            group_id: p.groupId,
+            period_month: period,
+          })
+          .select('id')
+          .single()
+        if (invErr) {
+          if ((invErr as { code?: string }).code === '23505') {
+            skipped += 1
+            continue
+          }
+          throw invErr
+        }
+        const invoiceId = (inv as unknown as { id: string }).id
+        const { error: lineErr } = await supa.from('invoice_lines').insert(
+          p.lines.map((l) => ({
+            teacher_id: teacherId,
+            invoice_id: invoiceId,
+            line_type: l.line_type,
+            description: l.description,
+            amount: l.amount,
+            reason: l.reason,
+          })),
+        )
+        if (lineErr) {
+          await supa.from('invoices').delete().eq('teacher_id', teacherId).eq('id', invoiceId)
+          throw lineErr
+        }
+        created += 1
+      }
+    }
   }
 
   // سجل النشاط: حدث واحد للتوليد كله (أو فاتورة فردية عند استهداف طالب
