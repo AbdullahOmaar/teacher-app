@@ -20,7 +20,13 @@ export const common = {
   filter: 'تصفية',
   filterAdvanced: 'تصفية متقدمة',
   close: 'إغلاق',
-  /** عدّاد نتائج القوائم — نصه الحالي ثابت لكل الأعداد؛ تحويله لصيغ
-      جمع CLDR تغيير نصّي مقصود يُحسم في مرحلة مستقلة لا صامتاً هنا */
-  resultsCount: '{count} نتيجة',
+  /** عدّاد نتائج القوائم بصيغ جمع CLDR (PAT-7): نتيجة/نتيجتان/نتائج */
+  resultsCount: {
+    zero: '{count} نتيجة',
+    one: 'نتيجة واحدة',
+    two: 'نتيجتان',
+    few: '{count} نتائج',
+    many: '{count} نتيجة',
+    other: '{count} نتيجة',
+  },
 } as const
