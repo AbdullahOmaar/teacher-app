@@ -53,3 +53,36 @@ jobs:
         run: |
           python3 -m pip install --quiet semgrep==1.186.0
           semgrep scan --config auto --error --skip-unknown-extensions
+
+  architecture-graph:
+    # حارس معمارية معلوماتي (3A-310 — من خريطة الكود 3A-309): يكشف
+    # دوائر الاستيراد الجديدة في src دون أن يمنع الدمج — الوظيفة
+    # continue-on-error وقاعدة no-circular في .dependency-cruiser.cjs
+    # بدرجة warn. مترجم المشروع TypeScript 7.0.2 خارج نطاق دعم
+    # dependency-cruiser 18.8.0 (يدعم <7.0 أو >=7.1) فيجوب 0 موديولات
+    # بصمت؛ لذلك تثبّت الوظيفة typescript@5.9.3 داخل صندوقها فقط
+    # (--no-save: لا يمسّ المانيفستات ولا بقية الوظائف)، وتتحقق صراحة
+    # أن الموديولات المُجوبة ≥150 حتى لا يمرّ جوب فارغ كأنه نجاح.
+    # عند دعم الأداة لمترجم المشروع: تُرفع الدرجة إلى error ويُلغى
+    # continue-on-error وتثبيت المترجم البديل.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm i --no-save typescript@5.9.3 dependency-cruiser@18.8.0
+      - name: Depcruise (دوائر الاستيراد — تحذيرات فقط)
+        run: |
+          npx depcruise src --config .dependency-cruiser.cjs --output-type json > /tmp/depcruise.json || true
+          node -e "
+            const r = require('/tmp/depcruise.json');
+            const total = r.summary.totalCruised;
+            if (total < 150) { console.error('depcruise cruised only ' + total + ' modules — silent-empty trap (compiler mismatch?)'); process.exit(1); }
+            const circ = (r.summary.violations || []).filter(v => v.rule.name === 'no-circular');
+            for (const v of circ) console.log('::warning::circular dependency: ' + v.from + ' -> ' + v.to);
+            console.log('depcruise: ' + total + ' modules cruised, ' + circ.length + ' circular violations');
+          "
