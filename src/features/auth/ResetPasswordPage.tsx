@@ -6,6 +6,7 @@ import { Field, TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/AuthProvider'
 import { Logo } from '../../components/brand/Logo'
 import { updatePassword } from './api'
+import { t } from '../../i18n'
 
 /**
  * صفحة تعيين كلمة مرور جديدة من رابط الاستعادة (SEC-5 جزئي):
@@ -33,11 +34,11 @@ export function ResetPasswordPage() {
     e.preventDefault()
     setError(null)
     if (password.length < 8) {
-      setError('كلمة المرور قصيرة — لازم 8 أحرف على الأقل.')
+      setError(t('auth.passwordTooShort'))
       return
     }
     if (password !== passwordConfirm) {
-      setError('كلمة المرور وتأكيدها مش متطابقين.')
+      setError(t('auth.passwordMismatch'))
       return
     }
     setBusy(true)
@@ -45,7 +46,7 @@ export function ResetPasswordPage() {
       await updatePassword(password)
       setDone(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر تعيين كلمة المرور.')
+      setError(err instanceof Error ? err.message : t('auth.resetFailed'))
     } finally {
       setBusy(false)
     }
@@ -58,27 +59,27 @@ export function ResetPasswordPage() {
           <div className="flex justify-center mb-3">
             <Logo size={76} />
           </div>
-          <h1 className="type-screen m-0">تعيين كلمة مرور جديدة</h1>
+          <h1 className="type-screen m-0">{t('auth.resetTitle')}</h1>
         </div>
         <Card>
           {loading || !waited ? (
-            <p className="text-muted text-[14px] text-center my-4">بنجهّز الصفحة…</p>
+            <p className="text-muted text-[14px] text-center my-4">{t('auth.preparingPage')}</p>
           ) : done ? (
             <>
               <p className="bg-soft text-primary text-[14px] rounded-xl px-3 py-2 mb-4 mt-0">
-                تم تعيين كلمة المرور الجديدة بنجاح.
+                {t('auth.resetSuccess')}
               </p>
               <Button full type="button" onClick={() => navigate('/', { replace: true })}>
-                متابعة للتطبيق
+                {t('auth.continueToApp')}
               </Button>
             </>
           ) : !session ? (
             <>
               <p className="bg-bad-soft text-bad-text text-[13.5px] font-semibold rounded-xl px-3 py-2 mb-4 mt-0" role="alert">
-                الرابط ده غير صالح أو انتهت صلاحيته — اطلب رابط استعادة جديد من صفحة تسجيل الدخول.
+                {t('auth.resetLinkInvalid')}
               </p>
               <Link to="/login" className="block text-center text-primary font-bold text-[14px]">
-                رجوع لتسجيل الدخول
+                {t('auth.backToSignIn')}
               </Link>
             </>
           ) : (
@@ -88,18 +89,18 @@ export function ResetPasswordPage() {
                   {error}
                 </p>
               )}
-              <Field label="كلمة المرور الجديدة">
+              <Field label={t('auth.newPasswordLabel')}>
                 <TextInput
                   type="password"
                   dir="ltr"
                   autoComplete="new-password"
-                  placeholder="8 أحرف على الأقل"
+                  placeholder={t('auth.passwordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
               </Field>
-              <Field label="تأكيد كلمة المرور">
+              <Field label={t('auth.passwordConfirmLabel')}>
                 <TextInput
                   type="password"
                   dir="ltr"
@@ -111,7 +112,7 @@ export function ResetPasswordPage() {
                 />
               </Field>
               <Button full type="submit" disabled={busy}>
-                {busy ? 'جارٍ الحفظ…' : 'حفظ كلمة المرور'}
+                {busy ? t('auth.saving') : t('auth.savePassword')}
               </Button>
             </form>
           )}

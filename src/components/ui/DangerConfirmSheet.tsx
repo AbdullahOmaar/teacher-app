@@ -3,6 +3,7 @@ import { TriangleAlert } from 'lucide-react'
 import { Sheet } from './Sheet'
 import { Button } from './Button'
 import { Field, FormError, TextInput } from './form'
+import { t } from '../../i18n'
 
 interface DangerConfirmSheetProps {
   open: boolean
@@ -60,7 +61,7 @@ export function DangerConfirmSheet({
       </div>
 
       {mode === 'delete' && (
-        <Field label={`للتأكيد اكتب اسم «${entityName}» كاملاً`}>
+        <Field label={t('components.dangerTypeNameLabel', { entityName })}>
           <TextInput
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
@@ -78,10 +79,10 @@ export function DangerConfirmSheet({
         disabled={!deleteReady || pending}
         onClick={onConfirm}
       >
-        {pending ? 'جارٍ التنفيذ…' : confirmLabel}
+        {pending ? t('components.dangerExecuting') : confirmLabel}
       </Button>
       <Button variant="ghost" full className="mt-2" onClick={onClose} disabled={pending}>
-        لا، إلغاء
+        {t('components.dangerCancel')}
       </Button>
     </Sheet>
   )

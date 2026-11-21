@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/AuthProvider'
 import { ensureTeacherProfile } from './api'
+import { t } from '../../i18n'
 
 /**
  * شاشة إكمال الإعداد (Onboarding): تظهر لمستخدم مسجل دخوله لكن لا يوجد
@@ -27,7 +28,7 @@ export function Onboarding() {
     e.preventDefault()
     if (!user) return
     if (!displayName.trim()) {
-      setError('اكتب اسمك (هيظهر كاسم المدرس في التطبيق).')
+      setError(t('auth.nameRequired'))
       return
     }
     setError(null)
@@ -36,7 +37,7 @@ export function Onboarding() {
       await ensureTeacherProfile(user.id, displayName, phone || null)
       await qc.invalidateQueries({ queryKey: ['current-teacher'] })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر إنشاء ملف المدرس.')
+      setError(err instanceof Error ? err.message : t('auth.profileCreateFailed'))
     } finally {
       setBusy(false)
     }
@@ -47,12 +48,13 @@ export function Onboarding() {
       <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
         <GraduationCap size={28} />
       </div>
-      <div className="type-section mb-1">أهلاً بيك — كمّل إعداد حسابك</div>
+      <div className="type-section mb-1">{t('auth.onboardingTitle')}</div>
       <p className="text-muted text-[13.5px] mb-4">
         {/* البريد داخل جملة عربية: عزل اتجاه (bdi + dir=ltr) حتى لا
             ينكسر ترتيب أجزائه عبر الأسطر (تدقيق أول استخدام — M2) */}
-        حسابك مسجل دخوله (<bdi dir="ltr">{user?.email ?? ''}</bdi>)، فاضل خطوة
-        واحدة: إنشاء ملف المدرس الخاص بيك وإعداداته الافتراضية.
+        {t('auth.onboardingBodyBefore')}
+        <bdi dir="ltr">{user?.email ?? ''}</bdi>
+        {t('auth.onboardingBodyAfter')}
       </p>
       {error && (
         <p className="bg-bad-soft text-bad-text text-[13.5px] rounded-xl px-3 py-2 mb-3" role="alert">
@@ -60,16 +62,16 @@ export function Onboarding() {
         </p>
       )}
       <form onSubmit={handleSubmit} className="text-start">
-        <Field label="اسم المدرس">
+        <Field label={t('auth.teacherNameLabel')}>
           <TextInput
             autoComplete="name"
-            placeholder="مثال: مستر أحمد سامي"
+            placeholder={t('auth.teacherNamePlaceholder')}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             required
           />
         </Field>
-        <Field label="رقم الموبايل (اختياري)">
+        <Field label={t('auth.phoneLabel')}>
           <TextInput
             type="tel"
             dir="ltr"
@@ -80,7 +82,7 @@ export function Onboarding() {
           />
         </Field>
         <Button full type="submit" disabled={busy}>
-          {busy ? 'جارٍ الإنشاء…' : 'إنشاء ملف المدرس والبدء'}
+          {busy ? t('auth.creatingProfile') : t('auth.createProfileSubmit')}
         </Button>
       </form>
       <button
@@ -88,7 +90,7 @@ export function Onboarding() {
         onClick={() => void signOut()}
         className="mt-2 inline-flex items-center min-h-[48px] bg-transparent border-0 text-muted text-[13.5px] cursor-pointer underline"
       >
-        تسجيل الخروج
+        {t('auth.signOut')}
       </button>
     </Card>
   )

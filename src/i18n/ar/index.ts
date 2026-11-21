@@ -8,6 +8,19 @@ import { students } from './students'
 import { invoices } from './invoices'
 import { activity } from './activity'
 import { money } from './money'
+import { components } from './components'
+import { auth } from './auth'
+import { attendance } from './attendance'
+import { homework } from './homework'
+import { exams } from './exams'
+import { enrol } from './enrol'
+import { portal } from './portal'
+import { studentPortal } from './studentPortal'
+import { grades } from './grades'
+import { groups } from './groups'
+import { schedule } from './schedule'
+import { settings } from './settings'
+import { paymentProofs } from './paymentProofs'
 
 /**
  * قاموس العربية — اللغة الوحيدة حالياً (W7 — R-4/R-5).
@@ -25,4 +38,17 @@ export const ar = {
   invoices,
   activity,
   money,
+  components,
+  auth,
+  attendance,
+  homework,
+  exams,
+  enrol,
+  portal,
+  studentPortal,
+  grades,
+  groups,
+  schedule,
+  settings,
+  paymentProofs,
 } as const

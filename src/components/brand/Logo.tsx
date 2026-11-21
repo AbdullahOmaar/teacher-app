@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { t } from '../../i18n'
 
 /**
  * البصمة / الشعار — «نيلي الثقة» (Phase 2، الخطوة 1؛ بحث UIUX §4):
@@ -35,7 +36,7 @@ export function Logo({
   size = 40,
   mono = false,
   className,
-  title = 'تطبيق المدرس',
+  title = t('components.logoTitle'),
   decorative = false,
 }: LogoProps) {
   const rawId = useId().replace(/[^a-zA-Z0-9]/g, '')

@@ -11,6 +11,7 @@ import {
   unsubscribeBrowserPush,
   type BrowserPushKeys,
 } from '../lib/push'
+import { t } from '../i18n'
 
 /**
  * مفتاح «إشعارات Push الفورية» المشترك بين البوابات (Phase 4 — الخطوة 2).
@@ -95,12 +96,12 @@ export function PortalPushToggle({ adapter }: { adapter: PortalPushAdapter }) {
       const keys = await subscribeBrowserPush()
       await adapter.subscribe(keys)
       setState('subscribed')
-      setMsg('تمام — الإشعارات الفورية مفعّلة على الجهاز ده.')
+      setMsg(t('components.pushSubscribedToast'))
     } catch (err) {
       if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
         setState('denied')
       }
-      setMsg(err instanceof Error ? err.message : 'حصلت مشكلة في التفعيل — حاول تاني.')
+      setMsg(err instanceof Error ? err.message : t('components.pushSubscribeError'))
     } finally {
       setBusy(false)
     }
@@ -116,9 +117,9 @@ export function PortalPushToggle({ adapter }: { adapter: PortalPushAdapter }) {
       if (endpoint) await adapter.unsubscribe(endpoint)
       await unsubscribeBrowserPush()
       setState('not-subscribed')
-      setMsg('اتوقفت الإشعارات الفورية على الجهاز ده.')
+      setMsg(t('components.pushUnsubscribedToast'))
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : 'حصلت مشكلة في الإيقاف — حاول تاني.')
+      setMsg(err instanceof Error ? err.message : t('components.pushUnsubscribeError'))
     } finally {
       setBusy(false)
     }
@@ -128,23 +129,21 @@ export function PortalPushToggle({ adapter }: { adapter: PortalPushAdapter }) {
     <>
       <h3 className="type-section mt-5 mb-2 flex items-center gap-2">
         <Bell size={22} className="text-primary" />
-        إشعارات فورية على الجهاز ده
+        {t('components.pushTitle')}
       </h3>
       <Card>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
-          فعّل الإشعارات عشان توصلك تنبيهات الوصول والمغادرة واعتماد
-          الدفعات ونتائج الامتحانات فور حدوثها — حتى والبوابة مقفولة.
+          {t('components.pushDescription')}
         </p>
 
         {state === 'loading' && (
-          <p className="text-muted text-[13.5px] mb-0">جارٍ فحص حالة الإشعارات…</p>
+          <p className="text-muted text-[13.5px] mb-0">{t('components.pushChecking')}</p>
         )}
 
         {state === 'check-failed' && (
           <div className="text-[13.5px] bg-soft rounded-xl px-3 py-2.5">
             <p className="mt-0 mb-2">
-              تعذّر فحص حالة الإشعارات على الجهاز ده — خدمة الإشعارات في
-              المتصفح مش جاهزة أو الفحص أخذ وقتاً أطول من اللازم.
+              {t('components.pushCheckFailed')}
             </p>
             <Button
               variant="soft"
@@ -153,7 +152,7 @@ export function PortalPushToggle({ adapter }: { adapter: PortalPushAdapter }) {
                 setProbeRun((n) => n + 1)
               }}
             >
-              إعادة الفحص
+              {t('components.pushRetryCheck')}
             </Button>
           </div>
         )}
@@ -162,32 +161,31 @@ export function PortalPushToggle({ adapter }: { adapter: PortalPushAdapter }) {
           <div className="text-[13.5px] bg-soft rounded-xl px-3 py-2.5">
             <p className="mt-0 mb-2 font-semibold flex items-center gap-2">
               <Share size={18} className="shrink-0" />
-              على آيفون، الإشعارات بتشتغل بس لو البوابة مثبّتة:
+              {t('components.pushIosTitle')}
             </p>
             <ol className="m-0 ps-5 space-y-1">
-              <li>اضغط زر المشاركة في سفاري.</li>
-              <li>اختار «إضافة إلى الشاشة الرئيسية».</li>
-              <li>افتح البوابة من الأيقونة الجديدة (iOS 16.4 أو أحدث) وفعّل الإشعارات من هنا.</li>
+              <li>{t('components.pushIosStep1')}</li>
+              <li>{t('components.pushIosStep2')}</li>
+              <li>{t('components.pushIosStep3')}</li>
             </ol>
           </div>
         )}
 
         {state === 'unsupported' && (
           <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-0">
-            المتصفح ده لا يدعم إشعارات Push — جرّب متصفحاً حديثاً زي كروم.
+            {t('components.pushUnsupported')}
           </p>
         )}
 
         {state === 'unconfigured' && (
           <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-0">
-            الإشعارات الفورية لسه مش مضبوطة في نسخة التطبيق دي.
+            {t('components.pushUnconfigured')}
           </p>
         )}
 
         {state === 'denied' && (
           <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-0">
-            إذن الإشعارات مرفوض للموقع ده — فعّله من إعدادات إشعارات
-            المتصفح للموقع ثم حدّث الصفحة.
+            {t('components.pushDenied')}
           </p>
         )}
 
@@ -195,11 +193,11 @@ export function PortalPushToggle({ adapter }: { adapter: PortalPushAdapter }) {
           <>
             <p className="text-[13.5px] bg-ok-soft text-ok-text rounded-xl px-3 py-2 mb-3 mt-0 flex items-center gap-2 font-semibold">
               <CheckCircle2 size={18} className="shrink-0" />
-              الإشعارات الفورية مفعّلة على الجهاز ده.
+              {t('components.pushEnabledBanner')}
             </p>
             <Button full variant="ghost" onClick={handleUnsubscribe} disabled={busy}>
               <BellOff size={20} />
-              {busy ? 'جارٍ الإيقاف…' : 'إيقاف الإشعارات على الجهاز ده'}
+              {busy ? t('components.pushStopping') : t('components.pushStop')}
             </Button>
           </>
         )}
@@ -207,7 +205,7 @@ export function PortalPushToggle({ adapter }: { adapter: PortalPushAdapter }) {
         {state === 'not-subscribed' && (
           <Button full onClick={handleSubscribe} disabled={busy}>
             <Bell size={20} />
-            {busy ? 'جارٍ التفعيل…' : 'تفعيل الإشعارات الفورية'}
+            {busy ? t('components.pushStarting') : t('components.pushStart')}
           </Button>
         )}
 
