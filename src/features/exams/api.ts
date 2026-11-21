@@ -181,15 +181,19 @@ export async function createExamLink(
     .is('revoked_at', null)
   if (revokeErr) throw revokeErr
 
+  // انتهاء الرابط إلزامي (SEC-L1): نافذة الامتحان إن وُجدت، وإلا 30 يوماً
+  // من الإنشاء — رابط بلا انتهاء لا يُنشأ أبداً (العمود صار NOT NULL)
+  const effectiveExpiry =
+    endsAt ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
   const { error: insErr } = await supa.from('online_exam_tokens').insert({
     teacher_id: teacherId,
     exam_id: examId,
     token_hash: tokenHash,
-    expires_at: endsAt,
+    expires_at: effectiveExpiry,
   })
   if (insErr) throw insErr
 
-  return { link: buildExamLink(window.location.origin, rawToken), expiresAt: endsAt }
+  return { link: buildExamLink(window.location.origin, rawToken), expiresAt: effectiveExpiry }
 }
 
 /** روابط امتحان واحد — بلا عمود الهاش */
@@ -377,6 +381,11 @@ export async function startExamAttempt(
     p_student_code: studentCode,
   })
   if (error) throw error
+  // أخطاء العمل من الدالة تأتي كـ {error} ملتزِمة (0025 — حتى تبقى
+  // سجلات حد المعدل رغم فشل المحاولة): تُرمى هنا فتُترجم كأي خطأ RPC
+  if (data && typeof data === 'object' && 'error' in (data as Record<string, unknown>)) {
+    throw new Error(String((data as Record<string, unknown>).error))
+  }
   const raw = data as unknown as {
     attempt_id: string
     resumed: boolean
@@ -477,6 +486,12 @@ export function examErrorInfo(error: unknown): { title: string; hint: string } {
     return {
       title: 'نافذة الامتحان قفلت',
       hint: 'وقت إتاحة الامتحان انتهى خلاص. تواصل مع المدرس لو في ظرف خاص.',
+    }
+  }
+  if (msg.includes('too many attempts')) {
+    return {
+      title: 'محاولات كتير في وقت قصير',
+      hint: 'جرّبت تدخل مرات كتير ورا بعض. استنى 10 دقايق وجرّب تاني، واتأكد إن الكود مكتوب زي ما هو في كارت الطالب بالظبط.',
     }
   }
   if (msg.includes('student code not found')) {
