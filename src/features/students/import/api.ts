@@ -2,6 +2,7 @@ import { supabase } from '../../../lib/supabase'
 import type { StudentInput, StudentRow } from '../../../types/database'
 import { createStudent, upsertEnrollment } from '../api'
 import type { ClassifiedRow } from './logic'
+import { t } from '../../../i18n'
 
 /**
  * حفظ الاستيراد من الملف — يعيد استخدام مسارات وحدة الطلاب حرفياً:
@@ -36,7 +37,7 @@ async function createStudentWithCode(
   input: StudentInput,
   code: string,
 ): Promise<StudentRow> {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
+  if (!supabase) throw new Error(t('students.impApiSupabaseNotLinked'))
   const { data, error } = await supabase
     .from('students')
     .insert({ teacher_id: teacherId, public_code: code, ...input })
@@ -67,7 +68,7 @@ export async function importStudentsFromFile(
       grade: row.grade,
       school: row.school,
       phone: row.phone,
-      guardian_name: row.guardian_name ?? `ولي أمر ${row.name.split(/\s+/)[0]}`,
+      guardian_name: row.guardian_name ?? t('students.impApiGuardianDefault', { firstName: row.name.split(/\s+/)[0] }),
       guardian_phone: row.guardian_phone,
       level_note: row.level_note,
       paused: false,
@@ -88,14 +89,14 @@ export async function importStudentsFromFile(
           result.enrolled += 1
         } catch (err) {
           result.errors.push(
-            `«${row.name}»: أُنشئ الطالب لكن فشل تسجيله في المجموعة — ${err instanceof Error ? err.message : 'خطأ غير معروف'}`,
+            t('students.impApiEnrollFailed', { name: row.name, message: err instanceof Error ? err.message : t('students.impApiUnknownError') }),
           )
         }
       }
     } catch (err) {
       result.failed += 1
       result.errors.push(
-        `صف ${row.rowNumber} «${row.name}»: ${err instanceof Error ? err.message : 'تعذّرت الإضافة'}`,
+        t('students.impApiRowFailed', { row: row.rowNumber, name: row.name, message: err instanceof Error ? err.message : t('students.impApiAddFailed') }),
       )
     }
   }

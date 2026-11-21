@@ -1,4 +1,6 @@
-import { supabase } from '../../lib/supabase'
+import { t } from '../../i18n'
+import { db } from '../../lib/supabase'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import { DAY_NAMES } from '../../lib/format'
 import type { ExtraSessionInput, GroupRow, HolidayRow, SessionRow } from '../../types/database'
 import {
@@ -14,19 +16,16 @@ import {
 export { fetchSessionsInRange, todayStr }
 export type { SessionWithGroup }
 
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
-
 // ---------------------------------------------------------------------------
 // مساعدات التاريخ — كل التواريخ بصيغة 'YYYY-MM-DD' بالتوقيت المحلي مثل المخطط.
 // ترتيب الأيام: 0 = الأحد … 6 = السبت (Date.getDay و Postgres dow و groups.days)
 // ---------------------------------------------------------------------------
 
 export const MONTH_NAMES = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+  t('format.monthJanuary'), t('format.monthFebruary'), t('format.monthMarch'),
+  t('format.monthApril'), t('format.monthMay'), t('format.monthJune'),
+  t('format.monthJuly'), t('format.monthAugust'), t('format.monthSeptember'),
+  t('format.monthOctober'), t('format.monthNovember'), t('format.monthDecember'),
 ]
 
 export function parseDate(dateStr: string): Date {
@@ -119,38 +118,37 @@ export function resetGenerationCache() {
  * Idempotent تماماً: لا حصص مكررة أبداً (قيد المخطط + on conflict)، وإعادة
  * الاستدعاء لنفس (مجموعة، شهر) داخل نفس جلسة التطبيق لا تستدعي RPC أصلاً.
  * مجموعة بلا أيام جدول لا تُستدعى لها الدالة (لن تولّد شيئاً).
+ *
+ * أداء (3A-296): التوليد يمرّ بدالة المخطط المجمّعة generate_teacher_sessions
+ * (0022) — استدعاء واحد لكل الشهور المطلوبة غير المضمونة بعد بدل استدعاء
+ * لكل (مجموعة × شهر)؛ والدالة الداخلية تولّد لكل مجموعات المدرس النشطة
+ * غير المؤرشفة (وهي مرشحات القائمة هنا نفسها)، فلا فرق سلوكياً.
  */
 export async function ensureSessionsGenerated(
   teacherId: string,
   groups: GroupRow[],
   monthStarts: string[],
 ): Promise<void> {
-  const jobs: Promise<void>[] = []
-  for (const g of groups) {
-    if (!g.days || g.days.length === 0) continue
-    // مجموعة مؤرشفة لا تولّد حصصاً جديدة (خطوة 10) — والـ RPC نفسه يرفضها أيضاً (0007)
-    if (g.archived_at != null) continue
-    for (const month of monthStarts) {
-      const key = `${teacherId}|${g.id}|${month}`
-      if (ensuredKeys.has(key)) continue
-      ensuredKeys.add(key)
-      jobs.push(
-        (async () => {
-          const { error } = await db().rpc('generate_group_sessions', {
-            p_teacher_id: teacherId,
-            p_group_id: g.id,
-            p_month: month,
-          })
-          if (error) {
-            // فشل هذا الشهر لا يمنع إعادة المحاولة لاحقاً
-            ensuredKeys.delete(key)
-            throw error
-          }
-        })(),
-      )
+  const active = groups.filter((g) => g.days && g.days.length > 0 && g.archived_at == null)
+  if (active.length === 0 || monthStarts.length === 0) return
+  // الشهور التي لم تُضمَن بعد لأي مجموعة نشطة واحدة على الأقل
+  const pendingMonths = monthStarts.filter((month) =>
+    active.some((g) => !ensuredKeys.has(`${teacherId}|${g.id}|${month}`)),
+  )
+  if (pendingMonths.length === 0) return
+  const { error } = await db().rpc('generate_teacher_sessions', {
+    p_teacher_id: teacherId,
+    p_months: pendingMonths,
+  })
+  if (error) {
+    // لا نعلّم أي شهر كمضمون — المحاولة القادمة تعيد الاستدعاء كاملاً
+    throw error
+  }
+  for (const g of active) {
+    for (const month of pendingMonths) {
+      ensuredKeys.add(`${teacherId}|${g.id}|${month}`)
     }
   }
-  await Promise.all(jobs)
 }
 
 // ---------------------------------------------------------------------------
@@ -205,7 +203,7 @@ export async function deleteHoliday(teacherId: string, holiday: HolidayRow): Pro
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', holiday.id)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.deleteError'))
   const { error: sessErr } = await db()
     .from('sessions')
     .update({ status: 'scheduled' })

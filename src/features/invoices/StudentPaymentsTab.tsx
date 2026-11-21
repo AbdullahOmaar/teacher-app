@@ -1,3 +1,4 @@
+import { isUnpaid } from './api'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
@@ -10,6 +11,7 @@ import { PAYMENT_METHOD_LABELS, payStateOf, periodLabel, periodYm } from './api'
 import { useStudentInvoices, useStudentPayments } from './hooks'
 import { IssueInvoicesSheet } from './sheets'
 import { monthStartStr, todayStr } from '../home/api'
+import { t } from '../../i18n'
 
 /**
  * تبويب المدفوعات في ملف الطالب (المرجع §3.4): ملخص الرصيد المستحق، زر
@@ -33,7 +35,7 @@ export function StudentPaymentsTab({
   const invoices = useMemo(() => invoicesQ.data ?? [], [invoicesQ.data])
   const payments = useMemo(() => paymentsQ.data ?? [], [paymentsQ.data])
   const summary = useMemo(() => {
-    const due = invoices.filter((i) => i.balance > 0)
+    const due = invoices.filter(isUnpaid)
     return {
       dueTotal: due.reduce((s, i) => s + i.balance, 0),
       dueCount: due.length,
@@ -42,10 +44,10 @@ export function StudentPaymentsTab({
   }, [invoices])
 
   if (invoicesQ.isPending || paymentsQ.isPending)
-    return <LoadingState label="بنحمّل فواتير ودفعات الطالب…" />
+    return <LoadingState label={t('invoices.studentPayLoading')} />
   const error = invoicesQ.error ?? paymentsQ.error
   if (error)
-    return <ErrorState message={error instanceof Error ? error.message : 'خطأ غير معروف'} />
+    return <ErrorState message={error instanceof Error ? error.message : t('common.unknownError')} />
 
   const currentMonthLabel = periodLabel(monthStartStr(todayStr()))
 
@@ -57,37 +59,36 @@ export function StudentPaymentsTab({
             <div className="font-extrabold text-[15px]">
               {summary.dueTotal > 0 ? (
                 <>
-                  مستحق <span className="text-warn-text" dir="ltr">{formatMoney(summary.dueTotal)}</span>
+                  {t('invoices.studentPayDueLabel')} <span className="text-warn-text" dir="ltr">{formatMoney(summary.dueTotal)}</span>
                 </>
               ) : (
-                <span className="text-ok-text inline-flex items-center gap-1">لا توجد مستحقات <Check size={18} /></span>
+                <span className="text-ok-text inline-flex items-center gap-1">{t('invoices.studentPayNoDues')} <Check size={18} /></span>
               )}
             </div>
             <div className="text-muted text-[13.5px] mt-0.5">
               {summary.dueCount > 0
-                ? `${summary.dueCount} فاتورة غير مسددة · `
+                ? t('invoices.studentPayDueCountLine', { count: summary.dueCount })
                 : ''}
-              إجمالي المدفوع عبر كل الفواتير: {formatMoney(summary.totalPaid)}
+              {t('invoices.studentPayTotalPaid', { amount: formatMoney(summary.totalPaid) })}
             </div>
           </div>
         </div>
         <Button full className="mt-3" onClick={() => setIssueOpen(true)}>
           <ReceiptText size={20} />
-          إصدار فواتير {currentMonthLabel}
+          {t('invoices.studentPayIssue', { month: currentMonthLabel })}
         </Button>
         <p className="text-muted text-[12px] mt-2 mb-0">
-          الإصدار لهذا الطالب في كل مجموعاته، وآمن التكرار — الفواتير الصادرة من قبل لنفس الشهر
-          مش هتتكرر.
+          {t('invoices.studentPayIssueNote')}
         </p>
       </Card>
 
-      <h3 className="text-[16px] font-extrabold mb-2 mt-1">فواتير الطالب</h3>
+      <h3 className="text-[16px] font-extrabold mb-2 mt-1">{t('invoices.studentPayInvoicesTitle')}</h3>
       {invoices.length === 0 ? (
         <Card>
           <EmptyState
             icon={ReceiptText}
-            title="لسه مفيش فواتير للطالب ده"
-            hint="اصدر فواتير الشهر من الزر اللي فوق وهتظهر هنا بحالتها."
+            title={t('invoices.studentPayNoInvoicesTitle')}
+            hint={t('invoices.studentPayNoInvoicesHint')}
           />
         </Card>
       ) : (
@@ -109,21 +110,21 @@ export function StudentPaymentsTab({
                   </div>
                   {state === 'paid' ? (
                     <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-                      مسدد
+                      {t('invoices.badgePaid')}
                     </span>
                   ) : state === 'partial' ? (
                     <span className="shrink-0 text-[12px] font-bold bg-primary/10 text-primary border border-primary/30 rounded-full px-2 py-0.5">
-                      جزئي — باقي {formatMoney(inv.balance)}
+                      {t('invoices.badgePartial', { amount: formatMoney(inv.balance) })}
                     </span>
                   ) : (
                     <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-                      باقي {formatMoney(inv.balance)}
+                      {t('invoices.badgeDue', { amount: formatMoney(inv.balance) })}
                     </span>
                   )}
                 </div>
                 <div className="text-muted text-[13.5px] mt-0.5">
-                  {inv.group_name} · الإجمالي {formatMoney(inv.total)}
-                  {inv.paid > 0 ? ` · مدفوع ${formatMoney(inv.paid)}` : ''}
+                  {inv.group_name} · {t('invoices.rowTotal', { amount: formatMoney(inv.total) })}
+                  {inv.paid > 0 ? ` · ${t('invoices.rowPaidPart', { amount: formatMoney(inv.paid) })}` : ''}
                 </div>
               </Card>
             </Link>
@@ -131,13 +132,13 @@ export function StudentPaymentsTab({
         })
       )}
 
-      <h3 className="text-[16px] font-extrabold mb-2 mt-4">دفعات الطالب</h3>
+      <h3 className="text-[16px] font-extrabold mb-2 mt-4">{t('invoices.studentPayPaymentsTitle')}</h3>
       {payments.length === 0 ? (
         <Card>
           <EmptyState
             icon={Banknote}
-            title="لسه مفيش دفعات مسجلة"
-            hint="الدفعات بتتسجل من صفحة الفاتورة وهتظهر هنا برقم الإيصال."
+            title={t('invoices.studentPayNoPaymentsTitle')}
+            hint={t('invoices.studentPayNoPaymentsHint')}
           />
         </Card>
       ) : (
@@ -161,10 +162,10 @@ export function StudentPaymentsTab({
                 </span>
               </div>
               <div className="text-muted text-[13.5px] mt-0.5">
-                {p.paid_on} · {PAYMENT_METHOD_LABELS[p.method]} · إيصال{' '}
+                {p.paid_on} · {PAYMENT_METHOD_LABELS[p.method]} · {t('invoices.receiptWord')}{' '}
                 <span dir="ltr" className="font-semibold">{p.receipt_no}</span>
-                {p.voided ? ' · اتعكست' : ''}
-                {p.reverses_payment_id ? ' · دفعة عكسية' : ''}
+                {p.voided ? ` · ${t('invoices.detailVoidedBadge')}` : ''}
+                {p.reverses_payment_id ? ` · ${t('invoices.detailReversalBadge')}` : ''}
               </div>
             </Link>
           ))}

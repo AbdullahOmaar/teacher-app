@@ -68,7 +68,7 @@ export function Sheet({ open, title, onClose, children, footer }: SheetProps) {
       role="presentation"
     >
       <div
-        className="bg-card w-full max-w-[640px] max-h-[90vh] overflow-y-auto rounded-t-[24px] p-4 shadow-raised"
+        className="bg-elevated w-full max-w-[640px] max-h-[90vh] overflow-y-auto rounded-t-[24px] p-4 shadow-raised"
         style={{
           transform: dragY ? `translateY(${dragY}px)` : undefined,
           transition: isDragging ? 'none' : 'transform 200ms ease-out',
@@ -91,7 +91,7 @@ export function Sheet({ open, title, onClose, children, footer }: SheetProps) {
         {title && <h3 className="type-section mb-3">{title}</h3>}
         {children}
         {footer && (
-          <div className="sticky bottom-0 bg-card border-t border-border -mx-4 px-4 pt-3 pb-1 mt-2">
+          <div className="sticky bottom-0 bg-elevated border-t border-border -mx-4 px-4 pt-3 pb-1 mt-2">
             {footer}
           </div>
         )}

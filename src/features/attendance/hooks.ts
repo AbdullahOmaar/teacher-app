@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ANALYTICS } from '../analytics/hooks'
+import { ATRISK } from '../atrisk/hooks'
 import { HOME } from '../home/hooks'
+import { INV } from '../invoices/hooks'
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { SCHED } from '../schedule/hooks'
 import {
   clearStudentLeft,
@@ -12,9 +16,6 @@ import {
   fetchStudentAttendance,
   fetchStudentAttendanceStats,
   markStudentLeft,
-  saveAttendance,
-  saveManyAttendance,
-  type AttendanceValue,
 } from './api'
 
 /** كل مفاتيح وحدة الحضور تبدأ بـ 'attendance' */
@@ -100,42 +101,17 @@ export function useStudentAttendanceStats(
  */
 function useInvalidateAttendance() {
   const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [ATT] })
-    void qc.invalidateQueries({ queryKey: [HOME] })
-    void qc.invalidateQueries({ queryKey: [SCHED] })
-  }
+  // الحضور يغذي: الرئيسية (تقدّم اليوم/نسبة الشهر/التنبيهات)، الجدول،
+  // المعرّضين (سلسلة الغياب)، التحليلات، وتسويات الفواتير (PAT-1)
+  return () => invalidatePrefixes(qc, [ATT, HOME, SCHED, ATRISK, ANALYTICS, INV])
 }
 
-export function useSaveAttendance(teacherId: string) {
-  const invalidate = useInvalidateAttendance()
-  return useMutation({
-    mutationFn: ({
-      sessionId,
-      studentId,
-      value,
-    }: {
-      sessionId: string
-      studentId: string
-      value: AttendanceValue
-    }) => saveAttendance(teacherId, sessionId, studentId, value),
-    onSuccess: invalidate,
-  })
-}
-
-export function useSaveManyAttendance(teacherId: string) {
-  const invalidate = useInvalidateAttendance()
-  return useMutation({
-    mutationFn: ({
-      sessionId,
-      entries,
-    }: {
-      sessionId: string
-      entries: { studentId: string; value: AttendanceValue }[]
-    }) => saveManyAttendance(teacherId, sessionId, entries),
-    onSuccess: invalidate,
-  })
-}
+/**
+ * ملاحظة (3A-296): لا توجد طفرات حفظ حضور مباشرة هنا بعد توحيد المسار —
+ * كل كتابة حضور/واجب تمرّ بقائمة المزامنة المحلية (enqueueStored) ويفرّغها
+ * محرك useOfflineSync مجمّعة بحسب الحصة (saveAttendanceBatch)، وإبطال
+ * الكاش يحدث هناك مرة لكل دفعة مزامنة لا لكل طالب.
+ */
 
 /**
  * الانصراف الصريح (0012): ضبط/مسح left_at — تحديث مستقل عن حفظ الحالات

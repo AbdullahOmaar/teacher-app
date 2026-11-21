@@ -1,13 +1,22 @@
+import { t } from '../i18n'
 import type { BillingType } from '../types/database'
 
 /** أسماء الأيام — الفهرس مطابق لـ Date.getDay() ‏(0 = الأحد) ولأعمدة groups.days */
-export const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+export const DAY_NAMES = [
+  t('format.daySunday'),
+  t('format.dayMonday'),
+  t('format.dayTuesday'),
+  t('format.dayWednesday'),
+  t('format.dayThursday'),
+  t('format.dayFriday'),
+  t('format.daySaturday'),
+]
 
 export const BILLING_LABELS: Record<BillingType, string> = {
-  monthly_fixed: 'شهري ثابت',
-  per_session_prepaid: 'بالحصة (مدفوعة مسبقاً)',
-  per_session_attended: 'بالحصة (حسب الحضور)',
-  weekly_package: 'باقة أسبوعية',
+  monthly_fixed: t('format.billingMonthlyFixed'),
+  per_session_prepaid: t('format.billingPerSessionPrepaid'),
+  per_session_attended: t('format.billingPerSessionAttended'),
+  weekly_package: t('format.billingWeeklyPackage'),
 }
 
 export const BILLING_TYPES = Object.keys(BILLING_LABELS) as BillingType[]
@@ -15,13 +24,19 @@ export const BILLING_TYPES = Object.keys(BILLING_LABELS) as BillingType[]
 /** تنسيق مبلغ: فواصل آلاف + «ج» كما في المرجع */
 export function formatMoney(value: number | string | null | undefined): string {
   const n = typeof value === 'string' ? parseFloat(value) : (value ?? 0)
-  return `${(Number.isFinite(n) ? n : 0).toLocaleString('en-US')} ج`
+  return t('format.moneyAmount', {
+    amount: (Number.isFinite(n) ? n : 0).toLocaleString('en-US'),
+  })
 }
 
 /** "HH:MM:SS" → "HH:MM" */
 export function shortTime(t: string): string {
   return t.slice(0, 5)
 }
+
+/** لاحقتا ص/م كثوابت وحدة — لأن وسيط formatTime12 نفسه اسمه t */
+const AM_SUFFIX = t('format.amSuffix')
+const PM_SUFFIX = t('format.pmSuffix')
 
 /**
  * عرض الوقت بصيغة 12 ساعة موحّدة في كل الواجهات: "16:00" → "4:00 م"،
@@ -32,7 +47,7 @@ export function formatTime12(t: string): string {
   const [hRaw, mRaw] = shortTime(t).split(':').map(Number)
   const h = Number.isFinite(hRaw) ? hRaw : 0
   const m = Number.isFinite(mRaw) ? mRaw : 0
-  const suffix = h < 12 ? 'ص' : 'م'
+  const suffix = h < 12 ? AM_SUFFIX : PM_SUFFIX
   const h12 = h % 12 === 0 ? 12 : h % 12
   return `${h12}:${String(m).padStart(2, '0')} ${suffix}`
 }
@@ -55,7 +70,7 @@ export function daysLabel(days: number[]): string {
   return [...days]
     .sort((a, b) => a - b)
     .map((d) => DAY_NAMES[d])
-    .join('، ')
+    .join(t('format.daysSeparator'))
 }
 
 /**
@@ -82,4 +97,14 @@ export function waLink(phone: string | null | undefined): string | null {
   if (digits.startsWith('00')) digits = digits.slice(2)
   if (digits.startsWith('0')) digits = '20' + digits.slice(1)
   return `https://wa.me/${digits}`
+}
+
+/**
+ * تاريخ+وقت بصيغة عربية متوسطة (COD-3: كانت 3 نسخ محلية). عند قيمة
+ * غير صالحة يُعاد البديل — افتراضياً أول 10 أحرف من النص كما هو.
+ */
+export function formatDateTimeAr(iso: string, fallback?: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return fallback ?? iso.slice(0, 10)
+  return d.toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })
 }

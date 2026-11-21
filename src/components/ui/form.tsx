@@ -1,9 +1,10 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import { AlertCircle } from 'lucide-react'
 
-/** حقل موحد: هدف 52px، انحناء 12px، نص جسم 15px (بحث §5) */
+/** حقل موحد: هدف 52px، انحناء 12px، نص جسم 15px (بحث §5).
+    حدوده تفاعلية (W6 — R-2) وتركيزه حدّ --primary-d + حلقة 2px منه */
 const inputCls =
-  'w-full border border-border rounded-xl px-3 min-h-[52px] bg-card text-text text-[15px] leading-[1.75] outline-none focus:border-primary'
+  'w-full border border-border-interactive rounded-xl px-3 min-h-[52px] bg-card text-text text-[15px] leading-[1.75] outline-none focus:border-primary-d focus:ring-2 focus:ring-primary-d/35'
 
 /** خطأ حقل — مباشرة تحت الحقل مع أيقونة (بحث §5: نماذج منضبطة) */
 export function FieldError({ message }: { message: string }) {
@@ -60,7 +61,7 @@ export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      className={`w-full border border-border rounded-xl px-3 py-2 min-h-[52px] bg-card text-text text-[15px] leading-[1.75] outline-none focus:border-primary ${props.className ?? ''}`}
+      className={`w-full border border-border-interactive rounded-xl px-3 py-2 min-h-[52px] bg-card text-text text-[15px] leading-[1.75] outline-none focus:border-primary-d focus:ring-2 focus:ring-primary-d/35 ${props.className ?? ''}`}
     />
   )
 }
@@ -82,7 +83,7 @@ export function Chip({
       className={`px-4 min-h-[48px] rounded-full border text-[13.5px] font-semibold cursor-pointer whitespace-nowrap inline-flex items-center justify-center gap-1.5 ${
         active
           ? 'bg-primary text-on-primary border-primary'
-          : 'bg-card text-muted border-border hover:bg-soft'
+          : 'bg-card text-muted border-border-interactive hover:bg-soft'
       }`}
     >
       {children}

@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { supabase } from './supabase'
 
 // ===========================================================================
@@ -89,20 +90,15 @@ export function darken(hex: string, ratio: number): string {
 }
 
 /** تفتيح لون باتجاه الأبيض بنسبة (0..1) — لخلفيات ناعمة بلون اللهجة */
-export function tint(hex: string, ratio: number): string {
-  const [r, g, b] = hexToRgb(hex)
-  const f = Math.max(0, Math.min(1, ratio))
-  return rgbToHex(r + (255 - r) * f, g + (255 - g) * f, b + (255 - b) * f)
-}
 
 /** ألوان لهجة جاهزة للمنتقي في الإعدادات (القيم الداكنة نسبياً للتباين) */
 export const ACCENT_PRESETS: { hex: string; label: string }[] = [
-  { hex: '#4f46e5', label: 'نيلي (الافتراضي)' },
-  { hex: '#7c3aed', label: 'بنفسجي' },
-  { hex: '#1d4ed8', label: 'أزرق' },
-  { hex: '#0f766e', label: 'تركوازي' },
-  { hex: '#15803d', label: 'أخضر' },
-  { hex: '#b45309', label: 'كهرماني' },
-  { hex: '#be185d', label: 'وردي' },
-  { hex: '#dc2626', label: 'أحمر' },
+  { hex: '#4f46e5', label: t('common.accentIndigo') },
+  { hex: '#7c3aed', label: t('common.accentViolet') },
+  { hex: '#1d4ed8', label: t('common.accentBlue') },
+  { hex: '#0f766e', label: t('common.accentTeal') },
+  { hex: '#15803d', label: t('common.accentGreen') },
+  { hex: '#b45309', label: t('common.accentAmber') },
+  { hex: '#be185d', label: t('common.accentPink') },
+  { hex: '#dc2626', label: t('common.accentRed') },
 ]

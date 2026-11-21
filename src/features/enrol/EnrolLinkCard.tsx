@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { FormError } from '../../components/ui/form'
 import { useToast } from '../../components/ui/toast'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
+import { t } from '../../i18n'
 import { useTeacherSettings } from '../settings/hooks'
 import { enrolShareWaUrl } from './api'
 import {
@@ -53,9 +54,9 @@ export function EnrolLinkCard() {
       const url = await generate.mutateAsync()
       setRawLink(url)
       setConfirmRegen(false)
-      toast(link ? 'تم تجديد رابط الحجز — الرابط القديم توقف' : 'تم إنشاء رابط الحجز العام')
+      toast(link ? t('enrol.cardRegeneratedToast') : t('enrol.cardCreatedToast'))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء إنشاء الرابط')
+      setError(e instanceof Error ? e.message : t('enrol.cardCreateError'))
     }
   }
 
@@ -66,7 +67,7 @@ export function EnrolLinkCard() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      setError('المتصفح منع النسخ التلقائي — انسخ الرابط يدوياً من الحقل')
+      setError(t('enrol.cardCopyError'))
     }
   }
 
@@ -74,32 +75,30 @@ export function EnrolLinkCard() {
     setError(null)
     try {
       await setEnabled.mutateAsync(next)
-      toast(next ? 'تم تفعيل صفحة الحجز' : 'تم إيقاف صفحة الحجز مؤقتاً')
+      toast(next ? t('enrol.cardEnabledToast') : t('enrol.cardDisabledToast'))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء تغيير الحالة')
+      setError(e instanceof Error ? e.message : t('enrol.cardToggleError'))
     }
   }
 
   return (
     <Card>
       <h2 className="type-section mt-0 mb-1 flex items-center gap-2">
-        <CalendarCheck2 size={22} className="text-primary" /> صفحة الحجز العامة
+        <CalendarCheck2 size={22} className="text-primary" /> {t('enrol.cardTitle')}
       </h2>
       <p className="text-muted type-secondary mt-0">
-        رابط واحد بهوية سنترك تنشره في فيسبوك وواتساب: ولي الأمر يملأ اسم الطالب وموبايله
-        والمجموعة المطلوبة، والطلب يوصلك في قائمة انتظار المجموعة بمصدر «صفحة الحجز»
-        فتقبله من هناك بضغطة.
+        {t('enrol.cardIntro')}
       </p>
 
       {error && <FormError message={error} />}
 
       {linkQ.isPending ? (
-        <p className="text-muted text-[13.5px]">بنحمّل حالة الرابط…</p>
+        <p className="text-muted text-[13.5px]">{t('enrol.cardLoadingLink')}</p>
       ) : !link ? (
         <>
-          <p className="text-muted text-[13.5px]">لا يوجد رابط حجز بعد لهذا السنتر.</p>
+          <p className="text-muted text-[13.5px]">{t('enrol.cardNoLink')}</p>
           <Button onClick={() => void doGenerate()} disabled={generate.isPending}>
-            {generate.isPending ? 'بننشئ الرابط…' : 'إنشاء رابط الحجز'}
+            {generate.isPending ? t('enrol.cardCreating') : t('enrol.cardCreateAction')}
           </Button>
         </>
       ) : (
@@ -107,12 +106,12 @@ export function EnrolLinkCard() {
           <div className="flex items-center justify-between gap-3 border border-border rounded-xl px-3 py-2.5 mb-3">
             <div>
               <div className="font-semibold text-[15px]">
-                {link.enabled ? 'الحجز مفعّل' : 'الحجز موقوف مؤقتاً'}
+                {link.enabled ? t('enrol.cardEnabled') : t('enrol.cardDisabled')}
               </div>
               <div className="text-muted text-[12.5px]">
                 {link.last_used_at
-                  ? `آخر زيارة للصفحة: ${new Date(link.last_used_at).toLocaleDateString('ar-EG')}`
-                  : 'لم تُفتح الصفحة بعد'}
+                  ? t('enrol.cardLastVisit', { date: new Date(link.last_used_at).toLocaleDateString('ar-EG') })
+                  : t('enrol.cardNeverOpened')}
               </div>
             </div>
             <label className="flex items-center cursor-pointer shrink-0">
@@ -122,7 +121,7 @@ export function EnrolLinkCard() {
                 onChange={(e) => void toggleEnabled(e.target.checked)}
                 disabled={setEnabled.isPending}
                 className="w-6 h-6 accent-primary"
-                aria-label="تفعيل صفحة الحجز"
+                aria-label={t('enrol.cardToggleAria')}
               />
             </label>
           </div>
@@ -138,7 +137,7 @@ export function EnrolLinkCard() {
               <div className="flex gap-2 flex-wrap mb-3">
                 <Button variant="soft" onClick={() => void copyLink()}>
                   {copied ? <Check size={17} /> : <Copy size={17} />}
-                  {copied ? 'اتنسخ' : 'نسخ الرابط'}
+                  {copied ? t('enrol.cardCopied') : t('enrol.cardCopyLink')}
                 </Button>
                 <a
                   href={enrolShareWaUrl(rawLink, centreName)}
@@ -147,21 +146,20 @@ export function EnrolLinkCard() {
                   className="inline-flex items-center justify-center gap-2 rounded-xl px-4 min-h-[48px] text-[15px] font-semibold bg-soft text-primary hover:opacity-90"
                 >
                   <MessageCircle size={17} />
-                  مشاركة واتساب
+                  {t('enrol.cardShareWhatsapp')}
                 </a>
               </div>
             </>
           ) : (
             <p className="text-muted text-[13.5px] border border-border rounded-xl px-3 py-2.5 bg-soft">
-              الرابط الكامل ظهر مرة واحدة عند إنشائه (القاعدة تخزن بصمته فقط لحمايته).
-              لو فقدته، جدّد الرابط وهيظهر لك الجديد — القديم هيتوقف فوراً.
+              {t('enrol.cardRawLinkNote')}
             </p>
           )}
 
           {confirmRegen ? (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[13.5px] font-semibold text-bad-text">
-                التجديد هيوقف الرابط الحالي المنشور فوراً. متأكد؟
+                {t('enrol.cardRegenWarning')}
               </span>
               <Button
                 variant="danger"
@@ -169,14 +167,14 @@ export function EnrolLinkCard() {
                 onClick={() => void doGenerate()}
                 disabled={generate.isPending}
               >
-                {generate.isPending ? 'بنجدد…' : 'أيوه، جدّد الرابط'}
+                {generate.isPending ? t('enrol.cardRegenerating') : t('enrol.cardRegenConfirm')}
               </Button>
               <Button
                 variant="ghost"
                 className="min-h-[40px] text-[13.5px] px-3"
                 onClick={() => setConfirmRegen(false)}
               >
-                إلغاء
+                {t('enrol.cardCancel')}
               </Button>
             </div>
           ) : (
@@ -186,7 +184,7 @@ export function EnrolLinkCard() {
               onClick={() => setConfirmRegen(true)}
             >
               <RefreshCw size={15} />
-              تجديد الرابط
+              {t('enrol.cardRegenAction')}
             </Button>
           )}
         </>

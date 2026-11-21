@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../lib/AuthProvider'
+import { t } from '../../i18n'
 
 /**
  * حماية المسارات الداخلية: لا محتوى بلا جلسة Supabase.
@@ -13,7 +14,7 @@ export function RequireAuth() {
   if (loading) {
     return (
       <div className="min-h-screen bg-bg text-text flex items-center justify-center">
-        <div className="text-muted text-[15px]">بنحمّل…</div>
+        <div className="text-muted text-[15px]">{t('common.loading')}</div>
       </div>
     )
   }

@@ -32,6 +32,7 @@ import {
 } from './api'
 import { PortalPushToggle, type PortalPushAdapter } from '../../components/PortalPushToggle'
 import { useStudentPortalOverview } from './hooks'
+import { t } from '../../i18n'
 
 /**
  * بوابة الطالب العامة — Phase 3 خطوة 5 (migration ‏0011).
@@ -68,7 +69,7 @@ function StudentPortalShell({
           {brand?.logo_url ? (
             <img
               src={brand.logo_url}
-              alt={brand.name ?? 'شعار السنتر'}
+              alt={brand.name ?? t('studentPortal.pageCentreLogoAlt')}
               className="w-9 h-9 rounded-full object-contain bg-soft p-0.5 shrink-0"
             />
           ) : (
@@ -78,10 +79,10 @@ function StudentPortalShell({
           )}
           <div className="min-w-0">
             <div className="type-section leading-[1.4] truncate">
-              {brand?.name ?? 'بوابة الطالب'}
+              {brand?.name ?? t('studentPortal.pageTitle')}
             </div>
             {brand?.name && (
-              <div className="text-muted text-[12px] leading-[1.4]">بوابة الطالب</div>
+              <div className="text-muted text-[12px] leading-[1.4]">{t('studentPortal.pageTitle')}</div>
             )}
           </div>
         </div>
@@ -139,8 +140,8 @@ export function StudentPortalPage() {
     return (
       <PortalMessage
         icon={Link2Off}
-        title="الرابط غير مكتمل"
-        hint="الرابط اللي فتحته ناقص. افتح الرابط زي ما وصلك من المدرس بالظبط على واتساب، أو اطلب منه يبعته تاني."
+        title={t('studentPortal.pageIncompleteTitle')}
+        hint={t('studentPortal.pageIncompleteHint')}
       />
     )
   }
@@ -179,14 +180,14 @@ export function StudentPortalPage() {
           {o.student.name}
         </div>
         <div className="text-muted text-[13.5px] mt-0.5">
-          الكود: <span dir="ltr">{o.student.code}</span>
+          {t('studentPortal.pageCodeLabel')} <span dir="ltr">{o.student.code}</span>
           {o.student.grade ? ` · ${o.student.grade}` : ''}
         </div>
         <div className="grid grid-cols-2 gap-2 mt-3">
           <div className="rounded-xl border border-border bg-bg p-3 text-center">
-            <div className="text-muted text-[12px] font-semibold mb-0.5">نسبة حضوري</div>
+            <div className="text-muted text-[12px] font-semibold mb-0.5">{t('studentPortal.pageAttendanceRateLabel')}</div>
             {rate == null ? (
-              <div className="text-[15px] font-bold text-muted">لسه مفيش حصص متسجلة</div>
+              <div className="text-[15px] font-bold text-muted">{t('studentPortal.pageNoSessionsYet')}</div>
             ) : (
               <div
                 className={`text-[20px] font-extrabold ${rate >= 80 ? 'text-ok-text' : 'text-warn-text'}`}
@@ -196,12 +197,12 @@ export function StudentPortalPage() {
             )}
           </div>
           <div className="rounded-xl border border-border bg-bg p-3 text-center">
-            <div className="text-muted text-[12px] font-semibold mb-0.5">المستحق عليّ</div>
+            <div className="text-muted text-[12px] font-semibold mb-0.5">{t('studentPortal.pageBalanceDueLabel')}</div>
             {o.balance > 0 ? (
               <div className="text-[20px] font-extrabold text-bad-text">{formatMoney(o.balance)}</div>
             ) : (
               <div className="text-[20px] font-extrabold text-ok-text flex items-center justify-center gap-1.5">
-                مسدد <Check size={22} />
+                {t('studentPortal.pagePaidLabel')} <Check size={22} />
               </div>
             )}
           </div>
@@ -212,11 +213,11 @@ export function StudentPortalPage() {
       <PortalPushToggle adapter={pushAdapter} />
 
       {/* ١) حصصي القادمة */}
-      <SectionTitle icon={CalendarDays}>حصصي القادمة</SectionTitle>
+      <SectionTitle icon={CalendarDays}>{t('studentPortal.pageUpcomingTitle')}</SectionTitle>
       {o.upcoming_sessions.length === 0 ? (
         <Card>
           <p className="text-muted text-[13.5px] mb-0">
-            مفيش حصص جاية متجدولة حالياً — ممكن جدول الشهر الجديد لسه ما اتعملش، اسأل المدرس.
+            {t('studentPortal.pageUpcomingEmpty')}
           </p>
         </Card>
       ) : (
@@ -229,9 +230,9 @@ export function StudentPortalPage() {
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-[15px] truncate">{s.group_name}</div>
                 <div className="text-muted text-[12px]">
-                  {formatDateLabel(s.date)} · الساعة {formatTime12(s.start_time)} · {s.duration_minutes} دقيقة
+                  {t('studentPortal.pageSessionLine', { date: formatDateLabel(s.date), time: formatTime12(s.start_time), duration: s.duration_minutes })}
                   {s.room ? ` · ${s.room}` : ''}
-                  {s.kind === 'extra' ? ' · حصة إضافية' : s.kind === 'moved' ? ' · حصة منقولة' : ''}
+                  {s.kind === 'extra' ? t('studentPortal.pageSessionExtraSuffix') : s.kind === 'moved' ? t('studentPortal.pageSessionMovedSuffix') : ''}
                 </div>
               </div>
               <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2.5 py-1 whitespace-nowrap">
@@ -245,12 +246,12 @@ export function StudentPortalPage() {
       {/* مواعيد مجموعاتي الثابتة وروابط الملازم */}
       {o.groups.length > 0 && (
         <>
-          <SectionTitle icon={Users}>مجموعاتي ومواعيدها</SectionTitle>
+          <SectionTitle icon={Users}>{t('studentPortal.pageGroupsTitle')}</SectionTitle>
           {o.groups.map((g) => (
             <Card key={g.name}>
               <div className="font-bold text-[15px]">{g.name}</div>
               <div className="text-muted text-[13.5px] mt-0.5">
-                {daysLabel(g.days)} · الساعة {formatTime12(g.start_time)}
+                {daysLabel(g.days)} · {t('studentPortal.pageAtTime', { time: formatTime12(g.start_time) })}
                 {g.room ? ` · ${g.room}` : ''}
               </div>
               {g.links.some((link) => safeExternalUrl(link) !== null) && (
@@ -280,15 +281,15 @@ export function StudentPortalPage() {
       )}
 
       {/* ٢) واجباتي */}
-      <SectionTitle icon={BookOpenCheck}>واجباتي</SectionTitle>
+      <SectionTitle icon={BookOpenCheck}>{t('studentPortal.pageHomeworkTitle')}</SectionTitle>
       {hw.marked > 0 && (
         <Card>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[15px] font-semibold">سلّمت الواجب في</span>
+            <span className="text-[15px] font-semibold">{t('studentPortal.pageHomeworkSubmittedLabel')}</span>
             <span
               className={`text-[15px] font-extrabold ${hw.submitted >= hw.marked / 2 ? 'text-ok-text' : 'text-warn-text'}`}
             >
-              {hw.submitted} من {hw.marked} حصة
+              {t('studentPortal.pageHomeworkCount', { submitted: hw.submitted, marked: hw.marked })}
             </span>
           </div>
           <div className="h-2 rounded-full bg-soft overflow-hidden mt-2">
@@ -301,7 +302,7 @@ export function StudentPortalPage() {
       )}
       {o.homework.length === 0 ? (
         <Card>
-          <p className="text-muted text-[13.5px] mb-0">لسه مفيش حصص متسجلة بواجبات.</p>
+          <p className="text-muted text-[13.5px] mb-0">{t('studentPortal.pageHomeworkEmpty')}</p>
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden">
@@ -324,15 +325,15 @@ export function StudentPortalPage() {
                 </span>
                 {h.status === 'a' ? (
                   <span className="text-[12px] font-bold border rounded-full px-2.5 py-1 bg-soft text-muted border-border">
-                    كنت غائب
+                    {t('studentPortal.pageHomeworkAbsent')}
                   </span>
                 ) : h.homework_done ? (
                   <span className="inline-flex items-center gap-1 text-[12px] font-bold border rounded-full px-2.5 py-1 bg-ok/10 text-ok-text border-ok/30">
-                    <Check size={14} /> الواجب اتسلّم
+                    <Check size={14} /> {t('studentPortal.pageHomeworkDone')}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-[12px] font-bold border rounded-full px-2.5 py-1 bg-bad/10 text-bad-text border-bad/30">
-                    <X size={14} /> الواجب ناقص
+                    <X size={14} /> {t('studentPortal.pageHomeworkMissing')}
                   </span>
                 )}
               </div>
@@ -342,10 +343,10 @@ export function StudentPortalPage() {
       )}
 
       {/* ٣) درجاتي ونتائج امتحاناتي الإلكترونية */}
-      <SectionTitle icon={NotebookPen}>درجاتي</SectionTitle>
+      <SectionTitle icon={NotebookPen}>{t('studentPortal.pageGradesTitle')}</SectionTitle>
       {o.grades.length === 0 ? (
         <Card>
-          <p className="text-muted text-[13.5px] mb-0">لسه مفيش درجات مسجلة.</p>
+          <p className="text-muted text-[13.5px] mb-0">{t('studentPortal.pageGradesEmpty')}</p>
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden">
@@ -360,11 +361,11 @@ export function StudentPortalPage() {
                   <div className="font-semibold text-[15px] truncate">{s.title}</div>
                   <div className="text-muted text-[12px]">
                     {s.date} · {ASSESSMENT_TYPE_LABELS[s.type] ?? s.type}
-                    {s.source === 'online_exam' ? ' · امتحان إلكتروني' : ''}
+                    {s.source === 'online_exam' ? t('studentPortal.pageGradeOnlineSuffix') : ''}
                   </div>
                 </div>
                 <div className="text-[13.5px] font-semibold whitespace-nowrap">
-                  {fmtScore(s.score)} من {fmtScore(s.max_score)}
+                  {t('studentPortal.pageScoreOf', { score: fmtScore(s.score), max: fmtScore(s.max_score) })}
                 </div>
                 {pct != null && (
                   <span
@@ -381,7 +382,7 @@ export function StudentPortalPage() {
 
       {o.exam_results.length > 0 && (
         <>
-          <SectionTitle icon={Trophy}>نتائج امتحاناتي الإلكترونية</SectionTitle>
+          <SectionTitle icon={Trophy}>{t('studentPortal.pageExamResultsTitle')}</SectionTitle>
           <Card className="p-0 overflow-hidden">
             {o.exam_results.map((r, i) => (
               <div
@@ -391,12 +392,12 @@ export function StudentPortalPage() {
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-[15px] truncate">{r.title}</div>
                   <div className="text-muted text-[12px]">
-                    محاولة {r.attempt_no} · {r.submitted_at.slice(0, 10)}
-                    {r.score_posted ? ' · دي الدرجة المحسوبة في ملفك' : ''}
+                    {t('studentPortal.pageExamAttemptLine', { attempt: r.attempt_no, date: r.submitted_at.slice(0, 10) })}
+                    {r.score_posted ? t('studentPortal.pageExamPostedSuffix') : ''}
                   </div>
                 </div>
                 <div className="text-[13.5px] font-semibold whitespace-nowrap">
-                  {fmtScore(r.score)} من {fmtScore(r.max_score)}
+                  {t('studentPortal.pageScoreOf', { score: fmtScore(r.score), max: fmtScore(r.max_score) })}
                 </div>
                 <span
                   className={`min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${r.pct >= 50 ? 'bg-ok' : 'bg-bad'}`}
@@ -410,10 +411,10 @@ export function StudentPortalPage() {
       )}
 
       {/* ٤) مدفوعاتي */}
-      <SectionTitle icon={Wallet}>مدفوعاتي وحسابي</SectionTitle>
+      <SectionTitle icon={Wallet}>{t('studentPortal.pagePaymentsTitle')}</SectionTitle>
       {o.invoices.length === 0 ? (
         <Card>
-          <p className="text-muted text-[13.5px] mb-0">لسه مفيش فواتير صادرة باسمك.</p>
+          <p className="text-muted text-[13.5px] mb-0">{t('studentPortal.pageInvoicesEmpty')}</p>
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden">
@@ -428,16 +429,16 @@ export function StudentPortalPage() {
                     {periodLabel(inv.period_month)} — {inv.group_name}
                   </div>
                   <div className="text-muted text-[12px]">
-                    الإجمالي {formatMoney(inv.total)} · اتدفع {formatMoney(inv.paid)}
+                    {t('studentPortal.pageInvoiceLine', { total: formatMoney(inv.total), paid: formatMoney(inv.paid) })}
                   </div>
                 </div>
                 {inv.is_paid ? (
                   <span className="text-[12px] font-bold border rounded-full px-2.5 py-1 bg-ok/10 text-ok-text border-ok/30">
-                    خالصة
+                    {t('studentPortal.pageInvoicePaid')}
                   </span>
                 ) : (
                   <span className="text-[12px] font-bold border rounded-full px-2.5 py-1 bg-bad/10 text-bad-text border-bad/30">
-                    باقي {formatMoney(inv.balance)}
+                    {t('studentPortal.pageInvoiceDue', { amount: formatMoney(inv.balance) })}
                   </span>
                 )}
               </div>
@@ -448,7 +449,7 @@ export function StudentPortalPage() {
 
       {o.recent_payments.length > 0 && (
         <>
-          <SectionTitle icon={ReceiptText}>آخر دفعاتي</SectionTitle>
+          <SectionTitle icon={ReceiptText}>{t('studentPortal.pageRecentPaymentsTitle')}</SectionTitle>
           <Card className="p-0 overflow-hidden">
             {o.recent_payments.map((p, i) => (
               <div
@@ -460,12 +461,12 @@ export function StudentPortalPage() {
                     {formatMoney(p.amount)} · {PAYMENT_METHOD_LABELS[p.method] ?? p.method}
                   </div>
                   <div className="text-muted text-[12px]">
-                    {p.paid_on} · إيصال <span dir="ltr">{p.receipt_no}</span>
+                    {t('studentPortal.pagePaymentReceiptLine', { date: p.paid_on })} <span dir="ltr">{p.receipt_no}</span>
                   </div>
                 </div>
                 {p.amount < 0 && (
                   <span className="text-[12px] font-bold border rounded-full px-2.5 py-1 bg-warn/15 text-warn-text border-warn/40">
-                    دفعة عكسية
+                    {t('studentPortal.pageReversalBadge')}
                   </span>
                 )}
               </div>
@@ -475,7 +476,7 @@ export function StudentPortalPage() {
       )}
 
       <p className="text-center text-muted text-[12px] mt-5 mb-0">
-        بوابة الطالب — الرابط صالح لمدة 30 يوم من إنشائه، ودي بياناتك انت بس.
+        {t('studentPortal.pageFooter')}
       </p>
     </StudentPortalShell>
   )

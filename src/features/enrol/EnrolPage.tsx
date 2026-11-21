@@ -17,6 +17,7 @@ import { Field, FormError, Select, TextArea, TextInput } from '../../components/
 import type { IconComponent } from '../../components/ui/EmptyState'
 import { daysLabel, formatTime12 } from '../../lib/format'
 import { darken } from '../../lib/brand'
+import { t } from '../../i18n'
 import {
   EG_MOBILE_RE,
   enrolErrorInfo,
@@ -57,7 +58,7 @@ function EnrolShell({
           {brand?.logo_url ? (
             <img
               src={brand.logo_url}
-              alt={brand.name ?? 'شعار السنتر'}
+              alt={brand.name ?? t('enrol.pageLogoAlt')}
               className="w-9 h-9 rounded-full object-contain bg-soft p-0.5 shrink-0"
             />
           ) : (
@@ -67,10 +68,10 @@ function EnrolShell({
           )}
           <div className="min-w-0">
             <div className="type-section leading-[1.4] truncate">
-              {brand?.name ?? 'صفحة الحجز'}
+              {brand?.name ?? t('enrol.pageShellFallbackTitle')}
             </div>
             {brand?.name && (
-              <div className="text-muted text-[12px] leading-[1.4]">حجز مكان جديد</div>
+              <div className="text-muted text-[12px] leading-[1.4]">{t('enrol.pageShellSubtitle')}</div>
             )}
           </div>
         </div>
@@ -129,8 +130,8 @@ export function EnrolPage() {
     return (
       <EnrolMessage
         icon={Link2Off}
-        title="رابط الحجز غير صالح"
-        hint="الرابط ده ناقص أو مش مكتمل. اطلب من السنتر رابط الحجز الصحيح وهيوصلك على واتساب أو فيسبوك."
+        title={t('enrol.pageInvalidLinkTitle')}
+        hint={t('enrol.pageInvalidLinkHint')}
       />
     )
   }
@@ -157,10 +158,9 @@ export function EnrolPage() {
           <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-ok/10 text-ok flex items-center justify-center">
             <CheckCircle2 size={28} />
           </div>
-          <div className="type-section mb-1">تم استلام طلب الحجز بنجاح</div>
+          <div className="type-section mb-1">{t('enrol.pageDoneTitle')}</div>
           <p className="text-muted type-secondary mb-0">
-            شكراً ليك{brand.name ? ` — طلبك وصل ${brand.name}` : ''}. السنتر هيراجع الطلب
-            ويتواصل معاك على رقم الموبايل اللي سجلته للتأكيد.
+            {t('enrol.pageDoneThanks')}{brand.name ? t('enrol.pageDoneArrived', { name: brand.name }) : ''}{t('enrol.pageDoneBody')}
           </p>
         </Card>
       </EnrolShell>
@@ -172,8 +172,8 @@ export function EnrolPage() {
       <EnrolMessage
         icon={Users}
         brand={brand}
-        title="لا توجد مجموعات متاحة للحجز حالياً"
-        hint="كل المجموعات مكتملة أو الحجز مقفول دلوقتي. تواصل مع السنتر مباشرة لمعرفة أقرب موعد فتح حجز."
+        title={t('enrol.pageNoGroupsTitle')}
+        hint={t('enrol.pageNoGroupsHint')}
       />
     )
   }
@@ -181,12 +181,12 @@ export function EnrolPage() {
   const onSubmit = async () => {
     setFormError(null)
     const name = studentName.trim()
-    if (name.length < 3) return setFormError('اكتب اسم الطالب كاملاً (3 أحرف على الأقل)')
+    if (name.length < 3) return setFormError(t('enrol.pageNameError'))
     const phone = normalizeEgPhone(guardianPhone)
     if (!EG_MOBILE_RE.test(phone)) {
-      return setFormError('اكتب رقم موبايل مصري صحيح من 11 رقم يبدأ بـ 010 أو 011 أو 012 أو 015')
+      return setFormError(t('enrol.pagePhoneError'))
     }
-    if (!groupId) return setFormError('اختر المجموعة المطلوبة')
+    if (!groupId) return setFormError(t('enrol.pageGroupError'))
     setSubmitting(true)
     try {
       await submitBooking(token, {
@@ -211,22 +211,22 @@ export function EnrolPage() {
       <Card>
         <div className="flex items-center gap-2 mb-1">
           <CalendarCheck2 size={22} className="text-primary" />
-          <h1 className="type-section mt-0 mb-0">حجز مكان لطالب جديد</h1>
+          <h1 className="type-section mt-0 mb-0">{t('enrol.pageFormTitle')}</h1>
         </div>
         <p className="text-muted type-secondary mt-0">
-          املأ البيانات والسنتر هيتواصل معاك على موبايل ولي الأمر لتأكيد الحجز.
+          {t('enrol.pageFormIntro')}
         </p>
 
-        <Field label="اسم الطالب *">
+        <Field label={t('enrol.pageStudentNameLabel')}>
           <TextInput
             value={studentName}
             onChange={(e) => setStudentName(e.target.value)}
-            placeholder="اسم الطالب ثلاثي"
+            placeholder={t('enrol.pageStudentNamePlaceholder')}
             autoComplete="name"
           />
         </Field>
 
-        <Field label="موبايل ولي الأمر *">
+        <Field label={t('enrol.pageGuardianPhoneLabel')}>
           <TextInput
             type="tel"
             dir="ltr"
@@ -237,12 +237,12 @@ export function EnrolPage() {
           />
         </Field>
 
-        <Field label="المجموعة المطلوبة *">
+        <Field label={t('enrol.pageGroupLabel')}>
           <Select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-            <option value="">اختر المجموعة…</option>
+            <option value="">{t('enrol.pageGroupPlaceholder')}</option>
             {groups.map((g) => (
               <option key={g.id} value={g.id}>
-                {g.name} — {daysLabel(g.days)} — {formatTime12(g.start_time)}
+                {t('enrol.pageGroupOption', { name: g.name, days: daysLabel(g.days), time: formatTime12(g.start_time) })}
               </option>
             ))}
           </Select>
@@ -254,7 +254,7 @@ export function EnrolPage() {
             {(() => {
               const g = groups.find((x) => x.id === groupId)
               return g
-                ? `${daysLabel(g.days)}، الساعة ${formatTime12(g.start_time)}، مدة الحصة ${g.duration_minutes} دقيقة`
+                ? t('enrol.pageGroupSchedule', { days: daysLabel(g.days), time: formatTime12(g.start_time), duration: g.duration_minutes })
                 : ''
             })()}
           </p>
@@ -267,14 +267,14 @@ export function EnrolPage() {
             onChange={(e) => setWantsTrial(e.target.checked)}
             className="w-5 h-5 accent-primary"
           />
-          <span className="text-[15px] font-semibold">أريد حصة تجريبية أولاً</span>
+          <span className="text-[15px] font-semibold">{t('enrol.pageTrialLabel')}</span>
         </label>
 
-        <Field label="ملاحظات (اختياري)">
+        <Field label={t('enrol.pageNoteLabel')}>
           <TextArea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="أي تفاصيل تحب السنتر يعرفها…"
+            placeholder={t('enrol.pageNotePlaceholder')}
             maxLength={500}
           />
         </Field>
@@ -294,7 +294,7 @@ export function EnrolPage() {
           }}
         >
           <label>
-            الموقع الإلكتروني
+            {t('enrol.pageHoneypotLabel')}
             <input
               type="text"
               name="website"
@@ -309,10 +309,10 @@ export function EnrolPage() {
         {formError && <FormError message={formError} />}
         <Button full onClick={() => void onSubmit()} disabled={submitting}>
           <Send size={18} />
-          {submitting ? 'بنبعت الطلب…' : 'إرسال طلب الحجز'}
+          {submitting ? t('enrol.pageSubmitting') : t('enrol.pageSubmitAction')}
         </Button>
         <p className="text-muted text-[12.5px] text-center mb-0 mt-3">
-          بياناتك بتروح للسنتر ده بس علشان يتواصل معاك بخصوص الحجز.
+          {t('enrol.pagePrivacyNote')}
         </p>
       </Card>
     </EnrolShell>

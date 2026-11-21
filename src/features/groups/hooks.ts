@@ -6,6 +6,11 @@ import type {
   WaitlistInput,
 } from '../../types/database'
 import { SG } from '../students/hooks'
+import { ANALYTICS } from '../analytics/hooks'
+import { ATT } from '../attendance/hooks'
+import { HOME } from '../home/hooks'
+import { SCHED } from '../schedule/hooks'
+import { invalidatePrefixes } from '../../lib/invalidate'
 import {
   acceptWaitlistEntry,
   addWaitlistEntry,
@@ -107,25 +112,25 @@ export function useGroupFootprint(
   })
 }
 
-/** أرشفة/إلغاء أرشفة مجموعة — تُبطل كل الكاش لأن التوليد والجدول يتأثران */
+/** أرشفة/إلغاء أرشفة مجموعة — تبطل الوحدات المتأثرة (توليد/جدول/حضور/رئيسية) */
 export function useSetGroupArchived(teacherId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ groupId, archived }: { groupId: string; archived: boolean }) =>
       setGroupArchived(teacherId, groupId, archived),
     onSuccess: () => {
-      void qc.invalidateQueries()
+      invalidatePrefixes(qc, [SG, HOME, SCHED, ATT, ANALYTICS])
     },
   })
 }
 
-/** حذف نهائي لمجموعة فارغة — إبطال شامل للكاش (فعل نادر ومدمّر) */
+/** حذف نهائي لمجموعة فارغة — إبطال الوحدات المتأثرة صراحة (فعل نادر) */
 export function useDeleteGroup(teacherId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (groupId: string) => deleteGroup(teacherId, groupId),
     onSuccess: () => {
-      void qc.invalidateQueries()
+      invalidatePrefixes(qc, [SG, HOME, SCHED, ATT, ANALYTICS])
     },
   })
 }
@@ -147,13 +152,14 @@ export function useDeleteWaitlistEntry(teacherId: string) {
   })
 }
 
-/** قبول طلب انتظار → طالب مسجل في نفس المجموعة — إبطال شامل لظهور الطالب الجديد في كل القوائم */
+/** قبول طلب انتظار → طالب مسجل في نفس المجموعة — يبطل قوائم الطلاب
+ * والرئيسية وقائمة حضور المجموعة حتى يظهر الطالب الجديد فيها كلها (PAT-1) */
 export function useAcceptWaitlistEntry(teacherId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (entry: GroupWaitlistRow) => acceptWaitlistEntry(teacherId, entry),
     onSuccess: () => {
-      void qc.invalidateQueries()
+      invalidatePrefixes(qc, [SG, HOME, ATT])
     },
   })
 }

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
@@ -121,10 +122,10 @@ export function SchedulePage() {
   const refreshAll = async () => {
     // إعادة توليد كاملة: مسح ذاكرة الجلسة ثم RPC ثم إعادة قراءة الحصص
     resetGenerationCache()
-    toast('بيتم تحديث الحصص من جداول المجموعات…')
+    toast(t('schedule.refreshingToast'))
     await genQ.refetch()
     await sessionsQ.refetch()
-    toast('اتحدّثت الحصص من جداول المجموعات')
+    toast(t('schedule.refreshedToast'))
   }
 
   const originLabelFor = (s: SessionWithGroup): string | null => {
@@ -144,8 +145,8 @@ export function SchedulePage() {
         <div className="flex w-full bg-soft rounded-full p-1">
           {(
             [
-              { key: 'week', label: 'الجدول الأسبوعي' },
-              { key: 'month', label: 'التقويم الشهري' },
+              { key: 'week', label: t('schedule.viewWeek') },
+              { key: 'month', label: t('schedule.viewMonth') },
             ] as { key: ViewMode; label: string }[]
           ).map((v) => (
             <button
@@ -169,7 +170,7 @@ export function SchedulePage() {
         </>
       ) : primaryError ? (
         <ErrorState
-          message={primaryError instanceof Error ? primaryError.message : 'خطأ غير معروف'}
+          message={primaryError instanceof Error ? primaryError.message : t('common.unknownError')}
           onRetry={() => {
             void groupsQ.refetch()
             void holidaysQ.refetch()
@@ -181,12 +182,12 @@ export function SchedulePage() {
         <Card>
           <EmptyState
             icon={CalendarDays}
-            title="لا توجد مجموعات بعد — فلا حصص تُولّد"
-            hint="الحصص بتتولّد تلقائياً من الجدول الأسبوعي لكل مجموعة. أنشئ أول مجموعة وحدد أيامها وميعادها وهتظهر حصصها هنا."
+            title={t('schedule.emptyTitle')}
+            hint={t('schedule.emptyHint')}
           />
           <div className="text-center pb-2">
             <Link to="/groups" className="no-underline">
-              <Button>إنشاء مجموعة</Button>
+              <Button>{t('schedule.createGroup')}</Button>
             </Link>
           </div>
         </Card>
@@ -226,12 +227,12 @@ export function SchedulePage() {
                 try {
                   if (h) {
                     await deleteHolidayMut.mutateAsync(h)
-                    toast('اتلغت الإجازة واترجعت حصص اليوم')
+                    toast(t('schedule.holidayCancelledToast'))
                   } else {
                     setHolidayOpen(true)
                   }
                 } catch {
-                  toast('حصلت مشكلة — حاول تاني')
+                  toast(t('schedule.genericError'))
                 }
               }}
               holidayBusy={deleteHolidayMut.isPending}
@@ -242,9 +243,9 @@ export function SchedulePage() {
                     sessionId: s.id,
                     status: s.status === 'cancelled' ? 'scheduled' : 'cancelled',
                   })
-                  toast(s.status === 'cancelled' ? 'تم استرجاع الحصة' : 'تم إلغاء الحصة')
+                  toast(s.status === 'cancelled' ? t('schedule.sessionRestoredToast') : t('schedule.sessionCancelledToast'))
                 } catch {
-                  toast('حصلت مشكلة — حاول تاني')
+                  toast(t('schedule.genericError'))
                 }
               }}
               quickBusy={statusMut.isPending}
@@ -257,20 +258,20 @@ export function SchedulePage() {
               className="inline-flex items-center gap-2 min-h-[48px] text-[13.5px] font-semibold text-primary bg-transparent border-0 cursor-pointer px-1"
             >
               <RefreshCw size={18} />
-              تحديث الحصص من جداول المجموعات
+              {t('schedule.refreshBtn')}
             </button>
           </div>
 
           {/* إدارة الإجازات */}
-          <h2 className="type-section mb-2 mt-2">الإجازات الرسمية</h2>
+          <h2 className="type-section mb-2 mt-2">{t('schedule.holidaysTitle')}</h2>
           <Button full variant="soft" className="mb-3" onClick={() => setHolidayOpen(true)}>
             <CalendarOff size={20} />
-            إضافة إجازة (يوم أو نطاق)
+            {t('schedule.addHolidayBtn')}
           </Button>
           {upcomingHolidays.length === 0 ? (
             <Card>
               <div className="text-muted text-[13.5px] text-center py-2">
-                مفيش إجازات مسجلة قريب — حصص أيام الإجازة بتتعلّم «ملغاة» تلقائياً.
+                {t('schedule.noHolidays')}
               </div>
             </Card>
           ) : (
@@ -280,22 +281,22 @@ export function SchedulePage() {
                   <div>
                     <div className="font-bold text-[15px]">{formatDateLabel(h.holiday_date)}</div>
                     <div className="text-muted text-[13.5px]">
-                      {h.name ?? 'إجازة رسمية'} — حصص اليوم ملغاة
+                      {t('schedule.holidayLine', { name: h.name ?? t('schedule.holidayDefaultName') })}
                     </div>
                   </div>
                   <button
                     onClick={async () => {
                       try {
                         await deleteHolidayMut.mutateAsync(h)
-                        toast('اتحذفت الإجازة واترجعت حصص اليوم')
+                        toast(t('schedule.holidayDeletedToast'))
                       } catch {
-                        toast('حصلت مشكلة — حاول تاني')
+                        toast(t('schedule.genericError'))
                       }
                     }}
                     disabled={deleteHolidayMut.isPending}
                     className="shrink-0 inline-flex items-center text-[13.5px] font-bold text-bad-text bg-transparent border border-bad/40 rounded-full px-3 min-h-[48px] cursor-pointer disabled:opacity-50"
                   >
-                    حذف
+                    {t('schedule.deleteBtn')}
                   </button>
                 </div>
               </Card>
@@ -304,7 +305,7 @@ export function SchedulePage() {
         </>
       )}
 
-      <Fab onClick={() => setExtraOpen(true)} ariaLabel="إضافة حصة إضافية" label="حصة إضافية" />
+      <Fab onClick={() => setExtraOpen(true)} ariaLabel={t('schedule.fabExtraAria')} label={t('schedule.fabExtraLabel')} />
 
       {selectedSession && (
         <SessionDetailSheet
@@ -366,7 +367,7 @@ function WeekView({
           onClick={onPrev}
           className="flex-1 min-[480px]:flex-none text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
         >
-          الأسبوع السابق
+          {t('schedule.prevWeek')}
         </button>
         <div className="order-first w-full min-[480px]:order-none min-[480px]:w-auto font-extrabold text-[15px] text-center">
           {formatDayMonth(dates[0])} – {formatDayMonth(dates[6])}{' '}
@@ -376,7 +377,7 @@ function WeekView({
           onClick={onNext}
           className="flex-1 min-[480px]:flex-none text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
         >
-          الأسبوع التالي
+          {t('schedule.nextWeek')}
         </button>
       </div>
       {!isCurrentWeek && (
@@ -385,7 +386,7 @@ function WeekView({
             onClick={onToday}
             className="inline-flex items-center text-[13.5px] font-bold text-primary bg-transparent border border-primary/40 rounded-full px-3 min-h-[48px] cursor-pointer"
           >
-            رجوع لأسبوع النهاردة
+            {t('schedule.backToThisWeek')}
           </button>
         </div>
       )}
@@ -402,18 +403,18 @@ function WeekView({
               </span>
               {isToday && (
                 <span className="text-[12px] font-bold bg-primary text-on-primary rounded-full px-2 py-0.5">
-                  اليوم
+                  {t('schedule.todayBadge')}
                 </span>
               )}
               {holiday && (
                 <span className="text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-                  إجازة{holiday.name ? `: ${holiday.name}` : ''}
+                  {holiday.name ? t('schedule.holidayBadgeNamed', { name: holiday.name }) : t('schedule.holidayBadge')}
                 </span>
               )}
             </div>
             {daySessions.length === 0 ? (
               <div className="text-muted text-[13.5px] px-0.5 pb-1">
-                {holiday ? 'إجازة — مفيش حصص' : 'متاح بالكامل'}
+                {holiday ? t('schedule.dayHolidayEmpty') : t('schedule.dayFree')}
               </div>
             ) : (
               daySessions.map((s) => (
@@ -482,7 +483,7 @@ function MonthView({
           onClick={onPrevMonth}
           className="flex-1 min-[480px]:flex-none text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
         >
-          الشهر السابق
+          {t('schedule.prevMonth')}
         </button>
         <div className="order-first w-full text-center min-[480px]:order-none min-[480px]:w-auto font-extrabold text-[15px]">
           {MONTH_NAMES[cursorDate.getMonth()]} {cursorDate.getFullYear()}
@@ -491,7 +492,7 @@ function MonthView({
           onClick={onNextMonth}
           className="flex-1 min-[480px]:flex-none text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
         >
-          الشهر التالي
+          {t('schedule.nextMonth')}
         </button>
       </div>
       {!isCurrentMonth && (
@@ -500,14 +501,14 @@ function MonthView({
             onClick={onToday}
             className="inline-flex items-center text-[13.5px] font-bold text-primary bg-transparent border border-primary/40 rounded-full px-3 min-h-[48px] cursor-pointer"
           >
-            اليوم
+            {t('schedule.todayBadge')}
           </button>
         </div>
       )}
 
       <Card>
         <div className="grid grid-cols-7 gap-1 mb-1">
-          {['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'].map((n) => (
+          {[t('schedule.weekdaySun'), t('schedule.weekdayMon'), t('schedule.weekdayTue'), t('schedule.weekdayWed'), t('schedule.weekdayThu'), t('schedule.weekdayFri'), t('schedule.weekdaySat')].map((n) => (
             <div key={n} className="text-center text-[12px] font-bold text-muted py-1">
               {n}
             </div>
@@ -539,10 +540,10 @@ function MonthView({
                   {d.getDate()}
                 </span>
                 {holiday ? (
-                  <span className="text-[12px] font-bold text-warn-text mt-1">إجازة</span>
+                  <span className="text-[12px] font-bold text-warn-text mt-1">{t('schedule.holidayBadge')}</span>
                 ) : daySessions.length > 0 ? (
                   allCancelled ? (
-                    <span className="text-[12px] font-bold text-muted mt-1">ملغاة</span>
+                    <span className="text-[12px] font-bold text-muted mt-1">{t('schedule.badgeCancelled')}</span>
                   ) : (
                     <span className="flex gap-0.5 mt-1.5">
                       {daySessions.slice(0, 3).map((s) => (
@@ -568,18 +569,18 @@ function MonthView({
           disabled={holidayBusy}
           className="shrink-0 text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer disabled:opacity-50"
         >
-          {selectedIsHoliday ? 'إلغاء الإجازة' : 'إجازة رسمية'}
+          {selectedIsHoliday ? t('schedule.cancelHolidayBtn') : t('schedule.holidayDefaultName')}
         </button>
       </div>
       {selectedIsHoliday && (
         <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2 mb-3 text-[13.5px]">
-          اليوم ده إجازة رسمية — حصصه متعلّمة «ملغاة». إلغاء الإجازة بيرجّعها.
+          {t('schedule.selectedHolidayNote')}
         </div>
       )}
       {selectedSessions.length === 0 ? (
         <Card>
           <div className="text-muted text-[13.5px] text-center py-2">
-            {selectedIsHoliday ? 'إجازة — مفيش حصص اليوم ده.' : 'مفيش حصص مجدولة اليوم ده.'}
+            {selectedIsHoliday ? t('schedule.selectedHolidayEmpty') : t('schedule.selectedNoSessions')}
           </div>
         </Card>
       ) : (
@@ -589,7 +590,7 @@ function MonthView({
               {s.status !== 'cancelled' && (
                 <Link to={`/attendance?session=${s.id}`} className="no-underline flex-1" onClick={(e) => e.stopPropagation()}>
                   <Button full variant="soft" className="min-h-[48px] text-[13.5px]">
-                    الحضور
+                    {t('schedule.attendanceBtn')}
                   </Button>
                 </Link>
               )}
@@ -603,7 +604,7 @@ function MonthView({
                   onQuickToggle(s)
                 }}
               >
-                {s.status === 'cancelled' ? 'استرجاع' : 'إلغاء الحصة'}
+                {s.status === 'cancelled' ? t('schedule.restoreBtn') : t('schedule.cancelSessionBtn')}
               </Button>
             </div>
           </SessionCard>
@@ -639,7 +640,7 @@ function SessionCard({
             <KindBadge session={s} />
           </div>
           <div className="text-muted text-[13.5px] mt-0.5">
-            {formatTime12(s.start_time)} · {s.duration_minutes} دقيقة
+            {t('schedule.sessionMeta', { time: formatTime12(s.start_time), duration: s.duration_minutes })}
             {s.group_room ? ` · ${s.group_room}` : ''}
             {s.note ? ` · ${s.note}` : ''}
           </div>

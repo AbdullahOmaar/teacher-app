@@ -13,11 +13,22 @@
  * اللهجة الكهرمانية (--accent #F59E0B) للحظات الإنجاز فقط.
  * Tailwind v4: نربط ألوان الأدوات بمتغيرات CSS عبر @theme inline
  * فيعمل تبديل الثيم الداكن بتغيير المتغيرات فقط.
+ *
+ * انضباط التوكنز (W6 — R-3): ممنوع هكس يدوي في مكوّنات الواجهة خارج
+ * هذا الملف — كل لون واجهة من توكن. الاستثناءات الموثقة حصراً:
+ * • lib/brand.ts — لوحة ألوان هوية السنتر (بيانات يختارها المدرس).
+ * • brand/Logo.tsx — العلامة التجارية الثابتة (أصل SVG).
+ * • students/StudentCardSheet — بطاقة طالب مطبوعة (لا تتبع ثيم التطبيق).
+ * • analytics/charts.tsx — يقرأ التوكنز فعلياً وقيمه الاحتياطية هي
+ *   قيم الفاتح (الكانفس يحتاج لوناً محسوساً).
+ * • settings: قيمة '#4f46e5' الاحتياطية لبيانات brand_accent (بيانات).
  */
 @theme inline {
   --color-bg: var(--bg);
   --color-card: var(--card);
+  --color-elevated: var(--elevated);
   --color-border: var(--border);
+  --color-border-interactive: var(--border-interactive);
   --color-text: var(--text);
   --color-muted: var(--muted);
   --color-primary: var(--primary);
@@ -40,7 +51,14 @@
 :root {
   --bg: #f7f8fc;
   --card: #ffffff;
+  /* سطح مرتفع (W6 — R-1): أفتح درجة فوق البطاقة للـ Sheets والمنبثقات */
+  --elevated: #ffffff;
+  /* حدود زخرفية فقط (W6 — R-2): فواصل وفواصل بطاقات لا تحمل معنى
+     تفاعلياً — أي عنصر يُلمس أو يُدخَل فيه يستخدم --border-interactive */
   --border: #e3e6f0;
+  /* حدود تفاعلية (W6 — R-2): حقول وأزرار مفرّغة ورقائق — 3.41:1 على
+     البطاقة و3.22:1 على الخلفية (WCAG 1.4.11 ≥ 3:1) */
+  --border-interactive: #7e8ab0;
   --text: #141a2e;
   --muted: #5b6478;
   --primary: #4f46e5;
@@ -70,7 +88,13 @@
 :root[data-theme="dark"] {
   --bg: #0e1120;
   --card: #171b2e;
+  /* سطح مرتفع داكن (W6 — R-1): #1E2438 — نصه الأساسي عليه 13.99:1
+     والثانوي 6.66:1، ويُستخدم في الـ Sheets والمنبثقات فقط */
+  --elevated: #1e2438;
+  /* حدود زخرفية فقط في الداكن أيضاً (R-2) */
   --border: #262c47;
+  /* حدود تفاعلية داكنة (R-2): 3.36:1 على البطاقة و3.70:1 على الخلفية */
+  --border-interactive: #5d6ca3;
   --text: #f2f4fa;
   --muted: #a3aac2;
   --primary: #8b85f7;

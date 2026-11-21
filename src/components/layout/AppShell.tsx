@@ -16,42 +16,43 @@ import { useHomeAlerts } from '../../features/home/hooks'
 import { Onboarding } from '../../features/auth/Onboarding'
 import { AttendanceSyncBridge } from '../../features/attendance/SyncBridge'
 import { LoadingState } from '../ui/states'
+import { t } from '../../i18n'
 import { Logo } from '../brand/Logo'
 
 /** عناوين الشاشات (من جدول titles في المرجع + شاشات المراحل اللاحقة:
     التحليلات والواجبات وسجل النشاط — عناوينها بنفس صياغة قائمة «المزيد»
     وعناوينها الداخلية حرفياً) */
 const TITLES: Record<string, string> = {
-  home: 'الرئيسية',
-  att: 'الحضور',
-  students: 'الطلاب',
-  student: 'ملف الطالب',
-  invoices: 'الفواتير',
-  invoice: 'الفاتورة',
-  more: 'المزيد',
-  schedule: 'الجدول والتقويم',
-  groups: 'المجموعات',
-  grades: 'الامتحانات والدرجات',
-  assess: 'تفاصيل الامتحان',
-  money: 'المصروفات والأرباح',
-  notifications: 'الإشعارات',
-  export: 'تصدير واستيراد',
-  backup: 'النسخ الاحتياطي',
-  settings: 'الإعدادات',
-  portal: 'بوابة ولي الأمر',
-  atrisk: 'معرّضون للفقد',
-  analytics: 'التحليلات',
-  homework: 'متابعة الواجبات',
-  activity: 'سجل النشاط',
+  home: t('shell.title.home'),
+  att: t('shell.title.att'),
+  students: t('shell.title.students'),
+  student: t('shell.title.student'),
+  invoices: t('shell.title.invoices'),
+  invoice: t('shell.title.invoice'),
+  more: t('shell.title.more'),
+  schedule: t('shell.title.schedule'),
+  groups: t('shell.title.groups'),
+  grades: t('shell.title.grades'),
+  assess: t('shell.title.assess'),
+  money: t('shell.title.money'),
+  notifications: t('shell.title.notifications'),
+  export: t('shell.title.export'),
+  backup: t('shell.title.backup'),
+  settings: t('shell.title.settings'),
+  portal: t('shell.title.portal'),
+  atrisk: t('shell.title.atrisk'),
+  analytics: t('shell.title.analytics'),
+  homework: t('shell.title.homework'),
+  activity: t('shell.title.activity'),
 }
 
 type TabKey = 'home' | 'students' | 'invoices' | 'more'
 
 const TABS: { key: TabKey; path: string; icon: LucideIcon; label: string }[] = [
-  { key: 'home', path: '/', icon: Home, label: 'الرئيسية' },
-  { key: 'students', path: '/students', icon: Users, label: 'الطلاب' },
-  { key: 'invoices', path: '/invoices', icon: ReceiptText, label: 'الفواتير' },
-  { key: 'more', path: '/more', icon: LayoutGrid, label: 'المزيد' },
+  { key: 'home', path: '/', icon: Home, label: t('shell.nav.home') },
+  { key: 'students', path: '/students', icon: Users, label: t('shell.nav.students') },
+  { key: 'invoices', path: '/invoices', icon: ReceiptText, label: t('shell.nav.invoices') },
+  { key: 'more', path: '/more', icon: LayoutGrid, label: t('shell.nav.more') },
 ]
 
 /** تحديد الشاشة والتبويب النشط من المسار — ربط الشاشات الفرعية بتبويباتها كما في المرجع (§6.4) */
@@ -99,13 +100,15 @@ export function AppShell() {
   // الإشعارات (useHomeAlerts → fetchAlerts بنفس مفتاح [HOME,'alerts',…])
   // — لا مصدر موازٍ، فالعدد هنا يطابق الشاشتين دائماً.
   const alertsQ = useHomeAlerts(teacherId, isOwner)
-  const alertsCount = alertsQ.data?.length ?? 0
+  // الشارة تعدّ التنبيهات المعروضة بعد التجميع (W4 — R-8)، والتنبيهات
+  // الصامتة (النسخ الاحتياطي P3) لا ترفعها
+  const alertsCount = alertsQ.data?.filter((a) => !a.silent).length ?? 0
   const isDark =
     typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark'
   const avatarLetter =
     teacher.status === 'ready' && teacher.teacher?.display_name
       ? teacher.teacher.display_name.trim().charAt(0)
-      : 'م'
+      : t('shell.avatarFallback')
   const avatarUrl = teacher.status === 'ready' ? teacher.teacher?.avatar_url : null
 
   return (
@@ -119,7 +122,7 @@ export function AppShell() {
             <button
               onClick={() => navigate(-1)}
               className="w-12 h-12 shrink-0 flex items-center justify-center cursor-pointer bg-transparent border-0 text-text"
-              aria-label="رجوع"
+              aria-label={t('shell.back')}
             >
               <ChevronRight size={24} />
             </button>
@@ -127,13 +130,13 @@ export function AppShell() {
           <div className="ps-2">
             <Logo size={26} />
           </div>
-          <div className="type-section flex-1">{TITLES[screen] ?? 'تطبيق المدرس'}</div>
+          <div className="type-section flex-1">{TITLES[screen] ?? t('shell.appName')}</div>
           {isRoot && (
             <>
               <button
                 onClick={() => navigate('/notifications')}
                 className="relative w-12 h-12 shrink-0 flex items-center justify-center cursor-pointer bg-transparent border-0 text-text"
-                aria-label="الإشعارات"
+                aria-label={t('shell.notifications')}
               >
                 <Bell size={24} />
                 {alertsCount > 0 && (
@@ -145,14 +148,14 @@ export function AppShell() {
               <button
                 onClick={toggle}
                 className="w-12 h-12 shrink-0 flex items-center justify-center cursor-pointer bg-transparent border-0 text-text"
-                aria-label="تبديل المظهر"
+                aria-label={t('shell.toggleTheme')}
               >
                 {isDark ? <Sun size={24} /> : <Moon size={24} />}
               </button>
               <button
                 onClick={() => navigate('/settings')}
                 className="w-12 h-12 shrink-0 flex items-center justify-center cursor-pointer bg-transparent border-0"
-                aria-label="الإعدادات"
+                aria-label={t('shell.settings')}
               >
                 <span className="w-9 h-9 rounded-full bg-primary text-on-primary font-bold flex items-center justify-center overflow-hidden">
                   {avatarUrl ? (
@@ -182,13 +185,13 @@ export function AppShell() {
           منطقة لمس 64px مع safe-area (بحث §5) */}
       <nav className="fixed bottom-0 inset-x-0 z-20 bg-card border-t border-border pb-[env(safe-area-inset-bottom,0px)]">
         <div className={`mx-auto ${containerCls} flex`}>
-          {TABS.map((t) => {
-            const active = tab === t.key
-            const Icon = t.icon
+          {TABS.map((item) => {
+            const active = tab === item.key
+            const Icon = item.icon
             return (
               <button
-                key={t.key}
-                onClick={() => navigate(t.path)}
+                key={item.key}
+                onClick={() => navigate(item.path)}
                 aria-current={active ? 'page' : undefined}
                 className={`flex-1 min-h-[64px] py-1.5 flex flex-col items-center justify-center gap-1 border-0 bg-transparent cursor-pointer type-badge ${
                   active ? 'text-primary' : 'text-muted'
@@ -201,7 +204,7 @@ export function AppShell() {
                 >
                   <Icon size={24} fill={active ? 'currentColor' : 'none'} />
                 </span>
-                {t.label}
+                {item.label}
               </button>
             )
           })}

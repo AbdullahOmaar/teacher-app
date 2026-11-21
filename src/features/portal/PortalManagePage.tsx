@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
+import { t } from '../../i18n'
 import type { StudentRow } from '../../types/database'
 import { tokenStatus } from './api'
 import { useTeacherPortalTokens } from './hooks'
@@ -37,9 +38,9 @@ export function PortalManagePage() {
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status === 'signed-out') return <SignInRequired />
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
-  if (studentsQ.isPending || tokensQ.isPending) return <LoadingState label="بنحمّل حالة الروابط…" />
+  if (studentsQ.isPending || tokensQ.isPending) return <LoadingState label={t('portal.manageLoading')} />
   const error = studentsQ.error ?? tokensQ.error
-  if (error) return <ErrorState message={error instanceof Error ? error.message : 'خطأ غير معروف'} />
+  if (error) return <ErrorState message={error instanceof Error ? error.message : t('common.unknownError')} />
 
   const students = (studentsQ.data ?? []).filter((s) => !s.paused)
 
@@ -47,14 +48,13 @@ export function PortalManagePage() {
     <div>
       <Card>
         <p className="text-[13.5px] mb-0 leading-relaxed">
-          كل طالب له رابط بوابة خاص بيه بيتبعت لولي أمره على واتساب، صالح{' '}
-          <b>30 يوم</b> وبيعرض الحضور والدرجات والموقف المالي بس (قراءة فقط). إعادة توليد الرابط
-          بتلغي القديم فوراً.
+          {t('portal.manageIntroPre')}{' '}
+          <b>{t('portal.manageIntroDays')}</b> {t('portal.manageIntroPost')}
         </p>
       </Card>
 
       {students.length === 0 ? (
-        <EmptyState icon={Users} title="مفيش طلاب نشطين" hint="ضيف طلاب الأول وبعدين ولّد روابط البوابة من هنا أو من ملف الطالب" />
+        <EmptyState icon={Users} title={t('portal.manageEmptyTitle')} hint={t('portal.manageEmptyHint')} />
       ) : (
         students.map((s) => {
           const expiresAt = activeByStudent.get(s.id)
@@ -64,31 +64,31 @@ export function PortalManagePage() {
                 <div className="min-w-0">
                   <div className="font-bold text-[15px] truncate">{s.name}</div>
                   <div className="text-muted text-[13.5px] mt-0.5">
-                    الكود: <span dir="ltr">{s.public_code}</span>
-                    {s.grade ? ` · ${s.grade}` : ''}
+                    {t('portal.manageCodeLabel')} <span dir="ltr">{s.public_code}</span>
+                    {s.grade ? t('portal.manageGradePart', { grade: s.grade }) : ''}
                     {s.guardian_phone ? (
                       <>
-                        {' '}· ولي الأمر: <span dir="ltr">{s.guardian_phone}</span>
+                        {t('portal.manageGuardianPart')} <span dir="ltr">{s.guardian_phone}</span>
                       </>
                     ) : (
-                      ' · مفيش رقم ولي أمر'
+                      t('portal.manageNoGuardian')
                     )}
                   </div>
                 </div>
                 {expiresAt ? (
                   <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-                    رابط نشط حتى {expiresAt.slice(0, 10)}
+                    {t('portal.manageActiveUntil', { date: expiresAt.slice(0, 10) })}
                   </span>
                 ) : (
                   <span className="shrink-0 text-[12px] font-bold bg-soft text-muted border border-border rounded-full px-2 py-0.5">
-                    لا يوجد رابط
+                    {t('portal.manageNoLink')}
                   </span>
                 )}
               </div>
               <div className="mt-2.5">
                 <Button variant="soft" onClick={() => setSelected(s)}>
                   <Link2 size={20} />
-                  إدارة الرابط
+                  {t('portal.manageLinkAction')}
                 </Button>
               </div>
             </Card>

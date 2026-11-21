@@ -6,11 +6,20 @@ import {
   calendarSessionsInMonth,
   clampedDiscount,
   DEFAULT_WA_TEMPLATE,
+  isUnpaid,
   payStateOf,
   periodLabel,
   periodYm,
   receiptWaUrl,
 } from './api'
+
+describe('isUnpaid — تعريف غير المسدد الموحد (PAT-4)', () => {
+  it('رصيد موجب = غير مسدد، صفر أو سالب = مسدد', () => {
+    expect(isUnpaid({ balance: 1 })).toBe(true)
+    expect(isUnpaid({ balance: 0 })).toBe(false)
+    expect(isUnpaid({ balance: -50 })).toBe(false)
+  })
+})
 
 describe('payStateOf — حالة سداد الفاتورة', () => {
   it('رصيد صفر أو أقل = مسددة', () => {

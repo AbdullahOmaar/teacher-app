@@ -1,4 +1,5 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
+import { t } from '../../i18n'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import { waLink } from '../../lib/format'
 import type {
@@ -8,11 +9,6 @@ import type {
   PaymentProofStatus,
   StudentRow,
 } from '../../types/database'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // بوابة ولي الأمر بالروابط الموقّعة — الخطوة 9 (المواصفات §3.17،
@@ -90,7 +86,7 @@ export function effectiveGuardianFromStudent(student: Pick<StudentRow, 'name' | 
     // حتى لا يعرض شيت البوابة «ولي الأمر: ولي الأمر» (L2)
     name: student.guardian_name?.trim()
       ? student.guardian_name.trim()
-      : `ولي أمر ${student.name.trim().split(/\s+/)[0] ?? ''}`.trim(),
+      : t('portal.apiGuardianFallback', { first: student.name.trim().split(/\s+/)[0] ?? '' }).trim(),
     phone: student.guardian_phone?.trim() || student.phone?.trim() || null,
   }
 }
@@ -103,9 +99,12 @@ export function portalLinkWaUrl(
   const { name: guardianName, phone } = effectiveGuardianFromStudent(student)
   const base = waLink(phone)
   if (!base) return null
-  const msg =
-    `أهلاً ${guardianName}، ده رابط بوابة ولي الأمر لمتابعة الطالب ${student.name} ` +
-    `(الحضور والدرجات والموقف المالي): ${link} — الرابط صالح لمدة ${PORTAL_TOKEN_TTL_DAYS} يوم.`
+  const msg = t('portal.apiPortalLinkWa', {
+    guardian: guardianName,
+    name: student.name,
+    link,
+    days: PORTAL_TOKEN_TTL_DAYS,
+  })
   return `${base}?text=${encodeURIComponent(msg)}`
 }
 
@@ -138,7 +137,7 @@ export async function ensureGuardianAndLink(
 
   const { name, phone } = effectiveGuardianFromStudent(student)
   if (!phone) {
-    throw new Error('الطالب مالوش رقم موبايل لولي الأمر — ضيف الرقم من «تعديل الطالب» الأول')
+    throw new Error(t('portal.apiNoGuardianPhoneError'))
   }
 
   const { data: existing, error: exErr } = await supa
@@ -374,19 +373,19 @@ export function portalErrorInfo(error: unknown): { title: string; hint: string }
   const msg = error instanceof Error ? error.message : String(error ?? '')
   if (msg.includes('invalid or expired')) {
     return {
-      title: 'الرابط منتهي أو ملغي',
-      hint: 'رابط البوابة ده انتهت صلاحيته (30 يوم) أو المدرس ألغاه. اطلب من المدرس رابط جديد وهيوصلك على واتساب.',
+      title: t('portal.apiErrorExpiredTitle'),
+      hint: t('portal.apiErrorExpiredHint'),
     }
   }
   if (msg.includes('not authorized') || msg.includes('token not valid')) {
     return {
-      title: 'الرابط غير صالح',
-      hint: 'الرابط ده مش مربوط بالطالب ده. تأكد إنك فتحت الرابط زي ما وصلك بالظبط، أو اطلب من المدرس رابط جديد.',
+      title: t('portal.apiErrorInvalidTitle'),
+      hint: t('portal.apiErrorNotLinkedHint'),
     }
   }
   return {
-    title: 'الرابط غير صالح',
-    hint: 'ماقدرناش نفتح البوابة بالرابط ده. تأكد إنك فتحته زي ما وصلك بالظبط، أو اطلب من المدرس رابط جديد.',
+    title: t('portal.apiErrorInvalidTitle'),
+    hint: t('portal.apiErrorGenericHint'),
   }
 }
 
@@ -411,9 +410,9 @@ export function portalErrorInfo(error: unknown): { title: string; hint: string }
 
 /** طرق إثبات الدفع في البوابة — تحويلات إلكترونية فقط (لا «كاش») */
 export const PROOF_METHODS: { code: PaymentMethod; label: string }[] = [
-  { code: 'vodafone_cash', label: 'فودافون كاش' },
-  { code: 'instapay', label: 'إنستاباي' },
-  { code: 'bank_transfer', label: 'تحويل بنكي' },
+  { code: 'vodafone_cash', label: t('portal.apiProofMethodVodafone') },
+  { code: 'instapay', label: t('portal.apiProofMethodInstapay') },
+  { code: 'bank_transfer', label: t('portal.apiProofMethodBank') },
 ]
 
 export const PROOF_BUCKET = 'payment-proofs'
@@ -436,22 +435,22 @@ export const PROOF_STATUS_META: Record<
   PaymentProofStatus,
   { label: string; badge: string }
 > = {
-  pending: { label: 'قيد مراجعة المدرس', badge: 'bg-warn-soft text-warn-text border-warn/40' },
-  approved: { label: 'تم الاعتماد وتسجيل الدفعة', badge: 'bg-ok-soft text-ok-text border-ok/30' },
-  rejected: { label: 'مرفوض', badge: 'bg-bad-soft text-bad-text border-bad/30' },
+  pending: { label: t('portal.apiProofStatusPending'), badge: 'bg-warn-soft text-warn-text border-warn/40' },
+  approved: { label: t('portal.apiProofStatusApproved'), badge: 'bg-ok-soft text-ok-text border-ok/30' },
+  rejected: { label: t('portal.apiProofStatusRejected'), badge: 'bg-bad-soft text-bad-text border-bad/30' },
 }
 
 function proofErrorMessage(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error ?? '')
   if (msg.includes('invalid or expired') || msg.includes('not authorized') || msg.includes('token not valid')) {
-    return 'رابط البوابة منتهي أو مش صالح — اطلب من المدرس رابط جديد قبل ما تبعت الإثبات.'
+    return t('portal.apiProofErrorInvalidLink')
   }
   if (msg.includes('too many pending proofs')) {
-    return 'عندك إثباتات كتير لسه مستنية مراجعة المدرس — استنى مراجعتها قبل ما تبعت إثبات جديد.'
+    return t('portal.apiProofErrorTooMany')
   }
-  if (msg.includes('invalid amount')) return 'المبلغ مش صحيح — اكتب مبلغ التحويل زي ما هو في اللقطة.'
-  if (msg.includes('invalid file type')) return 'اختار صورة بصيغة JPG أو PNG أو WebP.'
-  return 'ماقدرناش نبعت الإثبات — اتأكد من النت وحاول تاني.'
+  if (msg.includes('invalid amount')) return t('portal.apiProofErrorInvalidAmount')
+  if (msg.includes('invalid file type')) return t('portal.apiProofErrorInvalidFileType')
+  return t('portal.apiProofErrorGeneric')
 }
 
 export interface PreparedProofImage {
@@ -474,7 +473,7 @@ const PROOF_MIME_EXT: Record<string, 'jpg' | 'png' | 'webp'> = {
  */
 export async function prepareProofImage(file: File): Promise<PreparedProofImage> {
   const ext = PROOF_MIME_EXT[file.type]
-  if (!ext) throw new Error('اختار صورة بصيغة JPG أو PNG أو WebP.')
+  if (!ext) throw new Error(t('portal.apiProofErrorInvalidFileType'))
   if (file.size <= 2 * 1024 * 1024) {
     return { blob: file, ext, contentType: file.type }
   }
@@ -498,7 +497,7 @@ export async function prepareProofImage(file: File): Promise<PreparedProofImage>
     // بنكمل للبديل: الأصل داخل الحد أو خطأ واضح
   }
   if (file.size <= PROOF_MAX_BYTES) return { blob: file, ext, contentType: file.type }
-  throw new Error('الصورة كبيرة أوي (أكتر من 5 ميجا) — جرّب لقطة أصغر أو قلّل جودتها.')
+  throw new Error(t('portal.apiProofErrorTooLarge'))
 }
 
 /** إرسال إثبات دفع كامل: إنشاء بالتوكن ← رفع الصورة ← تأكيد الاكتمال */
@@ -508,7 +507,7 @@ export async function submitPaymentProof(
   input: { amount: number; method: PaymentMethod },
   file: File,
 ): Promise<void> {
-  if (!(input.amount > 0)) throw new Error('اكتب مبلغ التحويل زي ما هو في اللقطة.')
+  if (!(input.amount > 0)) throw new Error(t('portal.apiProofErrorAmountRequired'))
   const prepared = await prepareProofImage(file)
   const supa = db()
 
@@ -533,7 +532,7 @@ export async function submitPaymentProof(
     await supa
       .rpc('portal_delete_payment_proof', { p_token: rawToken, p_proof_id: created.proof_id })
       .then(() => {}, () => {})
-    throw new Error('ماقدرناش نرفع الصورة — اتأكد من النت وحاول تاني.')
+    throw new Error(t('portal.apiProofErrorUploadFailed'))
   }
 
   const { error: confErr } = await supa.rpc('portal_confirm_payment_proof', {
@@ -542,7 +541,7 @@ export async function submitPaymentProof(
   })
   if (confErr) {
     throw new Error(
-      'الصورة اترفعت لكن تأكيد الإرسال فشل — ابعت الإثبات تاني، ولو اتكررت المشكلة كلّم المدرس.',
+      t('portal.apiProofErrorConfirmFailed'),
     )
   }
 }
@@ -591,9 +590,9 @@ export interface PortalNotificationsResult {
 function notificationErrorMessage(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error ?? '')
   if (msg.includes('invalid or expired') || msg.includes('not authorized') || msg.includes('token not valid')) {
-    return 'رابط البوابة منتهي أو مش صالح — اطلب من المدرس رابط جديد.'
+    return t('portal.apiNotifErrorInvalidLink')
   }
-  return 'ماقدرناش نحمّل التنبيهات — اتأكد من النت وحاول تاني.'
+  return t('portal.apiNotifErrorGeneric')
 }
 
 /** تنبيهات وصل/غادر طالب الرابط + عدّاد غير المقروء — عبر RPC بالتوكن فقط */
@@ -646,12 +645,12 @@ export async function markPortalNotificationsRead(
 function pushErrorMessage(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error ?? '')
   if (msg.includes('invalid or expired') || msg.includes('not authorized') || msg.includes('token not valid')) {
-    return 'رابط البوابة منتهي أو مش صالح — اطلب من المدرس رابط جديد قبل تفعيل الإشعارات.'
+    return t('portal.apiPushErrorInvalidLink')
   }
   if (msg.includes('invalid subscription')) {
-    return 'المتصفح رجّع اشتراكاً ناقصاً — حدّث الصفحة وحاول تاني.'
+    return t('portal.apiPushErrorInvalidSub')
   }
-  return 'ماقدرناش نغيّر حالة الإشعارات — اتأكد من النت وحاول تاني.'
+  return t('portal.apiPushErrorGeneric')
 }
 
 /** حالة اشتراك هذا المتصفح لبوابة ولي الأمر (نشط لهذا الطالب؟) */
@@ -705,14 +704,14 @@ export const PORTAL_NOTIF_META: Record<
   PortalNotification['kind'],
   { label: string; badge: string }
 > = {
-  arrived: { label: 'وصل', badge: 'bg-ok-soft text-ok-text border-ok/30' },
-  left: { label: 'غادر', badge: 'bg-soft text-primary border-primary/30' },
+  arrived: { label: t('portal.apiNotifArrived'), badge: 'bg-ok-soft text-ok-text border-ok/30' },
+  left: { label: t('portal.apiNotifLeft'), badge: 'bg-soft text-primary border-primary/30' },
 }
 
 /** حالات الحضور الأربع في البوابة (§2.4) — الاسم وشارة اللون */
 export const PORTAL_ATT_META: Record<string, { label: string; badge: string }> = {
-  p: { label: 'حاضر', badge: 'bg-ok/10 text-ok border-ok/30' },
-  a: { label: 'غائب', badge: 'bg-bad/10 text-bad border-bad/30' },
-  l: { label: 'متأخر', badge: 'bg-warn/15 text-warn border-warn/40' },
-  m: { label: 'تعويضية', badge: 'bg-soft text-primary border-primary/30' },
+  p: { label: t('portal.apiAttPresent'), badge: 'bg-ok/10 text-ok border-ok/30' },
+  a: { label: t('portal.apiAttAbsent'), badge: 'bg-bad/10 text-bad border-bad/30' },
+  l: { label: t('portal.apiAttLate'), badge: 'bg-warn/15 text-warn border-warn/40' },
+  m: { label: t('portal.apiAttMakeup'), badge: 'bg-soft text-primary border-primary/30' },
 }

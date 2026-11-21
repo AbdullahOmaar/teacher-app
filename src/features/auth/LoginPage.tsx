@@ -11,11 +11,17 @@ import {
   claimTeacherInvites,
   ensureTeacherProfile,
   signInDemo,
+  requestPasswordReset,
+  resendConfirmation,
   signInWithEmail,
   signUpWithEmail,
 } from './api'
+import { t } from '../../i18n'
+import { WHATSAPP_OTP_ENABLED } from '../../lib/phone'
+import { PhoneAuth } from './PhoneAuth'
 
-type Mode = 'signin' | 'signup'
+type Mode = 'signin' | 'signup' | 'forgot'
+type Method = 'email' | 'phone'
 
 /**
  * الدخول والتسجيل الحقيقي بـ Supabase Auth (بريد + كلمة مرور).
@@ -30,12 +36,18 @@ export function LoginPage() {
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   const [mode, setMode] = useState<Mode>('signin')
+  // طريقة الدخول: البريد افتراضياً دائماً؛ الهاتف لا يظهر إلا بعلم
+  // WHATSAPP_OTP_ENABLED (P5-3) — عند قفله لا أثر لهذا الحقل مرئياً
+  const [method, setMethod] = useState<Method>('email')
   const [displayName, setDisplayName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [busy, setBusy] = useState(false)
+  const [resendBusy, setResendBusy] = useState(false)
+  // إظهار زر إعادة إرسال التأكيد: بعد تسجيل بلا جلسة أو خطأ «بريد غير مؤكد»
+  const [canResend, setCanResend] = useState(false)
   const [demoBusy, setDemoBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -48,6 +60,49 @@ export function LoginPage() {
     setMode(next)
     setError(null)
     setNotice(null)
+    setCanResend(false)
+  }
+
+  const switchMethod = (next: Method) => {
+    setMethod(next)
+    setError(null)
+    setNotice(null)
+    setCanResend(false)
+  }
+
+  const handleResend = async () => {
+    if (!email.trim()) {
+      setError(t('auth.emailRequiredForResend'))
+      return
+    }
+    setResendBusy(true)
+    setError(null)
+    try {
+      await resendConfirmation(email)
+      setNotice(t('auth.resendConfirmationSent'))
+      setCanResend(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.resendFailed'))
+    } finally {
+      setResendBusy(false)
+    }
+  }
+
+  const handleForgot = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setNotice(null)
+    setBusy(true)
+    try {
+      await requestPasswordReset(email)
+      // رد محايد دائماً: لا نؤكد ولا ننفي تسجيل البريد
+      setNotice(t('auth.passwordResetSent'))
+      setMode('signin')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.passwordResetFailed'))
+    } finally {
+      setBusy(false)
+    }
   }
 
   const handleSignIn = async (e: FormEvent) => {
@@ -59,7 +114,9 @@ export function LoginPage() {
       await signInWithEmail(email, password)
       // تغيّر الجلسة في AuthProvider يعيد التوجيه تلقائياً بالأعلى
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر تسجيل الدخول.')
+      const msg = err instanceof Error ? err.message : t('auth.signInFailed')
+      setError(msg)
+      if (msg === t('auth.errEmailNotConfirmed')) setCanResend(true)
     } finally {
       setBusy(false)
     }
@@ -73,7 +130,7 @@ export function LoginPage() {
       await signInDemo()
       // تغيّر الجلسة في AuthProvider يعيد التوجيه تلقائياً بالأعلى
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الدخول التجريبي.')
+      setError(err instanceof Error ? err.message : t('auth.demoFailed'))
     } finally {
       setDemoBusy(false)
     }
@@ -84,15 +141,15 @@ export function LoginPage() {
     setError(null)
     setNotice(null)
     if (!displayName.trim()) {
-      setError('اكتب اسمك (هيظهر كاسم المدرس في التطبيق).')
+      setError(t('auth.nameRequired'))
       return
     }
-    if (password.length < 6) {
-      setError('كلمة المرور قصيرة — لازم 6 أحرف على الأقل.')
+    if (password.length < 8) {
+      setError(t('auth.passwordTooShort'))
       return
     }
     if (password !== passwordConfirm) {
-      setError('كلمة المرور وتأكيدها مش متطابقين.')
+      setError(t('auth.passwordMismatch'))
       return
     }
     setBusy(true)
@@ -135,12 +192,11 @@ export function LoginPage() {
         setMode('signin')
         setPassword('')
         setPasswordConfirm('')
-        setNotice(
-          'تم إنشاء حسابك — افتح رسالة التأكيد في بريدك الإلكتروني، وبعدين سجّل دخولك من هنا.',
-        )
+        setNotice(t('auth.accountCreatedNotice'))
+        setCanResend(true)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر إنشاء الحساب.')
+      setError(err instanceof Error ? err.message : t('auth.signUpFailed'))
     } finally {
       setBusy(false)
     }
@@ -160,13 +216,47 @@ export function LoginPage() {
           <div className="flex justify-center mb-3">
             <Logo size={76} />
           </div>
-          <h1 className="type-screen m-0">تطبيق المدرس</h1>
+          <h1 className="type-screen m-0">{t('auth.appTitle')}</h1>
           <p className="text-muted text-[13.5px] mt-1">
-            {mode === 'signin' ? 'سجّل دخولك علشان تكمل' : 'أنشئ حساب مدرس جديد'}
+            {method === 'phone'
+              ? t('auth.phoneSubtitle')
+              : mode === 'signin'
+                ? t('auth.signInSubtitle')
+                : mode === 'signup'
+                  ? t('auth.signUpSubtitle')
+                  : t('auth.forgotSubtitle')}
           </p>
         </div>
 
-        <div className="flex bg-soft rounded-xl p-1 mb-4" role="tablist" aria-label="الدخول أو التسجيل">
+        {WHATSAPP_OTP_ENABLED && (
+          <div className="flex bg-soft rounded-xl p-1 mb-4" role="tablist" aria-label={t('auth.methodLabel')}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={method === 'email'}
+              onClick={() => switchMethod('email')}
+              className={`flex-1 min-h-[48px] rounded-xl border-0 cursor-pointer font-bold text-[15px] ${
+                method === 'email' ? 'bg-card text-primary shadow-card' : 'bg-transparent text-muted'
+              }`}
+            >
+              {t('auth.methodEmail')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={method === 'phone'}
+              onClick={() => switchMethod('phone')}
+              className={`flex-1 min-h-[48px] rounded-xl border-0 cursor-pointer font-bold text-[15px] ${
+                method === 'phone' ? 'bg-card text-primary shadow-card' : 'bg-transparent text-muted'
+              }`}
+            >
+              {t('auth.methodPhone')}
+            </button>
+          </div>
+        )}
+
+        {method === 'email' && (
+        <div className="flex bg-soft rounded-xl p-1 mb-4" role="tablist" aria-label={t('auth.authTabsLabel')}>
           <button
             type="button"
             role="tab"
@@ -176,7 +266,7 @@ export function LoginPage() {
               mode === 'signin' ? 'bg-card text-primary shadow-card' : 'bg-transparent text-muted'
             }`}
           >
-            تسجيل الدخول
+            {t('auth.signInTab')}
           </button>
           <button
             type="button"
@@ -187,9 +277,10 @@ export function LoginPage() {
               mode === 'signup' ? 'bg-card text-primary shadow-card' : 'bg-transparent text-muted'
             }`}
           >
-            حساب جديد
+            {t('auth.signUpTab')}
           </button>
         </div>
+        )}
 
         <Card>
           {notice && (
@@ -201,9 +292,11 @@ export function LoginPage() {
             </p>
           )}
 
-          {mode === 'signin' ? (
+          {method === 'phone' ? (
+            <PhoneAuth />
+          ) : mode === 'signin' ? (
             <form onSubmit={handleSignIn}>
-              <Field label="البريد الإلكتروني">
+              <Field label={t('auth.emailLabel')}>
                 <TextInput
                   type="email"
                   dir="ltr"
@@ -214,7 +307,7 @@ export function LoginPage() {
                   required
                 />
               </Field>
-              <Field label="كلمة المرور">
+              <Field label={t('auth.passwordLabel')}>
                 <TextInput
                   type="password"
                   dir="ltr"
@@ -226,31 +319,31 @@ export function LoginPage() {
                 />
               </Field>
               <Button full type="submit" disabled={busy || !configured}>
-                {busy ? 'جارٍ تسجيل الدخول…' : 'دخول'}
+                {busy ? t('auth.signingIn') : t('auth.signInSubmit')}
               </Button>
+              <button
+                type="button"
+                onClick={() => switchMode('forgot')}
+                className="block mx-auto mt-3 bg-transparent border-0 cursor-pointer text-primary font-bold text-[13.5px]"
+              >
+                {t('auth.forgotPasswordLink')}
+              </button>
+              {canResend && (
+                <Button
+                  full
+                  variant="soft"
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendBusy}
+                  className="mt-2"
+                >
+                  {resendBusy ? t('auth.sending') : t('auth.resendConfirmation')}
+                </Button>
+              )}
             </form>
-          ) : (
-            <form onSubmit={handleSignUp}>
-              <Field label="اسم المدرس">
-                <TextInput
-                  autoComplete="name"
-                  placeholder="مثال: مستر أحمد سامي"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  required
-                />
-              </Field>
-              <Field label="رقم الموبايل (اختياري)">
-                <TextInput
-                  type="tel"
-                  dir="ltr"
-                  autoComplete="tel"
-                  placeholder="01xxxxxxxxx"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
-              </Field>
-              <Field label="البريد الإلكتروني">
+          ) : mode === 'forgot' ? (
+            <form onSubmit={handleForgot}>
+              <Field label={t('auth.emailLabel')}>
                 <TextInput
                   type="email"
                   dir="ltr"
@@ -261,18 +354,61 @@ export function LoginPage() {
                   required
                 />
               </Field>
-              <Field label="كلمة المرور">
+              <Button full type="submit" disabled={busy || !configured}>
+                {busy ? t('auth.sending') : t('auth.sendResetLink')}
+              </Button>
+              <button
+                type="button"
+                onClick={() => switchMode('signin')}
+                className="block mx-auto mt-3 bg-transparent border-0 cursor-pointer text-primary font-bold text-[13.5px]"
+              >
+                {t('auth.backToSignIn')}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignUp}>
+              <Field label={t('auth.teacherNameLabel')}>
+                <TextInput
+                  autoComplete="name"
+                  placeholder={t('auth.teacherNamePlaceholder')}
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label={t('auth.phoneLabel')}>
+                <TextInput
+                  type="tel"
+                  dir="ltr"
+                  autoComplete="tel"
+                  placeholder="01xxxxxxxxx"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </Field>
+              <Field label={t('auth.emailLabel')}>
+                <TextInput
+                  type="email"
+                  dir="ltr"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label={t('auth.passwordLabel')}>
                 <TextInput
                   type="password"
                   dir="ltr"
                   autoComplete="new-password"
-                  placeholder="6 أحرف على الأقل"
+                  placeholder={t('auth.passwordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
               </Field>
-              <Field label="تأكيد كلمة المرور">
+              <Field label={t('auth.passwordConfirmLabel')}>
                 <TextInput
                   type="password"
                   dir="ltr"
@@ -284,36 +420,36 @@ export function LoginPage() {
                 />
               </Field>
               <Button full type="submit" disabled={busy || !configured}>
-                {busy ? 'جارٍ إنشاء الحساب…' : 'إنشاء الحساب'}
+                {busy ? t('auth.creatingAccount') : t('auth.createAccount')}
               </Button>
               <p className="text-muted text-[12px] mt-3 mb-0 text-center">
-                بإنشاء الحساب هيتعمل ملف مدرس خاص بيك وإعدادات افتراضية تلقائياً.
+                {t('auth.signUpNote')}
               </p>
             </form>
           )}
 
           <div className="flex items-center gap-3 mt-5 mb-3" aria-hidden="true">
             <span className="flex-1 h-px bg-border" />
-            <span className="text-muted text-[12px]">أو جرّب على طول</span>
+            <span className="text-muted text-[12px]">{t('auth.tryDivider')}</span>
             <span className="flex-1 h-px bg-border" />
           </div>
           <Button full variant="soft" type="button" onClick={handleDemo} disabled={demoBusy || busy || !configured}>
             {demoBusy ? (
-              'جارٍ الدخول التجريبي…'
+              t('auth.demoLoading')
             ) : (
               <>
                 <FlaskConical size={20} />
-                دخول تجريبي — جرّب التطبيق فوراً
+                {t('auth.demoCta')}
               </>
             )}
           </Button>
           <p className="text-muted text-[12px] mt-2 mb-0 text-center">
-            الحساب التجريبي مشترك ومفتوح للكل — ما تدخّلش فيه بيانات حقيقية.
+            {t('auth.demoWarning')}
           </p>
 
           {!configured && (
             <p className="text-warn-text text-[13.5px] mt-3 mb-0 text-center">
-              وضع تجريبي: لسه Supabase مش مربوط — عبّي قيم .env علشان الدخول يشتغل.
+              {t('auth.notConfiguredNote')}
             </p>
           )}
         </Card>

@@ -1,10 +1,6 @@
-import { supabase } from '../../lib/supabase'
+import { t } from '../../i18n'
+import { db } from '../../lib/supabase'
 import type { InvoiceBalanceRow, SessionRow } from '../../types/database'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // مساعدات التاريخ — بالتوقيت المحلي للجهاز، وبصيغة 'YYYY-MM-DD' مثل المخطط
@@ -47,20 +43,20 @@ export function sessionEnd(s: { session_date: string; start_time: string; durati
 
 function fmtDuration(ms: number): string {
   const mins = Math.max(1, Math.round(ms / 60_000))
-  if (mins < 60) return `${mins} دقيقة`
+  if (mins < 60) return t('home.apiMinutes', { mins })
   const h = Math.floor(mins / 60)
   const m = mins % 60
-  const hTxt = h === 1 ? 'ساعة' : h === 2 ? 'ساعتين' : `${h} ساعة`
-  return m ? `${hTxt} و${m} دقيقة` : hTxt
+  const hTxt = h === 1 ? t('home.apiHourOne') : h === 2 ? t('home.apiHourTwo') : t('home.apiHours', { h })
+  return m ? t('home.apiHoursAndMinutes', { hTxt, m }) : hTxt
 }
 
 /** الوقت النسبي لحصة اليوم (المرجع §5.5 ‏relTime): «بعد…» / «بدأت من…» / «خلصت» */
 export function relLabel(s: { session_date: string; start_time: string; duration_minutes: number }, now: Date): string {
   const start = sessionStart(s)
   const end = sessionEnd(s)
-  if (now < start) return `بعد ${fmtDuration(start.getTime() - now.getTime())}`
-  if (now <= end) return `بدأت من ${fmtDuration(now.getTime() - start.getTime())}`
-  return 'خلصت'
+  if (now < start) return t('home.apiAfter', { duration: fmtDuration(start.getTime() - now.getTime()) })
+  if (now <= end) return t('home.apiStartedAgo', { duration: fmtDuration(now.getTime() - start.getTime()) })
+  return t('home.apiFinished')
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +194,75 @@ export async function fetchMonthPayments(
     if (row.paid_on === today) collectedToday += amt
   }
   return { collectedMonth, collectedToday }
+}
+
+// ---------------------------------------------------------------------------
+// مقارنات الدلتا (W5 — R-13): كل KPI في الرئيسية يقارن بنفس عدد أيام
+// الشهر السابق — نافذة الشهر السابق تبدأ من أوله وتنتهي عند نفس رقم
+// اليوم (مقصوصة عند نهاية الشهر الأقصر).
+// ---------------------------------------------------------------------------
+
+/** نافذة «نفس الأيام» من الشهر السابق لتاريخ معطى */
+export function prevMonthSameDaysWindow(today: string): { start: string; end: string } {
+  const day = Number(today.slice(8, 10))
+  const [y, m] = monthStartStr(today).split('-').map(Number)
+  const start = toDateStr(new Date(y, m - 2, 1))
+  const prevEndAll = monthEndStr(start)
+  const candidate = addDaysStr(start, day - 1)
+  return { start, end: candidate <= prevEndAll ? candidate : prevEndAll }
+}
+
+export interface KpiDelta {
+  /** الفرق المطلق (حالي − سابق) بوحدة المؤشر نفسه */
+  abs: number
+  /** النسبة % — null عند قاعدة صفرية (يُعرض المطلق فقط، R-13) */
+  pct: number | null
+  direction: 'up' | 'down' | 'flat'
+}
+
+/** دلتا نقية: القيمة الحالية مقابل نافذة المقارنة (R-13) */
+export function kpiDelta(current: number, previous: number): KpiDelta {
+  const abs = current - previous
+  return {
+    abs,
+    pct: previous !== 0 ? Math.round((abs / Math.abs(previous)) * 100) : null,
+    direction: abs > 0 ? 'up' : abs < 0 ? 'down' : 'flat',
+  }
+}
+
+/** مجموع الدفعات داخل مدى تاريخي (paid_on ضمناً) — لنافذة مقارنة الشهر السابق */
+export async function fetchCollectedInRange(
+  teacherId: string,
+  from: string,
+  to: string,
+): Promise<number> {
+  const { data, error } = await db()
+    .from('payments')
+    .select('amount')
+    .eq('teacher_id', teacherId)
+    .gte('paid_on', from)
+    .lte('paid_on', to)
+  if (error) throw error
+  return ((data ?? []) as { amount: number | string }[]).reduce(
+    (sum, r) => sum + (Number(r.amount) || 0),
+    0,
+  )
+}
+
+/** عدد الطلاب المنشأين داخل مدى تاريخي (created_at) — لدلتا الانضمامات */
+export async function fetchNewStudentsCount(
+  teacherId: string,
+  from: string,
+  to: string,
+): Promise<number> {
+  const { count, error } = await db()
+    .from('students')
+    .select('id', { count: 'exact', head: true })
+    .eq('teacher_id', teacherId)
+    .gte('created_at', from)
+    .lt('created_at', addDaysStr(to, 1))
+  if (error) throw error
+  return count ?? 0
 }
 
 /** كل أرصدة الفواتير من view ‏invoice_balances (محسوبة في قاعدة البيانات) */

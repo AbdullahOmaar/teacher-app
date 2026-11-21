@@ -1,0 +1,59 @@
+/**
+ * النصوص المشتركة بين كل الشاشات (W7 — R-4): أزرار وحالات عامة.
+ * القاعدة: لا نصّ ظاهر في أي مكوّن خارج هذا القاموس — المفاتيح بنمط
+ * feature.screen.element، والوسائط {name} فقط، والجمع كائن CLDR.
+ */
+export const common = {
+  loading: 'بنحمّل…',
+  errorTitle: 'حصلت مشكلة في التحميل',
+  retry: 'إعادة المحاولة',
+  signInFirst: 'سجل الدخول أولاً',
+  signInFirstBody: 'البيانات دي خاصة بحسابك ومحمية — لازم تسجل دخول علشان تظهر.',
+  signIn: 'تسجيل الدخول',
+  noTeacherTitle: 'لا يوجد ملف مدرس مرتبط بحسابك',
+  noTeacherBody:
+    'حسابك مسجل دخوله، لكن لسه ما اتعملّوش ملف مدرس (أو عضوية فريق) في قاعدة البيانات.',
+  unknownError: 'خطأ غير معروف',
+  copyUnavailable: 'النسخ مش متاح في المتصفح ده',
+  copiedOverdueList: 'اتنسخت قائمة المتأخرات',
+  groupFallback: 'مجموعة',
+  /** رسالة الحذف الافتراضية المشتركة لطبقة البيانات (friendlyDbError) */
+  deleteError: 'حصلت مشكلة أثناء الحذف',
+  /** رسائل طبقة البيانات المشتركة (lib/push + lib/supabase + lib/supabaseErrors) */
+  pushUnsupported:
+    'المتصفح ده لا يدعم إشعارات Push — على آيفون لازم التطبيق يكون مثبّتاً على الشاشة الرئيسية (iOS 16.4 أو أحدث).',
+  pushUnconfigured: 'مفتاح إشعارات Push العام غير مضبوط في هذا البناء بعد.',
+  pushPermissionDenied:
+    'إذن الإشعارات غير ممنوح — فعّله من إعدادات المتصفح للموقع ثم حاول تاني.',
+  pushSwUnavailable:
+    'تعذّر الوصول لخدمة الإشعارات في المتصفح ده (الـ Service Worker مش جاهز) — حدّث الصفحة وحاول تاني، ولو استمرت جرّب متصفحاً حديثاً.',
+  pushIncompleteKeys: 'المتصفح رجّع اشتراكاً ناقص المفاتيح — حدّث الصفحة وحاول تاني.',
+  dbNotConfigured: 'الاتصال بقاعدة البيانات غير مضبوط.',
+  deleteBlockedByLinks:
+    'مينفعش الحذف النهائي: العنصر مرتبط بسجلات مالية أو تاريخية محفوظة في القاعدة. الأرشفة هي الخيار المتاح.',
+  unexpectedError: 'حصل خطأ غير متوقع',
+  supabaseEnvMissing:
+    '[تطبيق المدرس] متغيرات VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY غير موجودة — التطبيق يعمل في وضع تجريبي بلا اتصال بـ Supabase. انسخ .env.example إلى .env واملأ القيم.',
+  supabaseNotConnected: 'Supabase غير مربوط — راجع إعدادات .env',
+  /** أسماء ألوان اللهجة الجاهزة في منتقي الهوية (lib/brand) */
+  accentIndigo: 'نيلي (الافتراضي)',
+  accentViolet: 'بنفسجي',
+  accentBlue: 'أزرق',
+  accentTeal: 'تركوازي',
+  accentGreen: 'أخضر',
+  accentAmber: 'كهرماني',
+  accentPink: 'وردي',
+  accentRed: 'أحمر',
+  filter: 'تصفية',
+  filterAdvanced: 'تصفية متقدمة',
+  close: 'إغلاق',
+  /** عدّاد نتائج القوائم بصيغ جمع CLDR (PAT-7): نتيجة/نتيجتان/نتائج */
+  resultsCount: {
+    zero: '{count} نتيجة',
+    one: 'نتيجة واحدة',
+    two: 'نتيجتان',
+    few: '{count} نتائج',
+    many: '{count} نتيجة',
+    other: '{count} نتيجة',
+  },
+} as const

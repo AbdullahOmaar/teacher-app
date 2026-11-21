@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { t } from '../../i18n'
 import { Link } from 'react-router-dom'
 import { Sheet } from '../../components/ui/Sheet'
 import { AlertTriangle, CalendarCheck2, MoveHorizontal, NotebookPen, Undo2 } from 'lucide-react'
@@ -19,17 +20,17 @@ export function KindBadge({ session }: { session: { kind: string; status: string
     <>
       {session.kind === 'extra' && (
         <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
-          إضافية
+          {t('schedule.kindExtra')}
         </span>
       )}
       {session.kind === 'moved' && (
         <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
-          منقولة
+          {t('schedule.kindMoved')}
         </span>
       )}
       {session.status === 'cancelled' && (
         <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">
-          ملغاة
+          {t('schedule.badgeCancelled')}
         </span>
       )}
     </>
@@ -70,21 +71,21 @@ export function SessionDetailSheet({
 
   const doMove = async () => {
     setError(null)
-    if (!moveDate) return setError('اختار التاريخ الجديد')
-    if (!moveTime) return setError('اختار الميعاد الجديد')
+    if (!moveDate) return setError(t('schedule.moveDateRequired'))
+    if (!moveTime) return setError(t('schedule.moveTimeRequired'))
     if (session.kind === 'regular' && moveDate === session.session_date) {
       // المرجع §4 مودال move: النقل لنفس التاريخ مرفوض للحصة المنتظمة
-      return setError('النقل لازم يكون لتاريخ مختلف عن تاريخ الحصة الأصلي')
+      return setError(t('schedule.moveSameDateError'))
     }
     if (moveDate === session.session_date && moveTime === shortTime(session.start_time)) {
-      return setError('الموعد الجديد هو نفس الموعد الحالي')
+      return setError(t('schedule.moveSameSlotError'))
     }
     try {
       await moveMut.mutateAsync({ session: session as SessionRow, date: moveDate, time: moveTime })
-      onDone('اتنقلت الحصة للموعد الجديد')
+      onDone(t('schedule.movedToast'))
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء النقل')
+      setError(e instanceof Error ? e.message : t('schedule.moveError'))
     }
   }
 
@@ -95,32 +96,32 @@ export function SessionDetailSheet({
         sessionId: session.id,
         status: cancelled ? 'scheduled' : 'cancelled',
       })
-      onDone(cancelled ? 'تم استرجاع الحصة' : 'تم إلغاء الحصة')
+      onDone(cancelled ? t('schedule.sessionRestoredToast') : t('schedule.sessionCancelledToast'))
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء الحفظ')
+      setError(e instanceof Error ? e.message : t('schedule.saveError'))
     }
   }
 
   return (
-    <Sheet open title="تفاصيل الحصة" onClose={onClose}>
+    <Sheet open title={t('schedule.detailTitle')} onClose={onClose}>
       <div className="flex items-center gap-2 flex-wrap mb-1">
         <span className="font-extrabold text-[16px]">{session.group_name}</span>
         <KindBadge session={session} />
         {isHoliday && (
           <span className="text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-            يوم إجازة
+            {t('schedule.detailHolidayBadge')}
           </span>
         )}
       </div>
       <div className="text-muted text-[13.5px] mb-1">{formatDateLabel(session.session_date)}</div>
       <div className="text-[13.5px] mb-1">
-        الساعة {formatTime12(session.start_time)} · {session.duration_minutes} دقيقة
+        {t('schedule.detailTimeLine', { time: formatTime12(session.start_time), duration: session.duration_minutes })}
         {session.group_room ? ` · ${session.group_room}` : ''}
       </div>
       {session.kind === 'moved' && (
         <div className="text-muted text-[13.5px] mb-1">
-          {originLabel ? `منقولة من حصة ${originLabel}` : 'حصة منقولة من موعد أصلي آخر'}
+          {originLabel ? t('schedule.detailMovedFrom', { origin: originLabel }) : t('schedule.detailMovedFallback')}
         </div>
       )}
       {session.note && (
@@ -135,21 +136,21 @@ export function SessionDetailSheet({
           <Link to={`/attendance?session=${session.id}`} className="no-underline">
             <Button full variant="soft">
               <CalendarCheck2 size={20} />
-              فتح الحضور
+              {t('schedule.openAttendance')}
             </Button>
           </Link>
         )}
         {!cancelled && !showMove && (
           <Button full onClick={() => setShowMove(true)}>
             <MoveHorizontal size={20} />
-            نقل الحصة لموعد تاني
+            {t('schedule.moveBtn')}
           </Button>
         )}
         {showMove && (
           <div className="border border-border rounded-xl p-3">
-            <div className="font-bold text-[15px] mb-2">نقل الحصة</div>
+            <div className="font-bold text-[15px] mb-2">{t('schedule.moveTitle')}</div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="التاريخ الجديد">
+              <Field label={t('schedule.moveDateLabel')}>
                 <TextInput
                   type="date"
                   dir="ltr"
@@ -157,7 +158,7 @@ export function SessionDetailSheet({
                   onChange={(e) => setMoveDate(e.target.value)}
                 />
               </Field>
-              <Field label="الميعاد الجديد">
+              <Field label={t('schedule.moveTimeLabel')}>
                 <TextInput
                   type="time"
                   dir="ltr"
@@ -168,15 +169,15 @@ export function SessionDetailSheet({
             </div>
             <p className="text-muted text-[12px] mb-3">
               {session.kind === 'regular'
-                ? 'الحصة الأصلية هتتعلّم ملغاة وهتتنشأ نسخة منقولة في الموعد الجديد.'
-                : 'هيتعدّل موعد الحصة دي نفسها (إضافية/منقولة أصلاً).'}
+                ? t('schedule.moveNoteRegular')
+                : t('schedule.moveNoteOther')}
             </p>
             <div className="flex gap-2">
               <Button full onClick={doMove} disabled={busy}>
-                {moveMut.isPending ? 'بننقل…' : 'تأكيد النقل'}
+                {moveMut.isPending ? t('schedule.moving') : t('schedule.moveConfirm')}
               </Button>
               <Button variant="ghost" onClick={() => setShowMove(false)}>
-                إلغاء
+                {t('schedule.cancel')}
               </Button>
             </div>
           </div>
@@ -187,7 +188,7 @@ export function SessionDetailSheet({
           onClick={toggleStatus}
           disabled={busy}
         >
-          {statusMut.isPending ? 'بنحفظ…' : cancelled ? (<><Undo2 size={20} /> استرجاع الحصة</>) : 'إلغاء الحصة'}
+          {statusMut.isPending ? t('schedule.saving') : cancelled ? (<><Undo2 size={20} /> {t('schedule.restoreSessionBtn')}</>) : t('schedule.cancelSessionBtn')}
         </Button>
       </div>
 
@@ -237,11 +238,11 @@ export function ExtraSessionSheet({
 
   const save = async () => {
     setError(null)
-    if (!groupId) return setError('اختار المجموعة')
-    if (!date) return setError('اختار تاريخ الحصة')
-    if (!time) return setError('اختار ميعاد الحصة')
+    if (!groupId) return setError(t('schedule.extraGroupRequired'))
+    if (!date) return setError(t('schedule.extraDateRequired'))
+    if (!time) return setError(t('schedule.extraTimeRequired'))
     const dur = Number(duration)
-    if (!Number.isInteger(dur) || dur <= 0) return setError('المدة لازم تكون عدد دقائق صحيح وموجب')
+    if (!Number.isInteger(dur) || dur <= 0) return setError(t('schedule.extraDurationInvalid'))
     try {
       await createMut.mutateAsync({
         group_id: groupId,
@@ -250,26 +251,26 @@ export function ExtraSessionSheet({
         duration_minutes: dur,
         note: note.trim() === '' ? null : note.trim(),
       })
-      onDone(onHoliday ? 'اتضافت الحصة الإضافية (ملغاة — اليوم إجازة)' : 'اتضافت الحصة الإضافية')
+      onDone(onHoliday ? t('schedule.extraAddedHoliday') : t('schedule.extraAdded'))
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء الحفظ')
+      setError(e instanceof Error ? e.message : t('schedule.saveError'))
     }
   }
 
   return (
     <Sheet
       open
-      title="حصة إضافية / مراجعة"
+      title={t('schedule.extraTitle')}
       onClose={onClose}
       footer={
         groups.length > 0 ? (
           <div className="flex gap-2">
             <Button full onClick={save} disabled={createMut.isPending}>
-              {createMut.isPending ? 'بنحفظ…' : 'إضافة الحصة'}
+              {createMut.isPending ? t('schedule.saving') : t('schedule.extraAddBtn')}
             </Button>
             <Button variant="ghost" onClick={onClose}>
-              إلغاء
+              {t('schedule.cancel')}
             </Button>
           </div>
         ) : undefined
@@ -277,11 +278,11 @@ export function ExtraSessionSheet({
     >
       {groups.length === 0 ? (
         <p className="text-muted text-[13.5px]">
-          مفيش مجموعات لسه — أنشئ مجموعة الأول من شاشة المجموعات وبعدين ارجع ضيف حصتها الإضافية.
+          {t('schedule.extraNoGroups')}
         </p>
       ) : (
         <>
-          <Field label="المجموعة *">
+          <Field label={t('schedule.extraGroupLabel')}>
             <Select value={groupId} onChange={(e) => pickGroup(e.target.value)}>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
@@ -291,15 +292,15 @@ export function ExtraSessionSheet({
             </Select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="التاريخ *">
+            <Field label={t('schedule.extraDateLabel')}>
               <TextInput type="date" dir="ltr" value={date} onChange={(e) => setDate(e.target.value)} />
             </Field>
-            <Field label="الميعاد *">
+            <Field label={t('schedule.extraTimeLabel')}>
               <TextInput type="time" dir="ltr" value={time} onChange={(e) => setTime(e.target.value)} />
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="المدة (دقيقة)">
+            <Field label={t('schedule.extraDurationLabel')}>
               <TextInput
                 type="number"
                 min={15}
@@ -309,19 +310,19 @@ export function ExtraSessionSheet({
                 onChange={(e) => setDuration(e.target.value)}
               />
             </Field>
-            <Field label="ملحوظة (اختياري)">
-              <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="مراجعة نهائية…" />
+            <Field label={t('schedule.extraNoteLabel')}>
+              <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('schedule.extraNotePlaceholder')} />
             </Field>
           </div>
           {selectedGroup && (
             <p className="text-muted text-[13.5px] mb-3">
-              حصة لمرة واحدة لمجموعة «{selectedGroup.name}» — مش هتغيّر جدولها الأسبوعي الثابت.
+              {t('schedule.extraOnceNote', { name: selectedGroup.name })}
             </p>
           )}
           {onHoliday && (
             <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2 mb-3 text-[13.5px] flex items-start gap-2">
               <AlertTriangle size={20} className="shrink-0 mt-0.5 text-warn-text" />
-              <span>اليوم المختار إجازة رسمية — الحصة هتتنشأ بحالة «ملغاة» زي ما المخطط بيعامل حصص أيام الإجازات.</span>
+              <span>{t('schedule.extraHolidayWarn')}</span>
             </div>
           )}
           {error && <FormError message={error} />}
@@ -358,54 +359,50 @@ export function HolidaySheet({ teacherId, onClose, onDone }: HolidaySheetProps) 
 
   const save = async () => {
     setError(null)
-    if (!from || !to) return setError('اختار بداية ونهاية الإجازة')
-    if (to < from) return setError('تاريخ النهاية قبل البداية')
+    if (!from || !to) return setError(t('schedule.holidayRangeRequired'))
+    if (to < from) return setError(t('schedule.holidayEndBeforeStart'))
     if (dates.length > MAX_HOLIDAY_DAYS)
-      return setError(`النطاق كبير — الحد الأقصى ${MAX_HOLIDAY_DAYS} يوم في المرة`)
+      return setError(t('schedule.holidayTooLong', { max: MAX_HOLIDAY_DAYS }))
     try {
       await addMut.mutateAsync({ dates, name: name.trim() === '' ? null : name.trim() })
-      onDone(
-        dates.length === 1
-          ? 'اتسجلت الإجازة واتلغت حصص اليوم'
-          : `اتسجلت الإجازة (${dates.length} يوم) واتلغت الحصص الواقعة فيها`,
-      )
+      onDone(t('schedule.holidaySaved', { count: dates.length }))
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء الحفظ')
+      setError(e instanceof Error ? e.message : t('schedule.saveError'))
     }
   }
 
   return (
     <Sheet
       open
-      title="إجازة رسمية"
+      title={t('schedule.holidayDefaultName')}
       onClose={onClose}
       footer={
         <div className="flex gap-2">
           <Button full onClick={save} disabled={addMut.isPending}>
-            {addMut.isPending ? 'بنحفظ…' : 'حفظ الإجازة'}
+            {addMut.isPending ? t('schedule.saving') : t('schedule.holidaySaveBtn')}
           </Button>
           <Button variant="ghost" onClick={onClose}>
-            إلغاء
+            {t('schedule.cancel')}
           </Button>
         </div>
       }
     >
-      <Field label="اسم الإجازة (اختياري)">
-        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="عيد الفطر، إجازة نصف العام…" />
+      <Field label={t('schedule.holidayNameLabel')}>
+        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder={t('schedule.holidayNamePlaceholder')} />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="من يوم *">
+        <Field label={t('schedule.holidayFromLabel')}>
           <TextInput type="date" dir="ltr" value={from} onChange={(e) => setFrom(e.target.value)} />
         </Field>
-        <Field label="إلى يوم *">
+        <Field label={t('schedule.holidayToLabel')}>
           <TextInput type="date" dir="ltr" value={to} onChange={(e) => setTo(e.target.value)} />
         </Field>
       </div>
       <p className="text-muted text-[13.5px] mb-3">
         {dates.length > 0
-          ? `${dates.length} ${dates.length === 1 ? 'يوم' : 'يوم'} — حصص كل المجموعات في الأيام دي هتتعلّم «ملغاة» (مش هتتمسح)، وحذف الإجازة بعد كده بيرجّعها.`
-          : 'اختار نطاقاً صحيحاً — ليوم واحد بس خلّي البداية والنهاية نفس اليوم.'}
+          ? t('schedule.holidayDaysNote', { count: dates.length })
+          : t('schedule.holidayInvalidRange')}
       </p>
       {error && <FormError message={error} />}
     </Sheet>

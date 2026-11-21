@@ -1,12 +1,8 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
+import { t } from '../../i18n'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import type { EnrolmentLinkRow } from '../../types/database'
 import { generateRawToken, sha256Hex } from '../portal/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ===========================================================================
 // صفحة الحجز/التسجيل العامة — Phase 5 خطوة 2 (migration ‏0019).
@@ -84,8 +80,8 @@ export async function setEnrolmentEnabled(teacherId: string, enabled: boolean): 
 
 /** رسالة مشاركة الرابط على واتساب (اختيار الرقم من واتساب نفسه) */
 export function enrolShareWaUrl(link: string, centreName: string | null): string {
-  const name = centreName?.trim() ? ` في ${centreName.trim()}` : ''
-  const msg = `احجز مكانك${name} من صفحة الحجز دي: ${link} — املأ البيانات وهنأكد معاك الحجز.`
+  const name = centreName?.trim() ? t('enrol.apiShareCentrePart', { name: centreName.trim() }) : ''
+  const msg = t('enrol.apiShareMsg', { name, link })
   return `https://wa.me/?text=${encodeURIComponent(msg)}`
 }
 
@@ -184,36 +180,36 @@ export function enrolErrorInfo(error: unknown): { title: string; hint: string } 
   const msg = error instanceof Error ? error.message : String(error ?? '')
   if (msg.includes('invalid or disabled')) {
     return {
-      title: 'الحجز متوقف حالياً',
-      hint: 'رابط الحجز ده غير صالح أو السنتر موقّف الحجز مؤقتاً. تواصل مع السنتر مباشرة وهيحجزولك.',
+      title: t('enrol.apiErrDisabledTitle'),
+      hint: t('enrol.apiErrDisabledHint'),
     }
   }
   if (msg.includes('too many requests')) {
     return {
-      title: 'طلبات كتير في وقت قصير',
-      hint: 'وصلنا طلبات كتير من الرقم ده. استنى شوية وحاول تاني، أو تواصل مع السنتر مباشرة.',
+      title: t('enrol.apiErrTooManyTitle'),
+      hint: t('enrol.apiErrTooManyHint'),
     }
   }
   if (msg.includes('invalid phone')) {
     return {
-      title: 'رقم الموبايل غير صحيح',
-      hint: 'اكتب رقم موبايل مصري صحيح من 11 رقم يبدأ بـ 010 أو 011 أو 012 أو 015.',
+      title: t('enrol.apiErrPhoneTitle'),
+      hint: t('enrol.apiErrPhoneHint'),
     }
   }
   if (msg.includes('invalid group')) {
     return {
-      title: 'المجموعة لم تعد متاحة',
-      hint: 'المجموعة اللي اخترتها اتقفل حجزها. حدّث الصفحة واختر مجموعة تانية.',
+      title: t('enrol.apiErrGroupTitle'),
+      hint: t('enrol.apiErrGroupHint'),
     }
   }
   if (msg.includes('invalid name') || msg.includes('invalid note')) {
     return {
-      title: 'فيه بيانات ناقصة',
-      hint: 'راجع الاسم والملاحظات وحاول تاني.',
+      title: t('enrol.apiErrMissingTitle'),
+      hint: t('enrol.apiErrMissingHint'),
     }
   }
   return {
-    title: 'حصلت مشكلة',
-    hint: 'ماقدرناش نكمل الطلب دلوقتي. اتأكد من النت وحاول تاني بعد شوية.',
+    title: t('enrol.apiErrGenericTitle'),
+    hint: t('enrol.apiErrGenericHint'),
   }
 }

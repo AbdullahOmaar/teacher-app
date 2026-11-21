@@ -1,13 +1,9 @@
-import { supabase } from '../../lib/supabase'
+import { t } from '../../i18n'
+import { db } from '../../lib/supabase'
 import type { PaymentProofRow } from '../../types/database'
 import { todayStr } from '../home/api'
 import { createPayment, voidPayment, PAYMENT_METHOD_LABELS } from '../invoices/api'
 import { logActivity } from '../activity/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // إثباتات الدفع — Phase 2 خطوة 7 (migration ‏0005).
@@ -71,11 +67,11 @@ export async function fetchPendingProofs(teacherId: string): Promise<PendingProo
 export async function fetchProofImageUrl(storagePath: string): Promise<string> {
   const { data, error } = await db().storage.from(PROOF_BUCKET).createSignedUrl(storagePath, 600)
   if (error) throw error
-  if (!data?.signedUrl) throw new Error('ماقدرناش نجهز رابط صورة الإثبات')
+  if (!data?.signedUrl) throw new Error(t('paymentProofs.apiImageUrlError'))
   return data.signedUrl
 }
 
-const ALREADY_PROCESSED = 'الإثبات ده اتراجع خلاص — حدّث القائمة وحاول تاني لو محتاج'
+const ALREADY_PROCESSED = t('paymentProofs.apiAlreadyProcessed')
 
 /** حجز الإثبات للمراجعة (يمنع أي معالجة متوازية) — false إن كان محجوزاً/معالَجاً */
 async function claimProof(
@@ -124,7 +120,7 @@ export async function approveProof(
   proof: PaymentProofRow,
   input: ApproveProofInput,
 ): Promise<{ paymentId: string; receiptNo: string }> {
-  if (!(input.amount > 0)) throw new Error('مبلغ الاعتماد لازم يكون أكبر من صفر')
+  if (!(input.amount > 0)) throw new Error(t('paymentProofs.apiAmountError'))
 
   const claimed = await claimProof(teacherId, reviewerId, proof.id)
   if (!claimed) throw new Error(ALREADY_PROCESSED)

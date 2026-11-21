@@ -18,6 +18,8 @@
  * الاستيراد ذهاباً وإياباً، + عمود اختياري «سعر خاص» للتسجيل.
  */
 
+import { t } from '../../../i18n'
+
 export type ImportField =
   | 'name'
   | 'code'
@@ -31,16 +33,16 @@ export type ImportField =
   | 'price_override'
 
 export const IMPORT_FIELDS: { field: ImportField; label: string }[] = [
-  { field: 'name', label: 'الاسم *' },
-  { field: 'code', label: 'الكود' },
-  { field: 'grade', label: 'الصف' },
-  { field: 'school', label: 'المدرسة' },
-  { field: 'phone', label: 'موبايل الطالب' },
-  { field: 'guardian_name', label: 'ولي الأمر' },
-  { field: 'guardian_phone', label: 'موبايل ولي الأمر' },
-  { field: 'group_name', label: 'المجموعة (اسم — للعرض)' },
-  { field: 'level_note', label: 'ملاحظة المستوى' },
-  { field: 'price_override', label: 'سعر خاص' },
+  { field: 'name', label: t('students.impFieldName') },
+  { field: 'code', label: t('students.impFieldCode') },
+  { field: 'grade', label: t('students.impFieldGrade') },
+  { field: 'school', label: t('students.impFieldSchool') },
+  { field: 'phone', label: t('students.impFieldPhone') },
+  { field: 'guardian_name', label: t('students.impFieldGuardianName') },
+  { field: 'guardian_phone', label: t('students.impFieldGuardianPhone') },
+  { field: 'group_name', label: t('students.impFieldGroupName') },
+  { field: 'level_note', label: t('students.impFieldLevelNote') },
+  { field: 'price_override', label: t('students.impFieldPriceOverride') },
 ]
 
 /** ترويسات القالب بالترتيب — تطابق تصدير الطلاب + «سعر خاص» أخيراً */
@@ -253,7 +255,7 @@ export function classifyRows(
   return rows.map((row) => {
     // — أخطاء بنيوية أولاً
     if (!row.name) {
-      return { row, status: 'error' as RowStatus, reason: 'الاسم فارغ — الاسم إلزامي', price_override: null }
+      return { row, status: 'error' as RowStatus, reason: t('students.impReasonNameEmpty'), price_override: null }
     }
     let price: number | null = null
     if (row.price_raw != null && row.price_raw !== '') {
@@ -262,7 +264,7 @@ export function classifyRows(
         return {
           row,
           status: 'error' as RowStatus,
-          reason: `السعر الخاص «${row.price_raw}» مش رقم صالح`,
+          reason: t('students.impReasonPriceInvalid', { price: row.price_raw }),
           price_override: null,
         }
       }
@@ -274,7 +276,7 @@ export function classifyRows(
         return {
           row,
           status: 'error' as RowStatus,
-          reason: `موبايل الطالب «${row.phone}» شكله غير صالح`,
+          reason: t('students.impReasonPhoneInvalid', { phone: row.phone }),
           price_override: price,
         }
       }
@@ -286,7 +288,7 @@ export function classifyRows(
       return {
         row,
         status: 'duplicate' as RowStatus,
-        reason: `الكود ${row.code} مستخدم لطالب موجود بالفعل`,
+        reason: t('students.impReasonCodeExists', { code: row.code ?? '' }),
         price_override: price,
       }
     }
@@ -295,7 +297,7 @@ export function classifyRows(
       return {
         row,
         status: 'duplicate' as RowStatus,
-        reason: `موبايل الطالب ${row.phone} مسجل لطالب موجود بالفعل`,
+        reason: t('students.impReasonPhoneExists', { phone: row.phone ?? '' }),
         price_override: price,
       }
     }
@@ -305,7 +307,7 @@ export function classifyRows(
       return {
         row,
         status: 'duplicate' as RowStatus,
-        reason: `مكرر داخل الملف — نفس كود الصف رقم ${seenCodes.get(code)}`,
+        reason: t('students.impReasonDupCodeInFile', { row: seenCodes.get(code) ?? 0 }),
         price_override: price,
       }
     }
@@ -313,7 +315,7 @@ export function classifyRows(
       return {
         row,
         status: 'duplicate' as RowStatus,
-        reason: `مكرر داخل الملف — نفس موبايل الصف رقم ${seenPhones.get(phone)}`,
+        reason: t('students.impReasonDupPhoneInFile', { row: seenPhones.get(phone) ?? 0 }),
         price_override: price,
       }
     }

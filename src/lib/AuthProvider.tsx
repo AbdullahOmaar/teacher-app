@@ -64,11 +64,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       configured: isSupabaseConfigured,
       signOut: async () => {
-        // مسح اختيار مساحة العمل حتى لا يرثه الحساب التالي على نفس الجهاز
+        // مسح بقايا الجهاز حتى لا يرثها الحساب التالي (SEC-L5): اختيار
+        // مساحة العمل دائماً، ومفتاح طابور الحضور فقط إن كان فارغاً —
+        // عناصر معلّقة غير مُزامَنة بيانات مستخدم لا تُحذف أبداً عند
+        // الخروج (وهي مقيدة بـ teacher_id ولا تُزامَن إلا في جلسته)
         try {
           localStorage.removeItem('teacher-app-active-teacher')
+          const rawQueue = localStorage.getItem('teacher-app-attendance-queue-v1')
+          if (rawQueue) {
+            const parsed: unknown = JSON.parse(rawQueue)
+            if (Array.isArray(parsed) && parsed.length === 0) {
+              localStorage.removeItem('teacher-app-attendance-queue-v1')
+            }
+          }
         } catch {
-          // تجاهل
+          // تجاهل: تخزين غير متاح
         }
         await supabase?.auth.signOut()
       },

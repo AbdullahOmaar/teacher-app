@@ -1,4 +1,5 @@
-import { supabase } from '../../lib/supabase'
+import { t } from '../../i18n'
+import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { logActivity } from '../activity/api'
 import type {
@@ -8,11 +9,6 @@ import type {
   GroupWaitlistRow,
   WaitlistInput,
 } from '../../types/database'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 const GROUP_COLS =
   'id, teacher_id, name, billing_type, price, days, start_time, duration_minutes, room, capacity, assistant_name, links, archived_at, created_at, updated_at'
@@ -121,7 +117,7 @@ export async function deleteWaitlistEntry(teacherId: string, entryId: string): P
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', entryId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.deleteError'))
 }
 
 /**
@@ -137,8 +133,8 @@ export async function acceptWaitlistEntry(
 ): Promise<{ studentId: string }> {
   const { createStudent, upsertEnrollment } = await import('../students/api')
   const levelBits = [
-    entry.wants_trial ? 'طلب حصة تجريبية من صفحة الحجز' : null,
-    entry.source === 'booking_page' && entry.note ? `ملاحظة الحجز: ${entry.note}` : entry.note,
+    entry.wants_trial ? t('groups.apiTrialNote') : null,
+    entry.source === 'booking_page' && entry.note ? t('groups.apiBookingNote', { note: entry.note }) : entry.note,
   ].filter(Boolean)
   const student = await createStudent(teacherId, {
     name: entry.name,
@@ -253,7 +249,7 @@ export async function deleteGroup(teacherId: string, groupId: string): Promise<v
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', groupId)
-  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء حذف المجموعة')
+  if (error) throw friendlyDbError(error, t('groups.apiDeleteGroupError'))
   void logActivity(teacherId, {
     event_type: 'group_deleted',
     entity_type: 'group',

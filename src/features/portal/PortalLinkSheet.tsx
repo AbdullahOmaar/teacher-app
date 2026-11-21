@@ -1,5 +1,8 @@
 import { useState } from 'react'
+import { formatDateTimeAr } from '../../lib/format'
+import { t } from '../../i18n'
 import { Sheet } from '../../components/ui/Sheet'
+import { useToast } from '../../components/ui/toast'
 import { AlertTriangle, Check, Copy, Link2, MessageCircle, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import type { GuardianAccessTokenRow, StudentRow } from '../../types/database'
@@ -18,15 +21,9 @@ interface PortalLinkSheetProps {
 }
 
 const STATUS_META: Record<ReturnType<typeof tokenStatus>, { label: string; cls: string }> = {
-  active: { label: 'نشط', cls: 'bg-ok/10 text-ok-text border-ok/30' },
-  expired: { label: 'منتهي', cls: 'bg-warn/15 text-warn-text border-warn/40' },
-  revoked: { label: 'ملغي', cls: 'bg-bad/10 text-bad-text border-bad/30' },
-}
-
-function fmtDateTime(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso.slice(0, 10)
-  return d.toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })
+  active: { label: t('portal.sheetStatusActive'), cls: 'bg-ok/10 text-ok-text border-ok/30' },
+  expired: { label: t('portal.sheetStatusExpired'), cls: 'bg-warn/15 text-warn-text border-warn/40' },
+  revoked: { label: t('portal.sheetStatusRevoked'), cls: 'bg-bad/10 text-bad-text border-bad/30' },
 }
 
 function TokenRow({
@@ -51,23 +48,23 @@ function TokenRow({
             type="button"
             disabled={revoking}
             onClick={() => {
-              if (window.confirm('إلغاء الرابط ده؟ ولي الأمر مش هيقدر يفتح البوابة بيه تاني.'))
+              if (window.confirm(t('portal.sheetRevokeConfirm')))
                 onRevoke()
             }}
             className="text-bad-text text-[13.5px] font-semibold bg-transparent border-0 cursor-pointer disabled:opacity-50"
           >
-            إلغاء الرابط
+            {t('portal.sheetRevokeAction')}
           </button>
         )}
       </div>
       <div className="text-muted text-[13.5px] mt-1.5 leading-relaxed">
-        اتعمل: {fmtDateTime(token.created_at)} · بيخلص: {fmtDateTime(token.expires_at)}
+        {t('portal.sheetCreatedLine', { created: formatDateTimeAr(token.created_at), expires: formatDateTimeAr(token.expires_at) })}
         <br />
-        آخر استخدام: {token.last_used_at ? fmtDateTime(token.last_used_at) : 'لسه ما اتفتحش'}
+        {t('portal.sheetLastUsed', { value: token.last_used_at ? formatDateTimeAr(token.last_used_at) : t('portal.sheetNeverOpened') })}
         {token.revoked_at ? (
           <>
             <br />
-            اتلغى: {fmtDateTime(token.revoked_at)}
+            {t('portal.sheetRevokedLine', { date: formatDateTimeAr(token.revoked_at) })}
           </>
         ) : null}
       </div>
@@ -85,6 +82,7 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
   const tokensQ = useStudentPortalTokens(teacherId, student.id)
   const createLink = useCreatePortalLink(teacherId)
   const revokeToken = useRevokePortalToken(teacherId)
+  const toast = useToast()
   const [freshLink, setFreshLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -105,28 +103,28 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
   }
 
   return (
-    <Sheet open title={`رابط بوابة ولي الأمر — ${student.name}`} onClose={onClose}>
+    <Sheet open title={t('portal.sheetTitle', { name: student.name })} onClose={onClose}>
       <p className="text-muted text-[13.5px] mt-0">
-        ولي الأمر: <span className="font-semibold text-text">{guardian.name}</span>
+        {t('portal.sheetGuardianLabel')} <span className="font-semibold text-text">{guardian.name}</span>
         {guardian.phone ? (
           <>
             {' '}· <span dir="ltr">{guardian.phone}</span>
           </>
         ) : null}
         <br />
-        الرابط صالح {PORTAL_TOKEN_TTL_DAYS} يوم وبيعرض الحضور والدرجات والموقف المالي بس (قراءة فقط).
+        {t('portal.sheetValidityNote', { days: PORTAL_TOKEN_TTL_DAYS })}
       </p>
 
       {!guardian.phone && (
         <div className="rounded-xl border border-warn/40 bg-warn/10 text-[13.5px] p-3 mb-3 flex items-start gap-2">
           <AlertTriangle size={20} className="shrink-0 mt-0.5 text-warn-text" />
-          <span>الطالب مالوش رقم موبايل (لا لولي الأمر ولا للطالب نفسه) — ضيف رقم من «تعديل الطالب» الأول علشان نقدر نعمل ولي أمر ونبعتله الرابط.</span>
+          <span>{t('portal.sheetNoPhoneWarning')}</span>
         </div>
       )}
 
       {freshLink && (
         <div className="rounded-xl border border-ok/40 bg-ok/5 p-3 mb-3">
-          <div className="font-bold text-[13.5px] mb-1.5 flex items-center gap-1.5"><Check size={18} className="text-ok-text" /> الرابط الجديد جاهز — بيظهر هنا مرة واحدة بس</div>
+          <div className="font-bold text-[13.5px] mb-1.5 flex items-center gap-1.5"><Check size={18} className="text-ok-text" /> {t('portal.sheetFreshTitle')}</div>
           <div
             dir="ltr"
             className="text-left text-[12px] break-all bg-card border border-border rounded-xl p-2 select-all"
@@ -135,20 +133,19 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
           </div>
           <div className="flex gap-2 mt-2.5">
             <Button variant="soft" onClick={copyLink}>
-              {copied ? (<><Check size={20} /> اتنسخ</>) : (<><Copy size={20} /> نسخ الرابط</>)}
+              {copied ? (<><Check size={20} /> {t('portal.sheetCopied')}</>) : (<><Copy size={20} /> {t('portal.sheetCopyLink')}</>)}
             </Button>
             {waUrl && (
               <a href={waUrl} target="_blank" rel="noreferrer" className="no-underline">
                 <Button>
                   <MessageCircle size={20} />
-                  إرسال واتساب
+                  {t('portal.sheetSendWhatsapp')}
                 </Button>
               </a>
             )}
           </div>
           <p className="text-muted text-[12px] mt-2 mb-0">
-            لو ضاع الرابط ده مش هنقدر نعرضه تاني (القاعدة فيها بصمته بس) — ولّد واحد جديد وخلاص،
-            والقديم بيتلغي تلقائياً.
+            {t('portal.sheetFreshNote')}
           </p>
         </div>
       )}
@@ -164,39 +161,43 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
         }}
       >
         {createLink.isPending ? (
-          'بنولّد الرابط…'
+          t('portal.sheetGenerating')
         ) : hasActive ? (
           <>
             <RefreshCw size={20} />
-            إعادة توليد رابط جديد (يبطل القديم)
+            {t('portal.sheetRegenerateAction')}
           </>
         ) : (
           <>
             <Link2 size={20} />
-            توليد رابط ولي الأمر
+            {t('portal.sheetGenerateAction')}
           </>
         )}
       </Button>
       {createLink.isError && (
         <p className="text-bad-text text-[13.5px] mt-2 mb-0">
-          {createLink.error instanceof Error ? createLink.error.message : 'حصلت مشكلة في توليد الرابط'}
+          {createLink.error instanceof Error ? createLink.error.message : t('portal.sheetGenerateError')}
         </p>
       )}
 
-      <h4 className="type-section mt-4 mb-2">روابط الطالب</h4>
+      <h4 className="type-section mt-4 mb-2">{t('portal.sheetTokensTitle')}</h4>
       {tokensQ.isPending ? (
-        <div className="text-muted text-[13.5px]">بنحمّل الروابط…</div>
+        <div className="text-muted text-[13.5px]">{t('portal.sheetLoadingTokens')}</div>
       ) : tokensQ.isError ? (
-        <div className="text-bad-text text-[13.5px]">ماقدرناش نحمّل الروابط</div>
+        <div className="text-bad-text text-[13.5px]">{t('portal.sheetTokensError')}</div>
       ) : tokens.length === 0 ? (
-        <div className="text-muted text-[13.5px]">مفيش روابط معمولة للطالب ده لسه.</div>
+        <div className="text-muted text-[13.5px]">{t('portal.sheetNoTokens')}</div>
       ) : (
-        tokens.map((t) => (
+        tokens.map((tok) => (
           <TokenRow
-            key={t.id}
-            token={t}
+            key={tok.id}
+            token={tok}
             revoking={revokeToken.isPending}
-            onRevoke={() => revokeToken.mutate(t.id)}
+            onRevoke={() =>
+              revokeToken.mutate(tok.id, {
+                onError: () => toast(t('portal.sheetRevokeErrorToast'), 'error'),
+              })
+            }
           />
         ))
       )}

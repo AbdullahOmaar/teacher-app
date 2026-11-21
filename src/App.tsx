@@ -7,6 +7,7 @@ import { AppShell } from './components/layout/AppShell'
 import { LoadingState } from './components/ui/states'
 import { HomePage } from './features/home/HomePage'
 import { LoginPage } from './features/auth/LoginPage'
+import { ResetPasswordPage } from './features/auth/ResetPasswordPage'
 import { RequireAuth } from './features/auth/RequireAuth'
 
 /*
@@ -107,7 +108,18 @@ function LazyRoute({ children }: { children: ReactNode }) {
   return <Suspense fallback={<LoadingState />}>{children}</Suspense>
 }
 
-const queryClient = new QueryClient()
+// إعدادات الكاش (3A-296، بعد إصلاح خريطة الإبطال PAT-1): staleTime
+// ‏30 ثانية آمن الآن لأن كل طفرة تُبطل الوحدات المشتقة منها مركزياً
+// (lib/invalidate) — التنقّل بين الشاشات خلال النافذة يعيد استخدام
+// الكاش بدل إعادة جلب كل شيء عند كل تركيب (السلوك القديم staleTime=0
+// كان سبباً رئيسياً في تضخّم عدد الطلبات). retry مرة واحدة يقلّل
+// إعادة محاولات الشبكة المتقطعة بلا إخفاء للأخطاء الحقيقية.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { staleTime: 30_000, retry: 1 },
+    mutations: { retry: 0 },
+  },
+})
 
 export default function App() {
   return (
@@ -117,6 +129,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             {/* بوابة ولي الأمر: صفحة عامة بلا جلسة مدرس — الاعتماد هو
                 الرابط الموقّع في الاستعلام (?student=&t=) عبر RPC فقط */}
             <Route

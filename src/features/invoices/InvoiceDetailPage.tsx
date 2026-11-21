@@ -13,6 +13,7 @@ import { useGroup } from '../groups/hooks'
 import { PAYMENT_METHOD_LABELS, payStateOf, periodLabel, periodYm } from './api'
 import { useInvoice, useInvoiceLines, useInvoicePayments, useVoidPayment } from './hooks'
 import { AdjustSheet, PaySheet, ReceiptSheet } from './sheets'
+import { t } from '../../i18n'
 
 /**
  * تفاصيل الفاتورة (المواصفات §3.6): جدول البنود (الأساسي/الخصم/التسويات
@@ -55,21 +56,21 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
         <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
           <Lock size={28} />
         </div>
-        <div className="type-section mb-1">الفواتير والمالية للمالك فقط</div>
+        <div className="type-section mb-1">{t('invoices.ownerOnlyTitle')}</div>
         <p className="text-muted text-[13.5px] mb-0">
-          حساب المساعد لا يملك صلاحية مالية — البيانات محجوبة في قاعدة البيانات نفسها (RLS).
+          {t('invoices.detailOwnerOnlyBody')}
         </p>
       </Card>
     )
   }
 
   if (invoiceQ.isPending || linesQ.isPending || paymentsQ.isPending)
-    return <LoadingState label="بنحمّل تفاصيل الفاتورة…" />
+    return <LoadingState label={t('invoices.detailLoading')} />
   const error = invoiceQ.error ?? linesQ.error ?? paymentsQ.error
   if (error)
     return (
       <ErrorState
-        message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+        message={error instanceof Error ? error.message : t('common.unknownError')}
         onRetry={() => {
           void invoiceQ.refetch()
           void linesQ.refetch()
@@ -79,7 +80,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
     )
   if (!invoice) {
     return (
-      <EmptyState icon={ReceiptText} title="الفاتورة غير موجودة" hint="ممكن تكون اتحذفت أو الرابط غير صحيح" />
+      <EmptyState icon={ReceiptText} title={t('invoices.detailNotFoundTitle')} hint={t('invoices.detailNotFoundHint')} />
     )
   }
 
@@ -104,22 +105,22 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
               {invoice.student_code ? (
                 <>
                   {' · '}
-                  الكود <span dir="ltr">{invoice.student_code}</span>
+                  {t('invoices.detailCodeLabel')} <span dir="ltr">{invoice.student_code}</span>
                 </>
               ) : null}
             </div>
           </div>
           {state === 'paid' ? (
             <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-              مسدد
+              {t('invoices.badgePaid')}
             </span>
           ) : state === 'partial' ? (
             <span className="shrink-0 text-[12px] font-bold bg-primary/10 text-primary border border-primary/30 rounded-full px-2 py-0.5">
-              مدفوع جزئياً
+              {t('invoices.detailBadgePartial')}
             </span>
           ) : (
             <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-              مستحقة
+              {t('invoices.detailBadgeDue')}
             </span>
           )}
         </div>
@@ -127,7 +128,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
         {/* جدول البنود */}
         <div className="mt-3 border-t border-border">
           {lines.length === 0 ? (
-            <p className="text-muted text-[13.5px] py-3 mb-0">مفيش بنود مسجلة على الفاتورة دي.</p>
+            <p className="text-muted text-[13.5px] py-3 mb-0">{t('invoices.detailNoLines')}</p>
           ) : (
             lines.map((l) => (
               <div key={l.id} className="flex justify-between gap-3 py-2 border-b border-border/70">
@@ -136,12 +137,12 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
                     {l.description}
                     {l.line_type === 'discount' && (
                       <span className="ms-2 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5 align-middle">
-                        خصم
+                        {t('invoices.detailLineDiscount')}
                       </span>
                     )}
                     {l.line_type === 'adjustment' && (
                       <span className="ms-2 text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5 align-middle">
-                        تسوية
+                        {t('invoices.detailLineAdjustment')}
                       </span>
                     )}
                   </div>
@@ -158,17 +159,17 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
           )}
           <div className="pt-2 space-y-1 text-[15px]">
             <div className="flex justify-between">
-              <span className="text-muted font-semibold">الإجمالي</span>
+              <span className="text-muted font-semibold">{t('invoices.detailTotal')}</span>
               <b dir="ltr">{formatMoney(invoice.total)}</b>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted font-semibold">المدفوع</span>
+              <span className="text-muted font-semibold">{t('invoices.detailPaid')}</span>
               <b dir="ltr" className="text-ok-text">{formatMoney(invoice.paid)}</b>
             </div>
             <div className="flex justify-between border-t border-border pt-1.5">
-              <span className="font-extrabold">المتبقي</span>
+              <span className="font-extrabold">{t('invoices.remaining')}</span>
               <b dir="ltr" className={invoice.balance > 0 ? 'text-warn-text' : 'text-ok-text'}>
-                {invoice.balance > 0 ? formatMoney(invoice.balance) : 'مسدد بالكامل'}
+                {invoice.balance > 0 ? formatMoney(invoice.balance) : t('invoices.paidInFull')}
               </b>
             </div>
           </div>
@@ -178,37 +179,37 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
           <Link to={`/students/${invoice.student_id}`} className="no-underline">
             <Button variant="soft">
               <UserRound size={20} />
-              ملف الطالب
+              {t('invoices.detailStudentFile')}
             </Button>
           </Link>
           {invoice.balance > 0 && (
             <Button onClick={() => setPayOpen(true)}>
               <Banknote size={20} />
-              تسجيل دفعة
+              {t('invoices.recordPayment')}
             </Button>
           )}
           {latestPayment && (
             <Button variant="ghost" onClick={() => setReceipt({ payment: latestPayment })}>
               <ReceiptText size={20} />
-              إيصال
+              {t('invoices.receiptWord')}
             </Button>
           )}
           {isAttendedGroup && (
             <Button variant="ghost" onClick={() => setAdjustOpen(true)}>
-              + تسوية حضور
+              {t('invoices.detailAdjustAttendance')}
             </Button>
           )}
         </div>
       </Card>
 
       {/* سجل الدفعات */}
-      <h2 className="type-section mb-2 mt-1">سجل الدفعات</h2>
+      <h2 className="type-section mb-2 mt-1">{t('invoices.detailPaymentsTitle')}</h2>
       {payments.length === 0 ? (
         <Card>
           <EmptyState
             icon={Banknote}
-            title="لسه مفيش دفعات"
-            hint="أول دفعة هتتسجل هنا برقم إيصالها التسلسلي، والدفع الجزئي مدعوم."
+            title={t('invoices.detailNoPaymentsTitle')}
+            hint={t('invoices.detailNoPaymentsHint')}
           />
         </Card>
       ) : (
@@ -228,12 +229,12 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
                   <span className="flex items-center gap-1.5 shrink-0">
                     {isReversal && (
                       <span className="text-[12px] font-bold bg-bad/10 text-bad-text border border-bad/30 rounded-full px-2 py-0.5">
-                        دفعة عكسية
+                        {t('invoices.detailReversalBadge')}
                       </span>
                     )}
                     {p.voided && (
                       <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">
-                        اتعكست
+                        {t('invoices.detailVoidedBadge')}
                       </span>
                     )}
                     <button
@@ -241,7 +242,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
                       className="inline-flex items-center min-h-[48px] px-2 text-[13.5px] font-bold text-primary bg-transparent border-0 cursor-pointer"
                       onClick={() => setReceipt({ payment: p })}
                     >
-                      الإيصال
+                      {t('invoices.detailReceiptBtn')}
                     </button>
                     {canVoid && (
                       <button
@@ -251,24 +252,24 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
                         onClick={() => {
                           if (
                             window.confirm(
-                              `عكس الدفعة دي (${formatMoney(p.amount)} — إيصال ${p.receipt_no})؟ هيتعمل دفعة عكسية سالبة والدفعة الأصلية هتفضل موجودة ومتعلمة «اتعكست» — مفيش حذف في الدفاتر المالية.`,
+                              t('invoices.detailVoidConfirm', { amount: formatMoney(p.amount), receiptNo: p.receipt_no }),
                             )
                           ) {
                             voidPay.mutate(p, {
-                              onSuccess: () => toast('اتعكست الدفعة واتحدث رصيد الفاتورة'),
+                              onSuccess: () => toast(t('invoices.detailVoidSuccessToast')),
                               onError: (e) =>
-                                toast(e instanceof Error ? e.message : 'فشل عكس الدفعة'),
+                                toast(e instanceof Error ? e.message : t('invoices.detailVoidErrorToast')),
                             })
                           }
                         }}
                       >
-                        عكس
+                        {t('invoices.detailVoid')}
                       </button>
                     )}
                   </span>
                 </div>
                 <div className="text-muted text-[13.5px] mt-0.5">
-                  {p.paid_on} · {PAYMENT_METHOD_LABELS[p.method]} · إيصال{' '}
+                  {p.paid_on} · {PAYMENT_METHOD_LABELS[p.method]} · {t('invoices.receiptWord')}{' '}
                   <span dir="ltr" className="font-semibold">{p.receipt_no}</span>
                 </div>
               </div>
@@ -288,7 +289,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
             setReceipt({
               payment,
             })
-            toast(`اتسجلت الدفعة — إيصال رقم ${payment.receipt_no}`)
+            toast(t('invoices.detailPaidToast', { receiptNo: payment.receipt_no }))
           }}
         />
       )}

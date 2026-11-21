@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
 import { Building2, Lock, Pin, Wallet } from 'lucide-react'
 import { useToast } from '../../components/ui/toast'
@@ -8,9 +9,11 @@ import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../.
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import type { ExpenseRow, RecurringExpenseRow } from '../../types/database'
+import { PageToolBar, StickyGroupHeader } from '../../components/ui/PageToolBar'
+import { Chip } from '../../components/ui/form'
 import { monthStartStr, todayStr } from '../home/api'
 import { periodLabel } from '../invoices/api'
-import { addMonthsStr, formatDateLabel } from '../schedule/api'
+import { formatDateLabel } from '../schedule/api'
 import { lastSixMonths, summaryOf, type MonthSummary } from './api'
 import { CashboxSection } from './CashboxSection'
 import {
@@ -74,10 +77,10 @@ function MonthBarRow({
       </div>
       <div className="flex justify-between text-[12px] text-muted mt-1">
         <span>
-          محصّل <span dir="ltr">{formatMoney(row.collected)}</span>
+          {t('money.barCollected')} <span dir="ltr">{formatMoney(row.collected)}</span>
         </span>
         <span>
-          مصروفات <span dir="ltr">{formatMoney(row.expenses)}</span>
+          {t('money.barExpenses')} <span dir="ltr">{formatMoney(row.expenses)}</span>
         </span>
       </div>
     </button>
@@ -140,6 +143,21 @@ export function MoneyPage() {
     [sixMonths],
   )
   const expenses = useMemo(() => expensesQ.data ?? [], [expensesQ.data])
+  // تجميع المصروفات باليوم (W3 — R-11): مرتبة بالتاريخ تنازلياً أصلاً،
+  // فالتجميع المتتالي يحافظ على الترتيب ويضيف عنوان يوم لاصقاً بإجماليه
+  const expenseDayGroups = useMemo(() => {
+    const groups: { day: string; items: ExpenseRow[]; total: number }[] = []
+    for (const exp of expenses) {
+      const last = groups[groups.length - 1]
+      if (last && last.day === exp.expense_date) {
+        last.items.push(exp)
+        last.total += Number(exp.amount) || 0
+      } else {
+        groups.push({ day: exp.expense_date, items: [exp], total: Number(exp.amount) || 0 })
+      }
+    }
+    return groups
+  }, [expenses])
   const templates = useMemo(() => recurringQ.data ?? [], [recurringQ.data])
   const centerPercent = centerQ.data ?? 0
 
@@ -153,10 +171,9 @@ export function MoneyPage() {
         <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
           <Lock size={28} />
         </div>
-        <div className="type-section mb-1">المصروفات والأرباح للمالك فقط</div>
+        <div className="type-section mb-1">{t('money.ownerOnlyTitle')}</div>
         <p className="text-muted text-[13.5px] mb-0">
-          حساب المساعد لا يملك صلاحية مالية — المصروفات والأرباح ونسبة السنتر محجوبة في قاعدة
-          البيانات نفسها (RLS) وليس في الواجهة فقط.
+          {t('money.ownerOnlyBody')}
         </p>
       </Card>
     )
@@ -169,30 +186,33 @@ export function MoneyPage() {
 
   return (
     <div>
-      {/* تنقّل الشهور — نفس معالجة تنقّل أيام الخزنة: اسم الشهر صف كامل
-          على الموبايل والزرّان نصفان تحته، وصف واحد من 480px */}
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <Button
-          variant="ghost"
-          className="flex-1 min-[480px]:flex-none"
-          onClick={() => setSelectedMonth(addMonthsStr(selectedMonth, -1))}
-        >
-          الشهر السابق
-        </Button>
-        <div className="order-first w-full text-center min-[480px]:order-none min-[480px]:w-auto min-[480px]:flex-1 font-extrabold text-[15px]">
-          {periodLabel(selectedMonth)}
-        </div>
-        <Button
-          variant="ghost"
-          className="flex-1 min-[480px]:flex-none"
-          onClick={() => setSelectedMonth(addMonthsStr(selectedMonth, 1))}
-        >
-          الشهر التالي
-        </Button>
-      </div>
+      {/* شريط الشهور الموحّد (W3 — R-10): رقائق آخر 6 شهور بدل زرّي
+          السابق/التالي — اختيار شهر أقدم من خارج الستة يبقى ظاهراً
+          رقاقة نشطة حتى لا يضيع سياق الاختيار */}
+      <PageToolBar
+        chips={
+          <>
+            {sixMonths.map((row) => (
+              <Chip
+                key={row.month}
+                active={selectedMonth === row.month}
+                onClick={() => setSelectedMonth(row.month)}
+              >
+                {periodLabel(row.month)}
+              </Chip>
+            ))}
+            {!sixMonths.some((r) => r.month === selectedMonth) && (
+              <Chip active onClick={() => setSelectedMonth(selectedMonth)}>
+                {periodLabel(selectedMonth)}
+              </Chip>
+            )}
+          </>
+        }
+        resultCount={pending ? undefined : expenses.length}
+      />
       {!isCurrentMonth && (
         <Button full variant="soft" className="mb-3" onClick={() => setSelectedMonth(currentMonth)}>
-          رجوع للشهر الحالي ({periodLabel(currentMonth)})
+          {t('money.backToCurrent', { month: periodLabel(currentMonth) })}
         </Button>
       )}
 
@@ -201,10 +221,10 @@ export function MoneyPage() {
       {teacherId && <CashboxSection teacherId={teacherId} />}
 
       {pending ? (
-        <LoadingState label="بنحمّل الملخص المالي…" />
+        <LoadingState label={t('money.loading')} />
       ) : error ? (
         <ErrorState
-          message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+          message={error instanceof Error ? error.message : t('common.unknownError')}
           onRetry={() => {
             void profitQ.refetch()
             void expensesQ.refetch()
@@ -215,11 +235,11 @@ export function MoneyPage() {
         <>
           {/* ملخص الفترة — من view ‏monthly_profit حرفياً */}
           <div className="grid grid-cols-3 gap-2 mb-3">
-            <Kpi value={formatMoney(summary.collected)} label="محصّل الشهر" valueClass="text-ok-text" />
-            <Kpi value={formatMoney(summary.expenses)} label="مصروفات الشهر" valueClass="text-bad-text" />
+            <Kpi value={formatMoney(summary.collected)} label={t('money.kpiCollected')} valueClass="text-ok-text" />
+            <Kpi value={formatMoney(summary.expenses)} label={t('money.kpiExpenses')} valueClass="text-bad-text" />
             <Kpi
               value={formatMoney(summary.net_profit)}
-              label="صافي الربح"
+              label={t('money.kpiNet')}
               valueClass={summary.net_profit < 0 ? 'text-bad-text' : 'text-ok-text'}
             />
           </div>
@@ -229,9 +249,9 @@ export function MoneyPage() {
             <Card className="border-primary/30 bg-soft/60">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <div className="font-extrabold text-[16px] flex items-center gap-2"><Building2 size={22} className="text-primary" /> نسبة السنتر {centerPercent}%</div>
+                  <div className="font-extrabold text-[16px] flex items-center gap-2"><Building2 size={22} className="text-primary" /> {t('money.centreShareTitle', { pct: centerPercent })}</div>
                   <div className="text-muted text-[13.5px]">
-                    خصم من محصّل {periodLabel(selectedMonth)} — اتحسبت واتخصمت من صافي الربح فوق
+                    {t('money.centreShareLine', { month: periodLabel(selectedMonth) })}
                   </div>
                 </div>
                 <b className="text-[16px] shrink-0" dir="ltr">
@@ -242,7 +262,7 @@ export function MoneyPage() {
           )}
 
           {/* آخر 6 شهور */}
-          <h2 className="type-section mb-2 mt-1">آخر 6 شهور</h2>
+          <h2 className="type-section mb-2 mt-1">{t('money.lastSixMonths')}</h2>
           <Card>
             {sixMonths.map((row) => (
               <MonthBarRow
@@ -254,17 +274,17 @@ export function MoneyPage() {
               />
             ))}
             <p className="text-muted text-[13.5px] mb-0 mt-1">
-              الرقم اللي على الشمال هو صافي ربح الشهر — اضغط أي شهر لعرض تفاصيله ومصروفاته.
+              {t('money.barsNote')}
             </p>
           </Card>
 
           {/* مصروفات الشهر المختار */}
           <div className="flex items-center justify-between gap-2 mt-4 mb-2">
-            <h2 className="type-section">مصروفات {periodLabel(selectedMonth)}</h2>
+            <h2 className="type-section">{t('money.expensesOfMonth', { month: periodLabel(selectedMonth) })}</h2>
           </div>
           <div className="flex gap-2 mb-3">
             <Button className="flex-1" onClick={() => setExpenseSheet({ mode: 'create' })}>
-              + تسجيل مصروف
+              {t('money.addExpense')}
             </Button>
             {templates.length > 0 && (
               <Button
@@ -278,15 +298,15 @@ export function MoneyPage() {
                       onSuccess: (r) =>
                         toast(
                           r.created > 0
-                            ? `اتضاف ${r.created} مصروف ثابت لشهر ${periodLabel(selectedMonth)}${r.skipped > 0 ? `، و${r.skipped} كانوا موجودين فاتتخطوا` : ''}`
-                            : 'الثوابت بتاعة الشهر ده مطبقة بالفعل — مفيش تكرار',
+                            ? `${t('money.appliedToast', { created: r.created, month: periodLabel(selectedMonth) })}${r.skipped > 0 ? t('money.appliedSkippedSuffix', { skipped: r.skipped }) : ''}`
+                            : t('money.alreadyAppliedToast'),
                         ),
-                      onError: () => toast('حصل خطأ أثناء إضافة الثوابت'),
+                      onError: () => toast(t('money.applyErrorToast')),
                     },
                   )
                 }
               >
-                {applyRecurring.isPending ? 'بنضيف الثوابت…' : `إضافة الثوابت (${templates.length})`}
+                {applyRecurring.isPending ? t('money.applyingRecurring') : t('money.applyRecurring', { count: templates.length })}
               </Button>
             )}
           </div>
@@ -295,13 +315,18 @@ export function MoneyPage() {
             <Card>
               <EmptyState
                 icon={Wallet}
-                title="مفيش مصروفات في الشهر ده"
-                hint="سجّل أول مصروف من الزر اللي فوق، أو طبّق المصروفات الثابتة إن وجدت."
+                title={t('money.emptyExpensesTitle')}
+                hint={t('money.emptyExpensesHint')}
               />
             </Card>
           ) : (
-            expenses.map((exp) => (
-              <Card key={exp.id}>
+            expenseDayGroups.map((g) => (
+              <div key={g.day}>
+                <StickyGroupHeader>
+                  {t('money.dayHeader', { date: formatDateLabel(g.day), count: g.items.length, total: formatMoney(g.total) })}
+                </StickyGroupHeader>
+                {g.items.map((exp) => (
+                  <Card key={exp.id}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-bold text-[15px]">{exp.category}</div>
@@ -320,7 +345,7 @@ export function MoneyPage() {
                     className="flex-1 min-h-[48px] text-[13.5px]"
                     onClick={() => setExpenseSheet({ mode: 'edit', expense: exp })}
                   >
-                    تعديل
+                    {t('money.edit')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -328,75 +353,76 @@ export function MoneyPage() {
                     disabled={delExpense.isPending}
                     onClick={() =>
                       delExpense.mutate(exp.id, {
-                        onSuccess: () => toast('اتحذف المصروف'),
-                        onError: () => toast('حصل خطأ أثناء الحذف'),
+                        onSuccess: () => toast(t('money.expenseDeletedToast')),
+                        onError: () => toast(t('money.deleteErrorToast')),
                       })
                     }
                   >
-                    حذف
+                    {t('money.delete')}
                   </Button>
                 </div>
-              </Card>
+                  </Card>
+                ))}
+              </div>
             ))
           )}
 
           {/* المصروفات الشهرية الثابتة (القوالب) */}
           <div className="flex items-center justify-between gap-2 mt-4 mb-2">
-            <h2 className="type-section">المصروفات الشهرية الثابتة</h2>
+            <h2 className="type-section">{t('money.recurringTitle')}</h2>
             <Button variant="soft" onClick={() => setRecurringSheet({ mode: 'create' })}>
-              + قالب ثابت
+              {t('money.addTemplate')}
             </Button>
           </div>
           {templates.length === 0 ? (
             <Card>
               <EmptyState
                 icon={Pin}
-                title="مفيش مصروفات ثابتة متسجلة"
-                hint="أضف قالب ثابت (زي إيجار القاعة الشهري) وبعدين طبّقه على أي شهر بزر «إضافة الثوابت» من غير ما يكرر نفسه."
+                title={t('money.emptyTemplatesTitle')}
+                hint={t('money.emptyTemplatesHint')}
               />
             </Card>
           ) : (
-            templates.map((t) => (
-              <Card key={t.id}>
+            templates.map((tpl) => (
+              <Card key={tpl.id}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="font-bold text-[15px]">{t.category}</div>
+                    <div className="font-bold text-[15px]">{tpl.category}</div>
                     <div className="text-muted text-[13.5px] mt-0.5">
-                      شهرياً{t.note ? ` · ${t.note}` : ''}
+                      {t('money.monthly')}{tpl.note ? ` · ${tpl.note}` : ''}
                     </div>
                   </div>
                   <b className="text-[15px] shrink-0" dir="ltr">
-                    {formatMoney(t.amount)}
+                    {formatMoney(tpl.amount)}
                   </b>
                 </div>
                 <div className="flex gap-2 mt-2">
                   <Button
                     variant="soft"
                     className="flex-1 min-h-[48px] text-[13.5px]"
-                    onClick={() => setRecurringSheet({ mode: 'edit', template: t })}
+                    onClick={() => setRecurringSheet({ mode: 'edit', template: tpl })}
                   >
-                    تعديل
+                    {t('money.edit')}
                   </Button>
                   <Button
                     variant="ghost"
                     className="flex-1 min-h-[48px] text-[13.5px] text-bad-text border-bad/40"
                     disabled={delRecurring.isPending}
                     onClick={() =>
-                      delRecurring.mutate(t.id, {
-                        onSuccess: () => toast('اتحذف المصروف الثابت'),
-                        onError: () => toast('حصل خطأ أثناء الحذف'),
+                      delRecurring.mutate(tpl.id, {
+                        onSuccess: () => toast(t('money.templateDeletedToast')),
+                        onError: () => toast(t('money.deleteErrorToast')),
                       })
                     }
                   >
-                    حذف القالب
+                    {t('money.deleteTemplate')}
                   </Button>
                 </div>
               </Card>
             ))
           )}
           <p className="text-muted text-[13.5px] mt-1">
-            حذف القالب بيوقفه من الشهور الجاية بس، والمصروفات اللي اتطبقت منه قبل كده بتفضل
-            موجودة زي ما هي.
+            {t('money.recurringNote')}
           </p>
         </>
       )}

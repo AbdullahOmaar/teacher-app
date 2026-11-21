@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, CloudOff, RefreshCw, TriangleAlert } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import type { OfflineSyncState } from './useOfflineSync'
+import { t } from '../../i18n'
 
 /**
  * شريط حالة مزامنة الحضور أوفلاين (خطوة 11) — يعيش أعلى شاشة الحضور:
@@ -42,8 +43,8 @@ export function SyncStatusBar({
       >
         <CloudOff size={20} className="shrink-0" />
         <span className="flex-1">
-          غير متصل — التغييرات بتتحفظ على الجهاز وهتتزامن تلقائياً أول ما النت يرجع.
-          {pendingCount > 0 ? ` (${pendingCount} قيد الانتظار)` : ''}
+          {t('attendance.syncOffline')}
+          {pendingCount > 0 ? t('attendance.syncOfflinePending', { count: pendingCount }) : ''}
         </span>
       </div>
     )
@@ -57,8 +58,8 @@ export function SyncStatusBar({
       >
         <TriangleAlert size={20} className="shrink-0" />
         <span className="flex-1">
-          {failedCount} تغيير حضور فشل حفظه نهائياً في الخادم (مش مشكلة نت) ومحتاج مراجعة.
-          {pendingCount > 0 ? ` ولسه فيه ${pendingCount} قيد الانتظار.` : ''}
+          {t('attendance.syncFailed', { count: failedCount })}
+          {pendingCount > 0 ? t('attendance.syncFailedPending', { count: pendingCount }) : ''}
         </span>
         <Button
           variant="soft"
@@ -67,7 +68,7 @@ export function SyncStatusBar({
           disabled={syncing}
         >
           <RefreshCw size={18} />
-          إعادة المحاولة
+          {t('common.retry')}
         </Button>
       </div>
     )
@@ -82,8 +83,8 @@ export function SyncStatusBar({
         <RefreshCw size={20} className={`shrink-0 ${syncing ? 'animate-spin' : ''}`} />
         <span className="flex-1">
           {syncing
-            ? 'جارٍ المزامنة دلوقتي…'
-            : `${pendingCount} تغيير حضور قيد الانتظار — هيتزامن تلقائياً، أو زامنه بنفسك.`}
+            ? t('attendance.syncingNow')
+            : t('attendance.syncPending', { count: pendingCount })}
         </span>
         {!syncing && (
           <Button
@@ -92,7 +93,7 @@ export function SyncStatusBar({
             onClick={sync.syncNow}
           >
             <RefreshCw size={18} />
-            مزامنة الآن
+            {t('attendance.syncNow')}
           </Button>
         )}
       </div>
@@ -106,7 +107,7 @@ export function SyncStatusBar({
         className="border border-border bg-soft rounded-xl px-3 py-2.5 mb-3 text-[13.5px] font-semibold text-muted flex items-center gap-2"
       >
         <RefreshCw size={20} className="shrink-0 animate-spin" />
-        جارٍ المزامنة…
+        {t('attendance.syncing')}
       </div>
     )
   }
@@ -118,7 +119,7 @@ export function SyncStatusBar({
         className="border border-ok/30 bg-ok-soft rounded-xl px-3 py-2.5 mb-3 text-[13.5px] font-semibold text-ok-text flex items-center gap-2"
       >
         <CheckCircle2 size={20} className="shrink-0" />
-        تمت المزامنة — {lastSync.synced} تغيير وصل الخادم.
+        {t('attendance.syncDone', { synced: lastSync.synced })}
       </div>
     )
   }

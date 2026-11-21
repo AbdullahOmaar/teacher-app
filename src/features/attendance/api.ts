@@ -1,4 +1,5 @@
-import { supabase } from '../../lib/supabase'
+import { t } from '../../i18n'
+import { db } from '../../lib/supabase'
 import { waLink } from '../../lib/format'
 import type { AttendanceRow, AttendanceStatus, StudentRow } from '../../types/database'
 import { fetchSessionsInRange, monthStartStr, type SessionWithGroup } from '../home/api'
@@ -7,28 +8,23 @@ import { logActivity, logAttendanceTouch } from '../activity/api'
 export { fetchSessionsInRange, monthStartStr }
 export type { SessionWithGroup }
 
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
-
 // ---------------------------------------------------------------------------
 // حالات الحضور الأربع — enum ‏attendance_status في المخطط حرفياً (p/a/l/m)،
 // والأسماء والألوان من المرجع §2.4. الحضور الفعلي = p/l/m في كل الحسابات.
 // ---------------------------------------------------------------------------
 
 export const ATTENDANCE_STATUSES: { code: AttendanceStatus; label: string }[] = [
-  { code: 'p', label: 'حاضر' },
-  { code: 'a', label: 'غائب' },
-  { code: 'l', label: 'متأخر' },
-  { code: 'm', label: 'تعويضية' },
+  { code: 'p', label: t('attendance.statusPresent') },
+  { code: 'a', label: t('attendance.statusAbsent') },
+  { code: 'l', label: t('attendance.statusLate') },
+  { code: 'm', label: t('attendance.statusMakeup') },
 ]
 
 export const STATUS_LABELS: Record<AttendanceStatus, string> = {
-  p: 'حاضر',
-  a: 'غائب',
-  l: 'متأخر',
-  m: 'تعويضية',
+  p: t('attendance.statusPresent'),
+  a: t('attendance.statusAbsent'),
+  l: t('attendance.statusLate'),
+  m: t('attendance.statusMakeup'),
 }
 
 /**
@@ -192,7 +188,9 @@ export function resolveGuardian(
       contact?.name ??
       (student.guardian_name?.trim()
         ? student.guardian_name
-        : `ولي أمر ${student.name.trim().split(/\s+/)[0] ?? ''}`.trim()),
+        : t('attendance.guardianFallback', {
+            firstName: student.name.trim().split(/\s+/)[0] ?? '',
+          }).trim()),
     phone: contact?.phone ?? student.guardian_phone ?? student.phone,
   }
 }
@@ -210,7 +208,11 @@ export function absenceWaUrl(
   const { name: guardianName, phone } = resolveGuardian(student, contact)
   const base = waLink(phone)
   if (!base) return null
-  const msg = `أهلاً ${guardianName}، نحيطكم علماً بتغيب الطالب ${student.name} عن حصة ${sessionDate}.`
+  const msg = t('attendance.absenceWaMessage', {
+    guardian: guardianName,
+    name: student.name,
+    date: sessionDate,
+  })
   return `${base}?text=${encodeURIComponent(msg)}`
 }
 
@@ -269,13 +271,21 @@ export async function saveAttendance(
   logAttendanceTouch(teacherId, sessionId, studentId)
 }
 
-/** حفظ جماعي (حاضر للكل): upsert واحد لكل الطلاب ذوي القيم غير الفارغة */
-export async function saveManyAttendance(
+type AttendanceUpsertRow = {
+  teacher_id: string
+  session_id: string
+  student_id: string
+  status: AttendanceStatus | null
+  homework_done: boolean
+  starred: boolean
+}
+
+function buildUpsertRows(
   teacherId: string,
   sessionId: string,
   entries: { studentId: string; value: AttendanceValue }[],
-): Promise<void> {
-  const rows = entries
+): AttendanceUpsertRow[] {
+  return entries
     .filter((e) => !isEmptyValue(e.value))
     .map((e) => ({
       teacher_id: teacherId,
@@ -285,23 +295,74 @@ export async function saveManyAttendance(
       homework_done: e.value.homework_done,
       starred: e.value.starred,
     }))
-  if (rows.length === 0) return
-  const { error } = await db()
-    .from('attendance')
-    .upsert(rows, { onConflict: 'session_id,student_id' })
-  if (error) throw error
-  // سجل النشاط: حدث واحد تجميعي للحصة كلها (لا صف لكل طالب) — فاشل-safe
+}
+
+/** حدث نشاط تجميعي واحد لحفظ حصة (لا صف لكل طالب) — فاشل-safe */
+function logBatchSaved(
+  teacherId: string,
+  sessionId: string,
+  rows: AttendanceUpsertRow[],
+  totalCount: number,
+): void {
   void logActivity(teacherId, {
     event_type: 'attendance_saved',
     entity_type: 'session',
     entity_id: sessionId,
     details: {
-      student_count: rows.length,
+      student_count: totalCount,
       present_count: rows.filter((r) => r.status === 'p' || r.status === 'l' || r.status === 'm')
         .length,
       absent_count: rows.filter((r) => r.status === 'a').length,
     },
   })
+}
+
+/** حفظ جماعي (حاضر للكل): upsert واحد لكل الطلاب ذوي القيم غير الفارغة */
+export async function saveManyAttendance(
+  teacherId: string,
+  sessionId: string,
+  entries: { studentId: string; value: AttendanceValue }[],
+): Promise<void> {
+  const rows = buildUpsertRows(teacherId, sessionId, entries)
+  if (rows.length === 0) return
+  const { error } = await db()
+    .from('attendance')
+    .upsert(rows, { onConflict: 'session_id,student_id' })
+  if (error) throw error
+  logBatchSaved(teacherId, sessionId, rows, rows.length)
+}
+
+/**
+ * حفظ دفعة مزامنة كاملة لحصة (أداء 3A-296): كل تغييرات الحصة المعلّقة في
+ * طلبين على الأكثر — upsert جماعي للقيم غير الفارغة + حذف جماعي لصفوف
+ * القيم الفارغة تماماً (نفس عقد saveAttendance الفردي: لا صف بلا قيمة).
+ * Idempotent: إعادة إرسال نفس الدفعة تعطي نفس النتيجة، فهي آمنة كوحدة
+ * مزامنة لقائمة الأوفلاين. لا تمس left_at (upsert يحدّث أعمدته فقط).
+ */
+export async function saveAttendanceBatch(
+  teacherId: string,
+  sessionId: string,
+  entries: { studentId: string; value: AttendanceValue }[],
+): Promise<void> {
+  if (entries.length === 0) return
+  const rows = buildUpsertRows(teacherId, sessionId, entries)
+  if (rows.length > 0) {
+    const { error } = await db()
+      .from('attendance')
+      .upsert(rows, { onConflict: 'session_id,student_id' })
+    if (error) throw error
+  }
+  const deletionIds = entries.filter((e) => isEmptyValue(e.value)).map((e) => e.studentId)
+  if (deletionIds.length > 0) {
+    const { error } = await db()
+      .from('attendance')
+      .delete()
+      .eq('teacher_id', teacherId)
+      .eq('session_id', sessionId)
+      .in('student_id', deletionIds)
+    if (error) throw error
+  }
+  logBatchSaved(teacherId, sessionId, rows, entries.length)
 }
 
 // ---------------------------------------------------------------------------
@@ -363,8 +424,14 @@ export function arrivalMessage(
   ctx: ArrivalWaContext,
 ): string {
   const { name: guardianName } = resolveGuardian(student, contact)
-  const place = ctx.centreName ? ` إلى ${ctx.centreName}` : ''
-  return `أهلاً ${guardianName}، نحيطكم علماً بوصول الطالب ${student.name}${place} — حصة ${ctx.groupName} بتاريخ ${ctx.sessionDate}.`
+  const place = ctx.centreName ? t('attendance.arrivalPlace', { centre: ctx.centreName }) : ''
+  return t('attendance.arrivalWaMessage', {
+    guardian: guardianName,
+    name: student.name,
+    place,
+    group: ctx.groupName,
+    date: ctx.sessionDate,
+  })
 }
 
 /** نص رسالة المغادرة الموحّد — يُستخدم في رابط wa.me وفي «نسخ الكل» معاً */
@@ -374,8 +441,14 @@ export function departureMessage(
   ctx: ArrivalWaContext,
 ): string {
   const { name: guardianName } = resolveGuardian(student, contact)
-  const place = ctx.centreName ? ` من ${ctx.centreName}` : ''
-  return `أهلاً ${guardianName}، نحيطكم علماً بمغادرة الطالب ${student.name}${place} — حصة ${ctx.groupName} بتاريخ ${ctx.sessionDate}.`
+  const place = ctx.centreName ? t('attendance.departurePlace', { centre: ctx.centreName }) : ''
+  return t('attendance.departureWaMessage', {
+    guardian: guardianName,
+    name: student.name,
+    place,
+    group: ctx.groupName,
+    date: ctx.sessionDate,
+  })
 }
 
 export function arrivalWaUrl(

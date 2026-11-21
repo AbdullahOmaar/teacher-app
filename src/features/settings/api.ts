@@ -1,4 +1,5 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
+import { t } from '../../i18n'
 import { csvEsc, toCsv } from '../../lib/csv'
 
 export { csvEsc, toCsv }
@@ -14,11 +15,6 @@ import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import { STATUS_LABELS } from '../attendance/api'
 import { createStudent, upsertEnrollment } from '../students/api'
 import { fetchGroups } from '../groups/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ===========================================================================
 // الخطوة 10 — التصدير والنسخ الاحتياطي والإعدادات (المواصفات §3.14/§3.15/
@@ -41,16 +37,16 @@ const SETTINGS_COLS =
   'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, last_export_at, created_at, updated_at'
 
 export const THEME_MODES: { code: ThemeMode; label: string }[] = [
-  { code: 'auto', label: 'تلقائي' },
-  { code: 'light', label: 'فاتح' },
-  { code: 'dark', label: 'داكن' },
+  { code: 'auto', label: t('settings.settingsApiThemeAuto') },
+  { code: 'light', label: t('settings.settingsApiThemeLight') },
+  { code: 'dark', label: t('settings.settingsApiThemeDark') },
 ]
 
 export const REMINDER_OPTIONS: { minutes: number; label: string }[] = [
-  { minutes: 0, label: 'بدون تذكير' },
-  { minutes: 15, label: '15 دقيقة' },
-  { minutes: 30, label: '30 دقيقة' },
-  { minutes: 60, label: 'ساعة' },
+  { minutes: 0, label: t('settings.settingsApiReminderNone') },
+  { minutes: 15, label: t('settings.settingsApiReminder15') },
+  { minutes: 30, label: t('settings.settingsApiReminder30') },
+  { minutes: 60, label: t('settings.settingsApiReminder60') },
 ]
 
 const REMINDER_VALUES = [0, 15, 30, 60]
@@ -93,44 +89,44 @@ export async function updateTeacherSettings(
   input: TeacherSettingsInput,
 ): Promise<TeacherSettingsRow> {
   const tpl = input.whatsapp_template.trim()
-  if (!tpl) throw new Error('قالب رسالة الواتساب لا يمكن أن يكون فارغاً')
+  if (!tpl) throw new Error(t('settings.settingsApiWaTemplateEmpty'))
   if (
     !Number.isFinite(input.center_share_percent) ||
     input.center_share_percent < 0 ||
     input.center_share_percent > 100
   ) {
-    throw new Error('نسبة السنتر لازم تكون بين 0 و 100')
+    throw new Error(t('settings.settingsApiCentreShareRange'))
   }
   if (!REMINDER_VALUES.includes(input.reminder_minutes)) {
-    throw new Error('قيمة التذكير غير صالحة — اختر 0 أو 15 أو 30 أو 60 دقيقة')
+    throw new Error(t('settings.settingsApiReminderInvalid'))
   }
-  if (!isThemeMode(input.theme)) throw new Error('قيمة المظهر غير صالحة')
+  if (!isThemeMode(input.theme)) throw new Error(t('settings.settingsApiThemeInvalid'))
 
   // الهوية البيضاء: الاسم يُقصّ (فارغ = null = افتراضي) وبحد أقصى 80 حرفاً
   // (نفس قيد المخطط)، واللهجة #RRGGBB فقط أو null — التحقق هنا حتى لا
   // تصل قيمة مكسورة لأي سطح عرض (كارت/إيصال/بوابة).
   const brandName = input.brand_name?.trim() ? input.brand_name.trim() : null
   if (brandName && brandName.length > 80) {
-    throw new Error('اسم السنتر طويل أوي — 80 حرف كحد أقصى')
+    throw new Error(t('settings.settingsApiBrandNameTooLong'))
   }
   const brandAccent =
     input.brand_accent == null ? null : input.brand_accent.trim().toLowerCase()
   if (brandAccent !== null && !isValidAccent(brandAccent)) {
-    throw new Error('لون اللهجة غير صالح — لازم يكون بصيغة #RRGGBB')
+    throw new Error(t('settings.settingsApiAccentInvalid'))
   }
   const brandLogoPath = input.brand_logo_path?.trim()
     ? input.brand_logo_path.trim()
     : null
   // مسار الشعار لا يُقبل إلا داخل مجلد المدرس نفسه (نفس قيد سياسات Storage)
   if (brandLogoPath && !brandLogoPath.startsWith(`${teacherId}/`)) {
-    throw new Error('مسار الشعار غير صالح')
+    throw new Error(t('settings.settingsApiLogoPathInvalid'))
   }
 
   if (
     input.push_daily_digest_time !== undefined &&
     !isValidDigestTime(input.push_daily_digest_time)
   ) {
-    throw new Error('وقت الملخص اليومي غير صالح — لازم يكون بصيغة HH:MM')
+    throw new Error(t('settings.settingsApiDigestTimeInvalid'))
   }
 
   const { data, error } = await db()
@@ -174,7 +170,7 @@ export async function updatePushDigestSettings(
   input: { enabled: boolean; time: string },
 ): Promise<TeacherSettingsRow> {
   if (!isValidDigestTime(input.time)) {
-    throw new Error('وقت الملخص اليومي غير صالح — لازم يكون بصيغة HH:MM')
+    throw new Error(t('settings.settingsApiDigestTimeInvalid'))
   }
   const { data, error } = await db()
     .from('teacher_settings')
@@ -204,9 +200,9 @@ export async function updatePushDigestSettings(
 /** رفع/استبدال شعار السنتر — يعيد مسار الشعار الجديد */
 export async function uploadBrandLogo(teacherId: string, file: File): Promise<string> {
   const ext = BRAND_LOGO_MIME_EXT[file.type]
-  if (!ext) throw new Error('اختار صورة شعار بصيغة JPG أو PNG أو WebP.')
+  if (!ext) throw new Error(t('settings.settingsApiLogoFormatInvalid'))
   if (file.size > BRAND_LOGO_MAX_BYTES) {
-    throw new Error('الشعار كبير أوي (أكتر من 2 ميجا) — اختار صورة أصغر.')
+    throw new Error(t('settings.settingsApiLogoTooLarge'))
   }
   const supa = db()
   const { data: current } = await supa
@@ -221,7 +217,7 @@ export async function uploadBrandLogo(teacherId: string, file: File): Promise<st
   const { error: upErr } = await supa.storage
     .from(BRAND_BUCKET)
     .upload(path, file, { contentType: file.type, upsert: true })
-  if (upErr) throw new Error('ماقدرناش نرفع الشعار — اتأكد من النت وحاول تاني.')
+  if (upErr) throw new Error(t('settings.settingsApiLogoUploadFailedApi'))
 
   const { error } = await supa
     .from('teacher_settings')
@@ -343,12 +339,12 @@ async function fetchPaged<T>(
 export type CsvKind = 'students' | 'invoices' | 'payments' | 'attendance' | 'scores' | 'expenses'
 
 export const CSV_KINDS: { kind: CsvKind; label: string; hint: string }[] = [
-  { kind: 'students', label: 'الطلاب', hint: 'كل الطلاب وبيانات التواصل والمجموعات' },
-  { kind: 'invoices', label: 'الفواتير', hint: 'الشهر، الطالب، المجموعة، الإجمالي والمدفوع والمتبقي' },
-  { kind: 'payments', label: 'الدفعات', hint: 'التاريخ، رقم الإيصال، الطالب، المبلغ والطريقة' },
-  { kind: 'attendance', label: 'الحضور', hint: 'كل حالات الحضور المسجلة بأسمائها العربية' },
-  { kind: 'scores', label: 'الدرجات', hint: 'الامتحان، الطالب، الدرجة والنهائية والنسبة' },
-  { kind: 'expenses', label: 'المصروفات', hint: 'التاريخ، النوع، المبلغ والملاحظة' },
+  { kind: 'students', label: t('settings.settingsApiCsvStudentsLabel'), hint: t('settings.settingsApiCsvStudentsHint') },
+  { kind: 'invoices', label: t('settings.settingsApiCsvInvoicesLabel'), hint: t('settings.settingsApiCsvInvoicesHint') },
+  { kind: 'payments', label: t('settings.settingsApiCsvPaymentsLabel'), hint: t('settings.settingsApiCsvPaymentsHint') },
+  { kind: 'attendance', label: t('settings.settingsApiCsvAttendanceLabel'), hint: t('settings.settingsApiCsvAttendanceHint') },
+  { kind: 'scores', label: t('settings.settingsApiCsvScoresLabel'), hint: t('settings.settingsApiCsvScoresHint') },
+  { kind: 'expenses', label: t('settings.settingsApiCsvExpensesLabel'), hint: t('settings.settingsApiCsvExpensesHint') },
 ]
 
 export interface CsvResult {
@@ -388,7 +384,7 @@ async function buildStudentsCsv(teacherId: string): Promise<{ headers: string[];
     groupsByStudent.set(e.student_id, list)
   }
   return {
-    headers: ['الكود', 'الاسم', 'الصف', 'المدرسة', 'موبايل الطالب', 'ولي الأمر', 'موبايل ولي الأمر', 'المجموعات', 'الحالة', 'ملاحظة المستوى'],
+    headers: [t('settings.settingsApiColCode'), t('settings.settingsApiColName'), t('settings.settingsApiColGrade'), t('settings.settingsApiColSchool'), t('settings.settingsApiColStudentPhone'), t('settings.settingsApiColGuardian'), t('settings.settingsApiColGuardianPhone'), t('settings.settingsApiColGroups'), t('settings.settingsApiColStatus'), t('settings.settingsApiColLevelNote')],
     rows: students.map((s) => [
       s.public_code,
       s.name,
@@ -397,8 +393,8 @@ async function buildStudentsCsv(teacherId: string): Promise<{ headers: string[];
       s.phone,
       s.guardian_name,
       s.guardian_phone,
-      (groupsByStudent.get(s.id as string) ?? []).join('، '),
-      s.paused ? 'موقوف' : 'نشط',
+      (groupsByStudent.get(s.id as string) ?? []).join(t('settings.joinSeparator')),
+      s.paused ? t('settings.settingsApiStudentPaused') : t('settings.settingsApiStudentActive'),
       s.level_note,
     ]),
   }
@@ -425,7 +421,7 @@ async function buildInvoicesCsv(teacherId: string): Promise<{ headers: string[];
   const balById = new Map(balances.map((b) => [b.invoice_id as string, b]))
   return {
     // أعمدة المرجع §5.8 حرفياً: الشهر، الكود، الطالب، المجموعة، الإجمالي، المدفوع، المتبقي
-    headers: ['الشهر', 'الكود', 'الطالب', 'المجموعة', 'الإجمالي', 'المدفوع', 'المتبقي'],
+    headers: [t('settings.settingsApiColMonth'), t('settings.settingsApiColCode'), t('settings.settingsApiColStudent'), t('settings.settingsApiColGroup'), t('settings.settingsApiColTotal'), t('settings.settingsApiColPaid'), t('settings.settingsApiColBalance')],
     rows: invoices.map((inv) => {
       const st = (inv.students ?? {}) as { name?: string; public_code?: string }
       const g = (inv.groups ?? {}) as { name?: string }
@@ -455,7 +451,7 @@ async function buildPaymentsCsv(teacherId: string): Promise<{ headers: string[];
   )
   return {
     // أعمدة المرجع §5.8 حرفياً: التاريخ، رقم الإيصال، الطالب، الشهر، المبلغ، الطريقة
-    headers: ['التاريخ', 'رقم الإيصال', 'الطالب', 'الشهر', 'المبلغ', 'الطريقة'],
+    headers: [t('settings.settingsApiColDate'), t('settings.settingsApiColReceiptNo'), t('settings.settingsApiColStudent'), t('settings.settingsApiColMonth'), t('settings.settingsApiColAmount'), t('settings.settingsApiColMethod')],
     rows: payments.map((p) => {
       const inv = (p.invoices ?? {}) as {
         period_month?: string
@@ -500,7 +496,7 @@ async function buildAttendanceCsv(teacherId: string): Promise<{ headers: string[
   )
   return {
     // أعمدة المرجع §5.8 حرفياً: التاريخ، المجموعة، الطالب، الحالة (بالاسم العربي)
-    headers: ['التاريخ', 'المجموعة', 'الطالب', 'الحالة'],
+    headers: [t('settings.settingsApiColDate'), t('settings.settingsApiColGroup'), t('settings.settingsApiColStudent'), t('settings.settingsApiColStatus')],
     rows: flat.map((f) => [f.date, f.group, f.student, f.label]),
   }
 }
@@ -536,7 +532,7 @@ async function buildScoresCsv(teacherId: string): Promise<{ headers: string[]; r
   flat.sort((a, b) => b.date.localeCompare(a.date) || a.student.localeCompare(b.student))
   return {
     // أعمدة المرجع §5.8 حرفياً: التاريخ، الامتحان، المجموعة، الطالب، الدرجة، النهائية، النسبة%
-    headers: ['التاريخ', 'الامتحان', 'المجموعة', 'الطالب', 'الدرجة', 'النهائية', 'النسبة%'],
+    headers: [t('settings.settingsApiColDate'), t('settings.settingsApiColExam'), t('settings.settingsApiColGroup'), t('settings.settingsApiColStudent'), t('settings.settingsApiColScore'), t('settings.settingsApiColMaxScore'), t('settings.settingsApiColPct')],
     rows: flat.map((f) => [f.date, f.title, f.group, f.student, f.score, f.max, f.pct]),
   }
 }
@@ -553,7 +549,7 @@ async function buildExpensesCsv(teacherId: string): Promise<{ headers: string[];
   )
   return {
     // أعمدة المرجع §5.8 حرفياً: التاريخ، النوع، المبلغ، ملاحظة
-    headers: ['التاريخ', 'النوع', 'المبلغ', 'ملاحظة'],
+    headers: [t('settings.settingsApiColDate'), t('settings.settingsApiColCategory'), t('settings.settingsApiColAmount'), t('settings.settingsApiColNote')],
     rows: expenses.map((e) => [e.expense_date, e.category, Number(e.amount) || 0, e.note]),
   }
 }
@@ -616,7 +612,7 @@ export async function quickImportStudents(
         grade: null,
         school: null,
         phone,
-        guardian_name: `ولي أمر ${name.split(/\s+/)[0]}`,
+        guardian_name: t('settings.settingsApiGuardianDefault', { firstName: name.split(/\s+/)[0] }),
         guardian_phone: null,
         level_note: null,
         paused: false,
@@ -637,7 +633,7 @@ export async function quickImportStudents(
       }
     } catch (err) {
       result.errors.push(
-        `«${name}»: ${err instanceof Error ? err.message : 'تعذّرت الإضافة'}`,
+        t('settings.settingsApiQuickImportLineError', { name, message: err instanceof Error ? err.message : t('settings.settingsApiAddFailed') }),
       )
     }
   }
@@ -701,37 +697,37 @@ export interface BackupTableSpec {
 
 /** الترتيب = ترتيب الاستيراد الآمن حسب اعتماد المفاتيح الخارجية */
 export const BACKUP_TABLES: BackupTableSpec[] = [
-  { key: 'groups', table: 'groups', label: 'المجموعات', pk: ['id'], columns: ['id', 'teacher_id', 'name', 'billing_type', 'price', 'days', 'start_time', 'duration_minutes', 'room', 'capacity', 'assistant_name', 'links', 'archived_at', 'created_at', 'updated_at'] },
-  { key: 'students', table: 'students', label: 'الطلاب', pk: ['id'], columns: ['id', 'teacher_id', 'public_code', 'name', 'grade', 'school', 'paused', 'phone', 'guardian_name', 'guardian_phone', 'level_note', 'created_at', 'updated_at'] },
-  { key: 'guardians', table: 'guardians', label: 'أولياء الأمور', pk: ['id'], columns: ['id', 'teacher_id', 'user_id', 'display_name', 'phone', 'created_at', 'updated_at'] },
-  { key: 'group_waitlist', table: 'group_waitlist', label: 'قوائم الانتظار', pk: ['id'], columns: ['id', 'teacher_id', 'group_id', 'name', 'phone', 'note', 'source', 'wants_trial', 'created_at'] },
-  { key: 'student_notes', table: 'student_notes', label: 'ملاحظات الطلاب', pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'note_date', 'text', 'created_at'] },
-  { key: 'enrollments', table: 'enrollments', label: 'تسجيلات الطلاب', pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'group_id', 'price_override', 'prepaid_sessions', 'created_at'] },
-  { key: 'holidays', table: 'holidays', label: 'الإجازات', pk: ['id'], columns: ['id', 'teacher_id', 'holiday_date', 'name', 'created_at'] },
-  { key: 'recurring_expenses', table: 'recurring_expenses', label: 'المصروفات الثابتة', pk: ['id'], columns: ['id', 'teacher_id', 'category', 'amount', 'note', 'created_at', 'updated_at'] },
-  { key: 'expenses', table: 'expenses', label: 'المصروفات', pk: ['id'], columns: ['id', 'teacher_id', 'expense_date', 'category', 'amount', 'note', 'created_at'] },
-  { key: 'sessions', table: 'sessions', label: 'الحصص', pk: ['id'], columns: ['id', 'teacher_id', 'group_id', 'session_date', 'start_time', 'duration_minutes', 'kind', 'status', 'origin_session_id', 'note', 'created_at', 'updated_at'] },
-  { key: 'invoices', table: 'invoices', label: 'الفواتير', pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'group_id', 'period_month', 'created_at'] },
-  { key: 'assessments', table: 'assessments', label: 'الامتحانات والواجبات', pk: ['id'], columns: ['id', 'teacher_id', 'group_id', 'title', 'type', 'assess_date', 'max_score', 'pass_score', 'created_at', 'updated_at'] },
-  { key: 'invoice_lines', table: 'invoice_lines', label: 'بنود الفواتير', pk: ['id'], columns: ['id', 'teacher_id', 'invoice_id', 'line_type', 'description', 'amount', 'reason', 'created_at'] },
-  { key: 'payments', table: 'payments', label: 'الدفعات', pk: ['id'], columns: ['id', 'teacher_id', 'invoice_id', 'amount', 'method', 'paid_on', 'receipt_no', 'reverses_payment_id', 'voided', 'created_at'] },
-  { key: 'attendance', table: 'attendance', label: 'الحضور', pk: ['session_id', 'student_id'], columns: ['teacher_id', 'session_id', 'student_id', 'status', 'homework_done', 'starred', 'left_at', 'created_at', 'updated_at'] },
-  { key: 'assessment_questions', table: 'assessment_questions', label: 'أسئلة الامتحانات', pk: ['id'], columns: ['id', 'teacher_id', 'assessment_id', 'position', 'type', 'text', 'options', 'correct_answer', 'points', 'created_at'] },
-  { key: 'scores', table: 'scores', label: 'الدرجات', pk: ['assessment_id', 'student_id'], columns: ['teacher_id', 'assessment_id', 'student_id', 'score', 'source', 'exam_attempt_id', 'created_at', 'updated_at'] },
-  { key: 'guardian_students', table: 'guardian_students', label: 'ربط أولياء الأمور بالطلاب', pk: ['guardian_id', 'student_id'], columns: ['teacher_id', 'guardian_id', 'student_id', 'relationship', 'created_at'] },
-  { key: 'receipt_counters', table: 'receipt_counters', label: 'عدّادات الإيصالات', pk: ['counter_year'], columns: ['teacher_id', 'counter_year', 'last_number'] },
+  { key: 'groups', table: 'groups', label: t('settings.settingsApiBackupGroups'), pk: ['id'], columns: ['id', 'teacher_id', 'name', 'billing_type', 'price', 'days', 'start_time', 'duration_minutes', 'room', 'capacity', 'assistant_name', 'links', 'archived_at', 'created_at', 'updated_at'] },
+  { key: 'students', table: 'students', label: t('settings.settingsApiBackupStudents'), pk: ['id'], columns: ['id', 'teacher_id', 'public_code', 'name', 'grade', 'school', 'paused', 'phone', 'guardian_name', 'guardian_phone', 'level_note', 'created_at', 'updated_at'] },
+  { key: 'guardians', table: 'guardians', label: t('settings.settingsApiBackupGuardians'), pk: ['id'], columns: ['id', 'teacher_id', 'user_id', 'display_name', 'phone', 'created_at', 'updated_at'] },
+  { key: 'group_waitlist', table: 'group_waitlist', label: t('settings.settingsApiBackupGroupWaitlist'), pk: ['id'], columns: ['id', 'teacher_id', 'group_id', 'name', 'phone', 'note', 'source', 'wants_trial', 'created_at'] },
+  { key: 'student_notes', table: 'student_notes', label: t('settings.settingsApiBackupStudentNotes'), pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'note_date', 'text', 'created_at'] },
+  { key: 'enrollments', table: 'enrollments', label: t('settings.settingsApiBackupEnrollments'), pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'group_id', 'price_override', 'prepaid_sessions', 'created_at'] },
+  { key: 'holidays', table: 'holidays', label: t('settings.settingsApiBackupHolidays'), pk: ['id'], columns: ['id', 'teacher_id', 'holiday_date', 'name', 'created_at'] },
+  { key: 'recurring_expenses', table: 'recurring_expenses', label: t('settings.settingsApiBackupRecurringExpenses'), pk: ['id'], columns: ['id', 'teacher_id', 'category', 'amount', 'note', 'created_at', 'updated_at'] },
+  { key: 'expenses', table: 'expenses', label: t('settings.settingsApiBackupExpenses'), pk: ['id'], columns: ['id', 'teacher_id', 'expense_date', 'category', 'amount', 'note', 'created_at'] },
+  { key: 'sessions', table: 'sessions', label: t('settings.settingsApiBackupSessions'), pk: ['id'], columns: ['id', 'teacher_id', 'group_id', 'session_date', 'start_time', 'duration_minutes', 'kind', 'status', 'origin_session_id', 'note', 'created_at', 'updated_at'] },
+  { key: 'invoices', table: 'invoices', label: t('settings.settingsApiBackupInvoices'), pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'group_id', 'period_month', 'created_at'] },
+  { key: 'assessments', table: 'assessments', label: t('settings.settingsApiBackupAssessments'), pk: ['id'], columns: ['id', 'teacher_id', 'group_id', 'title', 'type', 'assess_date', 'max_score', 'pass_score', 'created_at', 'updated_at'] },
+  { key: 'invoice_lines', table: 'invoice_lines', label: t('settings.settingsApiBackupInvoiceLines'), pk: ['id'], columns: ['id', 'teacher_id', 'invoice_id', 'line_type', 'description', 'amount', 'reason', 'created_at'] },
+  { key: 'payments', table: 'payments', label: t('settings.settingsApiBackupPayments'), pk: ['id'], columns: ['id', 'teacher_id', 'invoice_id', 'amount', 'method', 'paid_on', 'receipt_no', 'reverses_payment_id', 'voided', 'created_at'] },
+  { key: 'attendance', table: 'attendance', label: t('settings.settingsApiBackupAttendance'), pk: ['session_id', 'student_id'], columns: ['teacher_id', 'session_id', 'student_id', 'status', 'homework_done', 'starred', 'left_at', 'created_at', 'updated_at'] },
+  { key: 'assessment_questions', table: 'assessment_questions', label: t('settings.settingsApiBackupAssessmentQuestions'), pk: ['id'], columns: ['id', 'teacher_id', 'assessment_id', 'position', 'type', 'text', 'options', 'correct_answer', 'points', 'created_at'] },
+  { key: 'scores', table: 'scores', label: t('settings.settingsApiBackupScores'), pk: ['assessment_id', 'student_id'], columns: ['teacher_id', 'assessment_id', 'student_id', 'score', 'source', 'exam_attempt_id', 'created_at', 'updated_at'] },
+  { key: 'guardian_students', table: 'guardian_students', label: t('settings.settingsApiBackupGuardianStudents'), pk: ['guardian_id', 'student_id'], columns: ['teacher_id', 'guardian_id', 'student_id', 'relationship', 'created_at'] },
+  { key: 'receipt_counters', table: 'receipt_counters', label: t('settings.settingsApiBackupReceiptCounters'), pk: ['counter_year'], columns: ['teacher_id', 'counter_year', 'last_number'] },
   // Phase 2 (الخطوة 14): الجدولان في آخر الترتيب عمداً — daily_closings
   // بلا أي مفتاح خارجي داخل نطاق النسخة (closed_by يُعاد ربطه بالمستورِد
   // في toInsertRow)، وpayment_proofs يعتمد على guardians/students/
   // invoices/payments وكلها قبله في الترتيب، فالآخر هو الموضع الآمن.
-  { key: 'daily_closings', table: 'daily_closings', label: 'إغلاقات الخزنة اليومية', pk: ['id'], columns: ['id', 'teacher_id', 'closing_date', 'expected_cash', 'expected_electronic', 'expenses_total', 'counted_cash', 'counted_electronic', 'note', 'closed_by', 'created_at', 'updated_at'] },
+  { key: 'daily_closings', table: 'daily_closings', label: t('settings.settingsApiBackupDailyClosings'), pk: ['id'], columns: ['id', 'teacher_id', 'closing_date', 'expected_cash', 'expected_electronic', 'expenses_total', 'counted_cash', 'counted_electronic', 'note', 'closed_by', 'created_at', 'updated_at'] },
   // صفوف بيانات فقط — الصور في Storage وليست في ملف JSON (انظر الترويسة)
-  { key: 'payment_proofs', table: 'payment_proofs', label: 'إثباتات الدفع (صفوف فقط)', pk: ['id'], columns: ['id', 'teacher_id', 'guardian_id', 'student_id', 'invoice_id', 'amount', 'method', 'storage_path', 'status', 'rejection_reason', 'reviewed_by', 'reviewed_at', 'payment_id', 'uploaded_at', 'created_at', 'updated_at'] },
+  { key: 'payment_proofs', table: 'payment_proofs', label: t('settings.settingsApiBackupPaymentProofs'), pk: ['id'], columns: ['id', 'teacher_id', 'guardian_id', 'student_id', 'invoice_id', 'amount', 'method', 'storage_path', 'status', 'rejection_reason', 'reviewed_by', 'reviewed_at', 'payment_id', 'uploaded_at', 'created_at', 'updated_at'] },
   // Phase 3 (الخطوة 2): سجل النشاط (migration ‏0009) آخر الترتيب — يعتمد
   // على teachers فقط داخل نطاق النسخة، وactor_id (auth.users) يُعاد ربطه
   // بالمستورِد في toInsertRow كي لا يفشل قيده في بيئة جديدة، وتبقى لقطتا
   // actor_role/actor_name شاهدتين على الفاعل الأصلي كما هما.
-  { key: 'activity_log', table: 'activity_log', label: 'سجل النشاط', pk: ['id'], columns: ['id', 'teacher_id', 'actor_id', 'actor_role', 'actor_name', 'event_type', 'entity_type', 'entity_id', 'entity_label', 'details', 'created_at'] },
+  { key: 'activity_log', table: 'activity_log', label: t('settings.settingsApiBackupActivityLog'), pk: ['id'], columns: ['id', 'teacher_id', 'actor_id', 'actor_role', 'actor_name', 'event_type', 'entity_type', 'entity_id', 'entity_label', 'details', 'created_at'] },
   // Phase 3 (الخطوة 4): الامتحانات الإلكترونية (migration ‏0010) آخر
   // الترتيب — online_exams يعتمد على assessments/groups (قبله)،
   // وexam_attempts يعتمد عليه وعلى students (قبله)، فالآخر آمن.
@@ -739,14 +735,14 @@ export const BACKUP_TABLES: BackupTableSpec[] = [
   // وصول أمنية تُعاد توليدها من شاشة التقييم عند الحاجة. ودرجات
   // scores تحمل exam_attempt_id يشير لمحاولة تُستورد بعده — يُدخل
   // مؤقتاً بلا الرابط ويُصلَح في المرور الثاني (انظر importBackup).
-  { key: 'online_exams', table: 'online_exams', label: 'الامتحانات الإلكترونية', pk: ['id'], columns: ['id', 'teacher_id', 'assessment_id', 'group_id', 'status', 'duration_minutes', 'max_attempts', 'starts_at', 'ends_at', 'allow_review', 'shuffle_questions', 'shuffle_options', 'created_at', 'updated_at'] },
-  { key: 'exam_attempts', table: 'exam_attempts', label: 'محاولات الامتحانات الإلكترونية', pk: ['id'], columns: ['id', 'teacher_id', 'exam_id', 'student_id', 'attempt_no', 'status', 'seed', 'presentation', 'answers', 'started_at', 'submitted_at', 'score', 'max_score', 'pct', 'score_posted', 'created_at', 'updated_at'] },
+  { key: 'online_exams', table: 'online_exams', label: t('settings.settingsApiBackupOnlineExams'), pk: ['id'], columns: ['id', 'teacher_id', 'assessment_id', 'group_id', 'status', 'duration_minutes', 'max_attempts', 'starts_at', 'ends_at', 'allow_review', 'shuffle_questions', 'shuffle_options', 'created_at', 'updated_at'] },
+  { key: 'exam_attempts', table: 'exam_attempts', label: t('settings.settingsApiBackupExamAttempts'), pk: ['id'], columns: ['id', 'teacher_id', 'exam_id', 'student_id', 'attempt_no', 'status', 'seed', 'presentation', 'answers', 'started_at', 'submitted_at', 'score', 'max_score', 'pct', 'score_posted', 'created_at', 'updated_at'] },
   // Phase 3 (الخطوة 6): تنبيهات وصل/غادر لولي الأمر (migration ‏0012)
   // آخر الترتيب — تعتمد على students/guardians/sessions وكلها قبلها،
   // وقيدها الفريد (session+student+kind) مع تخطّي الموجود بالهوية
   // يجعل إعادة الاستيراد آمنة. guardian_id لقطة مستلم قد تشير لوليّ
   // مُستورد في نفس النسخة (guardians قبلها في الترتيب).
-  { key: 'guardian_notifications', table: 'guardian_notifications', label: 'تنبيهات وصول/مغادرة أولياء الأمور', pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'guardian_id', 'session_id', 'kind', 'event_at', 'read_at', 'created_at'] },
+  { key: 'guardian_notifications', table: 'guardian_notifications', label: t('settings.settingsApiBackupGuardianNotifications'), pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'guardian_id', 'session_id', 'kind', 'event_at', 'read_at', 'created_at'] },
   // Phase 4 (الخطوة 1): اشتراكات Web Push (migration ‏0013) آخر الترتيب —
   // تعتمد على guardians/students وكلاهما قبلها. الاشتراكات مرتبطة
   // بأجهزة المصدر: الصفوف المستعادة قد تشير لمتصفحات لم تعد موجودة،
@@ -754,17 +750,17 @@ export const BACKUP_TABLES: BackupTableSpec[] = [
   // user_id لاشتراكات teacher يُعاد ربطه بالمستورِد في toInsertRow
   // (مرجع auth.users)، وportal_token_id لقطة بلا قيد فتنتقل كما هي.
   // سجل الإرسال push_delivery_log تشخيصي عابر فلا يدخل النسخة.
-  { key: 'push_subscriptions', table: 'push_subscriptions', label: 'اشتراكات إشعارات Push', pk: ['id'], columns: ['id', 'teacher_id', 'subscriber_kind', 'user_id', 'portal_token_id', 'guardian_id', 'student_id', 'endpoint', 'p256dh', 'auth', 'user_agent', 'is_active', 'disabled_at', 'disabled_reason', 'failure_count', 'last_success_at', 'last_failure_at', 'created_at', 'updated_at'] },
+  { key: 'push_subscriptions', table: 'push_subscriptions', label: t('settings.settingsApiBackupPushSubscriptions'), pk: ['id'], columns: ['id', 'teacher_id', 'subscriber_kind', 'user_id', 'portal_token_id', 'guardian_id', 'student_id', 'endpoint', 'p256dh', 'auth', 'user_agent', 'is_active', 'disabled_at', 'disabled_reason', 'failure_count', 'last_success_at', 'last_failure_at', 'created_at', 'updated_at'] },
   // Phase 4 (الخطوة 3): سجل إرسال الملخص اليومي (migration ‏0015) آخر
   // الترتيب — يعتمد على teachers فقط داخل نطاق النسخة، وقيدُه الفريد
   // (teacher_id, digest_date) مع تخطّي الموجود بالهوية (pk مركّب هنا)
   // يجعل إعادة الاستيراد آمنة ولا تكسر منع تكرار الملخص في نفس اليوم.
-  { key: 'push_digest_log', table: 'push_digest_log', label: 'سجل ملخص Push اليومي', pk: ['digest_date'], columns: ['id', 'teacher_id', 'digest_date', 'sessions_count', 'overdue_count', 'overdue_amount', 'sent_at'] },
+  { key: 'push_digest_log', table: 'push_digest_log', label: t('settings.settingsApiBackupPushDigestLog'), pk: ['digest_date'], columns: ['id', 'teacher_id', 'digest_date', 'sessions_count', 'overdue_count', 'overdue_amount', 'sent_at'] },
   // Phase 5 (الخطوة 1): متابعات «معرّضون للفقد» (migration ‏0018) آخر
   // الترتيب — تعتمد على students (قبلها) فقط داخل نطاق النسخة،
   // وfollowed_by مرجع auth.users يُعاد ربطه بالمستورِد في toInsertRow
   // (نفس معالجة activity_log.actor_id) حتى لا يفشل قيده في بيئة جديدة.
-  { key: 'at_risk_followups', table: 'at_risk_followups', label: 'متابعات الطلاب المعرّضين للفقد', pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'followed_by', 'followed_at', 'note'] },
+  { key: 'at_risk_followups', table: 'at_risk_followups', label: t('settings.settingsApiBackupAtRiskFollowups'), pk: ['id'], columns: ['id', 'teacher_id', 'student_id', 'followed_by', 'followed_at', 'note'] },
 ]
 
 export interface BackupFile {
@@ -855,10 +851,10 @@ export function parseBackupJson(text: string): BackupValidation {
   try {
     obj = JSON.parse(text)
   } catch {
-    return { ok: false, errors: ['الملف مش JSON صالح — اتأكد إنك اخترت ملف نسخة سليم.'] }
+    return { ok: false, errors: [t('settings.settingsApiBackupNotJson')] }
   }
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
-    return { ok: false, errors: ['بنية الملف غير صحيحة — لازم يكون كائن JSON.'] }
+    return { ok: false, errors: [t('settings.settingsApiBackupBadStructure')] }
   }
   const root = obj as Record<string, unknown>
 
@@ -868,28 +864,28 @@ export function parseBackupJson(text: string): BackupValidation {
     return {
       ok: false,
       errors: [
-        'دي نسخة بصيغة التطبيق القديم (state/extras) — شكلها مختلف عن قاعدة البيانات الحالية ولا يمكن استيرادها هنا. صدّر نسخة جديدة من هذا التطبيق.',
+        t('settings.settingsApiBackupLegacyFormat'),
       ],
     }
   }
   if (root.format !== BACKUP_FORMAT) {
-    return { ok: false, errors: ['الملف ده مش نسخة احتياطية من تطبيق المدرس (format غير معروف).'] }
+    return { ok: false, errors: [t('settings.settingsApiBackupUnknownFormat')] }
   }
   const version = root.version
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
-    return { ok: false, errors: ['إصدار النسخة مفقود أو غير صالح.'] }
+    return { ok: false, errors: [t('settings.settingsApiBackupVersionMissing')] }
   }
   if (version > BACKUP_VERSION) {
     return {
       ok: false,
       errors: [
-        `إصدار النسخة (${version}) أحدث من اللي التطبيق ده يفهمه (${BACKUP_VERSION}) — حدّث التطبيق الأول.`,
+        t('settings.settingsApiBackupVersionTooNew', { version, supported: BACKUP_VERSION }),
       ],
     }
   }
   const data = root.data
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
-    return { ok: false, errors: ['قسم data مفقود أو غير صالح في النسخة.'] }
+    return { ok: false, errors: [t('settings.settingsApiBackupDataMissing')] }
   }
   const dataObj = data as Record<string, unknown>
   const errors: string[] = []
@@ -901,11 +897,11 @@ export function parseBackupJson(text: string): BackupValidation {
       continue
     }
     if (!Array.isArray(v)) {
-      errors.push(`قسم «${spec.label}» لازم يكون قائمة صفوف.`)
+      errors.push(t('settings.settingsApiBackupSectionNotList', { label: spec.label }))
       continue
     }
     if (v.some((r) => !r || typeof r !== 'object' || Array.isArray(r))) {
-      errors.push(`قسم «${spec.label}» فيه صفوف غير صالحة.`)
+      errors.push(t('settings.settingsApiBackupSectionBadRows', { label: spec.label }))
       continue
     }
     counts[spec.key] = v.length
@@ -914,7 +910,7 @@ export function parseBackupJson(text: string): BackupValidation {
   let hasSettings = false
   if (rawSettings != null) {
     if (typeof rawSettings !== 'object' || Array.isArray(rawSettings)) {
-      errors.push('قسم «إعدادات المدرس» غير صالح.')
+      errors.push(t('settings.settingsApiBackupSettingsInvalid'))
     } else {
       hasSettings = true
     }
@@ -923,7 +919,7 @@ export function parseBackupJson(text: string): BackupValidation {
 
   const totalRows = Object.values(counts).reduce((a, b) => a + b, 0)
   if (totalRows === 0 && !hasSettings) {
-    return { ok: false, errors: ['النسخة فاضية — مفيش أي بيانات لاستيرادها.'] }
+    return { ok: false, errors: [t('settings.settingsApiBackupEmpty')] }
   }
   return { ok: true, errors: [], backup: root as unknown as BackupFile, counts, hasSettings }
 }
@@ -1030,6 +1026,9 @@ export async function importBackup(
   backup: BackupFile,
 ): Promise<ImportReport> {
   const supa = db()
+  // بداية الاستيراد — تُستخدم لتمييز صفوف أنشأها تريجر الوصول أثناء هذا
+  // الاستيراد نفسه (انظر معالجة guardian_notifications تحت).
+  const importStartedAt = new Date().toISOString()
   const report: ImportReport = {
     tables: [],
     totalImported: 0,
@@ -1040,7 +1039,7 @@ export async function importBackup(
   }
   const noteError = (label: string, err: unknown) => {
     if (report.errorSamples.length >= 5) return
-    const msg = err instanceof Error ? err.message : 'خطأ غير معروف'
+    const msg = err instanceof Error ? err.message : t('settings.settingsApiUnknownError')
     report.errorSamples.push(`${label}: ${msg}`)
   }
 
@@ -1099,7 +1098,7 @@ export async function importBackup(
       })
       report.settingsUpdated = true
     } catch (err) {
-      noteError('إعدادات المدرس', err)
+      noteError(t('settings.settingsApiSettingsLabel'), err)
     }
   }
 
@@ -1137,6 +1136,32 @@ export async function importBackup(
         .range(from, to) as unknown as Promise<PageResult<Record<string, unknown>>>,
     )
     const existing = new Set(existingRows.map((r) => pkKeyOf(spec, r)))
+
+    // تنبيهات الوصول/المغادرة (0012): إدراج الحضور في هذا الاستيراد نفسه
+    // يُطلق تريجراً ينشئ تنبيهات تلقائية بنفس القيد الفريد
+    // (session_id, student_id, kind) وبوقت حدث = لحظة الاستيراد وحالة
+    // قراءة فارغة — فتصطدم بصفوف النسخة الأصلية (الأقدم والأدق: event_at
+    // وread_at الحقيقيان) وتفشل كتكرار. الحل: حذف الصفوف المولّدة أثناء
+    // هذا الاستيراد فقط (created_at >= بدايته) لجلسات النسخة، قبل إدراج
+    // صفوف النسخة — فتُستعاد التنبيهات الأصلية بأمانتها الكاملة.
+    if (spec.table === 'guardian_notifications') {
+      const sessionIds = [
+        ...new Set(
+          list
+            .map((r) => r.session_id)
+            .filter((v): v is string => typeof v === 'string' && !!v),
+        ),
+      ]
+      if (sessionIds.length > 0) {
+        const { error: delErr } = await supa
+          .from('guardian_notifications')
+          .delete()
+          .eq('teacher_id', teacherId)
+          .in('session_id', sessionIds)
+          .gte('created_at', importStartedAt)
+        if (delErr) noteError(spec.label, delErr)
+      }
+    }
 
     for (const row of list) {
       const key = pkKeyOf(spec, row)

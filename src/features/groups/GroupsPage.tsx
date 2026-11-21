@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
 import { Users } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -33,12 +34,12 @@ export function GroupsPage() {
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status === 'signed-out') return <SignInRequired />
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
-  if (groupsQ.isPending || enrollmentsQ.isPending) return <LoadingState label="بنحمّل المجموعات…" />
+  if (groupsQ.isPending || enrollmentsQ.isPending) return <LoadingState label={t('groups.listLoading')} />
   const error = groupsQ.error ?? enrollmentsQ.error
   if (error)
     return (
       <ErrorState
-        message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+        message={error instanceof Error ? error.message : t('common.unknownError')}
         onRetry={() => {
           void groupsQ.refetch()
           void enrollmentsQ.refetch()
@@ -58,29 +59,29 @@ export function GroupsPage() {
       {allGroups.length > 0 && (
         <ChipRow>
           <Chip active={filter === 'active'} onClick={() => setFilter('active')}>
-            النشطة
+            {t('groups.filterActive')}
           </Chip>
           <Chip active={filter === 'archived'} onClick={() => setFilter('archived')}>
-            المؤرشفة
+            {t('groups.filterArchived')}
           </Chip>
         </ChipRow>
       )}
       {allGroups.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="لا توجد مجموعات بعد"
-          hint="أنشئ أول مجموعة وحدد جدولها ونظام الدفع"
-          action={{ label: 'إنشاء مجموعة', onClick: () => setFormOpen(true) }}
+          title={t('groups.listEmptyTitle')}
+          hint={t('groups.listEmptyHint')}
+          action={{ label: t('groups.listEmptyAction'), onClick: () => setFormOpen(true) }}
         />
       ) : groups.length === 0 ? (
         <EmptyState
           icon={Users}
-          title={filter === 'archived' ? 'لا توجد مجموعات مؤرشفة' : 'لا توجد مجموعات نشطة'}
+          title={filter === 'archived' ? t('groups.listEmptyArchivedTitle') : t('groups.listEmptyActiveTitle')}
           hint={
             filter === 'archived'
-              ? 'المجموعات التي تؤرشفها من صفحة تفاصيلها ستظهر هنا'
+              ? t('groups.listEmptyArchivedHint')
               : hasArchived
-                ? 'كل مجموعاتك مؤرشفة حالياً — اعرضها من فلتر «المؤرشفة»'
+                ? t('groups.listEmptyActiveHint')
                 : undefined
           }
         />
@@ -100,25 +101,25 @@ export function GroupsPage() {
                   <span className="font-bold text-[16px] min-w-0">{g.name}</span>
                   {g.archived_at != null && (
                     <span className="text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 whitespace-nowrap">
-                      مؤرشفة
+                      {t('groups.badgeArchived')}
                     </span>
                   )}
                   {g.assistant_name && (
                     <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5 max-w-full truncate">
-                      مساعد: {g.assistant_name}
+                      {t('groups.detailAssistant', { name: g.assistant_name })}
                     </span>
                   )}
                 </div>
                 <div className="text-muted text-[13.5px] mt-0.5">
                   {BILLING_LABELS[g.billing_type]} · {formatMoney(g.price)} · {daysLabel(g.days)} ·{' '}
-                  {formatTime12(g.start_time)} ({g.duration_minutes} د)
+                  {formatTime12(g.start_time)} {t('groups.listDuration', { minutes: g.duration_minutes })}
                   {g.room ? ` · ${g.room}` : ''}
                 </div>
                 {g.capacity != null && pct != null ? (
                   <div className="mt-2">
                     <div className="flex justify-between text-[13.5px] text-muted mb-1">
                       <span>
-                        {cnt}/{g.capacity} طالب
+                        {t('groups.listCapacityCount', { count: cnt, capacity: g.capacity })}
                       </span>
                       <span>{pct}%</span>
                     </div>
@@ -130,7 +131,7 @@ export function GroupsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-muted text-[13.5px] mt-1">{cnt} طالب مسجل</div>
+                  <div className="text-muted text-[13.5px] mt-1">{t('groups.listEnrolledCount', { count: cnt })}</div>
                 )}
               </Card>
             </Link>
@@ -138,7 +139,7 @@ export function GroupsPage() {
         })
       )}
 
-      <Fab onClick={() => setFormOpen(true)} ariaLabel="إنشاء مجموعة جديدة" label="مجموعة جديدة" />
+      <Fab onClick={() => setFormOpen(true)} ariaLabel={t('groups.fabAria')} label={t('groups.formCreateTitle')} />
 
       {formOpen && (
         <GroupFormSheet

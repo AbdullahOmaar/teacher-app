@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button'
 import { Field, FormError, Select, TextInput } from '../../components/ui/form'
 import type { GroupRow, StudentRow } from '../../types/database'
 import { useUpsertEnrollment } from './hooks'
+import { t } from '../../i18n'
 
 interface EnrollStudentSheetProps {
   onClose: () => void
@@ -57,14 +58,14 @@ export function EnrollStudentSheet({
 
   const save = async () => {
     setError(null)
-    if (!studentId) return setError('اختار الطالب الأول')
-    if (!groupId) return setError('اختار المجموعة الأول')
+    if (!studentId) return setError(t('students.enrollStudentRequired'))
+    if (!groupId) return setError(t('students.enrollGroupRequired'))
     const priceNum = price.trim() === '' ? null : Number(price)
     if (priceNum !== null && (!Number.isFinite(priceNum) || priceNum < 0))
-      return setError('السعر الخاص لازم يكون رقماً صحيحاً (أو اتركه فارغاً لسعر المجموعة)')
+      return setError(t('students.enrollPriceError'))
     const prepaidNum = prepaid.trim() === '' ? null : Number(prepaid)
     if (prepaidNum !== null && (!Number.isInteger(prepaidNum) || prepaidNum < 0))
-      return setError('عدد الحصص المدفوعة مسبقاً لازم يكون عدداً صحيحاً')
+      return setError(t('students.enrollPrepaidError'))
     try {
       await upsert.mutateAsync({
         student_id: studentId,
@@ -74,42 +75,42 @@ export function EnrollStudentSheet({
       })
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء التسجيل')
+      setError(e instanceof Error ? e.message : t('students.enrollError'))
     }
   }
 
   return (
     <Sheet
       open
-      title="تسجيل في مجموعة"
+      title={t('students.enrollTitle')}
       onClose={onClose}
       footer={
         <div className="flex gap-2">
           <Button full onClick={save} disabled={upsert.isPending}>
-            {upsert.isPending ? 'بنحفظ…' : 'تسجيل'}
+            {upsert.isPending ? t('groups.saving') : t('students.enrollSubmit')}
           </Button>
           <Button variant="ghost" onClick={onClose}>
-            إلغاء
+            {t('groups.cancel')}
           </Button>
         </div>
       }
     >
       {!fixedStudentId && (
-        <Field label="الطالب">
+        <Field label={t('students.enrollStudentLabel')}>
           <Select value={studentId} onChange={(e) => setStudentId(e.target.value)}>
-            <option value="">— اختار الطالب —</option>
+            <option value="">{t('students.enrollStudentPlaceholder')}</option>
             {studentOptions.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} ({s.public_code})
+                {t('students.enrollStudentOption', { name: s.name, code: s.public_code })}
               </option>
             ))}
           </Select>
         </Field>
       )}
       {!fixedGroupId && (
-        <Field label="المجموعة">
+        <Field label={t('students.enrollGroupLabel')}>
           <Select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-            <option value="">— اختار المجموعة —</option>
+            <option value="">{t('students.enrollGroupPlaceholder')}</option>
             {groupOptions.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
@@ -118,7 +119,7 @@ export function EnrollStudentSheet({
           </Select>
         </Field>
       )}
-      <Field label="سعر خاص للطالب (اختياري — فارغ = سعر المجموعة)">
+      <Field label={t('students.enrollPriceLabel')}>
         <TextInput
           type="number"
           min={0}
@@ -129,7 +130,7 @@ export function EnrollStudentSheet({
         />
       </Field>
       {selectedGroup?.billing_type === 'per_session_prepaid' && (
-        <Field label="عدد الحصص المدفوعة مسبقاً (اختياري)">
+        <Field label={t('students.enrollPrepaidLabel')}>
           <TextInput
             type="number"
             min={0}

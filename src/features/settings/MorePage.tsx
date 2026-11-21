@@ -15,19 +15,20 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { t } from '../../i18n'
 
 const MENU: { icon: LucideIcon; label: string; path: string }[] = [
-  { icon: CalendarDays, label: 'الجدول والتقويم', path: '/schedule' },
-  { icon: Users, label: 'المجموعات', path: '/groups' },
-  { icon: NotebookPen, label: 'الامتحانات والدرجات', path: '/grades' },
-  { icon: BookOpenCheck, label: 'متابعة الواجبات', path: '/homework' },
-  { icon: Landmark, label: 'المصروفات والأرباح', path: '/money' },
-  { icon: ChartColumn, label: 'التحليلات', path: '/analytics' },
-  { icon: UserSquare2, label: 'بوابة ولي الأمر', path: '/portal-links' },
-  { icon: History, label: 'سجل النشاط', path: '/activity-log' },
-  { icon: HardDriveDownload, label: 'النسخ الاحتياطي', path: '/backup' },
-  { icon: Download, label: 'تصدير واستيراد', path: '/export' },
-  { icon: Settings, label: 'الإعدادات', path: '/settings' },
+  { icon: CalendarDays, label: t('settings.moreSchedule'), path: '/schedule' },
+  { icon: Users, label: t('settings.moreGroups'), path: '/groups' },
+  { icon: NotebookPen, label: t('settings.moreGrades'), path: '/grades' },
+  { icon: BookOpenCheck, label: t('settings.moreHomework'), path: '/homework' },
+  { icon: Landmark, label: t('settings.moreMoney'), path: '/money' },
+  { icon: ChartColumn, label: t('settings.moreAnalytics'), path: '/analytics' },
+  { icon: UserSquare2, label: t('settings.morePortal'), path: '/portal-links' },
+  { icon: History, label: t('settings.moreActivity'), path: '/activity-log' },
+  { icon: HardDriveDownload, label: t('settings.backup'), path: '/backup' },
+  { icon: Download, label: t('settings.moreExport'), path: '/export' },
+  { icon: Settings, label: t('settings.moreSettings'), path: '/settings' },
 ]
 
 /** قائمة «المزيد» — صفوف تنقّل لبقية الأقسام (المرجع: renderMore) */

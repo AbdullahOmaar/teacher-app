@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
 import {
   Ban,
   BookOpenCheck,
@@ -17,7 +16,6 @@ import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Chip, ChipRow } from '../../components/ui/form'
-import { useToast } from '../../components/ui/toast'
 import {
   ErrorState,
   LoadingState,
@@ -35,16 +33,18 @@ import {
   type AttendanceValue,
 } from '../attendance/api'
 import {
-  ATT,
-  useSaveAttendance,
   useSessionAttendance,
   useSessionById,
   useSessionRoster,
 } from '../attendance/hooks'
+import { enqueueStored } from '../attendance/offlineQueue'
+import { useOfflineSync, useOnlineStatus } from '../attendance/useOfflineSync'
+import { SyncStatusBar } from '../attendance/SyncStatusBar'
 import { useGroups } from '../groups/hooks'
 import { formatDateLabel, generationWindowMonths, monthStartStr, todayStr } from '../schedule/api'
 import { useGeneration } from '../schedule/hooks'
 import { summarizeHomework, type HomeworkSummary } from './api'
+import { t } from '../../i18n'
 import { useGroupSessions, useHomeworkMarks } from './hooks'
 
 /**
@@ -57,7 +57,8 @@ import { useGroupSessions, useHomeworkMarks } from './hooks'
  *
  * مصدر الحقيقة واحد: الواجب هو attendance.homework_done في نفس صف حضور
  * الطالب للحصة، والقراءة هنا من نفس استعلامات الحضور وبنفس مفاتيح الكاش
- * (ATT)، والكتابة بنفس useSaveAttendance حرفياً — upsert على
+ * (ATT)، والكتابة بنفس مسار حفظ الحضور الموحّد (قائمة المزامنة +
+ * دفعة الحصة المجمّعة) — upsert على
  * ‎(session_id, student_id)‎ بقيمة الحضور الكاملة (الحالة والتمييز محفوظان
  * كما هما، يتبدّل homework_done فقط). طالب بلا صف حضور: سلوك شاشة الحضور
  * نفسه — التبديل ينشئ الصف بقيمته الحالية + الواجب (أو يحذفه لو رجعت
@@ -86,7 +87,7 @@ function HwToggle({
       aria-pressed={done}
       disabled={disabled}
       onClick={onToggle}
-      title={done ? 'اضغط لتعليمه «لم يسلّم»' : 'اضغط لتعليمه «سلّم الواجب»'}
+      title={done ? t('homework.toggleTitleDone') : t('homework.toggleTitleNotDone')}
       className={`shrink-0 min-h-[48px] px-3.5 rounded-full border text-[13.5px] font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
         done
           ? 'bg-ok-soft text-ok-text border-ok/40'
@@ -94,7 +95,7 @@ function HwToggle({
       }`}
     >
       {done ? <Check size={16} /> : <BookOpenCheck size={16} />}
-      {done ? 'سلّم' : 'لم يسلّم'}
+      {done ? t('homework.submitted') : t('homework.notSubmitted')}
     </button>
   )
 }
@@ -102,8 +103,6 @@ function HwToggle({
 export function HomeworkPage() {
   const teacher = useCurrentTeacher()
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
-  const qc = useQueryClient()
-  const toast = useToast()
   const [searchParams] = useSearchParams()
   const paramGroupId = searchParams.get('group')
   const paramSessionId = searchParams.get('session') ?? searchParams.get('sessionId')
@@ -236,16 +235,19 @@ export function HomeworkPage() {
     sessionId: string
     values: Map<string, AttendanceValue>
   } | null>(null)
-  const saveMut = useSaveAttendance(teacherId ?? '')
+  // محرك مزامنة الحضور (يُركَّب هنا أيضاً حتى تُفرَّغ تبديلات الواجب
+  // مجمّعة حتى لو لم تُفتح شاشة الحضور — التشغيل الفعلي وحيد عالمياً)
+  const sync = useOfflineSync(teacherId)
+  const online = useOnlineStatus()
 
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status === 'signed-out') return <SignInRequired />
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
-  if (groupsQ.isPending) return <LoadingState label="بنحمّل المجموعات…" />
+  if (groupsQ.isPending) return <LoadingState label={t('homework.loadingGroups')} />
   if (groupsQ.error)
     return (
       <ErrorState
-        message={groupsQ.error instanceof Error ? groupsQ.error.message : 'خطأ غير معروف'}
+        message={groupsQ.error instanceof Error ? groupsQ.error.message : t('common.unknownError')}
         onRetry={() => void groupsQ.refetch()}
       />
     )
@@ -253,8 +255,8 @@ export function HomeworkPage() {
     return (
       <EmptyState
         icon={BookOpenCheck}
-        title="لا توجد مجموعات بعد — فلا واجبات تُتابَع"
-        hint="أنشئ مجموعة وسجّل حضور حصصها، ومتابعة تسليم الواجب هتظهر هنا لكل حصة."
+        title={t('homework.noGroupsTitle')}
+        hint={t('homework.noGroupsHint')}
       />
     )
 
@@ -281,7 +283,7 @@ export function HomeworkPage() {
   const othersList = roster.filter((s) => !isAttended(valueOf(s.id).status))
 
   const changeHomework = (studentId: string, done: boolean) => {
-    if (!selected || cancelled) return
+    if (!selected || cancelled || !teacherId) return
     const next = { ...valueOf(studentId), homework_done: done }
     setOverrideState((prev) => {
       const values =
@@ -291,16 +293,9 @@ export function HomeworkPage() {
       values.set(studentId, next)
       return { sessionId: selected.id, values }
     })
-    saveMut.mutate(
-      { sessionId: selected.id, studentId, value: next },
-      {
-        onError: () => {
-          toast('حصلت مشكلة في حفظ الواجب — رجّعنا آخر حالة محفوظة')
-          setOverrideState(null)
-          void qc.invalidateQueries({ queryKey: [ATT] })
-        },
-      },
-    )
+    // نفس مسار حفظ الحضور الموحّد (3A-296): القيمة تدخل قائمة المزامنة
+    // المحلية وتُفرَّغ مجمّعة مع بقية تغييرات الحصة — لا طلب لكل تبديل
+    enqueueStored({ teacherId, sessionId: selected.id, studentId, value: next })
   }
 
   // صف حصة واحد في المنتقي — نفس الشكل والملخص في قسمي الماضي والقادمة،
@@ -324,17 +319,17 @@ export function HomeworkPage() {
           </span>
           {s.session_date > today && (
             <span className="text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5">
-              قادمة
+              {t('homework.upcomingBadge')}
             </span>
           )}
           {s.kind === 'extra' && (
-            <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">إضافية</span>
+            <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">{t('homework.kindExtra')}</span>
           )}
           {s.kind === 'moved' && (
-            <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">منقولة</span>
+            <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">{t('homework.kindMoved')}</span>
           )}
           {s.status === 'cancelled' && (
-            <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">ملغاة</span>
+            <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">{t('homework.kindCancelled')}</span>
           )}
           {sum && sum.rate != null && (
             <span
@@ -344,16 +339,19 @@ export function HomeworkPage() {
                   : 'bg-warn-soft text-warn-text border-warn/40'
               }`}
             >
-              سلّم {sum.rate}%
+              {t('homework.submittedRate', { rate: sum.rate })}
             </span>
           )}
         </span>
         <span className="block text-muted text-[13.5px] mt-0.5">
-          الساعة {formatTime12(s.start_time)}
+          {t('homework.sessionTime', { time: formatTime12(s.start_time) })}
           {sum
             ? sum.attended > 0
-              ? ` · سلّم ${sum.submitted} من ${sum.attended} حاضرين`
-              : ' · لسه مفيش حاضرين مسجلين'
+              ? t('homework.sessionSubmittedSuffix', {
+                  submitted: sum.submitted,
+                  attended: sum.attended,
+                })
+              : t('homework.sessionNoAttendeesSuffix')
             : ''}
         </span>
         {sum && sum.attended > 0 && (
@@ -373,16 +371,17 @@ export function HomeworkPage() {
 
   return (
     <div>
+      {/* شريط حالة مزامنة الحضور/الواجب — يظهر فقط عند وجود معلّق/فشل */}
+      <SyncStatusBar online={online} sync={sync} />
       <Card>
         <div className="flex items-start gap-3">
           <span className="w-11 h-11 rounded-xl bg-soft text-primary flex items-center justify-center shrink-0">
             <BookOpenCheck size={24} />
           </span>
           <div className="min-w-0">
-            <div className="font-extrabold text-[16px]">متابعة الواجبات</div>
+            <div className="font-extrabold text-[16px]">{t('homework.pageTitle')}</div>
             <p className="text-muted text-[13.5px] mt-0.5 mb-0 leading-[1.7]">
-              مين سلّم ومين لسه في كل حصة — نفس علامة الواجب اللي في شاشة الحضور،
-              وأي تبديل هنا بيتحفظ فيها وينعكس هناك فوراً.
+              {t('homework.pageHint')}
             </p>
           </div>
         </div>
@@ -407,7 +406,7 @@ export function HomeworkPage() {
       {/* اختيار الحصة + النظرة الإجمالية: حصص الماضي واليوم أولاً (أحدث
           حصة فعلية في المقدمة) ونسبة تسليم كل حصة — والقادمة في قسم
           مطوي منفصل تحتها (W1-2) */}
-      <h3 className="type-section mt-1 mb-2">حصص {group?.name ?? ''}</h3>
+      <h3 className="type-section mt-1 mb-2">{t('homework.sessionsOf', { name: group?.name ?? '' })}</h3>
       {pickerPending ? (
         <>
           <Skeleton className="h-[64px] mb-3" />
@@ -415,15 +414,15 @@ export function HomeworkPage() {
         </>
       ) : pickerError ? (
         <ErrorState
-          message={pickerError instanceof Error ? pickerError.message : 'خطأ غير معروف'}
+          message={pickerError instanceof Error ? pickerError.message : t('common.unknownError')}
           onRetry={() => void sessionsQ.refetch()}
         />
       ) : sessions.length === 0 ? (
         <Card>
           <EmptyState
             icon={CalendarX2}
-            title="لا توجد حصص للمجموعة دي لسه"
-            hint="الحصص بتتولّد من أيام جدول المجموعة — راجع الجدول أو افتح شاشة الحضور لتوليد حصص الشهر."
+            title={t('homework.noSessionsTitle')}
+            hint={t('homework.noSessionsHint')}
           />
         </Card>
       ) : (
@@ -434,15 +433,14 @@ export function HomeworkPage() {
               {shownPast.map((s, i) => sessionRow(s, i))}
               {pastSessions.length > PICKER_LIMIT && (
                 <p className="text-muted text-[13.5px] px-4 py-2.5 m-0 border-t border-border">
-                  بنعرض أحدث {PICKER_LIMIT} حصة فاتت — حصص أقدم من كده افتحها من شاشة الحضور أو الجدول.
+                  {t('homework.pastOverflow', { limit: PICKER_LIMIT })}
                 </p>
               )}
             </Card>
           ) : (
             <Card className="mb-4">
               <p className="text-muted text-[13.5px] m-0">
-                لسه مفيش حصص فاتت للمجموعة دي — أول حصة لسه قادمة، وهتلاقيها في
-                «الحصص القادمة» تحت.
+                {t('homework.noPastSessions')}
               </p>
             </Card>
           )}
@@ -457,7 +455,7 @@ export function HomeworkPage() {
                 aria-expanded={futureShown}
                 className="w-full flex items-center gap-2 min-h-[48px] px-1 mb-2 bg-transparent border-0 cursor-pointer text-text"
               >
-                <span className="type-section">الحصص القادمة</span>
+                <span className="type-section">{t('homework.futureTitle')}</span>
                 <span className="text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5">
                   {futureSessions.length}
                 </span>
@@ -470,8 +468,7 @@ export function HomeworkPage() {
                   {shownFuture.map((s, i) => sessionRow(s, i))}
                   {futureSessions.length > PICKER_LIMIT && (
                     <p className="text-muted text-[13.5px] px-4 py-2.5 m-0 border-t border-border">
-                      بنعرض أقرب {PICKER_LIMIT} حصة قادمة — اللي بعدها هيتولّد
-                      ويظهر مع دخول شهوره في نافذة الجدول.
+                      {t('homework.futureOverflow', { limit: PICKER_LIMIT })}
                     </p>
                   )}
                 </Card>
@@ -489,17 +486,20 @@ export function HomeworkPage() {
               <div className="min-w-0">
                 <div className="font-extrabold text-[16px]">{group?.name}</div>
                 <div className="text-muted text-[13.5px]">
-                  {formatDateLabel(selected.session_date)} · الساعة {formatTime12(selected.start_time)} ·{' '}
-                  {selected.duration_minutes} دقيقة
+                  {t('homework.sessionMeta', {
+                    date: formatDateLabel(selected.session_date),
+                    time: formatTime12(selected.start_time),
+                    minutes: selected.duration_minutes,
+                  })}
                 </div>
               </div>
               <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
-                {saveMut.isPending ? (
-                  'بنحفظ…'
+                {sync.syncing ? (
+                  t('homework.saving')
                 ) : (
                   <>
                     <Check size={14} className="text-ok-text" />
-                    الحفظ فوري
+                    {t('homework.saveInstant')}
                   </>
                 )}
               </span>
@@ -511,19 +511,19 @@ export function HomeworkPage() {
                     <div className="text-[20px] font-extrabold text-ok-text leading-none">
                       {rowsReady ? detailSummary.submitted : '…'}
                     </div>
-                    <div className="text-[13.5px] font-semibold text-ok-text mt-1">سلّم</div>
+                    <div className="text-[13.5px] font-semibold text-ok-text mt-1">{t('homework.submitted')}</div>
                   </div>
                   <div className="rounded-xl bg-warn-soft px-2 py-2.5">
                     <div className="text-[20px] font-extrabold text-warn-text leading-none">
                       {rowsReady ? detailSummary.pending : '…'}
                     </div>
-                    <div className="text-[13.5px] font-semibold text-warn-text mt-1">لم يسلّم</div>
+                    <div className="text-[13.5px] font-semibold text-warn-text mt-1">{t('homework.notSubmitted')}</div>
                   </div>
                   <div className="rounded-xl bg-soft px-2 py-2.5">
                     <div className="text-[20px] font-extrabold leading-none">
                       {rowsReady ? detailSummary.attended : '…'}
                     </div>
-                    <div className="text-[13.5px] font-semibold text-muted mt-1">حاضرون</div>
+                    <div className="text-[13.5px] font-semibold text-muted mt-1">{t('homework.attendedLabel')}</div>
                   </div>
                 </div>
                 {detailSummary.attended > 0 && (
@@ -535,7 +535,7 @@ export function HomeworkPage() {
                       />
                     </div>
                     <span className="text-[13.5px] font-extrabold">
-                      نسبة التسليم {detailSummary.rate}%
+                      {t('homework.deliveryRate', { rate: detailSummary.rate ?? '' })}
                     </span>
                   </div>
                 )}
@@ -545,7 +545,7 @@ export function HomeworkPage() {
               <Link to={`/attendance?session=${selected.id}`} className="no-underline">
                 <Button variant="soft">
                   <ClipboardList size={20} />
-                  فتح الحضور
+                  {t('homework.openAttendance')}
                 </Button>
               </Link>
             </div>
@@ -554,7 +554,7 @@ export function HomeworkPage() {
           {cancelled && (
             <div className="border border-border bg-soft rounded-xl px-3 py-2.5 mb-3 text-[13.5px] font-semibold text-muted flex items-start gap-2">
               <Ban size={20} className="shrink-0 mt-0.5" />
-              <span>الحصة دي ملغاة — متابعة الواجب مقفولة زي الحضور بالظبط. استرجع الحصة من شاشة الحضور الأول.</span>
+              <span>{t('homework.cancelledBanner')}</span>
             </div>
           )}
 
@@ -563,7 +563,7 @@ export function HomeworkPage() {
               message={
                 (rosterQ.error ?? attQ.error) instanceof Error
                   ? ((rosterQ.error ?? attQ.error) as Error).message
-                  : 'خطأ غير معروف'
+                  : t('common.unknownError')
               }
               onRetry={() => {
                 void rosterQ.refetch()
@@ -580,8 +580,8 @@ export function HomeworkPage() {
             <Card>
               <EmptyState
                 icon={Users}
-                title="لا يوجد طلاب نشطون مسجلون في المجموعة دي"
-                hint="سجّل طلاباً في المجموعة من ملفاتهم أو من صفحة المجموعة، وهيظهروا هنا لمتابعة واجبهم."
+                title={t('homework.noStudentsTitle')}
+                hint={t('homework.noStudentsHint')}
               />
             </Card>
           ) : (
@@ -590,8 +590,8 @@ export function HomeworkPage() {
                 <Card>
                   <EmptyState
                     icon={ClipboardList}
-                    title="لسه مفيش حاضرين مسجلين في الحصة دي"
-                    hint="متابعة الواجب بتتحسب للحاضرين — سجّل الحضور الأول من شاشة الحضور وهتظهر القائمتين هنا."
+                    title={t('homework.noAttendeesTitle')}
+                    hint={t('homework.noAttendeesHint')}
                   />
                 </Card>
               )}
@@ -599,7 +599,7 @@ export function HomeworkPage() {
               {submittedList.length > 0 && (
                 <>
                   <h3 className="type-section mt-4 mb-2">
-                    سلّم الواجب ({submittedList.length})
+                    {t('homework.submittedSection', { count: submittedList.length })}
                   </h3>
                   <Card className="p-0 overflow-hidden">
                     {submittedList.map((st, i) => {
@@ -641,7 +641,7 @@ export function HomeworkPage() {
               {pendingList.length > 0 && (
                 <>
                   <h3 className="type-section mt-4 mb-2">
-                    لم يسلّم بعد ({pendingList.length})
+                    {t('homework.pendingSection', { count: pendingList.length })}
                   </h3>
                   <Card className="p-0 overflow-hidden">
                     {pendingList.map((st, i) => {
@@ -683,12 +683,10 @@ export function HomeworkPage() {
               {othersList.length > 0 && (
                 <>
                   <h3 className="type-section mt-4 mb-2">
-                    خارج المتابعة ({othersList.length})
+                    {t('homework.othersSection', { count: othersList.length })}
                   </h3>
                   <p className="text-muted text-[13.5px] mt-0 mb-2 leading-[1.7]">
-                    الواجب بيُتابَع للحاضرين أساساً — دول مش محسوبين في عدّادات الحصة.
-                    علامة تسليمهم (لو اتبدّلت) محفوظة في حضورهم، ولو اتسجّل حضورهم
-                    هيتحسبوا في القائمتين تلقائياً.
+                    {t('homework.othersHint')}
                   </p>
                   <Card className="p-0 overflow-hidden">
                     {othersList.map((st, i) => {
@@ -709,11 +707,11 @@ export function HomeworkPage() {
                               <span dir="ltr">{st.public_code}</span>
                               {v.status === 'a' ? (
                                 <span className={`type-badge rounded-full px-2 py-0.5 ${STATUS_BADGE_CLASS.a}`}>
-                                  غائب
+                                  {t('homework.absentBadge')}
                                 </span>
                               ) : (
                                 <span className="type-badge bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">
-                                  بلا حالة حضور
+                                  {t('homework.noAttendanceStatus')}
                                 </span>
                               )}
                             </span>

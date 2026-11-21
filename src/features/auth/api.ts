@@ -1,29 +1,35 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
+import { t } from '../../i18n'
 import type { TeacherMemberRow, TeacherRow, TeacherSettingsRow } from '../../types/database'
 import { logActivity } from '../activity/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 /** ترجمة أخطاء Supabase Auth الشائعة لرسائل عربية واضحة */
 export function translateAuthError(message: string): string {
   const m = message.toLowerCase()
-  if (m.includes('invalid login credentials')) return 'البريد الإلكتروني أو كلمة المرور غير صحيحة.'
+  if (m.includes('invalid login credentials')) return t('auth.authApiInvalidCredentials')
   if (m.includes('already registered') || m.includes('already exists'))
-    return 'الحساب ده مسجل بالفعل — جرّب تسجيل الدخول.'
+    return t('auth.authApiAlreadyRegistered')
   if (m.includes('email not confirmed'))
-    return 'البريد لسه مش متأكد — افتح رسالة التأكيد في بريدك الأول وبعدين سجّل دخول.'
-  if (m.includes('password should be at least')) return 'كلمة المرور قصيرة — لازم 6 أحرف على الأقل.'
+    return t('auth.errEmailNotConfirmed')
+  // أخطاء مسار الهاتف/OTP (P5-3): صيغة الرقم، فشل الإرسال عبر الـ Hook،
+  // وكود منتهٍ أو غير صحيح عند التحقق
+  if (m.includes('invalid phone number') || m.includes('phone number format'))
+    return t('auth.errInvalidPhone')
+  if (m.includes('expired or is invalid')) return t('auth.errOtpInvalid')
+  if (m.includes('token has expired') || m.includes('otp expired'))
+    return t('auth.errOtpExpired')
+  if (m.includes('sending') && m.includes('sms')) return t('auth.errOtpSendFailed')
+  if (m.includes('password should be at least')) return t('auth.passwordTooShort')
+  if (m.includes('for security purposes'))
+    return t('auth.authApiSecurityWait') // حد تكرار البريد (60 ثانية)
   if (m.includes('weak password') || m.includes('password is too weak'))
-    return 'كلمة المرور ضعيفة — اختر كلمة أقوى (أحرف وأرقام).'
+    return t('auth.authApiWeakPassword')
   if (m.includes('invalid email') || m.includes('unable to validate email'))
-    return 'صيغة البريد الإلكتروني غير صحيحة.'
+    return t('auth.authApiInvalidEmail')
   if (m.includes('rate limit') || m.includes('too many requests'))
-    return 'محاولات كتير في وقت قصير — استنى دقيقة وجرّب تاني.'
+    return t('auth.authApiRateLimited')
   if (m.includes('network') || m.includes('fetch'))
-    return 'مشكلة في الاتصال بالإنترنت — اتأكد من الشبكة وجرّب تاني.'
+    return t('auth.authApiNetworkError')
   return message
 }
 
@@ -31,12 +37,12 @@ export function translateAuthError(message: string): string {
 export function translateDbError(error: { code?: string; message?: string }): string {
   const code = error.code ?? ''
   const msg = error.message ?? ''
-  if (code === '23505') return 'العنصر ده موجود بالفعل.'
+  if (code === '23505') return t('auth.authApiDbDuplicate')
   if (code === '23503')
-    return 'البيانات المرتبطة غير موجودة — اتأكد إن الحساب المطلوب مسجل فعلاً.'
+    return t('auth.authApiDbMissingRelated')
   if (code === '42501' || msg.toLowerCase().includes('row-level security'))
-    return 'صلاحياتك لا تسمح بالعملية دي.'
-  return msg || 'حصل خطأ غير متوقع.'
+    return t('auth.authApiDbForbidden')
+  return msg || t('auth.authApiDbUnexpected')
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +67,8 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
     email: input.email.trim(),
     password: input.password,
     options: {
+      // رابط التأكيد يرجع لصفحة الدخول في نفس الأصل (ضمن uri_allow_list)
+      emailRedirectTo: `${window.location.origin}/login`,
       data: {
         display_name: input.displayName.trim(),
         phone: input.phone?.trim() || null,
@@ -71,7 +79,7 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
   // Supabase يرجع مستخدماً بلا جلسة عند تفعيل تأكيد البريد،
   // ويرجع identities فارغة عند تكرار بريد مسجل أصلاً
   if (data.user && (data.user.identities?.length ?? 0) === 0) {
-    throw new Error('الحساب ده مسجل بالفعل — جرّب تسجيل الدخول.')
+    throw new Error(t('auth.authApiAlreadyRegistered'))
   }
   return { hasSession: Boolean(data.session), userId: data.user?.id ?? null }
 }
@@ -81,6 +89,78 @@ export async function signInWithEmail(email: string, password: string): Promise<
     email: email.trim(),
     password,
   })
+  if (error) throw new Error(translateAuthError(error.message))
+}
+
+/**
+ * إعادة إرسال رسالة تأكيد البريد (SEC-1 — مسار إغلاق autoconfirm):
+ * لازمة بعد تفعيل تأكيد البريد حتى لا يعلق مستخدم لم تصله الرسالة.
+ * حد الإرسال من الخادم: رسالة كل 60 ثانية وحد إرسال البريد العام.
+ */
+export async function resendConfirmation(email: string): Promise<void> {
+  const { error } = await db().auth.resend({
+    type: 'signup',
+    email: email.trim(),
+    options: { emailRedirectTo: `${window.location.origin}/login` },
+  })
+  if (error) throw new Error(translateAuthError(error.message))
+}
+
+/**
+ * طلب استعادة كلمة المرور (SEC-5 جزئي — لم يكن موجوداً أصلاً):
+ * يرسل رابطاً لصفحة /reset-password حيث تُعيَّن كلمة جديدة داخل
+ * جلسة الاستعادة. الرد محايد دائماً من الخادم (لا يكشف تسجيل البريد).
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const { error } = await db().auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${window.location.origin}/reset-password`,
+  })
+  if (error) throw new Error(translateAuthError(error.message))
+}
+
+// ---------------------------------------------------------------------------
+// Supabase Auth — رقم الهاتف + OTP عبر واتساب (P5-3 / 3A-300)
+// GoTrue يولّد الكود ويتحقق منه ويصدر الجلسة؛ التوصيل يتم عبر Send SMS
+// Hook عندنا (دالة send-whatsapp-otp ترسله بقالب Authentication على
+// واتساب). signInWithOtp بحساب جديد = تسجيل ودخول معاً (shouldCreateUser
+// افتراضياً true)، والرقم هوية الحساب. الواجهة كلها خلف علم
+// WHATSAPP_OTP_ENABLED — انظر lib/phone.ts والتصميم WHATSAPP-OTP-DESIGN.md.
+// ملحوظة هوية موثّقة: claim_teacher_invites يطابق بريد JWT فقط، فحساب
+// الهاتف الصرف لا يدّعي دعوات البريد تلقائياً (قرار §٦ في التصميم).
+// ---------------------------------------------------------------------------
+
+/** طلب كود تحقق للرقم (E.164) — يُرسل عبر واتساب بقناة الـ Hook */
+export async function requestPhoneOtp(
+  phoneE164: string,
+  displayName?: string,
+): Promise<void> {
+  const { error } = await db().auth.signInWithOtp({
+    phone: phoneE164,
+    options: {
+      shouldCreateUser: true,
+      data: displayName?.trim() ? { display_name: displayName.trim() } : undefined,
+    },
+  })
+  if (error) throw new Error(translateAuthError(error.message))
+}
+
+/** التحقق من الكود وإصدار الجلسة — يعيد معرّف المستخدم الجديد/القائم */
+export async function verifyPhoneOtp(
+  phoneE164: string,
+  token: string,
+): Promise<{ userId: string | null }> {
+  const { data, error } = await db().auth.verifyOtp({
+    phone: phoneE164,
+    token: token.trim(),
+    type: 'sms',
+  })
+  if (error) throw new Error(translateAuthError(error.message))
+  return { userId: data.user?.id ?? null }
+}
+
+/** تعيين كلمة مرور جديدة داخل جلسة الاستعادة (أو من داخل الحساب) */
+export async function updatePassword(newPassword: string): Promise<void> {
+  const { error } = await db().auth.updateUser({ password: newPassword })
   if (error) throw new Error(translateAuthError(error.message))
 }
 
@@ -148,7 +228,7 @@ export async function ensureTeacherProfile(
   if (sErr) throw new Error(translateDbError(sErr))
 
   const teacher = await fetchOwnTeacher(userId)
-  if (!teacher) throw new Error('تعذّر إنشاء ملف المدرس — جرّب تاني.')
+  if (!teacher) throw new Error(t('auth.authApiTeacherProfileFailed'))
   return teacher
 }
 
@@ -234,11 +314,11 @@ export const ASSISTANT_DEFAULT_PERMISSIONS: Record<string, boolean> = {
 }
 
 export const PERMISSION_LABELS: Record<string, string> = {
-  can_take_attendance: 'تسجيل الحضور',
-  can_manage_students: 'إدارة الطلاب',
-  can_manage_groups: 'إدارة المجموعات',
-  can_manage_grades: 'إدارة الدرجات',
-  can_view_money: 'عرض المالية (محفوظة — محجوبة في قاعدة البيانات)',
+  can_take_attendance: t('auth.authPermAttendance'),
+  can_manage_students: t('auth.authPermStudents'),
+  can_manage_groups: t('auth.authPermGroups'),
+  can_manage_grades: t('auth.authPermGrades'),
+  can_view_money: t('auth.authPermMoney'),
 }
 
 /** عضويات المستخدم الحالي عند مدرسين آخرين (يراها بسياسة members_self_select) */
@@ -280,9 +360,9 @@ export async function inviteAssistant(
     .select(MEMBER_COLS)
     .single()
   if (error) {
-    if (error.code === '23505') throw new Error('المساعد ده مضاف لفريقك بالفعل.')
+    if (error.code === '23505') throw new Error(t('auth.authApiAssistantAlreadyAdded'))
     if (error.code === '23503')
-      throw new Error('معرّف الحساب ده غير موجود — اتأكد إن المساعد أنشأ حسابه ونسخ المعرّف صح.')
+      throw new Error(t('auth.authApiAssistantIdNotFound'))
     throw new Error(translateDbError(error))
   }
   const row = data as unknown as TeacherMemberRow
@@ -322,7 +402,7 @@ export async function inviteAssistantByEmail(
 ): Promise<TeacherMemberRow> {
   const email = normalizeInviteEmail(emailRaw)
   if (!INVITE_EMAIL_RE.test(email)) {
-    throw new Error('صيغة البريد الإلكتروني غير صحيحة — اتأكد من البريد وحاول تاني.')
+    throw new Error(t('auth.authApiInviteEmailInvalid'))
   }
 
   const { data: existing, error: exErr } = await db()
@@ -333,11 +413,11 @@ export async function inviteAssistantByEmail(
   if (exErr) throw new Error(translateDbError(exErr))
   const rows = (existing ?? []) as unknown as TeacherMemberRow[]
   if (rows.some((r) => r.user_id != null)) {
-    throw new Error('المساعد ده عضو في فريقك بالفعل بالبريد ده.')
+    throw new Error(t('auth.authApiAssistantAlreadyMember'))
   }
   if (rows.some((r) => r.user_id == null && r.status === 'invited')) {
     throw new Error(
-      'في دعوة معلّقة بالفعل للبريد ده — هتلاقيها في قائمة الدعوات المعلّقة تحت، وتقدر تلغيها وتدعو من جديد.',
+      t('auth.authApiInvitePendingLong'),
     )
   }
 
@@ -355,7 +435,7 @@ export async function inviteAssistantByEmail(
     .single()
   if (error) {
     if (error.code === '23505') {
-      throw new Error('في دعوة معلّقة بالفعل للبريد ده عندك.')
+      throw new Error(t('auth.authApiInvitePendingShort'))
     }
     throw new Error(translateDbError(error))
   }

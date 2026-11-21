@@ -1,11 +1,6 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
 import type { AttendanceStatus, SessionRow } from '../../types/database'
 import { isAttended } from '../attendance/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // متابعة الواجبات (خطوة 6 — Phase 2): قراءات فقط فوق نفس جداول الحضور.
@@ -13,7 +8,7 @@ function db() {
 // الواجب ليس كياناً مستقلاً في المخطط: هو العمود homework_done (boolean)
 // في صف attendance نفسه، بجانب status (p/a/l/m أو null = لم يُسجّل) وstarred،
 // وصف واحد لكل (session_id, student_id). الكتابة لا تمرّ من هنا إطلاقاً —
-// شاشة الواجبات تستخدم useSaveAttendance من وحدة الحضور حرفياً (نفس الـ
+// شاشة الواجبات تكتب عبر مسار حفظ الحضور الموحّد (قائمة المزامنة) (نفس الـ
 // upsert على المفتاح الأساسي ونفس منطق حذف الصف الفارغ تماماً)، فلا يوجد
 // مسار كتابة موازٍ ولا يمكن أن تتناقض الشاشتان.
 // ---------------------------------------------------------------------------

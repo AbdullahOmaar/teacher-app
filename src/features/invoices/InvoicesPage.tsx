@@ -1,4 +1,6 @@
+import { isUnpaid } from './api'
 import { useMemo, useState } from 'react'
+import { t } from '../../i18n'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
@@ -6,7 +8,8 @@ import { Button } from '../../components/ui/Button'
 import { AlertTriangle, Lock, ReceiptText } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
-import { Chip, ChipRow, TextInput } from '../../components/ui/form'
+import { Chip } from '../../components/ui/form'
+import { PageToolBar, StickyGroupHeader } from '../../components/ui/PageToolBar'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
@@ -22,10 +25,10 @@ import { ProofsReviewSection } from '../payment-proofs/components'
 type FilterKey = 'all' | 'due' | 'partial' | 'paid'
 
 const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: 'all', label: 'الكل' },
-  { key: 'due', label: 'مستحقة' },
-  { key: 'partial', label: 'جزئية' },
-  { key: 'paid', label: 'مسددة' },
+  { key: 'all', label: t('invoices.filterAll') },
+  { key: 'due', label: t('invoices.filterDue') },
+  { key: 'partial', label: t('invoices.filterPartial') },
+  { key: 'paid', label: t('invoices.filterPaid') },
 ]
 
 function stateBadge(inv: InvoiceListItem) {
@@ -33,18 +36,18 @@ function stateBadge(inv: InvoiceListItem) {
   if (state === 'paid')
     return (
       <span className="shrink-0 type-badge bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-        مسدد
+        {t('invoices.badgePaid')}
       </span>
     )
   if (state === 'partial')
     return (
       <span className="shrink-0 type-badge bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5">
-        جزئي — باقي {formatMoney(inv.balance)}
+        {t('invoices.badgePartial', { amount: formatMoney(inv.balance) })}
       </span>
     )
   return (
     <span className="shrink-0 type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-      باقي {formatMoney(inv.balance)}
+      {t('invoices.badgeDue', { amount: formatMoney(inv.balance) })}
     </span>
   )
 }
@@ -80,9 +83,9 @@ export function InvoiceCard({
         secondary={
           <>
             {inv.group_name} · {periodLabel(inv.period_month)} (
-            <span dir="ltr">{periodYm(inv.period_month)}</span>) · الإجمالي{' '}
-            {formatMoney(inv.total)}
-            {inv.paid > 0 ? ` · مدفوع ${formatMoney(inv.paid)}` : ''}
+            <span dir="ltr">{periodYm(inv.period_month)}</span>) ·{' '}
+            {t('invoices.rowTotal', { amount: formatMoney(inv.total) })}
+            {inv.paid > 0 ? ` · ${t('invoices.rowPaidPart', { amount: formatMoney(inv.paid) })}` : ''}
           </>
         }
         trailing={stateBadge(inv)}
@@ -152,12 +155,24 @@ export function InvoicesPage() {
         .sort((a, b) => b.total - a.total)
       return { rows, total: rows.reduce((s, r) => s + r.total, 0), count: rows.length }
     }
-    const unpaid = invoices.filter((inv) => inv.balance > 0)
+    const unpaid = invoices.filter(isUnpaid)
     return {
       overdue: aggregate(unpaid.filter((inv) => inv.period_month < currentMonth)),
       currentDue: aggregate(unpaid.filter((inv) => inv.period_month >= currentMonth)),
     }
   }, [invoices, currentMonth])
+
+  // تجميع العرض بالشهر (W3 — R-11): الفواتير مرتبة بالفترة تنازلياً
+  // أصلاً، فالتجميع المتتالي يحافظ على الترتيب ويضيف عنوان شهر لاصقاً
+  const invoiceSections = useMemo(() => {
+    const sections: { period: string; items: InvoiceListItem[] }[] = []
+    for (const inv of filtered) {
+      const last = sections[sections.length - 1]
+      if (last && last.period === inv.period_month) last.items.push(inv)
+      else sections.push({ period: inv.period_month, items: [inv] })
+    }
+    return sections
+  }, [filtered])
 
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status === 'signed-out') return <SignInRequired />
@@ -169,10 +184,9 @@ export function InvoicesPage() {
         <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
           <Lock size={28} />
         </div>
-        <div className="type-section mb-1">الفواتير والمالية للمالك فقط</div>
+        <div className="type-section mb-1">{t('invoices.ownerOnlyTitle')}</div>
         <p className="text-muted text-[13.5px] mb-0">
-          حساب المساعد لا يملك صلاحية مالية — الفواتير والدفعات محجوبة في قاعدة البيانات نفسها
-          (RLS) وليس في الواجهة فقط.
+          {t('invoices.ownerOnlyBody')}
         </p>
       </Card>
     )
@@ -187,33 +201,31 @@ export function InvoicesPage() {
   return (
     <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-5 lg:items-start">
       <div className="min-w-0">
-      <div className="flex gap-2 mb-3">
-        <div className="flex-1">
-          <TextInput
-            placeholder="ابحث باسم الطالب أو باسم الشهر (نوفمبر)…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <ChipRow>
-        {FILTERS.map((f) => (
+      {/* شريط الأدوات الموحّد (W3 — R-10): بحث + رقائق حالة + عدّاد */}
+      <PageToolBar
+        bleed={false}
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: t('invoices.searchPlaceholder'),
+        }}
+        chips={FILTERS.map((f) => (
           <Chip key={f.key} active={filter === f.key} onClick={() => setFilter(f.key)}>
             {f.label}
           </Chip>
         ))}
-      </ChipRow>
+        resultCount={invoicesQ.isPending ? undefined : filtered.length}
+      />
 
       {teacherId && (
         <ProofsReviewSection teacherId={teacherId} reviewerId={teacherId} />
       )}
 
       {invoicesQ.isPending ? (
-        <LoadingState label="بنحمّل الفواتير…" />
+        <LoadingState label={t('invoices.loading')} />
       ) : invoicesQ.isError ? (
         <ErrorState
-          message={invoicesQ.error instanceof Error ? invoicesQ.error.message : 'خطأ غير معروف'}
+          message={invoicesQ.error instanceof Error ? invoicesQ.error.message : t('common.unknownError')}
           onRetry={() => void invoicesQ.refetch()}
         />
       ) : (
@@ -225,14 +237,14 @@ export function InvoicesPage() {
                   خارج حدود البطاقة عند 360px */}
               <div className="flex flex-col gap-3 min-[560px]:flex-row min-[560px]:items-center min-[560px]:justify-between min-[560px]:gap-2">
                 <div className="min-w-0">
-                  <div className="font-extrabold text-[16px] flex items-center gap-2"><AlertTriangle size={20} className="text-warn-text shrink-0" /> متأخرات مستحقة</div>
+                  <div className="font-extrabold text-[16px] flex items-center gap-2"><AlertTriangle size={20} className="text-warn-text shrink-0" /> {t('invoices.overdueTitle')}</div>
                   <div className="text-muted text-[13.5px]">
-                    {overdue.count} طالب · إجمالي {formatMoney(overdue.total)}
+                    {t('invoices.countTotal', { count: overdue.count, total: formatMoney(overdue.total) })}
                   </div>
                 </div>
                 <div className="flex gap-2 min-[560px]:shrink-0">
                   <Button variant="soft" className="flex-1 min-[560px]:flex-none" onClick={() => setShowOverdue((v) => !v)}>
-                    {showOverdue ? 'إخفاء القائمة' : 'عرض القائمة'}
+                    {showOverdue ? t('invoices.hideList') : t('invoices.showList')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -243,11 +255,11 @@ export function InvoicesPage() {
                         .join('\n')
                       void navigator.clipboard
                         ?.writeText(text)
-                        .then(() => toast('اتنسخت قائمة المتأخرات'))
-                        .catch(() => toast('النسخ مش متاح في المتصفح ده'))
+                        .then(() => toast(t('common.copiedOverdueList')))
+                        .catch(() => toast(t('common.copyUnavailable')))
                     }}
                   >
-                    نسخ المتأخرات
+                    {t('invoices.copyOverdue')}
                   </Button>
                 </div>
               </div>
@@ -269,8 +281,7 @@ export function InvoicesPage() {
               )}
               {currentDue.count > 0 && (
                 <div className="text-muted text-[13.5px] mt-2 border-t border-warn/30 pt-2">
-                  وبالإضافة لكده، مستحقات {currentMonthLabel} (لسه في شهرها — مش
-                  متأخرة): {currentDue.count} طالب · إجمالي {formatMoney(currentDue.total)}
+                  {t('invoices.plusCurrentDue', { month: currentMonthLabel, count: currentDue.count, total: formatMoney(currentDue.total) })}
                 </div>
               )}
             </Card>
@@ -282,15 +293,14 @@ export function InvoicesPage() {
                   الفواتير لسه في شهرها ولم تتجاوز استحقاقها (M4) */}
               <div className="flex flex-col gap-3 min-[560px]:flex-row min-[560px]:items-center min-[560px]:justify-between min-[560px]:gap-2">
                 <div className="min-w-0">
-                  <div className="font-extrabold text-[16px] flex items-center gap-2"><ReceiptText size={20} className="text-primary shrink-0" /> مستحقات {currentMonthLabel}</div>
+                  <div className="font-extrabold text-[16px] flex items-center gap-2"><ReceiptText size={20} className="text-primary shrink-0" /> {t('invoices.currentDueTitle', { month: currentMonthLabel })}</div>
                   <div className="text-muted text-[13.5px]">
-                    {currentDue.count} طالب · إجمالي {formatMoney(currentDue.total)} — فواتير
-                    الشهر الحالي لسه مش متأخرة
+                    {t('invoices.currentDueLine', { count: currentDue.count, total: formatMoney(currentDue.total) })}
                   </div>
                 </div>
                 <div className="flex gap-2 min-[560px]:shrink-0">
                   <Button variant="soft" className="flex-1 min-[560px]:flex-none" onClick={() => setShowCurrentDue((v) => !v)}>
-                    {showCurrentDue ? 'إخفاء القائمة' : 'عرض القائمة'}
+                    {showCurrentDue ? t('invoices.hideList') : t('invoices.showList')}
                   </Button>
                 </div>
               </div>
@@ -317,32 +327,39 @@ export function InvoicesPage() {
             <Card>
               <EmptyState
                 icon={ReceiptText}
-                title={invoices.length === 0 ? 'لسه مفيش فواتير' : 'مفيش فواتير مطابقة'}
+                title={invoices.length === 0 ? t('invoices.emptyNoneTitle') : t('invoices.emptyNoMatchTitle')}
                 hint={
                   invoices.length === 0
-                    ? 'اصدر فواتير الشهر من الزر العائم — لكل طالب نشط بسعره الفعلي وحسب نظام فوترة مجموعته.'
-                    : 'جرّب كلمة بحث أو فلتر تاني.'
+                    ? t('invoices.emptyNoneHint')
+                    : t('invoices.emptyNoMatchHint')
                 }
                 action={
                   invoices.length === 0
-                    ? { label: 'إصدار فواتير الشهر', onClick: () => setIssueOpen(true) }
+                    ? { label: t('invoices.issueAction'), onClick: () => setIssueOpen(true) }
                     : undefined
                 }
               />
             </Card>
           ) : (
             <>
-              <Card className="p-0 overflow-hidden">
-                {filtered.map((inv, i) => (
-                  <InvoiceCard
-                    key={inv.invoice_id}
-                    inv={inv}
-                    first={i === 0}
-                    selected={paneInvoiceId === inv.invoice_id}
-                    onDesktopSelect={setSelectedId}
-                  />
-                ))}
-              </Card>
+              {invoiceSections.map((section) => (
+                <div key={section.period}>
+                  <StickyGroupHeader bleed={false}>
+                    {periodLabel(section.period)} · {section.items.length} فاتورة
+                  </StickyGroupHeader>
+                  <Card className="p-0 overflow-hidden">
+                    {section.items.map((inv, i) => (
+                      <InvoiceCard
+                        key={inv.invoice_id}
+                        inv={inv}
+                        first={i === 0}
+                        selected={paneInvoiceId === inv.invoice_id}
+                        onDesktopSelect={setSelectedId}
+                      />
+                    ))}
+                  </Card>
+                </div>
+              ))}
               {/* حشوة تمرير سفلية: آخر فاتورة تمرّ بالكامل فوق الـ FAB
                   العائم فلا يحجب الزر صفها ولا شارة حالتها */}
               <div aria-hidden="true" className="h-[76px]" />
@@ -360,8 +377,8 @@ export function InvoicesPage() {
           <Card>
             <EmptyState
               icon={ReceiptText}
-              title="اختر فاتورة من القائمة"
-              hint="تفاصيل الفاتورة المحددة هتظهر هنا — أو عدّل البحث والفلاتر."
+              title={t('invoices.selectTitle')}
+              hint={t('invoices.selectHint')}
             />
           </Card>
         )}
@@ -369,8 +386,8 @@ export function InvoicesPage() {
 
       <Fab
         onClick={() => setIssueOpen(true)}
-        ariaLabel={`إصدار فواتير ${currentMonthLabel}`}
-        label="إصدار فواتير الشهر"
+        ariaLabel={t('invoices.fabIssueAria', { month: currentMonthLabel })}
+        label={t('invoices.issueAction')}
         icon={ReceiptText}
       />
 

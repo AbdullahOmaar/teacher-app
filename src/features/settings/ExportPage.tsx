@@ -8,6 +8,7 @@ import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../.
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { CSV_KINDS, type CsvKind } from './api'
 import { useExportCsv, useQuickImportStudents } from './hooks'
+import { t } from '../../i18n'
 
 /**
  * تصدير واستيراد (المواصفات §3.14 + §5.8) — الخطوة 10:
@@ -45,11 +46,11 @@ export function ExportPage() {
 
   useEffect(() => {
     if (!exportMsg && !importMsg) return
-    const t = setTimeout(() => {
+    const tok = setTimeout(() => {
       setExportMsg(null)
       setImportMsg(null)
     }, 6000)
-    return () => clearTimeout(t)
+    return () => clearTimeout(tok)
   }, [exportMsg, importMsg])
 
   if (teacher.status === 'loading') return <LoadingState />
@@ -62,10 +63,9 @@ export function ExportPage() {
         <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
           <Lock size={28} />
         </div>
-        <div className="type-section mb-1">التصدير والاستيراد للمالك فقط</div>
+        <div className="type-section mb-1">{t('settings.exportOwnerOnlyTitle')}</div>
         <p className="text-muted text-[13.5px] mb-0">
-          الجداول المُصدَّرة تشمل بيانات مالية (فواتير ودفعات ومصروفات) محجوبة عن حساب المساعد في
-          قاعدة البيانات نفسها (RLS) وليس في الواجهة فقط.
+          {t('settings.exportOwnerOnlyBody')}
         </p>
       </Card>
     )
@@ -77,9 +77,9 @@ export function ExportPage() {
     setExportErr(null)
     exportCsv.mutate(kind, {
       onSuccess: (file) =>
-        setExportMsg(`تم تنزيل «${label}» — ${file.rowCount} صف (${file.filename})`),
+        setExportMsg(t('settings.exportDownloaded', { label, rowCount: file.rowCount, filename: file.filename })),
       onError: (err) =>
-        setExportErr(err instanceof Error ? err.message : 'تعذّر إنشاء ملف التصدير.'),
+        setExportErr(err instanceof Error ? err.message : t('settings.exportCreateFailed')),
     })
   }
 
@@ -87,11 +87,11 @@ export function ExportPage() {
     setImportMsg(null)
     quickImport.mutate(importText, {
       onSuccess: (res) => {
-        const parts = [`تمت إضافة ${res.created} طالب`]
-        if (res.enrolled > 0) parts.push(`وتسجيل ${res.enrolled} منهم في مجموعات`)
-        if (res.skippedLines > 0) parts.push(`وتخطّي ${res.skippedLines} سطر بلا اسم`)
-        if (res.errors.length > 0) parts.push(`وتعذّر ${res.errors.length} سطر`)
-        setImportMsg(parts.join('، '))
+        const parts = [t('settings.importCreated', { count: res.created })]
+        if (res.enrolled > 0) parts.push(t('settings.importEnrolled', { count: res.enrolled }))
+        if (res.skippedLines > 0) parts.push(t('settings.importSkipped', { count: res.skippedLines }))
+        if (res.errors.length > 0) parts.push(t('settings.importFailedLines', { count: res.errors.length }))
+        setImportMsg(parts.join(t('settings.joinSeparator')))
         if (res.created > 0) setImportText('')
       },
     })
@@ -102,10 +102,9 @@ export function ExportPage() {
   return (
     <div>
       <Card>
-        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileUp size={22} className="text-primary" /> تصدير CSV</h2>
+        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileUp size={22} className="text-primary" /> {t('settings.exportCsvTitle')}</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
-          كل جدول بينزل كملف CSV جاهز لـ Excel أو Google Sheets (بترميز عربي سليم). المبالغ أرقام
-          خام تقدر تحسب عليها، وتاريخ اليوم بيتحط في اسم الملف.
+          {t('settings.exportCsvIntro')}
         </p>
         {exportMsg && (
           <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{exportMsg}</p>
@@ -141,24 +140,22 @@ export function ExportPage() {
               disabled={exportCsv.isPending}
               onClick={() => handleExport(item.kind, item.label)}
             >
-              {pendingKind === item.kind ? 'جارٍ التجهيز…' : 'تنزيل'}
+              {pendingKind === item.kind ? t('settings.exportPreparing') : t('settings.download')}
             </Button>
           </div>
         ))}
       </Card>
 
       <Card>
-        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileDown size={22} className="text-primary" /> استيراد طلاب سريع</h2>
+        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileDown size={22} className="text-primary" /> {t('settings.quickImportTitle')}</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
-          سطر لكل طالب بالصيغة: <b>الاسم, الموبايل, المجموعة</b> — الموبايل والمجموعة اختياريان.
-          اسم المجموعة بيتمطابق بالاحتواء، ولو ما اتلقاش تطابق بيتحط الطالب في أول مجموعة. ولي
-          الأمر بيتبني افتراضياً «ولي أمر + أول اسم»، وبقية البيانات تتكمل بعدين من ملف الطالب.
+          {t('settings.quickIntroPre')} <b>{t('settings.quickIntroFormat')}</b> {t('settings.quickIntroPost')}
         </p>
-        <Field label="قائمة الطلاب (سطر لكل طالب)">
+        <Field label={t('settings.quickImportListLabel')}>
           <TextArea
             rows={6}
             dir="auto"
-            placeholder={'أحمد محمد, 01001234567, مجموعة السبت\nسارة علي, 01112223334'}
+            placeholder={t('settings.quickImportPlaceholder')}
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
           />
@@ -168,7 +165,7 @@ export function ExportPage() {
         )}
         {quickImport.isError && (
           <FormError
-            message={quickImport.error instanceof Error ? quickImport.error.message : 'تعذّر الاستيراد.'}
+            message={quickImport.error instanceof Error ? quickImport.error.message : t('settings.importFailed')}
           />
         )}
         {quickImport.data && quickImport.data.errors.length > 0 && (
@@ -183,34 +180,30 @@ export function ExportPage() {
           onClick={handleQuickImport}
           disabled={quickImport.isPending || !importText.trim()}
         >
-          {quickImport.isPending ? 'جارٍ الاستيراد…' : '+ إضافة الطلاب دفعة واحدة'}
+          {quickImport.isPending ? t('settings.importing') : t('settings.quickImportAction')}
         </Button>
       </Card>
 
       <Card>
-        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileSpreadsheet size={22} className="text-primary" /> استيراد طلاب من ملف Excel / CSV</h2>
+        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileSpreadsheet size={22} className="text-primary" /> {t('settings.fileImportTitle')}</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
-          المسار الكامل للملفات: قالب جاهز بنفس أعمدة تصدير الطلاب، معاينة قبل الحفظ بحالة كل
-          صف، كشف تكرار بالموبايل والكود، وتسجيل اختياري في مجموعة. الاستيراد النصي فوق ده
-          للّصق السريع البسيط، واستيراد الملف من شاشة الطلاب — نفس مسارات إنشاء الطالب في
-          الحالتين.
+          {t('settings.fileImportIntro')}
         </p>
         <Link to="/students?import=1">
           <Button full variant="soft">
-            فتح استيراد الملف من شاشة الطلاب
+            {t('settings.fileImportOpen')}
           </Button>
         </Link>
       </Card>
 
       <Card>
-        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><DatabaseBackup size={22} className="text-primary" /> النسخة الاحتياطية الكاملة</h2>
+        <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><DatabaseBackup size={22} className="text-primary" /> {t('settings.backupCardTitle')}</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
-          نسخة JSON فيها كل بياناتك (طلاب ومجموعات وفواتير وحضور ودرجات…) تقدر تحفظها وترجع
-          تستوردها في أي وقت — من شاشة النسخ الاحتياطي.
+          {t('settings.backupCardBody')}
         </p>
         <Link to="/backup">
           <Button full variant="soft">
-            الذهاب للنسخ الاحتياطي والاستعادة
+            {t('settings.backupCardAction')}
           </Button>
         </Link>
       </Card>

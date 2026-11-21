@@ -20,6 +20,7 @@ import {
   type ParsedFile,
 } from './parseFile'
 import { useImportStudentsFile } from './hooks'
+import { t } from '../../../i18n'
 
 interface StudentImportSheetProps {
   onClose: () => void
@@ -32,9 +33,9 @@ interface StudentImportSheetProps {
 type Step = 'pick' | 'preview' | 'done'
 
 const STATUS_UI: Record<ClassifiedRow['status'], { label: string; cls: string }> = {
-  ready: { label: 'جاهز', cls: 'bg-ok-soft text-ok-text border-ok/30' },
-  duplicate: { label: 'تكرار', cls: 'bg-warn-soft text-warn-text border-warn/40' },
-  error: { label: 'خطأ', cls: 'bg-bad-soft text-bad-text border-bad/30' },
+  ready: { label: t('students.importStatusReady'), cls: 'bg-ok-soft text-ok-text border-ok/30' },
+  duplicate: { label: t('students.importStatusDuplicate'), cls: 'bg-warn-soft text-warn-text border-warn/40' },
+  error: { label: t('students.importStatusError'), cls: 'bg-bad-soft text-bad-text border-bad/30' },
 }
 
 /**
@@ -68,7 +69,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
     // صف مثال القالب لا يُستورد أبداً إن رُفع كما هو
     return base.map((c) =>
       isTemplateExampleRow(c.row)
-        ? { ...c, status: 'error' as const, reason: 'ده صف المثال اللي في القالب — مش طالب حقيقي' }
+        ? { ...c, status: 'error' as const, reason: t('students.importExampleRowReason') }
         : c,
     )
   }, [parsed, mapping, students])
@@ -102,7 +103,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
       setIncludeOverride({})
       setStep('preview')
     } catch (err) {
-      setParseError(err instanceof Error ? err.message : 'تعذّرت قراءة الملف.')
+      setParseError(err instanceof Error ? err.message : t('students.importParseErrorFallback'))
     } finally {
       setParsing(false)
     }
@@ -114,7 +115,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
       if (kind === 'xlsx') await downloadTemplateXlsx()
       else downloadTemplateCsv()
     } catch {
-      setParseError('تعذّر إنشاء القالب — حاول تاني.')
+      setParseError(t('students.importTemplateError'))
     } finally {
       setTemplateBusy(false)
     }
@@ -136,7 +137,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
   return (
     <Sheet
       open
-      title="استيراد طلاب من ملف Excel / CSV"
+      title={t('students.importTitle')}
       onClose={onClose}
       footer={
         step === 'preview' ? (
@@ -146,15 +147,15 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
               onClick={doImport}
               disabled={importFile.isPending || importCount === 0 || !hasNameColumn}
             >
-              {importFile.isPending ? 'جارٍ الاستيراد…' : `استيراد ${importCount} طالب`}
+              {importFile.isPending ? t('students.importImporting') : t('students.importImportBtn', { count: importCount })}
             </Button>
             <Button variant="ghost" onClick={() => setStep('pick')} disabled={importFile.isPending}>
-              رجوع
+              {t('shell.back')}
             </Button>
           </div>
         ) : (
           <Button full variant={step === 'done' ? 'primary' : 'ghost'} onClick={onClose}>
-            {step === 'done' ? 'تمام' : 'إلغاء'}
+            {step === 'done' ? t('invoices.sheetOk') : t('groups.cancel')}
           </Button>
         )
       }
@@ -162,31 +163,26 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
       {step === 'pick' && (
         <div>
           <p className="text-muted text-[13.5px] mt-0 mb-3">
-            ارفع ملف Excel ‏(xlsx) أو CSV فيه طلابك — هتشوف معاينة كاملة بحالة كل طالب قبل أي
-            حفظ، والمكرر هيتعلّم ويتخطى تلقائياً. الاستيراد النصي السريع (لصق أسطر) لسه موجود
-            في شاشة «تصدير واستيراد» للحالات البسيطة؛ الاستيراد من ملف هو المسار الكامل
-            بالمعاينة وكشف التكرار.
+            {t('students.importIntro')}
           </p>
-          <h4 className="type-section mb-2">١ — القالب الجاهز</h4>
+          <h4 className="type-section mb-2">{t('students.importTemplateTitle')}</h4>
           <p className="text-muted text-[13.5px] mt-0 mb-2">
-            نزّل القالب وعبّيه: الاسم إلزامي، والباقي اختياري (الكود، الصف، المدرسة، موبايل
-            الطالب، ولي الأمر وموبايله، ملاحظة المستوى، وسعر خاص اختياري للتسجيل). نفس أعمدة
-            تصدير الطلاب — يعني ملف التصدير نفسه يصلح للاستيراد.
+            {t('students.importTemplateHint')}
           </p>
           <div className="flex gap-2 mb-4">
             <Button variant="soft" className="flex-1" disabled={templateBusy} onClick={() => void onDownloadTemplate('xlsx')}>
-              <FileSpreadsheet size={20} /> قالب Excel
+              <FileSpreadsheet size={20} /> {t('students.importTemplateExcel')}
             </Button>
             <Button variant="soft" className="flex-1" disabled={templateBusy} onClick={() => void onDownloadTemplate('csv')}>
-              <FileText size={20} /> قالب CSV
+              <FileText size={20} /> {t('students.importTemplateCsv')}
             </Button>
           </div>
 
-          <h4 className="type-section mb-2">٢ — اختيار الملف</h4>
+          <h4 className="type-section mb-2">{t('students.importPickTitle')}</h4>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".xlsx,.xls,.csv"
+            accept=".xlsx,.csv"
             className="hidden"
             onChange={(e) => {
               void onFileChosen(e.target.files?.[0])
@@ -195,7 +191,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
           />
           <Button full onClick={() => fileInputRef.current?.click()} disabled={parsing}>
             <Upload size={20} />
-            {parsing ? 'جارٍ قراءة الملف…' : 'اختيار ملف Excel / CSV'}
+            {parsing ? t('students.importReadingFile') : t('students.importPickFileBtn')}
           </Button>
           {parseError && (
             <div className="mt-3">
@@ -208,39 +204,39 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
       {step === 'preview' && parsed && (
         <div>
           <p className="text-[13.5px] mt-0 mb-2">
-            الملف: <b>{parsed.fileName}</b> — {classified.length} صف بيانات
+            {t('students.importFilePrefix')}<b>{parsed.fileName}</b>{t('students.importFileSuffix', { count: classified.length })}
           </p>
           <div className="flex flex-wrap gap-2 mb-3">
-            <span className="type-badge bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2.5 py-1">جاهز {counts.ready}</span>
-            <span className="type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2.5 py-1">تكرار {counts.duplicate}</span>
-            <span className="type-badge bg-bad-soft text-bad-text border border-bad/30 rounded-full px-2.5 py-1">خطأ {counts.error}</span>
+            <span className="type-badge bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2.5 py-1">{t('students.importReadyBadge', { count: counts.ready })}</span>
+            <span className="type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2.5 py-1">{t('students.importDuplicateBadge', { count: counts.duplicate })}</span>
+            <span className="type-badge bg-bad-soft text-bad-text border border-bad/30 rounded-full px-2.5 py-1">{t('students.importErrorBadge', { count: counts.error })}</span>
           </div>
 
-          <Field label="تسجيل كل المستوردين في مجموعة (اختياري)">
+          <Field label={t('students.importGroupLabel')}>
             <Select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-              <option value="">بدون تسجيل في مجموعة</option>
+              <option value="">{t('students.importNoGroupOption')}</option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
-                  {g.name} — سعر المجموعة {g.price} ج
+                  {t('students.importGroupOption', { name: g.name, price: g.price })}
                 </option>
               ))}
             </Select>
           </Field>
           {groupId && (
             <p className="text-muted text-[12px] mt-0 mb-3">
-              هيتسجلوا بسعر المجموعة الافتراضي، إلا الصفوف اللي فيها «سعر خاص» في الملف.
+              {t('students.importGroupNote')}
             </p>
           )}
 
-          <h4 className="type-section mb-2">مطابقة الأعمدة</h4>
+          <h4 className="type-section mb-2">{t('students.importMappingTitle')}</h4>
           {!hasNameColumn && (
-            <FormError message="عمود «الاسم» مش مربوط بأي عمود في الملف — اربطه من القوائم تحت عشان تقدر تستورد." />
+            <FormError message={t('students.importNoNameColumnError')} />
           )}
           <div className="grid grid-cols-2 gap-2 mb-3">
             {parsed.headers.map((h, colIdx) => (
               <label key={colIdx} className="block">
                 <span className="block text-[12px] text-muted font-semibold mb-1 truncate">
-                  عمود الملف: {h || `عمود ${colIdx + 1}`}
+                  {t('students.importColumnLabel', { header: h || t('students.importColumnFallback', { index: colIdx + 1 }) })}
                 </span>
                 <Select
                   value={mapping[colIdx] ?? ''}
@@ -254,7 +250,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
                   }}
                   className="min-h-[48px] text-[13.5px]"
                 >
-                  <option value="">تجاهل العمود</option>
+                  <option value="">{t('students.importIgnoreColumn')}</option>
                   {IMPORT_FIELDS.map((f) => (
                     <option key={f.field} value={f.field}>
                       {f.label}
@@ -265,15 +261,15 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
             ))}
           </div>
 
-          <h4 className="type-section mb-2">المعاينة — راجع قبل الحفظ</h4>
+          <h4 className="type-section mb-2">{t('students.importPreviewTitle')}</h4>
           <div className="border border-border rounded-xl overflow-auto max-h-[46vh] mb-3">
             <table className="w-full text-[13.5px] border-collapse min-w-[520px]">
               <thead className="sticky top-0 bg-soft">
                 <tr>
-                  <th className="text-start px-2 py-2 font-bold">يشمل؟</th>
-                  <th className="text-start px-2 py-2 font-bold">الاسم</th>
-                  <th className="text-start px-2 py-2 font-bold">الموبايل / الكود</th>
-                  <th className="text-start px-2 py-2 font-bold">الحالة</th>
+                  <th className="text-start px-2 py-2 font-bold">{t('students.importColInclude')}</th>
+                  <th className="text-start px-2 py-2 font-bold">{t('students.importColName')}</th>
+                  <th className="text-start px-2 py-2 font-bold">{t('students.importColPhoneCode')}</th>
+                  <th className="text-start px-2 py-2 font-bold">{t('students.importColStatus')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -294,13 +290,13 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
                                 [c.row.rowNumber]: e.target.checked,
                               }))
                             }
-                            className="w-5 h-5 accent-[#4f46e5]"
+                            className="w-5 h-5 accent-primary"
                           />
                         </label>
                       </td>
                       <td className="px-2 py-2">
                         <span className="font-semibold">{c.row.name || '—'}</span>
-                        <span className="block text-muted text-[12px]">صف {c.row.rowNumber}{c.row.grade ? ` · ${c.row.grade}` : ''}</span>
+                        <span className="block text-muted text-[12px]">{t('students.importRowLine', { row: c.row.rowNumber })}{c.row.grade ? t('students.metaItem', { value: c.row.grade ?? '' }) : ''}</span>
                       </td>
                       <td className="px-2 py-2" dir="auto">
                         {c.row.phone ?? ''}
@@ -317,7 +313,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
                         )}
                         {c.status === 'duplicate' && (
                           <span className="block text-muted text-[12px]">
-                            {included ? 'هيتم تضمينه رغم التكرار' : 'مستبعد افتراضياً — علّم «يشمل؟» لتضمينه'}
+                            {included ? t('students.importDuplicateIncluded') : t('students.importDuplicateExcluded')}
                           </span>
                         )}
                       </td>
@@ -329,7 +325,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
           </div>
           {importFile.isError && (
             <FormError
-              message={importFile.error instanceof Error ? importFile.error.message : 'تعذّر الاستيراد.'}
+              message={importFile.error instanceof Error ? importFile.error.message : t('students.importErrorFallback')}
             />
           )}
         </div>
@@ -337,15 +333,15 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
 
       {step === 'done' && result && (
         <div>
-          <p className="text-[15px] font-bold mt-0 mb-2">خلص الاستيراد</p>
+          <p className="text-[15px] font-bold mt-0 mb-2">{t('students.importDoneTitle')}</p>
           <div className="flex flex-wrap gap-2 mb-3">
-            <span className="type-badge bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2.5 py-1">أُنشئ {result.created}</span>
+            <span className="type-badge bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2.5 py-1">{t('students.importCreatedBadge', { count: result.created })}</span>
             {result.enrolled > 0 && (
-              <span className="type-badge bg-soft text-primary border border-border rounded-full px-2.5 py-1">سُجّل في المجموعة {result.enrolled}</span>
+              <span className="type-badge bg-soft text-primary border border-border rounded-full px-2.5 py-1">{t('students.importEnrolledBadge', { count: result.enrolled })}</span>
             )}
-            <span className="type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2.5 py-1">تُخطّي {result.skipped}</span>
+            <span className="type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2.5 py-1">{t('students.importSkippedBadge', { count: result.skipped })}</span>
             {result.failed > 0 && (
-              <span className="type-badge bg-bad-soft text-bad-text border border-bad/30 rounded-full px-2.5 py-1">فشل {result.failed}</span>
+              <span className="type-badge bg-bad-soft text-bad-text border border-bad/30 rounded-full px-2.5 py-1">{t('students.importFailedBadge', { count: result.failed })}</span>
             )}
           </div>
           {result.errors.length > 0 && (
@@ -356,7 +352,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
             </div>
           )}
           <p className="text-muted text-[13.5px]">
-            القائمة اتحدّثت — الطلاب الجداد ظاهرين دلوقتي في شاشة الطلاب.
+            {t('students.importDoneNote')}
           </p>
         </div>
       )}

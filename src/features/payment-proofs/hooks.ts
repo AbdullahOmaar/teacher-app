@@ -3,6 +3,9 @@ import type { PaymentProofRow } from '../../types/database'
 import { HOME } from '../home/hooks'
 import { INV } from '../invoices/hooks'
 import { SG } from '../students/hooks'
+import { ANALYTICS } from '../analytics/hooks'
+import { MONEY } from '../money/hooks'
+import { invalidatePrefixes } from '../../lib/invalidate'
 import {
   approveProof,
   fetchPendingProofs,
@@ -39,12 +42,8 @@ export function useProofImageUrl(storagePath: string | null) {
  */
 function useInvalidateProofs() {
   const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [PP] })
-    void qc.invalidateQueries({ queryKey: [INV] })
-    void qc.invalidateQueries({ queryKey: [HOME] })
-    void qc.invalidateQueries({ queryKey: [SG] })
-  }
+  // اعتماد إثبات ينشئ دفعة: يغذي الفلوس والتحليلات أيضاً — PAT-1
+  return () => invalidatePrefixes(qc, [PP, INV, HOME, SG, MONEY, ANALYTICS])
 }
 
 export function useApproveProof(teacherId: string, reviewerId: string) {

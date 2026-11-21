@@ -1,11 +1,7 @@
-import { supabase } from '../../lib/supabase'
+import { t } from '../../i18n'
+import { db } from '../../lib/supabase'
 import { monthStartStr, todayStr } from '../home/api'
 import { fetchMonthlyProfit } from '../money/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // لوحة التحليلات (Phase 3 — الخطوة 3): مصادر البيانات وتعريفاتها.
@@ -52,6 +48,22 @@ export interface AnalyticsMonth {
   cumulativeStudents: number
 }
 
+export interface AnalyticsInsights {
+  /** المجموعة صاحبة أعلى متأخرات حالية */
+  topOverdueGroup: { name: string; amount: number } | null
+  /** أكبر تغيّر تحصيل بين شهرين مكتملين متتاليين داخل المدى */
+  biggestCollectionChange: {
+    fromMonth: string
+    toMonth: string
+    pct: number
+    delta: number
+  } | null
+  /** أكثر مجموعة غياباً (حالات 'a') داخل المدى */
+  mostAbsentGroup: { name: string; absences: number } | null
+  /** أكثر طالب غياباً داخل المدى */
+  mostAbsentStudent: { name: string; absences: number } | null
+}
+
 export interface AnalyticsData {
   months: AnalyticsMonth[]
   /** إجمالي التحصيل داخل المدى */
@@ -64,6 +76,60 @@ export interface AnalyticsData {
   activeStudents: number
   /** أي أثر بيانات داخل المدى أو تراكمياً — false لمدرس جديد تماماً */
   hasAnyData: boolean
+  /** أهم الرؤى الحتمية (W5 — R-14) — تُشتق من نفس بيانات اللوحة */
+  insights: AnalyticsInsights
+}
+
+/**
+ * بناء الرؤى الثلاث حتمياً (W5 — R-14): أعلى متأخرات لمجموعة، أكبر
+ * تغيّر تحصيل بين شهرين مكتملين متتاليين (الشهر الحالي الجاري لا
+ * يدخل المقارنة حتى لا يُقارن نصف شهر بشهر كامل)، وأعلى غياب.
+ * دالة نقية فوق مجاميع جاهزة — بلا أي نموذج أو تخمين.
+ */
+export function buildInsights(args: {
+  months: AnalyticsMonth[]
+  overdueByGroup: { name: string; amount: number }[]
+  absenceByGroup: { name: string; absences: number }[]
+  absenceByStudent: { name: string; absences: number }[]
+}): AnalyticsInsights {
+  let topOverdueGroup: AnalyticsInsights['topOverdueGroup'] = null
+  for (const g of args.overdueByGroup) {
+    if (g.amount > 0 && (!topOverdueGroup || g.amount > topOverdueGroup.amount)) {
+      topOverdueGroup = { name: g.name, amount: g.amount }
+    }
+  }
+  let biggestCollectionChange: AnalyticsInsights['biggestCollectionChange'] = null
+  const completed = args.months.slice(0, -1)
+  for (let i = 1; i < completed.length; i++) {
+    const from = completed[i - 1]
+    const to = completed[i]
+    if (from.collected <= 0) continue
+    const pct = Math.round(((to.collected - from.collected) / from.collected) * 100)
+    if (
+      !biggestCollectionChange ||
+      Math.abs(pct) > Math.abs(biggestCollectionChange.pct)
+    ) {
+      biggestCollectionChange = {
+        fromMonth: from.month,
+        toMonth: to.month,
+        pct,
+        delta: to.collected - from.collected,
+      }
+    }
+  }
+  const topAbsence = <T extends { name: string; absences: number }>(list: T[]) =>
+    list.reduce<T | null>(
+      (best, cur) => (cur.absences > 0 && (!best || cur.absences > best.absences) ? cur : best),
+      null,
+    )
+  const mag = topAbsence(args.absenceByGroup)
+  const mas = topAbsence(args.absenceByStudent)
+  return {
+    topOverdueGroup,
+    biggestCollectionChange,
+    mostAbsentGroup: mag ? { name: mag.name, absences: mag.absences } : null,
+    mostAbsentStudent: mas ? { name: mas.name, absences: mas.absences } : null,
+  }
 }
 
 const PAGE = 1000
@@ -99,17 +165,29 @@ interface AttendanceAgg {
   attended: number
 }
 
+interface AttendanceAggregates {
+  byMonth: Map<string, AttendanceAgg>
+  /** غيابات (status='a') لكل مجموعة داخل المدى — لرؤى W5 */
+  absenceByGroup: Map<string, number>
+  /** غيابات لكل طالب داخل المدى — لرؤى W5 */
+  absenceByStudent: Map<string, number>
+}
+
 /** تجميع الحضور شهرياً من صفوف attendance مربوطة بتاريخ حصتها */
 async function fetchAttendanceByMonth(
   teacherId: string,
   fromMonth: string,
   toMonthEnd: string,
-): Promise<Map<string, AttendanceAgg>> {
-  type Row = { status: string | null; sessions: { session_date: string } | null }
+): Promise<AttendanceAggregates> {
+  type Row = {
+    status: string | null
+    student_id: string
+    sessions: { session_date: string; group_id: string } | null
+  }
   const rows = await fetchAllPages<Row>(async (from, to) => {
     const { data, error } = await db()
       .from('attendance')
-      .select('status, sessions!inner(session_date)')
+      .select('status, student_id, sessions!inner(session_date, group_id)')
       .eq('teacher_id', teacherId)
       .not('status', 'is', null)
       .gte('sessions.session_date', fromMonth)
@@ -121,6 +199,8 @@ async function fetchAttendanceByMonth(
     return (data ?? []) as unknown as Row[]
   })
   const map = new Map<string, AttendanceAgg>()
+  const absenceByGroup = new Map<string, number>()
+  const absenceByStudent = new Map<string, number>()
   for (const r of rows) {
     const date = r.sessions?.session_date
     if (!date || !r.status) continue
@@ -129,37 +209,57 @@ async function fetchAttendanceByMonth(
     agg.marked += 1
     if (r.status === 'p' || r.status === 'l' || r.status === 'm') agg.attended += 1
     map.set(key, agg)
+    if (r.status === 'a') {
+      if (r.sessions?.group_id) {
+        absenceByGroup.set(r.sessions.group_id, (absenceByGroup.get(r.sessions.group_id) ?? 0) + 1)
+      }
+      absenceByStudent.set(r.student_id, (absenceByStudent.get(r.student_id) ?? 0) + 1)
+    }
   }
-  return map
+  return { byMonth: map, absenceByGroup, absenceByStudent }
 }
 
-/** كل أرصدة الفواتير (period_month + balance) — تُشتق منها سلسلة المتأخرات وإجماليها */
+/** كل أرصدة الفواتير (period_month + balance + group) — للسلسلة والإجمالي والرؤى */
 async function fetchInvoiceBalances(
   teacherId: string,
-): Promise<{ period_month: string; balance: number }[]> {
-  type Row = { period_month: string; balance: number | string }
+): Promise<{ period_month: string; balance: number; group_id: string }[]> {
+  type Row = { period_month: string; balance: number | string; group_id: string }
   const rows = await fetchAllPages<Row>(async (from, to) => {
     const { data, error } = await db()
       .from('invoice_balances')
-      .select('period_month, balance')
+      .select('period_month, balance, group_id')
       .eq('teacher_id', teacherId)
       .order('invoice_id', { ascending: true })
       .range(from, to)
     if (error) throw error
     return (data ?? []) as unknown as Row[]
   })
-  return rows.map((r) => ({ period_month: r.period_month, balance: Number(r.balance) || 0 }))
+  return rows.map((r) => ({
+    period_month: r.period_month,
+    balance: Number(r.balance) || 0,
+    group_id: r.group_id,
+  }))
 }
 
-/** كل الطلاب (created_at + paused) — للجدد/التراكمي/النشطين */
+/** أسماء المجموعات (id ← name) — لتسمية رؤى المتأخرات/الغياب */
+async function fetchGroupNames(teacherId: string): Promise<Map<string, string>> {
+  const { data, error } = await db()
+    .from('groups')
+    .select('id, name')
+    .eq('teacher_id', teacherId)
+  if (error) throw error
+  return new Map(((data ?? []) as { id: string; name: string }[]).map((g) => [g.id, g.name]))
+}
+
+/** كل الطلاب (id + name + created_at + paused) — للجدد/التراكمي/النشطين والرؤى */
 async function fetchStudentsLite(
   teacherId: string,
-): Promise<{ created_at: string; paused: boolean }[]> {
-  type Row = { created_at: string; paused: boolean }
+): Promise<{ id: string; name: string; created_at: string; paused: boolean }[]> {
+  type Row = { id: string; name: string; created_at: string; paused: boolean }
   const rows = await fetchAllPages<Row>(async (from, to) => {
     const { data, error } = await db()
       .from('students')
-      .select('created_at, paused')
+      .select('id, name, created_at, paused')
       .eq('teacher_id', teacherId)
       .order('id', { ascending: true })
       .range(from, to)
@@ -180,20 +280,24 @@ export async function fetchAnalytics(
   const [y, m] = lastMonth.split('-').map(Number)
   const lastMonthEnd = `${lastMonth.slice(0, 7)}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
 
-  const [profitRows, attendanceMap, balances, students] = await Promise.all([
+  const [profitRows, attendance, balances, students, groupNames] = await Promise.all([
     fetchMonthlyProfit(teacherId),
     fetchAttendanceByMonth(teacherId, firstMonth, lastMonthEnd),
     fetchInvoiceBalances(teacherId),
     fetchStudentsLite(teacherId),
+    fetchGroupNames(teacherId),
   ])
+  const attendanceMap = attendance.byMonth
 
   const profitByMonth = new Map(profitRows.map((r) => [r.month, r.collected]))
   const overdueByMonth = new Map<string, number>()
+  const overdueByGroupId = new Map<string, number>()
   let currentOverdue = 0
   for (const b of balances) {
     if (b.balance > 0) {
       currentOverdue += b.balance
       overdueByMonth.set(b.period_month, (overdueByMonth.get(b.period_month) ?? 0) + b.balance)
+      overdueByGroupId.set(b.group_id, (overdueByGroupId.get(b.group_id) ?? 0) + b.balance)
     }
   }
 
@@ -236,6 +340,23 @@ export async function fetchAnalytics(
     profitRows.length > 0 ||
     totalMarked > 0
 
+  const studentNames = new Map(students.map((s) => [s.id, s.name]))
+  const insights = buildInsights({
+    months: monthRows,
+    overdueByGroup: [...overdueByGroupId.entries()].map(([id, amount]) => ({
+      name: groupNames.get(id) ?? t('common.groupFallback'),
+      amount,
+    })),
+    absenceByGroup: [...attendance.absenceByGroup.entries()].map(([id, absences]) => ({
+      name: groupNames.get(id) ?? t('common.groupFallback'),
+      absences,
+    })),
+    absenceByStudent: [...attendance.absenceByStudent.entries()].map(([id, absences]) => ({
+      name: studentNames.get(id) ?? t('analytics.fallbackStudent'),
+      absences,
+    })),
+  })
+
   return {
     months: monthRows,
     totalCollected,
@@ -244,5 +365,6 @@ export async function fetchAnalytics(
     currentOverdue,
     activeStudents,
     hasAnyData,
+    insights,
   }
 }

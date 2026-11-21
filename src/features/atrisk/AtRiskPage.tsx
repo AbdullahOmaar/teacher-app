@@ -11,6 +11,7 @@ import { useBrandIdentity } from '../../hooks/useBrandIdentity'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { atRiskWaUrl, type AtRiskStudent } from './api'
 import { useAtRisk, useMarkAtRiskFollowedUp } from './hooks'
+import { t } from '../../i18n'
 
 /**
  * صفحة «معرّضون للفقد» (Phase 5 / خطوة 1): القائمة الكاملة مرتبة
@@ -45,8 +46,8 @@ export function AtRiskPage() {
         reasonsSummary: item.reasons.map((r) => r.text).join(' · '),
       },
       {
-        onSuccess: () => toast('تمت المتابعة — هيظهر تاني بس لو حصل سبب خطر جديد'),
-        onError: () => toast('معلش، تسجيل المتابعة فشل — حاول تاني'),
+        onSuccess: () => toast(t('atrisk.pageFollowedUpToast')),
+        onError: () => toast(t('atrisk.pageFollowUpErrorToast')),
       },
     )
   }
@@ -54,25 +55,24 @@ export function AtRiskPage() {
   return (
     <div>
       <p className="text-muted text-[13.5px] leading-[1.8] mb-3 mt-0">
-        طالب نشط غاب <b className="text-text">3 حصص متتالية</b> أو عليه اشتراك{' '}
-        <b className="text-text">متأخر من شهرين أو أكتر</b> — القائمة بتتبني لوحدها من
-        الحضور والفواتير، ومتابعة واحدة بدري ممكن تنقذ اشتراكه.
-        {!isOwner && ' (أسباب المتأخرات بتظهر لمالك الحساب بس.)'}
+        {t('atrisk.pageIntroPre')}<b className="text-text">{t('atrisk.pageIntroAbsence')}</b>{t('atrisk.pageIntroMid')}{' '}
+        <b className="text-text">{t('atrisk.pageIntroOverdue')}</b>{t('atrisk.pageIntroPost')}
+        {!isOwner && t('atrisk.pageIntroAssistantNote')}
       </p>
 
       {atRiskQ.isPending ? (
         <LoadingState />
       ) : atRiskQ.error ? (
         <ErrorState
-          message={atRiskQ.error instanceof Error ? atRiskQ.error.message : 'خطأ غير معروف'}
+          message={atRiskQ.error instanceof Error ? atRiskQ.error.message : t('common.unknownError')}
           onRetry={() => void atRiskQ.refetch()}
         />
       ) : items.length === 0 ? (
         <Card>
           <EmptyState
             icon={ShieldCheck}
-            title="مفيش طلاب معرّضين للفقد"
-            hint="كل الطلاب النشطين حضورهم منتظم ومفيش متأخرات قديمة — القائمة هتظهر هنا لوحدها أول ما حد يستحق المتابعة."
+            title={t('atrisk.pageEmptyTitle')}
+            hint={t('atrisk.pageEmptyHint')}
           />
         </Card>
       ) : (
@@ -106,26 +106,29 @@ export function AtRiskPage() {
                     <span>
                       {reason.text}
                       {reason.kind === 'absence' && (
-                        <span className="text-muted font-normal"> — {reason.groupName}</span>
+                        <span className="text-muted font-normal">{t('atrisk.pageReasonGroup', { name: reason.groupName })}</span>
                       )}
                     </span>
                   </div>
                 ))}
               </div>
 
+              {/* زر الواتساب موحّد اللون مع زر الإشعارات (W6 — R-3):
+                  أخضر ناعم بنص ok-text المضمون التباين في الثيمين، بدل
+                  الحشوة الخضراء الكاملة بنص أبيض (3.39:1 فقط) */}
               <div className="flex flex-wrap gap-2">
                 {waUrl ? (
                   <a
                     href={waUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 min-h-[48px] text-[15px] font-semibold bg-ok text-white no-underline hover:opacity-90"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 min-h-[48px] text-[15px] font-semibold bg-ok/10 text-ok-text border border-ok/30 no-underline hover:bg-ok/15"
                   >
-                    متابعة واتساب
+                    {t('atrisk.pageWhatsappBtn')}
                   </a>
                 ) : (
                   <span className="inline-flex items-center text-muted text-[13px]">
-                    مفيش رقم ولي أمر صالح للواتساب
+                    {t('atrisk.pageNoWhatsapp')}
                   </span>
                 )}
                 <Link
@@ -133,7 +136,7 @@ export function AtRiskPage() {
                   className="inline-flex items-center justify-center gap-2 rounded-xl px-4 min-h-[48px] text-[15px] font-semibold bg-transparent border border-border text-text no-underline hover:bg-soft"
                 >
                   <UserRound size={18} />
-                  ملف الطالب
+                  {t('atrisk.pageStudentFileBtn')}
                 </Link>
                 <Button
                   variant="soft"
@@ -141,7 +144,7 @@ export function AtRiskPage() {
                   onClick={() => onFollowedUp(item)}
                 >
                   <CheckCheck size={18} />
-                  {busy ? 'بيتسجل…' : 'تمت المتابعة'}
+                  {busy ? t('atrisk.pageFollowingUp') : t('atrisk.pageFollowedUpBtn')}
                 </Button>
               </div>
             </Card>

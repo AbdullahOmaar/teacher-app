@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { formatDateTimeAr } from '../../lib/format'
 import { Banknote, CalendarDays, CheckCircle2, ReceiptText } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -15,13 +16,7 @@ import { diffOf, diffState } from './cashboxApi'
 import { useDailyClosing, useDailyClosings, useDaySummary } from './cashboxHooks'
 import { ClosingFormSheet } from './ClosingFormSheet'
 import { DiffBadge } from './diffUi'
-
-function fmtDateTime(iso: string): string {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime())
-    ? ''
-    : d.toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })
-}
+import { t } from '../../i18n'
 
 function SummaryCell({
   label,
@@ -72,13 +67,13 @@ function ClosingHistoryRow({
       </div>
       <div className="flex justify-between text-[12px] text-muted mt-1">
         <span>
-          متوقع <span dir="ltr">{formatMoney(expectedTotal)}</span>
+          {t('money.cashboxExpected')} <span dir="ltr">{formatMoney(expectedTotal)}</span>
         </span>
         <span>
-          معدود <span dir="ltr">{formatMoney(countedTotal)}</span>
+          {t('money.cashboxCounted')} <span dir="ltr">{formatMoney(countedTotal)}</span>
         </span>
         <span className={diffState(diff.cash) === 'match' ? '' : 'font-semibold'}>
-          نقدي <span dir="ltr">{formatMoney(diff.cash)}</span>
+          {t('money.cashboxCash')} <span dir="ltr">{formatMoney(diff.cash)}</span>
         </span>
       </div>
       {closing.note && (
@@ -131,10 +126,10 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
       Math.abs(closing.expected_electronic - summary.electronic) >= 0.005)
 
   return (
-    <section aria-label="الإغلاق اليومي للخزنة" className="mb-4">
+    <section aria-label={t('money.cashboxTitle')} className="mb-4">
       <div className="flex items-center gap-2 mb-2">
         <Banknote size={22} className="text-primary" />
-        <h2 className="type-section">الإغلاق اليومي للخزنة</h2>
+        <h2 className="type-section">{t('money.cashboxTitle')}</h2>
       </div>
 
       {/* اختيار اليوم: على الموبايل منتقي التاريخ في صف كامل أولاً ثم
@@ -146,12 +141,12 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
           className="flex-1 min-[480px]:flex-none"
           onClick={() => setSelectedDate(addDaysStr(selectedDate, -1))}
         >
-          اليوم السابق
+          {t('money.cashboxPrevDay')}
         </Button>
         <div className="order-first w-full min-[480px]:order-none min-[480px]:w-auto min-[480px]:flex-1 min-w-0">
           <TextInput
             type="date"
-            aria-label="يوم الإغلاق"
+            aria-label={t('money.cashboxDayAria')}
             max={today}
             value={selectedDate}
             onChange={(e) => {
@@ -165,19 +160,19 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
           disabled={isToday}
           onClick={() => setSelectedDate(addDaysStr(selectedDate, 1))}
         >
-          اليوم التالي
+          {t('money.cashboxNextDay')}
         </Button>
       </div>
       <div className="text-center font-bold text-[13.5px] text-muted -mt-1 mb-3">
         {formatDateLabel(selectedDate)}
-        {isToday ? ' — النهاردة' : ''}
+        {isToday ? t('money.cashboxTodaySuffix') : ''}
       </div>
 
       {pending ? (
         <SkeletonCards cards={2} />
       ) : error ? (
         <ErrorState
-          message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+          message={error instanceof Error ? error.message : t('common.unknownError')}
           onRetry={() => {
             void summaryQ.refetch()
             void closingQ.refetch()
@@ -188,26 +183,26 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
         <>
           <Card>
             <div className="grid grid-cols-2 gap-2 mb-3">
-              <SummaryCell label="متوقع نقدي" value={formatMoney(summary.cash)} valueClass="text-ok-text" />
+              <SummaryCell label={t('money.cashboxExpectedCash')} value={formatMoney(summary.cash)} valueClass="text-ok-text" />
               <SummaryCell
-                label="متوقع إلكتروني"
+                label={t('money.cashboxExpectedElectronic')}
                 value={formatMoney(summary.electronic)}
                 valueClass="text-ok-text"
               />
               <SummaryCell
-                label="إجمالي تحصيل اليوم"
+                label={t('money.cashboxDayTotal')}
                 value={formatMoney(summary.total)}
-                sub={`${summary.paymentCount} دفعة${summary.reversalCount > 0 ? ` (منها ${summary.reversalCount} عكس)` : ''}`}
+                sub={`${t('money.cashboxPaymentsSub', { count: summary.paymentCount })}${summary.reversalCount > 0 ? t('money.cashboxReversalsSuffix', { count: summary.reversalCount }) : ''}`}
               />
               <SummaryCell
-                label="مصروفات اليوم"
+                label={t('money.cashboxDayExpenses')}
                 value={formatMoney(summary.expenses)}
                 valueClass={summary.expenses > 0 ? 'text-bad-text' : ''}
-                sub={summary.expensesCount > 0 ? `${summary.expensesCount} مصروف` : 'لا مصروفات'}
+                sub={summary.expensesCount > 0 ? t('money.cashboxExpensesSub', { count: summary.expensesCount }) : t('money.cashboxNoExpenses')}
               />
             </div>
             <div className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 mb-3">
-              <span className="text-[13.5px] font-bold">صافي اليوم (تحصيل − مصروفات)</span>
+              <span className="text-[13.5px] font-bold">{t('money.cashboxDayNet')}</span>
               <b dir="ltr" className={`text-[15px] ${summary.net < 0 ? 'text-bad-text' : ''}`}>
                 {formatMoney(summary.net)}
               </b>
@@ -229,50 +224,48 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="inline-flex items-center gap-1.5 font-bold text-[14px] text-ok-text">
                     <CheckCircle2 size={18} />
-                    اليوم متسجل إغلاقه
+                    {t('money.cashboxClosedTitle')}
                   </span>
                   {liveDiff && <DiffBadge diff={liveDiff.total} />}
                 </div>
                 <div className="text-[13.5px] mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
-                  <span className="text-muted">معدود نقدي</span>
+                  <span className="text-muted">{t('money.cashboxCountedCash')}</span>
                   <b dir="ltr" className="text-start">{formatMoney(closing.counted_cash)}</b>
-                  <span className="text-muted">معدود إلكتروني</span>
+                  <span className="text-muted">{t('money.cashboxCountedElectronic')}</span>
                   <b dir="ltr" className="text-start">{formatMoney(closing.counted_electronic)}</b>
-                  <span className="text-muted">الفرق وقت الإغلاق</span>
+                  <span className="text-muted">{t('money.cashboxDiffAtClosing')}</span>
                   <span className="text-start">
                     <DiffBadge diff={diffOf(closing).total} />
                   </span>
                 </div>
                 {snapshotStale && liveDiff && (
                   <p className="text-warn-text bg-warn-soft rounded-lg px-2.5 py-2 text-[13.5px] font-semibold mb-0 mt-2">
-                    اتسجلت حركة بتاريخ اليوم ده بعد الإغلاق — الفرق الحي دلوقتي{' '}
-                    <span dir="ltr">{formatMoney(liveDiff.total)}</span> بدل{' '}
-                    <span dir="ltr">{formatMoney(diffOf(closing).total)}</span> وقت الإغلاق.
-                    عدّل الإغلاق لو عايز تحدّث اللقطة.
+                    {t('money.cashboxStalePrefix')}{' '}
+                    <span dir="ltr">{formatMoney(liveDiff.total)}</span> {t('money.cashboxStaleMiddle')}{' '}
+                    <span dir="ltr">{formatMoney(diffOf(closing).total)}</span> {t('money.cashboxStaleSuffix')}
                   </p>
                 )}
                 {closing.note && (
-                  <p className="text-[13.5px] mb-0 mt-2">ملحوظة: {closing.note}</p>
+                  <p className="text-[13.5px] mb-0 mt-2">{t('money.cashboxNotePrefix')} {closing.note}</p>
                 )}
                 <p className="text-muted text-[12px] mb-0 mt-2">
-                  آخر حفظ: {fmtDateTime(closing.updated_at)}
+                  {t('money.cashboxLastSaved', { date: formatDateTimeAr(closing.updated_at) })}
                   {closing.updated_at !== closing.created_at
-                    ? ` · أول إغلاق: ${fmtDateTime(closing.created_at)}`
+                    ? t('money.cashboxFirstClosingSuffix', { date: formatDateTimeAr(closing.created_at) })
                     : ''}
                 </p>
                 <Button full variant="soft" className="mt-3" onClick={() => setSheetOpen(true)}>
-                  تعديل الإغلاق (إعادة فتح)
+                  {t('money.cashboxEditClosing')}
                 </Button>
               </div>
             ) : (
               <div className="rounded-xl bg-warn-soft/70 border border-warn/40 px-3 py-3">
-                <div className="font-bold text-[14px] text-warn-text mb-1">لم يُغلق بعد</div>
+                <div className="font-bold text-[14px] text-warn-text mb-1">{t('money.cashboxNotClosedTitle')}</div>
                 <p className="text-[13.5px] mb-3">
-                  عدّ النقدي اللي في الخزنة وقارنه بالمتوقع، واحفظ الإغلاق علشان يفضل عندك
-                  سجل بالفرق (عجز/زيادة/مطابق) لليوم ده.
+                  {t('money.cashboxNotClosedHint')}
                 </p>
                 <Button full onClick={() => setSheetOpen(true)}>
-                  إغلاق اليوم
+                  {t('money.cashboxCloseDay')}
                 </Button>
               </div>
             )}
@@ -281,7 +274,7 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
           {/* سجل الإغلاقات السابقة */}
           <div className="flex items-center gap-2 mt-4 mb-2">
             <CalendarDays size={20} className="text-primary" />
-            <h3 className="type-section">سجل الإغلاقات</h3>
+            <h3 className="type-section">{t('money.cashboxHistoryTitle')}</h3>
           </div>
           {closingsQ.isPending ? (
             <SkeletonCards cards={2} />
@@ -289,8 +282,8 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
             <Card>
               <EmptyState
                 icon={ReceiptText}
-                title="لسه مفيش أيام مغلقة"
-                hint="أول إغلاق تحفظه هيظهر هنا بفرقه، وتقدر ترجع لأي يوم وتعدّله."
+                title={t('money.cashboxHistoryEmptyTitle')}
+                hint={t('money.cashboxHistoryEmptyHint')}
               />
             </Card>
           ) : (
@@ -304,8 +297,7 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
                 />
               ))}
               <p className="text-muted text-[13.5px] mb-0 mt-1">
-                اضغط أي يوم مغلق لعرض ملخصه وتعديل إغلاقه. الأيام غير المغلقة لا تظهر في
-                السجل — اخترها من التاريخ فوق وهتلاقيها «لم يُغلق بعد».
+                {t('money.cashboxHistoryNote')}
               </p>
             </Card>
           )}

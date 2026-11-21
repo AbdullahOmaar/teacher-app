@@ -8,6 +8,7 @@ import type { EnrollmentRow, GroupRow } from '../../types/database'
 import { formatDateLabel } from '../schedule/api'
 import { STATUS_BADGE_CLASS, STATUS_LABELS, isAttended } from './api'
 import { useStudentAttendance, useStudentAttendanceStats } from './hooks'
+import { t } from '../../i18n'
 
 /**
  * تبويب الحضور في ملف الطالب (المرجع §3.4): نسبة الالتزام من view
@@ -52,12 +53,12 @@ export function StudentAttendanceTab({
   }, [enrollments, groupById, recordsQ.data])
 
   if (recordsQ.isPending || statsQ.isPending)
-    return <LoadingState label="بنحمّل سجل الحضور…" />
+    return <LoadingState label={t('attendance.loadingHistory')} />
   const error = recordsQ.error ?? statsQ.error
   if (error)
     return (
       <ErrorState
-        message={error instanceof Error ? error.message : 'خطأ غير معروف'}
+        message={error instanceof Error ? error.message : t('common.unknownError')}
         onRetry={() => {
           void recordsQ.refetch()
           void statsQ.refetch()
@@ -72,7 +73,7 @@ export function StudentAttendanceTab({
     <div>
       <Card>
         <div className="flex items-center justify-between gap-2">
-          <span className="font-bold text-[16px]">نسبة الالتزام</span>
+          <span className="font-bold text-[16px]">{t('attendance.commitmentRate')}</span>
           <span
             className={`text-[20px] font-extrabold ${
               stats.rate == null ? '' : stats.rate >= 80 ? 'text-ok-text' : 'text-warn-text'
@@ -83,8 +84,8 @@ export function StudentAttendanceTab({
         </div>
         <div className="text-muted text-[13.5px] mt-1">
           {stats.marked > 0
-            ? `حضر ${stats.attended} من ${stats.marked} حصة مسجلة`
-            : 'لسه مفيش حصص مسجلة للطالب ده'}
+            ? t('attendance.attendedOfMarked', { attended: stats.attended, marked: stats.marked })
+            : t('attendance.noSessionsYet')}
         </div>
         {stats.marked > 0 && (
           <div className="h-2 rounded-full bg-soft overflow-hidden mt-2">
@@ -99,26 +100,26 @@ export function StudentAttendanceTab({
       {prepaidCards.map((c) => (
         <Card key={c.enrollment.id}>
           <div className="flex items-center justify-between gap-2">
-            <span className="font-bold text-[16px]">باقة {c.groupName}</span>
+            <span className="font-bold text-[16px]">{t('attendance.packageTitle', { name: c.groupName })}</span>
             <span
               className={`text-[13.5px] font-extrabold ${c.left <= 1 ? 'text-bad-text' : 'text-ok-text'}`}
             >
-              متبقي {c.left}
+              {t('attendance.packageLeft', { left: c.left })}
             </span>
           </div>
           <div className="text-muted text-[13.5px] mt-1">
-            حضر {c.used} من {c.total} حصة مدفوعة مسبقاً
+            {t('attendance.packageUsed', { used: c.used, total: c.total })}
           </div>
         </Card>
       ))}
 
-      <h3 className="text-[16px] font-extrabold mb-2 mt-1">سجل الحصص</h3>
+      <h3 className="text-[16px] font-extrabold mb-2 mt-1">{t('attendance.historyTitle')}</h3>
       {records.length === 0 ? (
         <Card>
           <EmptyState
             icon={CalendarCheck2}
-            title="لا يوجد سجل حضور بعد"
-            hint="هيظهر هنا كل حصة اتسجلت للطالب بحالتها وواجبها وتمييزها."
+            title={t('attendance.noHistoryTitle')}
+            hint={t('attendance.noHistoryHint')}
           />
         </Card>
       ) : (
@@ -137,7 +138,7 @@ export function StudentAttendanceTab({
                 </div>
                 <span className="flex items-center gap-1.5 shrink-0">
                   {r.starred && (
-                    <span title="متميز" className="inline-flex">
+                    <span title={t('attendance.starredTitle')} className="inline-flex">
                       <Star size={20} className="text-accent" fill="currentColor" />
                     </span>
                   )}
@@ -149,22 +150,22 @@ export function StudentAttendanceTab({
                     </span>
                   ) : (
                     <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2.5 py-0.5">
-                      بلا حالة
+                      {t('attendance.noStatus')}
                     </span>
                   )}
                 </span>
               </div>
               <div className="text-muted text-[13.5px] mt-1 flex items-center gap-1 flex-wrap">
-                <span>الواجب:</span>
+                <span>{t('attendance.homeworkLabel')}</span>
                 {r.homework_done ? (
                   <span className="inline-flex items-center gap-1 text-ok-text font-semibold">
                     <Check size={16} />
-                    سلّم الواجب
+                    {t('attendance.homeworkDone')}
                   </span>
                 ) : (
-                  <span>لم يسلّم</span>
+                  <span>{t('attendance.notSubmitted')}</span>
                 )}
-                {r.starred && <span>· متميز في الحصة</span>}
+                {r.starred && <span>{t('attendance.starredInSession')}</span>}
               </div>
             </div>
           ))}

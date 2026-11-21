@@ -1,4 +1,5 @@
-import { supabase } from '../../lib/supabase'
+import { t } from '../../i18n'
+import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { logActivity } from '../activity/api'
 import type {
@@ -9,11 +10,6 @@ import type {
   StudentInput,
   StudentRow,
 } from '../../types/database'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 const STUDENT_COLS =
   'id, teacher_id, public_code, name, grade, school, paused, phone, guardian_name, guardian_phone, level_note, created_at, updated_at'
@@ -152,7 +148,7 @@ export async function deleteEnrollment(teacherId: string, enrollmentId: string):
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', enrollmentId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.deleteError'))
 }
 
 /** خريطة سريعة: group_id → صف المجموعة */
@@ -247,7 +243,7 @@ export async function deleteStudent(teacherId: string, studentId: string): Promi
     .delete()
     .eq('teacher_id', teacherId)
     .eq('id', studentId)
-  if (error) throw friendlyDbError(error, 'حصلت مشكلة أثناء حذف الطالب')
+  if (error) throw friendlyDbError(error, t('students.apiDeleteStudentError'))
   void logActivity(teacherId, {
     event_type: 'student_deleted',
     entity_type: 'student',

@@ -16,6 +16,7 @@ import { Button } from '../../components/ui/Button'
 import { Field, FormError, TextInput } from '../../components/ui/form'
 import { SkeletonCards } from '../../components/ui/states'
 import { darken } from '../../lib/brand'
+import { t } from '../../i18n'
 import { fmtScore } from '../grades/api'
 import {
   examErrorInfo,
@@ -62,7 +63,7 @@ function ExamShell({
           {brand?.logo_url ? (
             <img
               src={brand.logo_url}
-              alt={brand.name ?? 'شعار السنتر'}
+              alt={brand.name ?? t('exams.pageLogoAlt')}
               className="w-9 h-9 rounded-full object-contain bg-soft p-0.5 shrink-0"
             />
           ) : (
@@ -72,7 +73,7 @@ function ExamShell({
           )}
           <div className="min-w-0">
             <div className="type-section leading-[1.4] truncate">
-              {brand?.name ?? 'امتحان إلكتروني'}
+              {brand?.name ?? t('exams.pageShellFallbackTitle')}
             </div>
             {title && <div className="text-muted text-[12px] leading-[1.4] truncate">{title}</div>}
           </div>
@@ -121,6 +122,9 @@ export function ExamPage() {
   const [attempt, setAttempt] = useState<ExamStartResult | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [result, setResult] = useState<ExamSubmitResult | null>(null)
+  // فشل التسليم التلقائي عند انتهاء الوقت (PAT-2): يحتاج لافتة بارزة
+  // أعلى الشاشة — خطأ أسفل صفحة طويلة لا يراه الطالب والمؤقّت صفر
+  const [autoSubmitFailed, setAutoSubmitFailed] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
   const autoSubmittedRef = useRef<string | null>(null)
 
@@ -140,14 +144,20 @@ export function ExamPage() {
       const unanswered = attempt.presentation.filter((q) => !answers[q.id]).length
       const msg =
         unanswered > 0
-          ? `لسه في ${unanswered} سؤال من غير إجابة. تسلّم الامتحان دلوقتي؟ الأسئلة الفاضية بتتحسب غلط.`
-          : 'تسلّم الامتحان دلوقتي؟ مش هتقدر تعدّل إجاباتك بعد التسليم.'
+          ? t('exams.pageConfirmUnanswered', { count: unanswered })
+          : t('exams.pageConfirmSubmit')
       if (!window.confirm(msg)) return
     }
     submitMut.mutate(
       { attemptId: attempt.attempt_id, answers },
       {
+        onError: () => {
+          // الإجابات محفوظة محلياً فلا ضياع؛ التسليم اليدوي يظل متاحاً
+          // كإعادة محاولة، والتلقائي الفاشل يرفع لافتة بارزة (PAT-2)
+          if (auto) setAutoSubmitFailed(true)
+        },
         onSuccess: (res) => {
+          setAutoSubmitFailed(false)
           setResult(res)
           try {
             localStorage.removeItem(answersStorageKey(attempt.attempt_id))
@@ -194,9 +204,9 @@ export function ExamPage() {
           <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
             <Link2Off size={28} />
           </div>
-          <div className="type-section mb-1">الرابط غير مكتمل</div>
+          <div className="type-section mb-1">{t('exams.pageIncompleteLinkTitle')}</div>
           <p className="text-muted type-secondary mb-0">
-            افتح رابط الامتحان زي ما وصلك من المدرس بالظبط، أو اطلب منه يبعته تاني.
+            {t('exams.pageIncompleteLinkHint')}
           </p>
         </Card>
       </ExamShell>
@@ -245,11 +255,11 @@ export function ExamPage() {
             {result.passed ? <Trophy size={32} /> : <ClipboardList size={32} />}
           </div>
           <div className="text-[19px] font-extrabold mb-1">
-            {result.passed ? 'أحسنت يا بطل!' : 'نتيجتك وصلت'}
+            {result.passed ? t('exams.pageResultPassed') : t('exams.pageResultDone')}
           </div>
           <p className="text-muted text-[13.5px] mt-0">
-            {attempt.student_name} · المحاولة رقم {result.attempt_no}
-            {result.already_submitted ? ' (النتيجة المسجلة من تسليمك السابق)' : ''}
+            {t('exams.pageResultAttemptLine', { name: attempt.student_name, no: result.attempt_no })}
+            {result.already_submitted ? t('exams.pageResultAlreadySuffix') : ''}
           </p>
           <div className="text-[34px] font-extrabold leading-[1.3]" dir="ltr">
             {fmtScore(result.score)} / {fmtScore(result.max_score)}
@@ -262,7 +272,7 @@ export function ExamPage() {
             {Math.round(result.pct)}%
           </div>
           <p className="text-muted text-[13.5px] mt-3 mb-0">
-            نتيجتك اتسجلت عند المدرس واترحّلت لملف درجاتك تلقائياً (أفضل محاولة هي اللي بتتحسب).
+            {t('exams.pageResultRecordedNote')}
           </p>
           {result.attempts_left > 0 && (
             <Button
@@ -272,8 +282,8 @@ export function ExamPage() {
               onClick={() => beginWithCode(code)}
             >
               {startMut.isPending
-                ? 'بنبدأ…'
-                : `محاولة تانية (متبقي ${result.attempts_left} من ${info.max_attempts})`}
+                ? t('exams.pageStarting')
+                : t('exams.pageRetryAttempt', { left: result.attempts_left, max: info.max_attempts })}
             </Button>
           )}
           {startMut.isError && (
@@ -285,7 +295,7 @@ export function ExamPage() {
 
         {result.review && result.review.length > 0 && (
           <>
-            <h3 className="type-section mt-5 mb-2">مراجعة إجاباتك</h3>
+            <h3 className="type-section mt-5 mb-2">{t('exams.pageReviewTitle')}</h3>
             <Card className="p-0 overflow-hidden">
               {attempt.presentation.map((q, i) => {
                 const rev = reviewByQ.get(q.id)
@@ -296,7 +306,7 @@ export function ExamPage() {
                     className={`px-[14px] py-3 ${i > 0 ? 'border-t border-border' : ''}`}
                   >
                     <div className="font-bold text-[15px]">
-                      س{i + 1}: {q.text}
+                      {t('exams.pageQuestionLine', { num: i + 1, text: q.text })}
                     </div>
                     <div className="text-[13.5px] mt-1.5 flex flex-col gap-1">
                       <span
@@ -305,11 +315,11 @@ export function ExamPage() {
                         }`}
                       >
                         {rev.is_correct ? <CheckCircle2 size={17} /> : <XCircle size={17} />}
-                        إجابتك: {rev.chosen ?? '— من غير إجابة'}
+                        {t('exams.pageYourAnswer', { answer: rev.chosen ?? t('exams.pageNoAnswer') })}
                       </span>
                       {!rev.is_correct && rev.correct_answer && (
                         <span className="text-ok-text font-semibold">
-                          الإجابة الصحيحة: {rev.correct_answer}
+                          {t('exams.pageCorrectAnswer', { answer: rev.correct_answer })}
                         </span>
                       )}
                     </div>
@@ -334,7 +344,7 @@ export function ExamPage() {
         <div className="sticky top-[52px] z-10 -mx-4 px-4 py-2 bg-bg/95 backdrop-blur border-b border-border mb-3">
           <div className="max-w-[640px] mx-auto flex items-center justify-between gap-2">
             <span className="flex-1 min-w-0 text-[13.5px] font-bold truncate">
-              {attempt.student_name} · محاولة {attempt.attempt_no}
+              {t('exams.pageAttemptHeader', { name: attempt.student_name, no: attempt.attempt_no })}
             </span>
             {remainingMs != null ? (
               <span
@@ -348,7 +358,7 @@ export function ExamPage() {
               </span>
             ) : (
               <span className="shrink-0 text-[12px] font-bold bg-soft text-muted rounded-full px-2.5 py-1">
-                بلا مؤقّت
+                {t('exams.pageNoTimer')}
               </span>
             )}
           </div>
@@ -360,23 +370,33 @@ export function ExamPage() {
               />
             </div>
             <span className="text-[12px] font-bold text-muted">
-              أجبت {answeredCount} من {total}
+              {t('exams.pageAnsweredProgress', { answered: answeredCount, total })}
             </span>
           </div>
         </div>
 
+        {autoSubmitFailed && (
+          <p
+            role="alert"
+            className="flex items-start gap-2 bg-bad-soft text-bad-text text-[13.5px] font-bold rounded-xl px-3 py-2.5 mb-3 mt-0"
+          >
+            <XCircle size={18} className="shrink-0 mt-0.5" />
+            <span>{t('exams.pageAutoSubmitFailed')}</span>
+          </p>
+        )}
+
         {attempt.resumed && (
           <p className="flex items-start gap-2 bg-warn-soft text-warn-text text-[13.5px] font-semibold rounded-xl px-3 py-2.5 mb-3 mt-0">
             <AlarmClock size={18} className="shrink-0 mt-0.5" />
-            <span>دي نفس محاولتك اللي بدأتها قبل كده — كمّل من مكان ما وقفت، والوقت ماشي من وقت البدء الأول.</span>
+            <span>{t('exams.pageResumedNote')}</span>
           </p>
         )}
 
         {attempt.presentation.map((q, i) => (
           <Card key={q.id}>
             <div className="font-bold text-[16px] leading-[1.7]">
-              س{i + 1}: {q.text}
-              <span className="text-muted text-[12px] font-bold"> ({fmtScore(q.points)} درجة)</span>
+              {t('exams.pageQuestionLine', { num: i + 1, text: q.text })}
+              <span className="text-muted text-[12px] font-bold"> {t('exams.pageQuestionPoints', { points: fmtScore(q.points) })}</span>
             </div>
             <div className="flex flex-col gap-2 mt-3">
               {q.options.map((opt) => {
@@ -416,10 +436,10 @@ export function ExamPage() {
         )}
         <Button full disabled={submitMut.isPending} onClick={() => doSubmit(false)}>
           <Send size={20} />
-          {submitMut.isPending ? 'بنسلّم…' : 'تسليم الامتحان'}
+          {submitMut.isPending ? t('exams.pageSubmitting') : t('exams.pageSubmitExam')}
         </Button>
         <p className="text-center text-muted text-[12px] mt-3 mb-0">
-          التصحيح بيتم فوراً بعد التسليم ونتيجتك بتتسجل عند المدرس. الأسئلة الفاضية بتتحسب غلط.
+          {t('exams.pageSubmitFooter')}
         </p>
       </ExamShell>
     )
@@ -430,11 +450,11 @@ export function ExamPage() {
   // ------------------------------------------------------------------
   const windowNote =
     info.status !== 'published'
-      ? 'الامتحان مش منشور حالياً — المدرس هيفتحه في وقته.'
+      ? t('exams.pageNotPublished')
       : info.starts_at && new Date(info.starts_at).getTime() > Date.now()
-        ? `الامتحان يبدأ ${new Date(info.starts_at).toLocaleString('ar-EG')}`
+        ? t('exams.pageStartsAt', { date: new Date(info.starts_at).toLocaleString('ar-EG') })
         : info.ends_at && new Date(info.ends_at).getTime() <= Date.now()
-          ? 'نافذة الامتحان قفلت خلاص.'
+          ? t('exams.pageWindowClosed')
           : null
 
   return (
@@ -442,27 +462,26 @@ export function ExamPage() {
       <Card>
         <div className="text-[19px] font-extrabold leading-[1.7]">{info.title}</div>
         <div className="text-muted text-[13.5px] mt-0.5">
-          {info.group_name ? `مجموعة: ${info.group_name} · ` : ''}
-          {info.questions_count} سؤال · الدرجة النهائية {fmtScore(info.total_points)}
+          {info.group_name ? t('exams.pageGroupPrefix', { name: info.group_name }) : ''}
+          {t('exams.pageQuestionsSummary', { count: info.questions_count, total: fmtScore(info.total_points) })}
         </div>
         <div className="flex gap-2 mt-3 flex-wrap">
           <span className="text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2.5 py-1">
             {info.duration_minutes
-              ? `المدة: ${info.duration_minutes} دقيقة`
-              : 'بلا حد زمني'}
+              ? t('exams.pageDurationChip', { duration: info.duration_minutes })
+              : t('exams.pageNoTimeLimit')}
           </span>
           <span className="text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2.5 py-1">
-            المحاولات المتاحة: {info.max_attempts}
+            {t('exams.pageAttemptsChip', { count: info.max_attempts })}
           </span>
           {info.ends_at && (
             <span className="text-[12px] font-bold bg-soft text-muted border border-border rounded-full px-2.5 py-1">
-              آخر موعد: {new Date(info.ends_at).toLocaleString('ar-EG')}
+              {t('exams.pageDeadlineChip', { date: new Date(info.ends_at).toLocaleString('ar-EG') })}
             </span>
           )}
         </div>
         <p className="text-muted text-[13.5px] mt-3 mb-0">
-          الأسئلة والاختيارات ترتيبها مختلف لكل طالب، والوقت بيتحسب من لحظة ما تدوس «ابدأ
-          الامتحان». لو قفلت الصفحة ورجعت، هتكمّل نفس المحاولة من غير ما تضيع.
+          {t('exams.pageIntroNote')}
         </p>
       </Card>
 
@@ -479,12 +498,12 @@ export function ExamPage() {
               if (code.trim()) beginWithCode(code)
             }}
           >
-            <Field label="كود الطالب — زي ما هو مكتوب في كارتك بالظبط">
+            <Field label={t('exams.pageCodeLabel')}>
               <TextInput
                 dir="ltr"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="مثال: E2DY27UC"
+                placeholder={t('exams.pageCodePlaceholder')}
                 autoComplete="off"
                 className="text-center tracking-widest font-bold"
               />
@@ -494,14 +513,14 @@ export function ExamPage() {
             )}
             <Button full type="submit" disabled={startMut.isPending || !code.trim()}>
               <ClipboardList size={20} />
-              {startMut.isPending ? 'بنبدأ…' : 'ابدأ الامتحان'}
+              {startMut.isPending ? t('exams.pageStarting') : t('exams.pageStartExam')}
             </Button>
           </form>
         )}
       </Card>
 
       <p className="text-center text-muted text-[12px] mt-5 mb-0">
-        امتحان إلكتروني — نتيجتك بتتصحح فوراً وبتتسجل عند المدرس بعد التسليم.
+        {t('exams.pageFooterNote')}
       </p>
     </ExamShell>
   )

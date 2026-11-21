@@ -9,6 +9,7 @@ import {
   useUpdateStudent,
   useUpsertEnrollment,
 } from './hooks'
+import { t } from '../../i18n'
 
 interface StudentFormSheetProps {
   onClose: () => void
@@ -26,8 +27,8 @@ interface GroupDraft {
 }
 
 const emptyToNull = (v: string) => {
-  const t = v.trim()
-  return t === '' ? null : t
+  const tok = v.trim()
+  return tok === '' ? null : tok
 }
 
 /**
@@ -83,7 +84,7 @@ export function StudentFormSheet({
   const save = async () => {
     setError(null)
     setNameError(null)
-    if (!name.trim()) return setNameError('اسم الطالب إلزامي')
+    if (!name.trim()) return setNameError(t('students.formNameRequired'))
     const input: StudentInput = {
       name: name.trim(),
       grade: emptyToNull(grade),
@@ -107,10 +108,10 @@ export function StudentFormSheet({
         if (draft?.checked) {
           const priceNum = draft.price.trim() === '' ? null : Number(draft.price)
           if (priceNum !== null && (!Number.isFinite(priceNum) || priceNum < 0))
-            throw new Error(`السعر الخاص في مجموعة «${g.name}» غير صحيح`)
+            throw new Error(t('students.formSpecialPriceError', { name: g.name }))
           const prepaidNum = draft.prepaid.trim() === '' ? null : Number(draft.prepaid)
           if (prepaidNum !== null && (!Number.isInteger(prepaidNum) || prepaidNum < 0))
-            throw new Error(`عدد الحصص المدفوعة مسبقاً في مجموعة «${g.name}» غير صحيح`)
+            throw new Error(t('students.formPrepaidError', { name: g.name }))
           await upsertEnrollment.mutateAsync({
             student_id: student.id,
             group_id: g.id,
@@ -123,7 +124,7 @@ export function StudentFormSheet({
       }
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء الحفظ')
+      setError(e instanceof Error ? e.message : t('groups.formSaveError'))
     } finally {
       setSaving(false)
     }
@@ -132,49 +133,49 @@ export function StudentFormSheet({
   return (
     <Sheet
       open
-      title={initial ? 'تعديل طالب' : 'طالب جديد'}
+      title={initial ? t('students.formEditTitle') : t('students.fabNew')}
       onClose={onClose}
       footer={
         <div className="flex gap-2">
           <Button full onClick={save} disabled={saving}>
-            {saving ? 'بنحفظ…' : 'حفظ'}
+            {saving ? t('groups.saving') : t('groups.formSave')}
           </Button>
           <Button variant="ghost" onClick={onClose}>
-            إلغاء
+            {t('groups.cancel')}
           </Button>
         </div>
       }
     >
-      <h4 className="type-section mb-2">بيانات الطالب</h4>
-      <Field label="الاسم *" error={nameError}>
-        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="اسم الطالب" />
+      <h4 className="type-section mb-2">{t('students.formDataTitle')}</h4>
+      <Field label={t('students.formNameLabel')} error={nameError}>
+        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder={t('students.formNamePlaceholder')} />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="الصف">
-          <TextInput value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="مثال: 3 ثانوي" />
+        <Field label={t('students.gradeLabel')}>
+          <TextInput value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={t('students.formGradePlaceholder')} />
         </Field>
-        <Field label="المدرسة">
+        <Field label={t('students.schoolLabel')}>
           <TextInput value={school} onChange={(e) => setSchool(e.target.value)} />
         </Field>
       </div>
-      <Field label="موبايل الطالب">
+      <Field label={t('students.studentPhoneLabel')}>
         <TextInput type="tel" dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01xxxxxxxxx" />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="ولي الأمر">
-          <TextInput value={guardianName} onChange={(e) => setGuardianName(e.target.value)} placeholder="ولي الأمر" />
+        <Field label={t('students.guardianLabel')}>
+          <TextInput value={guardianName} onChange={(e) => setGuardianName(e.target.value)} placeholder={t('students.guardianLabel')} />
         </Field>
-        <Field label="موبايل ولي الأمر">
+        <Field label={t('students.guardianPhoneLabel')}>
           <TextInput type="tel" dir="ltr" value={guardianPhone} onChange={(e) => setGuardianPhone(e.target.value)} placeholder="01xxxxxxxxx" />
         </Field>
       </div>
-      <Field label="ملاحظات المستوى">
+      <Field label={t('students.formLevelNoteLabel')}>
         <TextInput value={levelNote} onChange={(e) => setLevelNote(e.target.value)} />
       </Field>
 
       {groups.length > 0 && (
         <div className="mb-3">
-          <h4 className="type-section mb-2 mt-2">التسجيل في المجموعات</h4>
+          <h4 className="type-section mb-2 mt-2">{t('students.formGroupsTitle')}</h4>
           {groups
             .filter(
               // المؤرشفة لا تُعرض كتسجيل جديد (خطوة 10) إلا إن كان الطالب
@@ -190,15 +191,15 @@ export function StudentFormSheet({
                     type="checkbox"
                     checked={draft.checked}
                     onChange={(e) => patchDraft(g.id, { checked: e.target.checked })}
-                    className="w-5 h-5 accent-[#4f46e5]"
+                    className="w-5 h-5 accent-primary"
                   />
                   <span className="font-semibold text-[15px]">{g.name}</span>
                   {g.archived_at != null && (
                     <span className="text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-                      مؤرشفة
+                      {t('groups.badgeArchived')}
                     </span>
                   )}
-                  <span className="text-muted text-[13.5px]">سعر المجموعة: {g.price} ج</span>
+                  <span className="text-muted text-[13.5px]">{t('students.formGroupPrice', { price: g.price })}</span>
                 </label>
                 {draft.checked && (
                   <div className="grid grid-cols-2 gap-2 mt-1">
@@ -208,7 +209,7 @@ export function StudentFormSheet({
                       inputMode="decimal"
                       value={draft.price}
                       onChange={(e) => patchDraft(g.id, { price: e.target.value })}
-                      placeholder="سعر خاص (اختياري)"
+                      placeholder={t('students.formSpecialPricePlaceholder')}
                     />
                     {g.billing_type === 'per_session_prepaid' && (
                       <TextInput
@@ -217,7 +218,7 @@ export function StudentFormSheet({
                         inputMode="numeric"
                         value={draft.prepaid}
                         onChange={(e) => patchDraft(g.id, { prepaid: e.target.value })}
-                        placeholder="حصص مدفوعة مسبقاً"
+                        placeholder={t('students.formPrepaidPlaceholder')}
                       />
                     )}
                   </div>

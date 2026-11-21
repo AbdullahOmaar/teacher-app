@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { ANALYTICS } from '../analytics/hooks'
+import { ATRISK } from '../atrisk/hooks'
 import { HOME } from '../home/hooks'
+import { INV } from '../invoices/hooks'
+import { t } from '../../i18n'
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { SCHED } from '../schedule/hooks'
 import { ATT } from './hooks'
-import { saveAttendance } from './api'
+import { saveAttendance, saveAttendanceBatch } from './api'
 import {
+  groupItemsBySession,
   isNetworkFailure,
   itemsForTeacher,
   loadQueue,
@@ -20,10 +26,12 @@ import {
 /**
  * محرك مزامنة قائمة الحضور أوفلاين + هوكس الحالة (Phase 2 — الخطوة 11).
  *
- * المزامنة تُرسل كل عنصر بنفس saveAttendance الحالي حرفياً (upsert على
- * (session_id, student_id) — أو حذف الصف إن كانت القيمة فارغة تماماً)،
- * فهي idempotent: تكرار الإرسال لا يغيّر النتيجة. «آخر كتابة تفوز» هي
- * سياسة التعارض الموثقة في offlineQueue.
+ * المزامنة تُرسل عناصر كل حصة دفعة واحدة بـ saveAttendanceBatch
+ * (upsert جماعي + حذف جماعي للقيم الفارغة — أداء 3A-296)، وهي
+ * idempotent: تكرار الإرسال لا يغيّر النتيجة. عند فشل دفعة لسبب غير
+ * شبكي تهبط المزامنة للمسار الفردي (saveAttendance عنصراً بعنصر)
+ * داخل تلك الحصة فقط لعزل العنصر الفاسد. «آخر كتابة تفوز» هي سياسة
+ * التعارض الموثقة في offlineQueue.
  *
  * متى تعمل: (1) عند إقلاع التطبيق/تركيب الهوك (شاشة الحضور أو جسر
  * AppShell)، (2) تلقائياً عند عودة الاتصال (حدث online)، (3) يدوياً
@@ -61,36 +69,80 @@ function subscribeSyncing(onChange: () => void): () => void {
   }
 }
 
+/**
+ * إزالة عنصر من القائمة بعد نجاح إرساله، بحارس سباق «آخر كتابة تفوز»:
+ * لو وصل تعديل أحدث لنفس الطالب أثناء الإرسال (queuedAt تغيّر في
+ * التخزين) لا نحذف العنصر الأحدث — يبقى معلّقاً لجولة قادمة ويكتب فوق
+ * ما أرسلناه الآن. تعيد true إن حُذف العنصر فعلاً.
+ */
+function removeIfUnchanged(item: QueuedAttendanceItem): boolean {
+  const current = loadQueue().find((i) => i.key === item.key)
+  if (!current || current.queuedAt === item.queuedAt) {
+    saveQueue(removeItem(loadQueue(), item.key))
+    return true
+  }
+  return false
+}
+
+function markFailedIfUnchanged(item: QueuedAttendanceItem, message: string): boolean {
+  const current = loadQueue().find((i) => i.key === item.key)
+  if (current && current.queuedAt === item.queuedAt) {
+    saveQueue(markSyncFailure(loadQueue(), item.key, message))
+    return true
+  }
+  return false
+}
+
 async function runSync(
   teacherId: string,
   onItemSynced: () => void,
 ): Promise<SyncRunResult> {
   const result: SyncRunResult = { synced: 0, failedNow: 0, stoppedByNetwork: false }
   const pending = itemsForTeacher(loadQueue(), teacherId).filter((i) => !i.failed)
-  for (const item of pending) {
+  // المزامنة المجمّعة (أداء 3A-296): عناصر كل حصة تُرسل دفعة واحدة
+  // (saveAttendanceBatch) بدل طلب لكل طالب — نفس عقد القائمة ونفس
+  // سياسة الأخطاء؛ وفشل دفعة لسبب غير شبكي يهبط بنا للمسار الفردي
+  // داخل نفس الحصة فقط لعزل العنصر الفاسد دون حجز بقية الحصص.
+  for (const group of groupItemsBySession(pending)) {
+    let batchError: unknown = null
     try {
-      await saveAttendance(item.teacherId, item.sessionId, item.studentId, item.value)
-      // حارس سباق «آخر كتابة تفوز»: لو وصل تعديل أحدث لنفس الطالب أثناء
-      // إرسال هذا العنصر (queuedAt تغيّر في التخزين) لا نحذف العنصر
-      // الأحدث — يبقى معلّقاً لجولة قادمة ويكتب فوق ما أرسلناه الآن.
-      const current = loadQueue().find((i) => i.key === item.key)
-      if (!current || current.queuedAt === item.queuedAt) {
-        saveQueue(removeItem(loadQueue(), item.key))
-        result.synced += 1
-        onItemSynced()
-      }
+      await saveAttendanceBatch(
+        teacherId,
+        group.sessionId,
+        group.items.map((i) => ({ studentId: i.studentId, value: i.value })),
+      )
     } catch (err) {
-      if (isNetworkFailure(err)) {
-        result.stoppedByNetwork = true
-        break
+      batchError = err
+    }
+    if (batchError === null) {
+      for (const item of group.items) {
+        if (removeIfUnchanged(item)) result.synced += 1
       }
-      const message = err instanceof Error ? err.message : 'خطأ غير معروف'
-      const current = loadQueue().find((i) => i.key === item.key)
-      if (current && current.queuedAt === item.queuedAt) {
-        saveQueue(markSyncFailure(loadQueue(), item.key, message))
-        result.failedNow += 1
+      if (group.items.length > 0) onItemSynced()
+      continue
+    }
+    if (isNetworkFailure(batchError)) {
+      result.stoppedByNetwork = true
+      break
+    }
+    // مسار فردي احتياطي داخل هذه الحصة: عنصر فاسد لا يحجز الدفعة كلها
+    for (const item of group.items) {
+      try {
+        await saveAttendance(item.teacherId, item.sessionId, item.studentId, item.value)
+        if (removeIfUnchanged(item)) {
+          result.synced += 1
+          onItemSynced()
+        }
+      } catch (err) {
+        if (isNetworkFailure(err)) {
+          result.stoppedByNetwork = true
+          break
+        }
+        const message = err instanceof Error ? err.message : t('common.unknownError')
+        if (markFailedIfUnchanged(item, message)) result.failedNow += 1
       }
     }
+    if (result.stoppedByNetwork) break
   }
   return result
 }
@@ -162,9 +214,9 @@ export function useOfflineSync(teacherId: string | undefined): OfflineSyncState 
   })
 
   const invalidate = useCallback(() => {
-    void qc.invalidateQueries({ queryKey: [ATT] })
-    void qc.invalidateQueries({ queryKey: [HOME] })
-    void qc.invalidateQueries({ queryKey: [SCHED] })
+    // نفس مجموعة إبطال الحضور المركزية (hooks.ts) — مرة لكل دفعة حصة
+    // مُزامَنة لا لكل طالب (PAT-1 + 3A-296)
+    invalidatePrefixes(qc, [ATT, HOME, SCHED, ATRISK, ANALYTICS, INV])
   }, [qc])
 
   const syncNow = useCallback(() => {
@@ -189,6 +241,19 @@ export function useOfflineSync(teacherId: string | undefined): OfflineSyncState 
     window.addEventListener('online', onOnline)
     return () => window.removeEventListener('online', onOnline)
   }, [syncNow])
+
+  // تفريغ تلقائي مُهادن (أداء 3A-296): كل حفظ — أونلاين كان أو أوفلاين —
+  // يمرّ بالقائمة الآن، فأي عنصر معلّق جديد يطلق مزامنة بعد هدوء قصير؛
+  // النقرات المتتالية تتجمّع في دفعة حصة واحدة بدل طلب لكل نقرة.
+  const pendingNow = teacherId
+    ? itemsForTeacher(allItems, teacherId).filter((i) => !i.failed).length
+    : 0
+  useEffect(() => {
+    if (pendingNow === 0) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return
+    const t = setTimeout(() => syncNow(), 700)
+    return () => clearTimeout(t)
+  }, [pendingNow, syncNow])
 
   const retryFailed = useCallback(() => {
     const tid = teacherRef.current

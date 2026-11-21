@@ -16,6 +16,7 @@ import {
   Users,
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
 import { Chip, ChipRow, Field, FormError, TextInput } from '../../components/ui/form'
 import { SkeletonCards } from '../../components/ui/states'
@@ -37,6 +38,7 @@ import {
 } from './api'
 import { PortalPushToggle, type PortalPushAdapter } from '../../components/PortalPushToggle'
 import { darken } from '../../lib/brand'
+import { t } from '../../i18n'
 import {
   useMarkPortalNotificationsRead,
   usePortalNotifications,
@@ -82,7 +84,7 @@ function PortalShell({
           {brand?.logo_url ? (
             <img
               src={brand.logo_url}
-              alt={brand.name ?? 'شعار السنتر'}
+              alt={brand.name ?? t('portal.pageLogoAlt')}
               className="w-9 h-9 rounded-full object-contain bg-soft p-0.5 shrink-0"
             />
           ) : (
@@ -92,10 +94,10 @@ function PortalShell({
           )}
           <div className="min-w-0">
             <div className="type-section leading-[1.4] truncate">
-              {brand?.name ?? 'بوابة ولي الأمر'}
+              {brand?.name ?? t('portal.pageShellFallbackTitle')}
             </div>
             {brand?.name && (
-              <div className="text-muted text-[12px] leading-[1.4]">بوابة ولي الأمر</div>
+              <div className="text-muted text-[12px] leading-[1.4]">{t('portal.pageShellSubtitle')}</div>
             )}
           </div>
         </div>
@@ -158,17 +160,16 @@ function PaymentProofSection({
 
   return (
     <>
-      <SectionTitle icon={Send}>إثبات دفع</SectionTitle>
+      <SectionTitle icon={Send}>{t('portal.pageProofTitle')}</SectionTitle>
       <Card>
         <p className="text-muted text-[13.5px] mt-0">
-          حوّلت بالمحفظة أو إنستاباي؟ ابعت لقطة التحويل هنا والمدرس هيعتمدها فتتسجل دفعة
-          رسمية بإيصال — هتلاقي حالتها هنا «قيد مراجعة المدرس» لحد ما يراجعها.
+          {t('portal.pageProofIntro')}
         </p>
 
         {sent && (
           <p className="flex items-start gap-2 bg-ok-soft text-ok-text text-[13.5px] font-semibold rounded-xl px-3 py-2.5 mb-3 mt-0" role="status">
             <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
-            <span>وصل الإثبات للمدرس وهو دلوقتي قيد مراجعته. الاعتماد هيظهر هنا وهيتخصم من المستحق.</span>
+            <span>{t('portal.pageProofSent')}</span>
           </p>
         )}
 
@@ -188,7 +189,7 @@ function PaymentProofSection({
             )
           }}
         >
-          <Field label="مبلغ التحويل (ج) — زي ما هو في اللقطة بالظبط">
+          <Field label={t('portal.pageProofAmountLabel')}>
             <TextInput
               type="number"
               min="0"
@@ -197,13 +198,13 @@ function PaymentProofSection({
               required
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="مثال: 400"
+              placeholder={t('portal.pageProofAmountPlaceholder')}
             />
           </Field>
 
           <div className="block mb-3">
             <span className="block text-[13.5px] leading-[1.7] text-muted font-semibold mb-1">
-              طريقة التحويل
+              {t('portal.pageProofMethodLabel')}
             </span>
             <ChipRow>
               {PROOF_METHODS.map((m) => (
@@ -216,11 +217,11 @@ function PaymentProofSection({
 
           <div className="block mb-3">
             <span className="block text-[13.5px] leading-[1.7] text-muted font-semibold mb-1">
-              لقطة التحويل (صورة JPG أو PNG أو WebP — لحد 5 ميجا)
+              {t('portal.pageProofFileLabel')}
             </span>
             <label className="flex items-center justify-center gap-2 min-h-[52px] rounded-xl border border-dashed border-border bg-bg px-3 cursor-pointer text-[15px] font-semibold text-primary">
               <ImagePlus size={20} />
-              {file ? file.name : 'اختار صورة التحويل'}
+              {file ? file.name : t('portal.pageProofChooseFile')}
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -236,18 +237,18 @@ function PaymentProofSection({
             {previewUrl && (
               <img
                 src={previewUrl}
-                alt="معاينة لقطة التحويل"
+                alt={t('portal.pageProofPreviewAlt')}
                 className="w-full max-h-[260px] object-contain rounded-xl border border-border bg-bg mt-2"
               />
             )}
           </div>
 
           {submit.isError && (
-            <FormError message={submit.error instanceof Error ? submit.error.message : 'حصل خطأ غير متوقع'} />
+            <FormError message={submit.error instanceof Error ? submit.error.message : t('portal.pageUnexpectedError')} />
           )}
 
           <Button full type="submit" disabled={submit.isPending || !file || !(amt > 0)}>
-            {submit.isPending ? 'بنبعت الإثبات…' : 'إرسال الإثبات للمدرس'}
+            {submit.isPending ? t('portal.pageProofSending') : t('portal.pageProofSubmit')}
           </Button>
         </form>
       </Card>
@@ -273,7 +274,7 @@ function PaymentProofSection({
                   </span>
                 </div>
                 {p.status === 'rejected' && p.rejection_reason && (
-                  <p className="text-bad-text text-[13.5px] mt-1 mb-0">سبب الرفض: {p.rejection_reason}</p>
+                  <p className="text-bad-text text-[13.5px] mt-1 mb-0">{t('portal.pageProofRejectionReason', { reason: p.rejection_reason })}</p>
                 )}
               </div>
             )
@@ -309,33 +310,34 @@ function NotificationsSection({
 }) {
   const notifQ = usePortalNotifications(studentId, rawToken)
   const markRead = useMarkPortalNotificationsRead(studentId, rawToken)
+  const toast = useToast()
   const notifications = notifQ.data?.notifications ?? []
   const unread = notifQ.data?.unread_count ?? 0
 
   return (
     <>
       <SectionTitle icon={Bell}>
-        تنبيهات الوصول والمغادرة
+        {t('portal.pageNotifTitle')}
         {unread > 0 && (
           <span className="text-[12px] font-extrabold bg-bad text-white rounded-full px-2 py-0.5">
-            {unread} جديد
+            {t('portal.pageNotifNewBadge', { count: unread })}
           </span>
         )}
       </SectionTitle>
       {notifQ.isPending ? (
         <Card>
-          <p className="text-muted text-[13.5px] mb-0">بنحمّل التنبيهات…</p>
+          <p className="text-muted text-[13.5px] mb-0">{t('portal.pageNotifLoading')}</p>
         </Card>
       ) : notifQ.isError ? (
         <Card>
           <p className="text-muted text-[13.5px] mb-0">
-            ماقدرناش نحمّل التنبيهات دلوقتي — حدّث الصفحة وحاول تاني.
+            {t('portal.pageNotifError')}
           </p>
         </Card>
       ) : notifications.length === 0 ? (
         <Card>
           <p className="text-muted text-[13.5px] mb-0">
-            لسه مفيش تنبيهات — أول ما المدرس يسجّل وصول الطالب أو انصرافه من حصة هيظهر هنا.
+            {t('portal.pageNotifEmpty')}
           </p>
         </Card>
       ) : (
@@ -359,11 +361,11 @@ function NotificationsSection({
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-[15px] truncate">{n.group_name}</div>
                     <div className="text-muted text-[12px]">
-                      {n.session_date} · الساعة {fmtEventTime(n.event_at)}
+                      {t('portal.pageNotifSessionLine', { date: n.session_date, time: fmtEventTime(n.event_at) })}
                     </div>
                   </div>
                   {isUnread && (
-                    <span className="w-2.5 h-2.5 rounded-full bg-bad shrink-0" aria-label="غير مقروء" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-bad shrink-0" aria-label={t('portal.pageNotifUnreadAria')} />
                   )}
                 </div>
               )
@@ -374,10 +376,14 @@ function NotificationsSection({
               variant="soft"
               className="mt-2 min-h-[48px] text-[13.5px] px-3"
               disabled={markRead.isPending}
-              onClick={() => markRead.mutate(undefined)}
+              onClick={() =>
+                markRead.mutate(undefined, {
+                  onError: () => toast(t('portal.pageNotifMarkReadErrorToast'), 'error'),
+                })
+              }
             >
               <Check size={18} />
-              {markRead.isPending ? 'بنعلّم…' : 'تعليم الكل كمقروء'}
+              {markRead.isPending ? t('portal.pageNotifMarking') : t('portal.pageNotifMarkAllRead')}
             </Button>
           )}
         </>
@@ -398,8 +404,8 @@ export function PortalPage() {
     return (
       <PortalMessage
         icon={Link2Off}
-        title="الرابط غير مكتمل"
-        hint="الرابط اللي فتحته ناقص. افتح الرابط زي ما وصلك من المدرس بالظبط على واتساب، أو اطلب منه يبعته تاني."
+        title={t('portal.pageIncompleteLinkTitle')}
+        hint={t('portal.pageIncompleteLinkHint')}
       />
     )
   }
@@ -435,14 +441,14 @@ export function PortalPage() {
       <Card>
         <div className="text-[19px] font-extrabold leading-[1.7]">{o.student.name}</div>
         <div className="text-muted text-[13.5px] mt-0.5">
-          الكود: <span dir="ltr">{o.student.code}</span>
-          {o.student.grade ? ` · ${o.student.grade}` : ''}
+          {t('portal.pageCodeLabel')} <span dir="ltr">{o.student.code}</span>
+          {o.student.grade ? t('portal.pageGradePart', { grade: o.student.grade }) : ''}
         </div>
         <div className="grid grid-cols-2 gap-2 mt-3">
           <div className="rounded-xl border border-border bg-bg p-3 text-center">
-            <div className="text-muted text-[12px] font-semibold mb-0.5">نسبة الحضور</div>
+            <div className="text-muted text-[12px] font-semibold mb-0.5">{t('portal.pageAttendanceRateLabel')}</div>
             {rate == null ? (
-              <div className="text-[15px] font-bold text-muted">لسه مفيش حصص متسجلة</div>
+              <div className="text-[15px] font-bold text-muted">{t('portal.pageNoSessionsYet')}</div>
             ) : (
               <div className={`text-[20px] font-extrabold ${rate >= 80 ? 'text-ok-text' : 'text-warn-text'}`}>
                 {rate}%
@@ -450,17 +456,17 @@ export function PortalPage() {
             )}
           </div>
           <div className="rounded-xl border border-border bg-bg p-3 text-center">
-            <div className="text-muted text-[12px] font-semibold mb-0.5">الموقف المالي</div>
+            <div className="text-muted text-[12px] font-semibold mb-0.5">{t('portal.pageBalanceLabel')}</div>
             {o.balance > 0 ? (
               <div className="text-[20px] font-extrabold text-bad-text">{formatMoney(o.balance)}</div>
             ) : (
-              <div className="text-[20px] font-extrabold text-ok-text flex items-center justify-center gap-1.5">مسدد <Check size={22} /></div>
+              <div className="text-[20px] font-extrabold text-ok-text flex items-center justify-center gap-1.5">{t('portal.pagePaid')} <Check size={22} /></div>
             )}
           </div>
         </div>
         {o.balance > 0 && (
           <p className="text-muted text-[12px] mt-2 mb-0">
-            ده إجمالي المبلغ المستحق حالياً على الطالب. لأي استفسار تواصل مع المدرس.
+            {t('portal.pageBalanceNote')}
           </p>
         )}
       </Card>
@@ -475,18 +481,18 @@ export function PortalPage() {
       <PaymentProofSection studentId={studentId} rawToken={rawToken} balance={o.balance} />
 
       {/* مواعيد الحصص */}
-      <SectionTitle icon={CalendarDays}>مواعيد الحصص</SectionTitle>
+      <SectionTitle icon={CalendarDays}>{t('portal.pageScheduleTitle')}</SectionTitle>
       {o.groups.length === 0 ? (
         <Card>
-          <p className="text-muted text-[13.5px] mb-0">الطالب غير مسجل في أي مجموعة حالياً.</p>
+          <p className="text-muted text-[13.5px] mb-0">{t('portal.pageNotEnrolled')}</p>
         </Card>
       ) : (
         o.groups.map((g) => (
           <Card key={g.name}>
             <div className="font-bold text-[15px]">{g.name}</div>
             <div className="text-muted text-[13.5px] mt-0.5">
-              {daysLabel(g.days)} · الساعة {formatTime12(g.start_time)}
-              {g.room ? ` · ${g.room}` : ''}
+              {t('portal.pageGroupSchedule', { days: daysLabel(g.days), time: formatTime12(g.start_time) })}
+              {g.room ? t('portal.pageGroupRoom', { room: g.room }) : ''}
             </div>
             {g.links.some((link) => safeExternalUrl(link) !== null) && (
               <div className="flex flex-wrap gap-2 mt-2">
@@ -514,10 +520,10 @@ export function PortalPage() {
       )}
 
       {/* آخر الدرجات */}
-      <SectionTitle icon={NotebookPen}>آخر الدرجات</SectionTitle>
+      <SectionTitle icon={NotebookPen}>{t('portal.pageScoresTitle')}</SectionTitle>
       {o.latest_scores.length === 0 ? (
         <Card>
-          <p className="text-muted text-[13.5px] mb-0">لسه مفيش درجات مسجلة.</p>
+          <p className="text-muted text-[13.5px] mb-0">{t('portal.pageNoScores')}</p>
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden">
@@ -533,7 +539,7 @@ export function PortalPage() {
                   <div className="text-muted text-[12px]">{s.date}</div>
                 </div>
                 <div className="text-[13.5px] font-semibold whitespace-nowrap">
-                  {fmtScore(s.score)} من {fmtScore(s.max_score)}
+                  {t('portal.pageScoreOf', { score: fmtScore(s.score), max: fmtScore(s.max_score) })}
                 </div>
                 {pct != null && (
                   <span
@@ -551,7 +557,7 @@ export function PortalPage() {
       {/* ملاحظات المدرس */}
       {o.notes.length > 0 && (
         <>
-          <SectionTitle icon={NotebookText}>ملاحظات المدرس</SectionTitle>
+          <SectionTitle icon={NotebookText}>{t('portal.pageNotesTitle')}</SectionTitle>
           <Card className="p-0 overflow-hidden">
             {o.notes.map((n, i) => (
               <div
@@ -569,10 +575,10 @@ export function PortalPage() {
       )}
 
       {/* سجل الحضور الأخير */}
-      <SectionTitle icon={CalendarCheck2}>سجل الحضور الأخير</SectionTitle>
+      <SectionTitle icon={CalendarCheck2}>{t('portal.pageAttendanceTitle')}</SectionTitle>
       {o.recent_attendance.length === 0 ? (
         <Card>
-          <p className="text-muted text-[13.5px] mb-0">لسه مفيش حضور متسجل.</p>
+          <p className="text-muted text-[13.5px] mb-0">{t('portal.pageNoAttendance')}</p>
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden">
@@ -597,7 +603,7 @@ export function PortalPage() {
       )}
 
       <p className="text-center text-muted text-[12px] mt-5 mb-0">
-        بوابة ولي الأمر — الرابط صالح لمدة 30 يوم من إنشائه.
+        {t('portal.pageFooterNote')}
       </p>
     </PortalShell>
   )

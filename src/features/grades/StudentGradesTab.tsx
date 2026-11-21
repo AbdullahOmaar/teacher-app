@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
 import { NotebookPen } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -35,11 +36,11 @@ export function StudentGradesTab({
     }
   }, [scoresQ.data])
 
-  if (scoresQ.isPending) return <LoadingState label="بنحمّل درجات الطالب…" />
+  if (scoresQ.isPending) return <LoadingState label={t('grades.tabLoading')} />
   if (scoresQ.isError) {
     return (
       <ErrorState
-        message={scoresQ.error instanceof Error ? scoresQ.error.message : 'خطأ غير معروف'}
+        message={scoresQ.error instanceof Error ? scoresQ.error.message : t('common.unknownError')}
         onRetry={() => void scoresQ.refetch()}
       />
     )
@@ -52,8 +53,8 @@ export function StudentGradesTab({
       <Card>
         <EmptyState
           icon={NotebookPen}
-          title="لا يوجد درجات مسجلة بعد"
-          hint="درجات الطالب في الامتحانات والواجبات هتظهر هنا بنسبتها ومتوسطه أول ما تتسجل من شاشة الدرجات."
+          title={t('grades.tabEmptyTitle')}
+          hint={t('grades.tabEmptyHint')}
         />
       </Card>
     )
@@ -63,7 +64,7 @@ export function StudentGradesTab({
     <div>
       <Card>
         <div className="flex items-center justify-between gap-2">
-          <span className="font-bold text-[16px]">متوسط الدرجات</span>
+          <span className="font-bold text-[16px]">{t('grades.tabAverageTitle')}</span>
           <span
             className={`text-[20px] font-extrabold ${
               average == null ? '' : average >= 50 ? 'text-ok-text' : 'text-bad-text'
@@ -73,13 +74,13 @@ export function StudentGradesTab({
           </span>
         </div>
         <div className="text-muted text-[13.5px] mt-1">
-          متوسط النسب عبر {rows.length} تقييم مسجل له درجة
+          {t('grades.tabAverageLine', { count: rows.length })}
         </div>
       </Card>
 
       {rows.length >= 2 && (
         <Card>
-          <div className="font-bold text-[16px] mb-2">تطور المستوى عبر الامتحانات</div>
+          <div className="font-bold text-[16px] mb-2">{t('grades.tabProgressTitle')}</div>
           {chronological.map((r) => (
             <div key={r.assessment_id} className="flex items-center gap-2 mb-2 last:mb-0">
               <span className="w-[38%] min-w-0 truncate text-[13.5px] font-semibold">
@@ -103,7 +104,7 @@ export function StudentGradesTab({
         </Card>
       )}
 
-      <h3 className="text-[16px] font-extrabold mb-2 mt-1">الدرجات</h3>
+      <h3 className="text-[16px] font-extrabold mb-2 mt-1">{t('grades.tabGradesHeading')}</h3>
       <Card className="p-0 overflow-hidden">
         {rows.map((r, i) => (
           <Link
@@ -119,14 +120,14 @@ export function StudentGradesTab({
                   {formatDateLabel(r.assess_date)}
                   {r.source === 'online_exam' && (
                     <span className="inline-block font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5 text-[11px] ms-1 align-middle">
-                      امتحان إلكتروني
+                      {t('grades.tabOnlineBadge')}
                     </span>
                   )}
                 </div>
               </div>
               <span className="flex items-center gap-2 shrink-0">
                 <span className="font-extrabold text-[15px]">
-                  {fmtScore(r.score)} من {fmtScore(r.max_score)}
+                  {t('grades.tabScoreOf', { score: fmtScore(r.score), max: fmtScore(r.max_score) })}
                 </span>
                 <span
                   className={`min-w-[52px] text-center text-[13.5px] font-extrabold rounded-full px-2 py-1 ${TONE_BADGE[pctTone(r.pct, r)]}`}

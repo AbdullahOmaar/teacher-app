@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/Button'
 import { Field, FormError, Select, TextInput } from '../../components/ui/form'
 import { useToast } from '../../components/ui/toast'
 import { Skeleton } from '../../components/ui/states'
+import { t } from '../../i18n'
 import type {
   AssessmentRow,
   OnlineExamInput,
@@ -48,9 +49,9 @@ function fromLocalInput(v: string): string | null {
 }
 
 const ATTEMPT_STATUS_LABELS: Record<string, string> = {
-  in_progress: 'جارية الآن',
-  submitted: 'مُسلَّمة',
-  expired: 'انتهى وقتها',
+  in_progress: t('exams.panelAttemptInProgress'),
+  submitted: t('exams.panelAttemptSubmitted'),
+  expired: t('exams.panelAttemptExpired'),
 }
 
 /**
@@ -90,12 +91,12 @@ export function OnlineExamPanel({
           <div className="min-w-0">
             <div className="font-bold text-[16px] flex items-center gap-2">
               <MonitorSmartphone size={22} className="text-primary" />
-              امتحان إلكتروني بتصحيح تلقائي
+              {t('exams.panelConvertTitle')}
             </div>
             <p className="text-muted text-[13.5px] mt-1 mb-0">
               {gradableCount > 0
-                ? `حوّل التقييم ده لامتحان أونلاين: الطالب يدخل برابط وكوده، الأسئلة مخلوطة لكل طالب، والتصحيح فوري والنتيجة بتترحّل لدرجاته تلقائياً. عندك ${gradableCount} سؤال اختياري قابل للتصحيح التلقائي (مجموعها ${fmtScore(questionsTotal)} درجة).`
-                : 'حوّل التقييم ده لامتحان أونلاين بتصحيح فوري — بس لسه مفيش أسئلة اختيارية بإجابة صحيحة في البنك. أضف أسئلة اختيار من متعدد أو صح/خطأ من زر «الأسئلة» الأول.'}
+                ? t('exams.panelConvertWithQuestions', { count: gradableCount, total: fmtScore(questionsTotal) })
+                : t('exams.panelConvertNoQuestions')}
             </p>
           </div>
           <Button
@@ -104,14 +105,14 @@ export function OnlineExamPanel({
               createMut.mutate(
                 { assessmentId: assessment.id, groupId: assessment.group_id },
                 {
-                  onSuccess: () => toast('اتعمل الامتحان الإلكتروني كمسودة — ظبّط إعداداته وانشره وابعته بالرابط'),
-                  onError: () => toast('حصلت مشكلة في إنشاء الامتحان — حاول تاني'),
+                  onSuccess: () => toast(t('exams.panelCreateSuccessToast')),
+                  onError: () => toast(t('exams.panelCreateErrorToast')),
                 },
               )
             }
           >
             <Globe size={20} />
-            {createMut.isPending ? 'بنعمل…' : 'تحويل لامتحان إلكتروني'}
+            {createMut.isPending ? t('exams.panelCreating') : t('exams.panelConvertAction')}
           </Button>
         </div>
       </Card>
@@ -204,7 +205,7 @@ function OnlineExamSettings({
     <Card>
       <div className="font-bold text-[16px] flex items-center gap-2 mb-1">
         <MonitorSmartphone size={22} className="text-primary" />
-        الامتحان الإلكتروني
+        {t('exams.panelSettingsTitle')}
         <span
           className={`text-[12px] font-bold rounded-full px-2.5 py-1 ${
             status === 'published'
@@ -218,12 +219,11 @@ function OnlineExamSettings({
         </span>
       </div>
       <p className="text-muted text-[13.5px] mt-0">
-        {gradableCount} سؤال قابل للتصحيح التلقائي. الطالب يدخل بالرابط + كوده، والتصحيح
-        خادمي فوري — أفضل درجة لكل طالب بتترحّل لدرجاته تلقائياً بمصدر «امتحان إلكتروني».
+        {t('exams.panelSettingsIntro', { count: gradableCount })}
       </p>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="حالة النشر">
+        <Field label={t('exams.panelStatusLabel')}>
           <Select value={status} onChange={(e) => setStatus(e.target.value as OnlineExamStatus)}>
             {(Object.keys(ONLINE_EXAM_STATUS_LABELS) as OnlineExamStatus[]).map((s) => (
               <option key={s} value={s}>
@@ -232,7 +232,7 @@ function OnlineExamSettings({
             ))}
           </Select>
         </Field>
-        <Field label="حد المحاولات لكل طالب">
+        <Field label={t('exams.panelMaxAttemptsLabel')}>
           <TextInput
             type="number"
             min="1"
@@ -245,7 +245,7 @@ function OnlineExamSettings({
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="مدة الامتحان (دقيقة) — فاضي = بلا مؤقّت">
+        <Field label={t('exams.panelDurationLabel')}>
           <TextInput
             type="number"
             min="1"
@@ -254,18 +254,18 @@ function OnlineExamSettings({
             dir="ltr"
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
-            placeholder="مثال: 30"
+            placeholder={t('exams.panelDurationPlaceholder')}
           />
         </Field>
-        <Field label="مراجعة الإجابات الصحيحة">
+        <Field label={t('exams.panelReviewLabel')}>
           <Select value={allowReview ? 'yes' : 'no'} onChange={(e) => setAllowReview(e.target.value === 'yes')}>
-            <option value="no">النتيجة بس بعد التسليم</option>
-            <option value="yes">النتيجة + مراجعة الإجابات بعد التسليم</option>
+            <option value="no">{t('exams.panelReviewNo')}</option>
+            <option value="yes">{t('exams.panelReviewYes')}</option>
           </Select>
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="يبدأ من (اختياري)">
+        <Field label={t('exams.panelStartsAtLabel')}>
           <TextInput
             type="datetime-local"
             dir="ltr"
@@ -273,7 +273,7 @@ function OnlineExamSettings({
             onChange={(e) => setStartsAt(e.target.value)}
           />
         </Field>
-        <Field label="ينتهي في (اختياري)">
+        <Field label={t('exams.panelEndsAtLabel')}>
           <TextInput
             type="datetime-local"
             dir="ltr"
@@ -288,28 +288,28 @@ function OnlineExamSettings({
             type="checkbox"
             checked={shuffleQ}
             onChange={(e) => setShuffleQ(e.target.checked)}
-            className="w-5 h-5 accent-[#4f46e5]"
+            className="w-5 h-5 accent-primary"
           />
-          خلط ترتيب الأسئلة لكل طالب
+          {t('exams.panelShuffleQuestions')}
         </label>
         <label className="flex items-center gap-2 text-[14px] font-semibold cursor-pointer min-h-[48px]">
           <input
             type="checkbox"
             checked={shuffleO}
             onChange={(e) => setShuffleO(e.target.checked)}
-            className="w-5 h-5 accent-[#4f46e5]"
+            className="w-5 h-5 accent-primary"
           />
-          خلط ترتيب الاختيارات
+          {t('exams.panelShuffleOptions')}
         </label>
       </div>
       {startsAt && endsAt && endsAt <= startsAt && (
         <p className="text-warn-text text-[13.5px] font-semibold">
-          نهاية النافذة لازم تكون بعد بدايتها.
+          {t('exams.panelWindowOrderWarning')}
         </p>
       )}
       {updateMut.isError && (
         <FormError
-          message={updateMut.error instanceof Error ? updateMut.error.message : 'حصل خطأ غير متوقع'}
+          message={updateMut.error instanceof Error ? updateMut.error.message : t('exams.panelUnexpectedError')}
         />
       )}
       <Button
@@ -319,27 +319,26 @@ function OnlineExamSettings({
           updateMut.mutate(
             { examId, input: buildInput() },
             {
-              onSuccess: () => toast('اتحفظت إعدادات الامتحان الإلكتروني'),
-              onError: () => toast('حصلت مشكلة في الحفظ — حاول تاني'),
+              onSuccess: () => toast(t('exams.panelSaveSuccessToast')),
+              onError: () => toast(t('exams.panelSaveErrorToast')),
             },
           )
         }
       >
         <Check size={20} />
-        {updateMut.isPending ? 'بنحفظ…' : 'حفظ إعدادات الامتحان'}
+        {updateMut.isPending ? t('exams.panelSaving') : t('exams.panelSaveAction')}
       </Button>
 
       {/* رابط الامتحان */}
       <div className="mt-4 border-t border-border pt-3">
         <div className="font-bold text-[15px] mb-1.5 flex items-center gap-2">
           <Link2 size={19} className="text-primary" />
-          رابط الامتحان للطلاب
+          {t('exams.panelLinkTitle')}
         </div>
         {freshLink ? (
           <div className="bg-soft rounded-xl px-3 py-2.5 mb-2">
             <div className="text-[13.5px] font-semibold mb-1">
-              الرابط الجديد جاهز — انسخه وابعته لطلاب المجموعة (بيظهر هنا مرة واحدة، وإعادة
-              التوليد بتلغي أي رابط قديم):
+              {t('exams.panelFreshLinkNote')}
             </div>
             <div className="flex items-center gap-2">
               <code className="flex-1 min-w-0 truncate text-[12.5px]" dir="ltr">
@@ -351,26 +350,26 @@ function OnlineExamSettings({
                 onClick={() =>
                   void navigator.clipboard
                     ?.writeText(freshLink)
-                    .then(() => toast('اتنسخ رابط الامتحان'))
-                    .catch(() => toast('النسخ مش متاح في المتصفح ده'))
+                    .then(() => toast(t('exams.panelCopyLinkToast')))
+                    .catch(() => toast(t('common.copyUnavailable')))
                 }
               >
                 <Copy size={18} />
-                نسخ
+                {t('exams.panelCopy')}
               </Button>
             </div>
           </div>
         ) : activeToken ? (
           <p className="text-muted text-[13.5px] mt-0">
-            في رابط نشط حالياً (اتعمل {new Date(activeToken.created_at).toLocaleDateString('ar-EG')}
+            {t('exams.panelActiveTokenPre', { created: new Date(activeToken.created_at).toLocaleDateString('ar-EG') })}
             {activeToken.last_used_at
-              ? ` · آخر استخدام ${new Date(activeToken.last_used_at).toLocaleString('ar-EG')}`
-              : ' · لسه ما اتستخدمش'}
-            ). الرابط الخام نفسه مش بيتحفظ — لو ضاع منك، ولّد رابط جديد (القديم هيتلغي).
+              ? t('exams.panelTokenLastUsed', { date: new Date(activeToken.last_used_at).toLocaleString('ar-EG') })
+              : t('exams.panelTokenNeverUsed')}
+            {t('exams.panelActiveTokenPost')}
           </p>
         ) : (
           <p className="text-muted text-[13.5px] mt-0">
-            لسه مفيش رابط — ولّد رابط وابعته لطلاب المجموعة على واتساب.
+            {t('exams.panelNoLinkYet')}
           </p>
         )}
         <div className="flex gap-2 flex-wrap">
@@ -383,31 +382,31 @@ function OnlineExamSettings({
                 {
                   onSuccess: (res) => {
                     setFreshLink(res.link)
-                    toast('اتولّد رابط الامتحان — انسخه دلوقتي')
+                    toast(t('exams.panelGenerateSuccessToast'))
                   },
-                  onError: () => toast('حصلت مشكلة في توليد الرابط — حاول تاني'),
+                  onError: () => toast(t('exams.panelGenerateErrorToast')),
                 },
               )
             }
           >
             <Link2 size={19} />
-            {linkMut.isPending ? 'بنولّد…' : activeToken || freshLink ? 'إعادة توليد الرابط' : 'توليد رابط الامتحان'}
+            {linkMut.isPending ? t('exams.panelGenerating') : activeToken || freshLink ? t('exams.panelRegenerateLink') : t('exams.panelGenerateLink')}
           </Button>
           {activeToken && !freshLink && (
             <Button
               variant="ghost"
               disabled={revokeMut.isPending}
               onClick={() => {
-                if (window.confirm('إلغاء رابط الامتحان الحالي؟ أي طالب معاه الرابط مش هيقدر يدخل بيه.')) {
+                if (window.confirm(t('exams.panelRevokeConfirm'))) {
                   revokeMut.mutate(activeToken.id, {
-                    onSuccess: () => toast('اتلغى رابط الامتحان'),
-                    onError: () => toast('حصلت مشكلة في الإلغاء — حاول تاني'),
+                    onSuccess: () => toast(t('exams.panelRevokeSuccessToast')),
+                    onError: () => toast(t('exams.panelRevokeErrorToast')),
                   })
                 }
               }}
             >
               <Link2Off size={19} />
-              إلغاء الرابط الحالي
+              {t('exams.panelRevokeAction')}
             </Button>
           )}
         </div>
@@ -417,22 +416,22 @@ function OnlineExamSettings({
       <div className="mt-4 border-t border-border pt-3">
         <div className="flex items-center justify-between gap-2 mb-2">
           <span className="font-bold text-[15px]">
-            محاولات الطلاب ({attempts.length})
-            {submitted.length > 0 ? ` — ${submitted.length} مُسلَّمة` : ''}
+            {t('exams.panelAttemptsTitle', { count: attempts.length })}
+            {submitted.length > 0 ? t('exams.panelAttemptsSubmittedSuffix', { count: submitted.length }) : ''}
           </span>
           <Button
             variant="ghost"
             className="min-h-[48px] text-[13.5px] px-3"
             onClick={() => void attemptsQ.refetch()}
           >
-            تحديث
+            {t('exams.panelRefresh')}
           </Button>
         </div>
         {attemptsQ.isPending ? (
           <Skeleton className="h-[56px]" />
         ) : attempts.length === 0 ? (
           <p className="text-muted text-[13.5px] mb-0">
-            لسه مفيش طالب دخل الامتحان. أول ما طالب يبدأ هتظهر محاولته ونتيجته هنا.
+            {t('exams.panelNoAttempts')}
           </p>
         ) : (
           <div>
@@ -450,9 +449,9 @@ function OnlineExamSettings({
                     </span>
                   </div>
                   <div className="text-muted text-[12px]">
-                    محاولة {a.attempt_no} · بدأت {new Date(a.started_at).toLocaleString('ar-EG')}
+                    {t('exams.panelAttemptLine', { no: a.attempt_no, started: new Date(a.started_at).toLocaleString('ar-EG') })}
                     {a.submitted_at
-                      ? ` · سُلّمت ${new Date(a.submitted_at).toLocaleString('ar-EG')}`
+                      ? t('exams.panelAttemptSubmittedPart', { date: new Date(a.submitted_at).toLocaleString('ar-EG') })
                       : ''}
                   </div>
                 </div>
@@ -461,14 +460,13 @@ function OnlineExamSettings({
                 </span>
                 {a.status === 'submitted' && a.score != null && (
                   <span className="text-[13.5px] font-extrabold">
-                    {fmtScore(a.score)} من {fmtScore(a.max_score ?? 0)} ·{' '}
-                    {a.pct != null ? `${Math.round(a.pct)}%` : ''}
+                    {t('exams.panelScoreLine', { score: fmtScore(a.score), max: fmtScore(a.max_score ?? 0), pct: a.pct != null ? `${Math.round(a.pct)}%` : '' })}
                   </span>
                 )}
                 {a.score_posted && (
                   <span className="text-[12px] font-bold bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2.5 py-1 inline-flex items-center gap-1">
                     <Check size={14} />
-                    مُرحَّلة لدرجاته
+                    {t('exams.panelScorePosted')}
                   </span>
                 )}
               </div>
@@ -485,18 +483,18 @@ function OnlineExamSettings({
           onClick={() => {
             if (
               window.confirm(
-                'حذف الامتحان الإلكتروني نهائياً؟ هتتحذف روابطه وكل محاولات الطلاب ونتائجها هنا (الدرجات اللي اترحّلت لملفات الطلاب هتفضل موجودة). التقييم نفسه وأسئلته مش هيتأثروا.',
+                t('exams.panelDeleteConfirm'),
               )
             ) {
               deleteMut.mutate(examId, {
-                onSuccess: () => toast('اتحذف الامتحان الإلكتروني'),
-                onError: () => toast('حصلت مشكلة في الحذف — حاول تاني'),
+                onSuccess: () => toast(t('exams.panelDeleteSuccessToast')),
+                onError: () => toast(t('exams.panelDeleteErrorToast')),
               })
             }
           }}
         >
           <Trash2 size={20} />
-          {deleteMut.isPending ? 'بنحذف…' : 'حذف الامتحان الإلكتروني'}
+          {deleteMut.isPending ? t('exams.panelDeleting') : t('exams.panelDeleteAction')}
         </Button>
       </div>
     </Card>

@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
@@ -95,6 +96,26 @@ export function AssessmentDetailPage() {
   } | null>(null)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
+  // تجميع حفظ الدرجات (أداء 3A-296): مؤقّت تفريغ + مرجع لأحدث دوال
+  // الحفظ (تُسنَد بعد تعريفها أسفل لأنها تُبنى بعد بوابات الرجوع
+  // المبكر) + علم «توجد تعديلات مجدولة». فكّ التركيب يفرّغ فوراً.
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const latestSave = useRef<{
+    changedEntries: () => ScoreEntry[]
+    saveEntries: (entries: ScoreEntry[], successMsg?: string) => void
+  }>({ changedEntries: () => [], saveEntries: () => {} })
+  const [flushScheduled, setFlushScheduled] = useState(false)
+  useEffect(
+    () => () => {
+      if (flushTimer.current) {
+        clearTimeout(flushTimer.current)
+        flushTimer.current = null
+        latestSave.current.saveEntries(latestSave.current.changedEntries())
+      }
+    },
+    [],
+  )
+
   const serverMap = useMemo(() => {
     const m = new Map<string, number>()
     for (const row of scoresQ.data ?? []) m.set(row.student_id, row.score)
@@ -104,18 +125,18 @@ export function AssessmentDetailPage() {
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status === 'signed-out') return <SignInRequired />
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
-  if (assessmentQ.isPending) return <LoadingState label="بنحمّل تفاصيل الامتحان…" />
+  if (assessmentQ.isPending) return <LoadingState label={t('grades.detailLoading')} />
   if (assessmentQ.isError) {
     return (
       <ErrorState
-        message={assessmentQ.error instanceof Error ? assessmentQ.error.message : 'خطأ غير معروف'}
+        message={assessmentQ.error instanceof Error ? assessmentQ.error.message : t('common.unknownError')}
         onRetry={() => void assessmentQ.refetch()}
       />
     )
   }
   if (!assessment) {
     return (
-      <EmptyState icon={NotebookPen} title="التقييم غير موجود" hint="ممكن يكون اتحذف أو الرابط غير صحيح" />
+      <EmptyState icon={NotebookPen} title={t('grades.detailNotFoundTitle')} hint={t('grades.detailNotFoundHint')} />
     )
   }
 
@@ -173,19 +194,33 @@ export function AssessmentDetailPage() {
           })
           if (successMsg) toast(successMsg)
         },
-        onError: () => toast('حصلت مشكلة في حفظ الدرجات — راجع القيم وحاول تاني'),
+        onError: () => toast(t('grades.saveScoresError')),
       },
     )
   }
+
+  // تجميع الحفظ (أداء 3A-296): خروج الحقل لم يعد يطلق طلباً لكل طالب —
+  // التعديلات تتجمّع وتُحفَظ دفعة واحدة (saveScores جماعية أصلاً) بعد
+  // هدوء قصير، وزر «حفظ كل الدرجات» يفرّغ فوراً، وفكّ التركيب يفرّغ
+  // أيضاً حتى لا تضيع آخر تعديلات. إسناد المرجع أثناء التصيير مقصود:
+  // المؤقّت يجب أن يرى أحدث changedEntries/saveEntries دائماً.
+  // oxlint-disable-next-line react/refs
+  latestSave.current = { changedEntries, saveEntries }
 
   const saveRow = (studentId: string) => {
     if (!drafts.has(studentId)) return
     const { valid } = parseRaw(drafts.get(studentId) ?? '')
     if (!valid) {
-      toast('الدرجة لازم تكون رقماً صفر أو أكبر')
+      toast(t('grades.scoreMustBeNumber'))
       return
     }
-    saveEntries(changedEntries().filter((e) => e.studentId === studentId))
+    if (flushTimer.current) clearTimeout(flushTimer.current)
+    setFlushScheduled(true)
+    flushTimer.current = setTimeout(() => {
+      flushTimer.current = null
+      setFlushScheduled(false)
+      latestSave.current.saveEntries(latestSave.current.changedEntries())
+    }, 900)
   }
 
   // إحصاءات الملخص ولوحة الشرف — من القيم الفعّالة (مسودة صالحة أو قاعدة)
@@ -229,18 +264,22 @@ export function AssessmentDetailPage() {
           <div className="min-w-0">
             <div className="font-extrabold text-[16px]">{assessment.title}</div>
             <div className="text-muted text-[13.5px]">
-              {ASSESSMENT_TYPE_LABELS[assessment.type]} · {assessment.group_name} ·{' '}
-              {formatDateLabel(assessment.assess_date)} · النهائية {fmtScore(assessment.max_score)}{' '}
-              · النجاح {fmtScore(assessment.pass_score)}
+              {t('grades.detailSummaryLine', {
+                type: ASSESSMENT_TYPE_LABELS[assessment.type],
+                group: assessment.group_name,
+                date: formatDateLabel(assessment.assess_date),
+                max: fmtScore(assessment.max_score),
+                pass: fmtScore(assessment.pass_score),
+              })}
             </div>
           </div>
           <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
-            {saveMut.isPending ? (
-              'بنحفظ…'
+            {saveMut.isPending || flushScheduled ? (
+              t('grades.saving')
             ) : (
               <>
                 <Check size={14} className="text-ok-text" />
-                الحفظ عند الخروج من الحقل
+                {t('grades.detailAutoSaveHint')}
               </>
             )}
           </span>
@@ -253,21 +292,21 @@ export function AssessmentDetailPage() {
             />
           </div>
           <span className="text-[13.5px] font-extrabold">
-            {rowsReady ? `${done}/${total}` : '…'} درجة مسجلة
+            {t('grades.detailProgress', { progress: rowsReady ? `${done}/${total}` : '…' })}
           </span>
         </div>
         <div className="flex gap-2 mt-3 flex-wrap">
           <span className="text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2.5 py-1">
-            ناجح {passedCount}
+            {t('grades.detailPassed', { count: passedCount })}
           </span>
           <span className="text-[12px] font-bold bg-bad/10 text-bad-text border border-bad/30 rounded-full px-2.5 py-1">
-            أقل من 50%: {below50Count}
+            {t('grades.detailBelow50', { count: below50Count })}
           </span>
         </div>
         <div className="flex gap-2 mt-3 flex-wrap">
           <Button variant="soft" onClick={() => setBuilderOpen(true)}>
             <ListChecks size={20} />
-            الأسئلة ({questions.length})
+            {t('grades.detailQuestionsBtn', { count: questions.length })}
           </Button>
           <Button
             variant="soft"
@@ -275,11 +314,11 @@ export function AssessmentDetailPage() {
             disabled={questionsQ.isPending}
           >
             <Printer size={20} />
-            ورقة الامتحان
+            {t('grades.examSheet')}
           </Button>
           <Button variant="ghost" onClick={() => setEditOpen(true)}>
             <Pencil size={20} />
-            تعديل بيانات الامتحان
+            {t('grades.formEditTitle')}
           </Button>
         </div>
       </Card>
@@ -299,8 +338,10 @@ export function AssessmentDetailPage() {
           <span className="flex items-start gap-2">
             <AlertTriangle size={20} className="shrink-0 mt-0.5 text-warn-text" />
             <span>
-              مجموع درجات الأسئلة ({fmtScore(questionsTotal)}) لا يساوي الدرجة النهائية (
-              {fmtScore(assessment.max_score)}).
+              {t('grades.detailMismatch', {
+                total: fmtScore(questionsTotal),
+                max: fmtScore(assessment.max_score),
+              })}
             </span>
           </span>
           <Button
@@ -313,14 +354,17 @@ export function AssessmentDetailPage() {
                 {
                   onSuccess: () =>
                     toast(
-                      `اتحدثت النهائية إلى ${fmtScore(questionsTotal)} ودرجة النجاح إلى ${fmtScore(Math.round(questionsTotal / 2))}`,
+                      t('grades.detailSynced', {
+                        max: fmtScore(questionsTotal),
+                        pass: fmtScore(Math.round(questionsTotal / 2)),
+                      }),
                     ),
-                  onError: () => toast('حصلت مشكلة في المزامنة — حاول تاني'),
+                  onError: () => toast(t('grades.detailSyncError')),
                 },
               )
             }
           >
-            تحديث الدرجة النهائية إلى {fmtScore(questionsTotal)}
+            {t('grades.detailSyncBtn', { total: fmtScore(questionsTotal) })}
           </Button>
         </div>
       )}
@@ -337,7 +381,7 @@ export function AssessmentDetailPage() {
           message={
             (rosterQ.error ?? scoresQ.error) instanceof Error
               ? ((rosterQ.error ?? scoresQ.error) as Error).message
-              : 'خطأ غير معروف'
+              : t('common.unknownError')
           }
           onRetry={() => {
             void rosterQ.refetch()
@@ -348,8 +392,8 @@ export function AssessmentDetailPage() {
         <Card>
           <EmptyState
             icon={Users}
-            title="لا يوجد طلاب نشطون مسجلون في مجموعة التقييم دي"
-            hint="سجّل طلاباً في المجموعة من ملفاتهم أو من صفحة المجموعة، وهيظهروا هنا لإدخال درجاتهم."
+            title={t('grades.detailNoStudentsTitle')}
+            hint={t('grades.detailNoStudentsHint')}
           />
         </Card>
       ) : (
@@ -394,11 +438,11 @@ export function AssessmentDetailPage() {
                           className="text-primary text-[13.5px] font-semibold no-underline inline-flex items-center gap-1 min-h-[48px]"
                         >
                           <MessageCircle size={18} />
-                          إرسال الدرجة لولي الأمر
+                          {t('grades.detailSendScore')}
                         </a>
                       ) : effScore != null ? (
                         <span className="text-muted text-[12px]">
-                          لا يوجد رقم ولي أمر أو موبايل طالب مسجل للإرسال
+                          {t('grades.detailNoContact')}
                         </span>
                       ) : null}
                     </div>
@@ -417,7 +461,7 @@ export function AssessmentDetailPage() {
                         step="0.5"
                         inputMode="decimal"
                         dir="ltr"
-                        placeholder={`من ${fmtScore(assessment.max_score)}`}
+                        placeholder={t('grades.detailScorePlaceholder', { max: fmtScore(assessment.max_score) })}
                         value={raw}
                         onChange={(e) => setDraft(st.id, e.target.value)}
                         onBlur={() => saveRow(st.id)}
@@ -440,23 +484,30 @@ export function AssessmentDetailPage() {
           <Button
             full
             disabled={saveMut.isPending || pendingChanges === 0}
-            onClick={() =>
-              saveEntries(changedEntries(), `اتحفظت ${pendingChanges} درجة`)
-            }
+            onClick={() => {
+              // إلغاء أي تفريغ مجدول — هذا الزر يفرّغ الآن فوراً
+              if (flushTimer.current) {
+                clearTimeout(flushTimer.current)
+                flushTimer.current = null
+              }
+              setFlushScheduled(false)
+              saveEntries(changedEntries(), t('grades.detailSavedCount', { count: pendingChanges }))
+            }}
             className="mb-3"
           >
             {saveMut.isPending ? (
-              'بنحفظ…'
+              t('grades.saving')
             ) : (
               <>
                 <Save size={20} />
-                {pendingChanges > 0 ? `حفظ كل الدرجات (${pendingChanges} تعديل)` : 'كل الدرجات محفوظة'}
+                {pendingChanges > 0
+                  ? t('grades.detailSaveAll', { count: pendingChanges })
+                  : t('grades.detailAllSaved')}
               </>
             )}
           </Button>
           <p className="text-muted text-[12px] mt-0 mb-3">
-            الدرجة بتتحفظ تلقائياً لما تخرج من الحقل أو تدوس Enter (اللي بينقلك للي بعده)، وزر
-            الحفظ اللي فوق بيحفظ أي تعديلات متبقية دفعة واحدة. مسح الحقل وحفظه بيمسح درجة الطالب.
+            {t('grades.detailSaveHelp')}
           </p>
         </>
       )}
@@ -465,22 +516,24 @@ export function AssessmentDetailPage() {
       {honor.length > 0 && (
         <Card>
           <div className="flex items-center justify-between gap-2 mb-2">
-            <span className="font-bold text-[16px] flex items-center gap-2"><Trophy size={22} className="text-accent" /> لوحة الشرف</span>
+            <span className="font-bold text-[16px] flex items-center gap-2"><Trophy size={22} className="text-accent" /> {t('grades.detailHonorTitle')}</span>
             <Button
               variant="ghost"
               className="min-h-[48px] text-[13.5px] px-3"
               onClick={() => {
                 const lines = honor
-                  .map((h, i) => `${i + 1}. ${h.student.name} — ${h.pct}%`)
+                  .map((h, i) =>
+                    t('grades.detailHonorLine', { rank: i + 1, name: h.student.name, pct: h.pct }),
+                  )
                   .join('\n')
-                const text = `لوحة الشرف في ${assessment.title}:\n${lines}\nألف مبروك للأوائل!`
+                const text = t('grades.detailHonorText', { title: assessment.title, lines })
                 void navigator.clipboard
                   ?.writeText(text)
-                  .then(() => toast('اتنسخت تهنئة الأوائل'))
-                  .catch(() => toast('النسخ مش متاح في المتصفح ده'))
+                  .then(() => toast(t('grades.detailHonorCopied')))
+                  .catch(() => toast(t('common.copyUnavailable')))
               }}
             >
-              نسخ تهنئة الأوائل
+              {t('grades.detailCopyHonor')}
             </Button>
           </div>
           {honor.map((h, i) => (
@@ -493,7 +546,7 @@ export function AssessmentDetailPage() {
                 {h.student.name}
               </span>
               <span className="font-extrabold text-[13.5px]">
-                {fmtScore(h.score ?? 0)} من {fmtScore(assessment.max_score)} · {h.pct}%
+                {t('grades.detailHonorScore', { score: fmtScore(h.score ?? 0), max: fmtScore(assessment.max_score), pct: h.pct })}
               </span>
             </div>
           ))}

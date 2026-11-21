@@ -1,4 +1,5 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
+import { t } from '../../i18n'
 import { formatMoney, waLink } from '../../lib/format'
 import {
   fetchGuardianContacts,
@@ -7,11 +8,6 @@ import {
   type RosterStudent,
 } from '../attendance/api'
 import { monthStartStr } from '../home/api'
-
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
 
 // ---------------------------------------------------------------------------
 // «معرّضون للفقد» (At-Risk) — Phase 5 / الخطوة 1 (خطة P5-1)
@@ -82,14 +78,14 @@ export interface AtRiskStudent {
 
 /** «4 حصص» / «12 حصة» — جمع عربي بسيط لأعداد الحصص */
 export function sessionsWord(n: number): string {
-  return n >= 3 && n <= 10 ? `${n} حصص` : `${n} حصة`
+  // صيغ CLDR من القاموس (W7): few = 3–10 «حصص»، وغيرها «حصة»
+  return t('atrisk.sessions', { count: n })
 }
 
 /** «شهرين» / «3 شهور» / «12 شهراً» — امتداد المتأخرات بالشهور */
 export function monthsSpanWord(n: number): string {
-  if (n === 2) return 'شهرين'
-  if (n >= 3 && n <= 10) return `${n} شهور`
-  return `${n} شهراً`
+  // صيغ CLDR من القاموس (W7): two «شهرين»، few «شهور»، وغيرها «شهراً»
+  return t('atrisk.monthsSpan', { count: n })
 }
 
 /** فرق الشهور بين شهري 'YYYY-MM-DD' (أولهما) — بلا أيام */
@@ -304,9 +300,9 @@ export async function fetchAtRisk(
             if (!prev || streak > prev.streak) {
               absenceReasonByStudent.set(st.id, {
                 kind: 'absence',
-                text: `غائب ${sessionsWord(streak)} متتالية`,
+                text: t('atrisk.reasonAbsence', { sessions: sessionsWord(streak) }),
                 streak,
-                groupName: groupNameById.get(groupId) ?? 'مجموعته',
+                groupName: groupNameById.get(groupId) ?? t('atrisk.apiGroupFallback'),
                 eventAt: lastAbsenceAt,
               })
             }
@@ -358,7 +354,7 @@ export async function fetchAtRisk(
         if (!derived) continue
         overdueReasonByStudent.set(studentId, {
           kind: 'overdue',
-          text: `متأخر ${monthsSpanWord(derived.monthsSpan)} — ${formatMoney(derived.amount)}`,
+          text: t('atrisk.reasonOverdue', { span: monthsSpanWord(derived.monthsSpan), amount: formatMoney(derived.amount) }),
           monthsSpan: derived.monthsSpan,
           amount: derived.amount,
           eventAt: derived.eventAt,
@@ -464,19 +460,27 @@ export function atRiskWaUrl(
   const { name: guardianName, phone } = resolveGuardian(item.student, item.contact)
   const base = waLink(phone)
   if (!base) return null
-  const centre = centreName?.trim() ? centreName.trim() : 'السنتر'
-  const lines = [`أهلاً ${guardianName}، معاكم ${centre}.`]
+  const centre = centreName?.trim() ? centreName.trim() : t('atrisk.apiDefaultCentre')
+  const lines = [t('atrisk.apiWaGreeting', { guardian: guardianName, centre })]
   for (const reason of item.reasons) {
     if (reason.kind === 'absence') {
       lines.push(
-        `بنطمن على ${item.student.name}: غاب عن ${sessionsWord(reason.streak)} متتالية في مجموعة ${reason.groupName}، وحابين نتأكد إن مفيش مشكلة وإننا نقدر نساعد بأي شكل.`,
+        t('atrisk.apiWaAbsence', {
+          name: item.student.name,
+          sessions: sessionsWord(reason.streak),
+          group: reason.groupName,
+        }),
       )
     } else {
       lines.push(
-        `بنذكّركم إن على ${item.student.name} اشتراكاً متأخراً (${monthsSpanWord(reason.monthsSpan)}) بمبلغ ${formatMoney(reason.amount)} — شاكرين تعاونكم في السداد في أقرب وقت ممكن.`,
+        t('atrisk.apiWaOverdue', {
+          name: item.student.name,
+          span: monthsSpanWord(reason.monthsSpan),
+          amount: formatMoney(reason.amount),
+        }),
       )
     }
   }
-  lines.push('شكراً لمتابعتكم، ويسعدنا دايماً تواصلكم معانا.')
+  lines.push(t('atrisk.apiWaClosing'))
   return `${base}?text=${encodeURIComponent(lines.join('\n'))}`
 }

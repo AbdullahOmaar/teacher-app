@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { t } from '../../i18n'
 import { Sheet } from '../../components/ui/Sheet'
 import { AlertTriangle } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
@@ -38,7 +39,7 @@ function findConflicts(
     if (candidate.start < endB && startB < candidate.end) {
       out.push({
         name: g.name,
-        days: shared.map((d) => DAY_NAMES[d]).join('، '),
+        days: shared.map((d) => DAY_NAMES[d]).join(t('groups.daysSeparator')),
         time: shortTime(g.start_time),
       })
     }
@@ -91,21 +92,21 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
   const save = async () => {
     setError(null)
     const errs: typeof fieldErrors = {}
-    if (!name.trim()) errs.name = 'اسم المجموعة إلزامي'
-    if (!days.length) errs.days = 'اختار يوماً واحداً على الأقل في الجدول'
+    if (!name.trim()) errs.name = t('groups.formNameRequired')
+    if (!days.length) errs.days = t('groups.formDaysRequired')
     const priceNum = price.trim() === '' ? 0 : Number(price)
-    if (!Number.isFinite(priceNum) || priceNum < 0) errs.price = 'السعر غير صحيح'
+    if (!Number.isFinite(priceNum) || priceNum < 0) errs.price = t('groups.formPriceInvalid')
     const durNum = Number(duration)
-    if (!Number.isInteger(durNum) || durNum < 30) errs.duration = 'المدة لازم تكون 30 دقيقة على الأقل'
+    if (!Number.isInteger(durNum) || durNum < 30) errs.duration = t('groups.formDurationInvalid')
     const linkList = links
       .split('\n')
       .map((l) => l.trim())
       .filter(Boolean)
     if (linkList.some((l) => safeExternalUrl(l) === null))
-      errs.links = 'كل رابط لازم يبدأ بـ https:// أو http://'
+      errs.links = t('groups.formLinksInvalid')
     const capNum = capacity.trim() === '' ? null : Number(capacity)
     if (capNum !== null && (!Number.isInteger(capNum) || capNum <= 0))
-      errs.capacity = 'السعة لازم تكون عدداً صحيحاً موجباً (أو فارغة = بلا حد)'
+      errs.capacity = t('groups.formCapacityInvalid')
     setFieldErrors(errs)
     if (Object.keys(errs).length > 0) return
 
@@ -126,32 +127,32 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
       else await createGroup.mutateAsync(input)
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'حصلت مشكلة أثناء الحفظ')
+      setError(e instanceof Error ? e.message : t('groups.formSaveError'))
     }
   }
 
   return (
     <Sheet
       open
-      title={initial ? 'تعديل مجموعة' : 'مجموعة جديدة'}
+      title={initial ? t('groups.formEditTitle') : t('groups.formCreateTitle')}
       onClose={onClose}
       footer={
         <div className="flex gap-2">
           <Button full onClick={save} disabled={saving}>
-            {saving ? 'بنحفظ…' : 'حفظ'}
+            {saving ? t('groups.saving') : t('groups.formSave')}
           </Button>
           <Button variant="ghost" onClick={onClose}>
-            إلغاء
+            {t('groups.cancel')}
           </Button>
         </div>
       }
     >
-      <h4 className="type-section mb-2">البيانات الأساسية</h4>
-      <Field label="اسم المجموعة *" error={fieldErrors.name}>
-        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="مثال: فيزياء 3 ثانوي — السبت" />
+      <h4 className="type-section mb-2">{t('groups.formBasicTitle')}</h4>
+      <Field label={t('groups.formNameLabel')} error={fieldErrors.name}>
+        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder={t('groups.formNamePlaceholder')} />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="نظام الدفع">
+        <Field label={t('groups.formBillingLabel')}>
           <Select value={billing} onChange={(e) => setBilling(e.target.value as BillingType)}>
             {BILLING_TYPES.map((b) => (
               <option key={b} value={b}>
@@ -160,14 +161,14 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
             ))}
           </Select>
         </Field>
-        <Field label="السعر (ج)" error={fieldErrors.price}>
+        <Field label={t('groups.formPriceLabel')} error={fieldErrors.price}>
           <TextInput type="number" min={0} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" />
         </Field>
       </div>
 
-      <h4 className="type-section mb-2 mt-2">الجدول</h4>
+      <h4 className="type-section mb-2 mt-2">{t('groups.formScheduleTitle')}</h4>
       <div className="mb-3">
-        <div className="text-[13.5px] text-muted font-semibold mb-1">أيام الجدول *</div>
+        <div className="text-[13.5px] text-muted font-semibold mb-1">{t('groups.formDaysLabel')}</div>
         <div className="flex flex-wrap gap-2">
           {DAY_NAMES.map((label, d) => (
             <Chip key={d} active={days.includes(d)} onClick={() => toggleDay(d)}>
@@ -179,35 +180,35 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="وقت البدء">
+        <Field label={t('groups.formStartLabel')}>
           <TextInput type="time" dir="ltr" value={time} onChange={(e) => setTime(e.target.value)} />
         </Field>
-        <Field label="المدة (دقيقة)" error={fieldErrors.duration}>
+        <Field label={t('groups.formDurationLabel')} error={fieldErrors.duration}>
           <TextInput type="number" min={30} step={15} inputMode="numeric" value={duration} onChange={(e) => setDuration(e.target.value)} />
         </Field>
       </div>
-      <h4 className="type-section mb-2 mt-2">تفاصيل إضافية</h4>
+      <h4 className="type-section mb-2 mt-2">{t('groups.formExtraTitle')}</h4>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="المكان / القاعة">
-          <TextInput value={room} onChange={(e) => setRoom(e.target.value)} placeholder="قاعة 2 — أو اتركه للأونلاين" />
+        <Field label={t('groups.formRoomLabel')}>
+          <TextInput value={room} onChange={(e) => setRoom(e.target.value)} placeholder={t('groups.formRoomPlaceholder')} />
         </Field>
-        <Field label="السعة (فارغ = بلا حد)" error={fieldErrors.capacity}>
+        <Field label={t('groups.formCapacityLabel')} error={fieldErrors.capacity}>
           <TextInput type="number" min={1} inputMode="numeric" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
         </Field>
       </div>
-      <Field label="اسم المساعد">
+      <Field label={t('groups.formAssistantLabel')}>
         <TextInput value={assistant} onChange={(e) => setAssistant(e.target.value)} />
       </Field>
-      <Field label="روابط (ملازم / أونلاين) — سطر لكل رابط" error={fieldErrors.links}>
+      <Field label={t('groups.formLinksLabel')} error={fieldErrors.links}>
         <TextArea rows={3} dir="ltr" value={links} onChange={(e) => setLinks(e.target.value)} placeholder={'https://…'} />
       </Field>
 
       {conflicts.length > 0 && (
         <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2 mb-3 text-[13.5px]">
-          <div className="font-bold text-warn-text mb-1 flex items-center gap-2"><AlertTriangle size={20} /> تعارض في المواعيد</div>
+          <div className="font-bold text-warn-text mb-1 flex items-center gap-2"><AlertTriangle size={20} /> {t('groups.conflictTitle')}</div>
           {conflicts.map((c, i) => (
             <div key={i}>
-              مع مجموعة «{c.name}» — أيام مشتركة: {c.days}، ميعادها {c.time}
+              {t('groups.conflictLine', { name: c.name, days: c.days, time: c.time })}
             </div>
           ))}
         </div>

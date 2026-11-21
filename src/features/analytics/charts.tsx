@@ -15,6 +15,7 @@ import {
 import { periodLabel } from '../invoices/api'
 import { formatMoney } from '../../lib/format'
 import type { AnalyticsMonth } from './api'
+import { t } from '../../i18n'
 
 /*
  * رسوم لوحة التحليلات — Recharts (تُحمَّل كسولاً مع صفحة التحليلات فقط،
@@ -107,7 +108,7 @@ function ChartTooltip({
       <div className="font-bold mb-0.5">{label}</div>
       {payload.map((p) => (
         <div key={p.name} className="tabular-nums" style={{ color: p.color ?? colors.text }}>
-          {p.name}: {p.value == null ? 'لا تسجيلات' : format(p.value)}
+          {p.name}: {p.value == null ? t('analytics.chartNoRecords') : format(p.value)}
         </div>
       ))}
     </div>
@@ -139,7 +140,7 @@ export function CollectedChart({ months }: { months: AnalyticsMonth[] }) {
           cursor={{ fill: c.border, opacity: 0.35 }}
           content={<ChartTooltip format={(v) => formatMoney(v)} colors={c} />}
         />
-        <Bar dataKey="collected" name="التحصيل" fill={c.primary} radius={[6, 6, 0, 0]} maxBarSize={44} />
+        <Bar dataKey="collected" name={t('analytics.chartCollectedName')} fill={c.primary} radius={[6, 6, 0, 0]} maxBarSize={44} />
       </BarChart>
     </ChartFrame>
   )
@@ -158,7 +159,7 @@ export function AttendanceChart({ months }: { months: AnalyticsMonth[] }) {
         <Area
           type="monotone"
           dataKey="attendanceRate"
-          name="نسبة الحضور"
+          name={t('analytics.chartAttendanceName')}
           stroke={c.ok}
           fill={c.ok}
           fillOpacity={0.18}
@@ -183,7 +184,7 @@ export function OverdueChart({ months }: { months: AnalyticsMonth[] }) {
           cursor={{ fill: c.border, opacity: 0.35 }}
           content={<ChartTooltip format={(v) => formatMoney(v)} colors={c} />}
         />
-        <Bar dataKey="overdue" name="متأخرات مستحقة" fill={c.bad} radius={[6, 6, 0, 0]} maxBarSize={44} />
+        <Bar dataKey="overdue" name={t('analytics.chartOverdueName')} fill={c.bad} radius={[6, 6, 0, 0]} maxBarSize={44} />
       </BarChart>
     </ChartFrame>
   )
@@ -202,8 +203,8 @@ export function GrowthChart({ months }: { months: AnalyticsMonth[] }) {
           cursor={{ fill: c.border, opacity: 0.35 }}
           content={<ChartTooltip format={(v) => v.toLocaleString('en-US')} colors={c} />}
         />
-        <Bar dataKey="newStudents" name="طلاب جدد" fill={c.accent} radius={[6, 6, 0, 0]} maxBarSize={44} />
-        <Line type="monotone" dataKey="cumulativeStudents" name="الإجمالي التراكمي" stroke={c.primary} strokeWidth={2.5} dot={{ r: 3 }} />
+        <Bar dataKey="newStudents" name={t('analytics.chartNewStudentsName')} fill={c.accent} radius={[6, 6, 0, 0]} maxBarSize={44} />
+        <Line type="monotone" dataKey="cumulativeStudents" name={t('analytics.chartCumulativeName')} stroke={c.primary} strokeWidth={2.5} dot={{ r: 3 }} />
       </ComposedChart>
     </ChartFrame>
   )

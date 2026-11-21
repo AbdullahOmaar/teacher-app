@@ -1,4 +1,5 @@
-import { supabase } from '../../lib/supabase'
+import { db } from '../../lib/supabase'
+import { t } from '../../i18n'
 import { formatMoney, waLink } from '../../lib/format'
 import type {
   AttendanceStatus,
@@ -15,27 +16,22 @@ import { isAttended, saveAttendance } from '../attendance/api'
 import { fetchGroups } from '../groups/api'
 import { logActivity } from '../activity/api'
 
-function db() {
-  if (!supabase) throw new Error('Supabase غير مربوط — راجع إعدادات .env')
-  return supabase
-}
-
 // ---------------------------------------------------------------------------
 // طرق الدفع — enum ‏payment_method في المخطط حرفياً
 // ---------------------------------------------------------------------------
 
 export const PAYMENT_METHODS: { code: PaymentMethod; label: string }[] = [
-  { code: 'cash', label: 'كاش' },
-  { code: 'vodafone_cash', label: 'فودافون كاش' },
-  { code: 'instapay', label: 'إنستاباي' },
-  { code: 'bank_transfer', label: 'تحويل بنكي' },
+  { code: 'cash', label: t('invoices.apiMethodCash') },
+  { code: 'vodafone_cash', label: t('invoices.apiMethodVodafone') },
+  { code: 'instapay', label: t('invoices.apiMethodInstapay') },
+  { code: 'bank_transfer', label: t('invoices.apiMethodBank') },
 ]
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  cash: 'كاش',
-  vodafone_cash: 'فودافون كاش',
-  instapay: 'إنستاباي',
-  bank_transfer: 'تحويل بنكي',
+  cash: t('invoices.apiMethodCash'),
+  vodafone_cash: t('invoices.apiMethodVodafone'),
+  instapay: t('invoices.apiMethodInstapay'),
+  bank_transfer: t('invoices.apiMethodBank'),
 }
 
 // ---------------------------------------------------------------------------
@@ -59,6 +55,16 @@ export type InvoicePayState = 'paid' | 'partial' | 'due'
 export function payStateOf(b: { total: number; paid: number; balance: number }): InvoicePayState {
   if (b.balance <= 0) return 'paid'
   return b.paid > 0 ? 'partial' : 'due'
+}
+
+/**
+ * «غير مسدد» — التعريف الوحيد المعتمد (PAT-4): رصيد متبقٍّ أكبر من صفر.
+ * كانت الصيغة `balance > 0` مكررة inline في الرئيسية وقائمة الفواتير
+ * وتبويب مدفوعات الطالب وربط إثباتات الدفع؛ أي تغيير مستقبلي في
+ * التعريف يحدث هنا فقط.
+ */
+export function isUnpaid(b: { balance: number }): boolean {
+  return b.balance > 0
 }
 
 // ---------------------------------------------------------------------------
@@ -323,18 +329,18 @@ export function baseChargeFor(input: BaseChargeInput): BaseCharge {
   const { price, ym } = input
   switch (input.billingType) {
     case 'monthly_fixed':
-      return { amount: price, desc: `اشتراك ${ym}` }
+      return { amount: price, desc: t('invoices.apiChargeMonthly', { ym }) }
     case 'weekly_package':
-      return { amount: 4 * price, desc: `باقة شهر ${ym} (4 أسابيع)` }
+      return { amount: 4 * price, desc: t('invoices.apiChargeWeekly', { ym }) }
     case 'per_session_prepaid':
       return {
         amount: input.prepaidQty * price,
-        desc: `${input.prepaidQty} حصة مدفوعة مسبقاً`,
+        desc: t('invoices.apiChargePrepaid', { qty: input.prepaidQty }),
       }
     case 'per_session_attended':
       return {
         amount: input.attendedCount * price,
-        desc: `حصص حضرها (${input.attendedCount})`,
+        desc: t('invoices.apiChargeAttended', { count: input.attendedCount }),
       }
   }
 }
@@ -443,8 +449,22 @@ export async function generateInvoices(
     }
   }
 
-  let created = 0
   let skipped = 0
+
+  // بناء كل الفواتير وبنودها محلياً أولاً — لا أي طلب شبكة داخل الحلقة
+  // (أداء 3A-296: كان الإصدار يرسل طلبين لكل تسجيل: فاتورة ثم بنودها).
+  interface PlannedLine {
+    line_type: 'base' | 'discount'
+    description: string
+    amount: number
+    reason: string | null
+  }
+  interface PlannedInvoice {
+    studentId: string
+    groupId: string
+    lines: PlannedLine[]
+  }
+  const planned: PlannedInvoice[] = []
 
   for (const e of enrollments) {
     const group = groupById.get(e.group_id)
@@ -470,66 +490,112 @@ export async function generateInvoices(
       attendedCount: attendedCount.get(key) ?? 0,
     })
 
-    const { data: inv, error: invErr } = await supa
-      .from('invoices')
-      .insert({
-        teacher_id: teacherId,
-        student_id: e.student_id,
-        group_id: e.group_id,
-        period_month: period,
-      })
-      .select('id')
-      .single()
-    if (invErr) {
-      // سباق نادر: فاتورة أُنشئت بين الفحص والإدراج — القيد الفريد يمنع التكرار
-      if ((invErr as { code?: string }).code === '23505') {
-        skipped += 1
-        continue
-      }
-      throw invErr
-    }
-    const invoiceId = (inv as unknown as { id: string }).id
-
-    const lines: {
-      teacher_id: string
-      invoice_id: string
-      line_type: 'base' | 'discount'
-      description: string
-      amount: number
-      reason: string | null
-    }[] = [
-      {
-        teacher_id: teacherId,
-        invoice_id: invoiceId,
-        line_type: 'base',
-        description: baseDesc,
-        amount: baseAmount,
-        reason: null,
-      },
+    const lines: PlannedLine[] = [
+      { line_type: 'base', description: baseDesc, amount: baseAmount, reason: null },
     ]
     // الخصم العام (المرجع §5.1): بند سالب لا يتجاوز قيمة البند الأساسي أبداً
     if (opts.discount > 0) {
       const discAmt = clampedDiscount(opts.discount, baseAmount)
       if (discAmt > 0) {
         lines.push({
-          teacher_id: teacherId,
-          invoice_id: invoiceId,
           line_type: 'discount',
-          description: `خصم (${opts.discountNote?.trim() ? opts.discountNote.trim() : 'خصم خاص'})`,
+          description: t('invoices.apiDiscountDesc', { note: opts.discountNote?.trim() ? opts.discountNote.trim() : t('invoices.apiDiscountFallback') }),
           amount: -discAmt,
           reason: opts.discountNote?.trim() ? opts.discountNote.trim() : null,
         })
       }
     }
+    planned.push({ studentId: e.student_id, groupId: e.group_id, lines })
+  }
 
-    const { error: lineErr } = await supa.from('invoice_lines').insert(lines)
-    if (lineErr) {
-      // تعويض: لا نترك فاتورة بلا بنود (لا توجد معاملة متعددة الجداول هنا)
-      await supa.from('invoices').delete().eq('teacher_id', teacherId).eq('id', invoiceId)
-      throw lineErr
+  // الإدراج الجماعي: طلب واحد للفواتير + طلب واحد لكل البنود.
+  // فشل البنود يعوّض بحذف الفواتير المدرجة (لا فاتورة بلا بنود)، وفشل
+  // القيد الفريد (سباق نادر: فاتورة أُنشئت بين الفحص والإدراج) يهبط بنا
+  // للمسار الفردي لعزل المتعارض وعدّه متخطّى — نفس الدلالات الأصلية.
+  let created = 0
+  if (planned.length > 0) {
+    const insertLinesFor = async (invoiceIdByKey: Map<string, string>) => {
+      const allLines = planned.flatMap((p) =>
+        p.lines.map((l) => ({
+          teacher_id: teacherId,
+          invoice_id: invoiceIdByKey.get(`${p.studentId}|${p.groupId}`)!,
+          line_type: l.line_type,
+          description: l.description,
+          amount: l.amount,
+          reason: l.reason,
+        })),
+      )
+      const { error } = await supa.from('invoice_lines').insert(allLines)
+      if (error) throw error
     }
-    existingKeys.add(key)
-    created += 1
+    try {
+      const { data: inserted, error: bulkErr } = await supa
+        .from('invoices')
+        .insert(
+          planned.map((p) => ({
+            teacher_id: teacherId,
+            student_id: p.studentId,
+            group_id: p.groupId,
+            period_month: period,
+          })),
+        )
+        .select('id, student_id, group_id')
+      if (bulkErr) throw bulkErr
+      const idByKey = new Map(
+        ((inserted ?? []) as unknown as { id: string; student_id: string; group_id: string }[]).map(
+          (r) => [`${r.student_id}|${r.group_id}`, r.id] as const,
+        ),
+      )
+      try {
+        await insertLinesFor(idByKey)
+      } catch (lineErr) {
+        await supa
+          .from('invoices')
+          .delete()
+          .eq('teacher_id', teacherId)
+          .in('id', [...idByKey.values()])
+        throw lineErr
+      }
+      created = planned.length
+    } catch (bulkFailure) {
+      if ((bulkFailure as { code?: string }).code !== '23505') throw bulkFailure
+      // مسار فردي احتياطي عند سباق القيد الفريد فقط
+      for (const p of planned) {
+        const { data: inv, error: invErr } = await supa
+          .from('invoices')
+          .insert({
+            teacher_id: teacherId,
+            student_id: p.studentId,
+            group_id: p.groupId,
+            period_month: period,
+          })
+          .select('id')
+          .single()
+        if (invErr) {
+          if ((invErr as { code?: string }).code === '23505') {
+            skipped += 1
+            continue
+          }
+          throw invErr
+        }
+        const invoiceId = (inv as unknown as { id: string }).id
+        const { error: lineErr } = await supa.from('invoice_lines').insert(
+          p.lines.map((l) => ({
+            teacher_id: teacherId,
+            invoice_id: invoiceId,
+            line_type: l.line_type,
+            description: l.description,
+            amount: l.amount,
+            reason: l.reason,
+          })),
+        )
+        if (lineErr) {
+          await supa.from('invoices').delete().eq('teacher_id', teacherId).eq('id', invoiceId)
+          throw lineErr
+        }
+        created += 1
+      }
+    }
   }
 
   // سجل النشاط: حدث واحد للتوليد كله (أو فاتورة فردية عند استهداف طالب
@@ -567,7 +633,7 @@ export async function createPayment(
   invoiceId: string,
   input: { amount: number; method: PaymentMethod; paid_on: string },
 ): Promise<PaymentRow> {
-  if (!(input.amount > 0)) throw new Error('مبلغ الدفعة لازم يكون أكبر من صفر')
+  if (!(input.amount > 0)) throw new Error(t('invoices.apiErrorPaymentAmount'))
   const { data: receiptNo, error: rpcErr } = await db().rpc('next_receipt_no', {
     p_teacher_id: teacherId,
     p_date: input.paid_on,
@@ -595,7 +661,7 @@ export async function createPayment(
     event_type: 'payment_created',
     entity_type: 'payment',
     entity_id: payment.id,
-    entity_label: `إيصال ${payment.receipt_no}`,
+    entity_label: t('invoices.apiReceiptLabel', { receiptNo: payment.receipt_no }),
     details: {
       amount: payment.amount,
       method: payment.method,
@@ -654,7 +720,7 @@ export async function voidPayment(teacherId: string, payment: PaymentRow): Promi
     event_type: 'payment_voided',
     entity_type: 'payment',
     entity_id: payment.id,
-    entity_label: `إيصال ${payment.receipt_no}`,
+    entity_label: t('invoices.apiReceiptLabel', { receiptNo: payment.receipt_no }),
     details: {
       amount: payment.amount,
       method: payment.method,
@@ -748,7 +814,7 @@ export async function applyAttendanceAdjustment(
   reason: string,
 ): Promise<{ delta: number }> {
   const trimmed = reason.trim()
-  if (!trimmed) throw new Error('سبب التسوية إلزامي')
+  if (!trimmed) throw new Error(t('invoices.apiErrorAdjustmentReason'))
 
   // السعر الفعّال من التسجيل (price_override وإلا سعر المجموعة)
   const { data: enr, error: enrErr } = await db()
@@ -781,7 +847,7 @@ export async function applyAttendanceAdjustment(
       teacher_id: teacherId,
       invoice_id: invoice.invoice_id,
       line_type: 'adjustment',
-      description: `تسوية حصة ${session.session_date}`,
+      description: t('invoices.apiAdjustmentDesc', { date: session.session_date }),
       amount: deltaAmount,
       reason: trimmed,
     })
@@ -815,8 +881,7 @@ export async function fetchWhatsappTemplate(teacherId: string): Promise<string |
   return tpl?.trim() ? tpl : null
 }
 
-export const DEFAULT_WA_TEMPLATE =
-  'أهلاً {guardian}، إيصال الطالب {name} عن {period}: المدفوع {paid} من {total}، والمتبقي {balance}. شكراً لك.'
+export const DEFAULT_WA_TEMPLATE = t('invoices.apiDefaultWaTemplate')
 
 /** تعويض متغيرات قالب الإيصال (المرجع §5.6) — {period} بصيغة YYYY-MM */
 export function buildReceiptMessage(

@@ -59,24 +59,15 @@ import {
   useGuardianContacts,
   useMarkStudentLeft,
   useMonthHasInvoices,
-  useSaveAttendance,
-  useSaveManyAttendance,
   useSessionAttendance,
   useSessionById,
   useSessionRoster,
 } from './hooks'
 import { useBrandIdentity } from '../../hooks/useBrandIdentity'
+import { t } from '../../i18n'
 import { QrScannerSheet, type ScanOutcome } from './QrScannerSheet'
 import { findStudentByCode, normalizeScannedCode } from './qr'
-import {
-  enqueueStored,
-  isNetworkFailure,
-  itemsForSession,
-  loadQueue,
-  queueKey,
-  removeItem,
-  saveQueue,
-} from './offlineQueue'
+import { enqueueStored, itemsForSession } from './offlineQueue'
 import { useOfflineSync, useOnlineStatus } from './useOfflineSync'
 import { SyncStatusBar } from './SyncStatusBar'
 
@@ -204,8 +195,6 @@ export function AttendancePage() {
     values: Map<string, AttendanceValue>
   } | null>(null)
 
-  const saveMut = useSaveAttendance(teacherId ?? '')
-  const saveManyMut = useSaveManyAttendance(teacherId ?? '')
   const statusMut = useSetSessionStatus(teacherId ?? '')
   // الانصراف الصريح (0012): left_at يعيش على صف الحضور نفسه منفصلاً عن
   // قيم الحالات، وتنبيه «غادر» يتولد في القاعدة عند ضبطه أول مرة.
@@ -265,12 +254,10 @@ export function AttendancePage() {
   }
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
   const anyNotPresent = roster.some((s) => valueOf(s.id).status !== 'p')
-  const saving = saveMut.isPending || saveManyMut.isPending
-
-  const resyncAfterError = () => {
-    setOverrideState(null)
-    void qc.invalidateQueries({ queryKey: [ATT] })
-  }
+  // مؤشر الحفظ: المزامنة جارية فعلياً أو توجد عناصر معلّقة لهذه الحصة
+  const saving =
+    sync.syncing ||
+    (selected ? itemsForSession(sync.items, teacherId ?? '', selected.id).length > 0 : false)
 
   const applyOverride = (entries: { studentId: string; value: AttendanceValue }[]) => {
     if (!selected) return
@@ -284,40 +271,23 @@ export function AttendancePage() {
 
   /**
    * نقطة الحفظ الوحيدة لكل تغيير حضور (أزرار الحالات/الواجب/التمييز
-   * ومسح QR عبر handleScan) — خطوة 11 أضافت فرع الأوفلاين داخلها فقط:
-   * - متصل: نفس الحفظ الفوري المتفائل والإبطال كما كان تماماً، ونجاحه
-   *   يلغي أي عنصر معلّق أقدم لنفس الطالب (القيمة الأحدث وصلت خلاص).
-   * - غير متصل (أو فشل الحفظ لسبب شبكي تحديداً): القيمة الكاملة تدخل
-   *   قائمة المزامنة المحلية وتبقى ظاهرة «قيد الانتظار» بدل التراجع
-   *   أو الضياع، وتُزامَن تلقائياً عند عودة الاتصال بنفس upsert.
-   * - خطأ غير شبكي (RLS/تحقق): السلوك القديم نفسه — تراجع + توست،
-   *   ولا يدخل القائمة كأنه انقطاع اتصال.
+   * ومسح QR عبر handleScan) — بعد تجميع الطلبات (3A-296) صار كل تغيير
+   * يمرّ بقائمة المزامنة المحلية دائماً، متصلاً كان أو غير متصل:
+   * - القيمة الكاملة تدخل القائمة (تخزين محلي دائم) وتظهر فوراً عبر
+   *   طبقة التجاوز + شارة «قيد الانتظار» على الصف.
+   * - محرك المزامنة يفرّغ القائمة تلقائياً بعد هدوء قصير، مجمّعاً
+   *   عناصر الحصة في دفعة واحدة (upsert جماعي + حذف جماعي) بدل طلب
+   *   لكل نقرة كما كان.
+   * - فشل دائم (RLS/تحقق): العنصر يُعلَّم «فشل الحفظ» على صفّه وفي
+   *   شريط المزامنة مع إعادة محاولة/تجاهل — لا تراجع صامت ولا ضياع.
+   * عقد الأوفلاين الأصلي لم يتغير: آخر كتابة تفوز، والمزامنة
+   * idempotent، والعناصر الفاشلة لا تعود تلقائياً إلا بزر أو بتعديل.
    */
   const changeValue = (studentId: string, patch: Partial<AttendanceValue>) => {
     if (!selected || cancelled || !teacherId) return
     const next = { ...valueOf(studentId), ...patch }
     applyOverride([{ studentId, value: next }])
-    if (!online) {
-      enqueueStored({ teacherId, sessionId: selected.id, studentId, value: next })
-      return
-    }
-    saveMut.mutate(
-      { sessionId: selected.id, studentId, value: next },
-      {
-        onSuccess: () => {
-          saveQueue(removeItem(loadQueue(), queueKey(teacherId, selected.id, studentId)))
-        },
-        onError: (err) => {
-          if (isNetworkFailure(err)) {
-            enqueueStored({ teacherId, sessionId: selected.id, studentId, value: next })
-            toast('انقطع الاتصال — التغيير اتحفظ على الجهاز وهيتزامن تلقائياً')
-            return
-          }
-          toast('حصلت مشكلة في حفظ الحضور — رجّعنا آخر حالة محفوظة')
-          resyncAfterError()
-        },
-      },
-    )
+    enqueueStored({ teacherId, sessionId: selected.id, studentId, value: next })
   }
 
   /**
@@ -345,43 +315,16 @@ export function AttendancePage() {
       value: { ...valueOf(s.id), status: 'p' as AttendanceStatus },
     }))
     applyOverride(entries)
-    // أوفلاين: كل طالب عنصر مستقل في القائمة (نفس مفتاح upsert الفردي)
-    // فيُزامَن لاحقاً بنفس saveAttendance واحداً واحداً — نتيجة مطابقة
-    const enqueueAll = () => {
-      for (const e of entries) {
-        enqueueStored({
-          teacherId,
-          sessionId: selected.id,
-          studentId: e.studentId,
-          value: e.value,
-        })
-      }
+    // كل طالب عنصر مستقل في قائمة المزامنة (نفس مفتاح الدمج الفردي)،
+    // والمحرك يرسلهم دفعة حصة واحدة — متصلاً كان أو غير متصل (3A-296)
+    for (const e of entries) {
+      enqueueStored({
+        teacherId,
+        sessionId: selected.id,
+        studentId: e.studentId,
+        value: e.value,
+      })
     }
-    if (!online) {
-      enqueueAll()
-      return
-    }
-    saveManyMut.mutate(
-      { sessionId: selected.id, entries },
-      {
-        onSuccess: () => {
-          let items = loadQueue()
-          for (const e of entries) {
-            items = removeItem(items, queueKey(teacherId, selected.id, e.studentId))
-          }
-          saveQueue(items)
-        },
-        onError: (err) => {
-          if (isNetworkFailure(err)) {
-            enqueueAll()
-            toast('انقطع الاتصال — التغييرات اتحفظت على الجهاز وهتتزامن تلقائياً')
-            return
-          }
-          toast('حصلت مشكلة في حفظ الحضور — رجّعنا آخر حالة محفوظة')
-          resyncAfterError()
-        },
-      },
-    )
   }
 
   const toggleSessionStatus = () => {
@@ -390,10 +333,10 @@ export function AttendancePage() {
       { sessionId: selected.id, status: cancelled ? 'scheduled' : 'cancelled' },
       {
         onSuccess: () => {
-          toast(cancelled ? 'تم استرجاع الحصة' : 'تم إلغاء الحصة')
+          toast(cancelled ? t('attendance.sessionRestored') : t('attendance.sessionCancelledToast'))
           void qc.invalidateQueries({ queryKey: [ATT] })
         },
-        onError: () => toast('حصلت مشكلة — حاول تاني'),
+        onError: () => toast(t('attendance.genericErrorToast')),
       },
     )
   }
@@ -436,8 +379,8 @@ export function AttendancePage() {
     if (lines.length === 0) return
     void navigator.clipboard
       .writeText(lines.join('\n'))
-      .then(() => toast(`اتنسخ ${lines.length} رسالة — الصقها في واتساب زي ما تحب`))
-      .catch(() => toast('ماقدرناش ننسخ — جرّب تاني'))
+      .then(() => toast(t('attendance.copiedMessages', { count: lines.length })))
+      .catch(() => toast(t('attendance.copyFailed')))
   }
 
   const toggleLeft = (studentId: string) => {
@@ -447,8 +390,8 @@ export function AttendancePage() {
     mut.mutate(
       { sessionId: selected.id, studentId },
       {
-        onSuccess: () => toast(isLeft ? 'اتلغى تسجيل الانصراف' : 'اتسجّل الانصراف — ولي الأمر هيشوف تنبيه «غادر» في بوابته'),
-        onError: () => toast('حصلت مشكلة في تسجيل الانصراف — حاول تاني'),
+        onSuccess: () => toast(isLeft ? t('attendance.leftCleared') : t('attendance.leftMarked')),
+        onError: () => toast(t('attendance.leftError')),
       },
     )
   }
@@ -471,14 +414,14 @@ export function AttendancePage() {
             <button
               type="button"
               onClick={openDatePicker}
-              aria-label="تاريخ الحصة — اضغط لتغيير التاريخ"
+              aria-label={t('attendance.datePickerAria')}
               className="w-full flex items-center gap-2 border border-border rounded-xl px-3 min-h-[48px] bg-card text-text cursor-pointer"
             >
               <CalendarDays size={20} className="text-primary shrink-0" />
               <span className="flex-1 text-start font-semibold text-[15px] truncate">
                 {/^\d{4}-\d{2}-\d{2}$/.test(date)
-                  ? formatDateLabel(date).replace(' ', '، ')
-                  : 'اختر تاريخ الحصة'}
+                  ? formatDateLabel(date).replace(' ', t('attendance.dateSeparator'))
+                  : t('attendance.pickSessionDate')}
               </span>
               <ChevronDown size={18} className="text-muted shrink-0" />
             </button>
@@ -499,21 +442,21 @@ export function AttendancePage() {
           {selected && (
             <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
               {saving ? (
-                'بنحفظ…'
+                t('attendance.saving')
               ) : !online ? (
                 <>
                   <CloudOff size={14} className="text-warn-text" />
-                  غير متصل — الحفظ على الجهاز
+                  {t('attendance.offlineSaving')}
                 </>
               ) : sync.pendingCount > 0 ? (
                 <>
                   <Clock size={14} className="text-warn-text" />
-                  {sync.pendingCount} قيد الانتظار
+                  {t('attendance.pendingCount', { count: sync.pendingCount })}
                 </>
               ) : (
                 <>
                   <Check size={14} className="text-ok-text" />
-                  الحفظ فوري
+                  {t('attendance.saveInstant')}
                 </>
               )}
             </span>
@@ -521,29 +464,29 @@ export function AttendancePage() {
         </div>
         {paramSessionId && paramQ.isSuccess && !paramQ.data && (
           <p className="text-warn-text text-[13.5px] mt-2 mb-0">
-            الحصة المطلوبة من الرابط غير موجودة — اختر حصة من حصص اليوم المختار.
+            {t('attendance.paramSessionMissing')}
           </p>
         )}
         {pickerPending ? (
           <Skeleton className="h-[44px] mt-3" />
         ) : pickerError ? (
           <p className="text-bad-text text-[13.5px] mt-2 mb-0">
-            {pickerError instanceof Error ? pickerError.message : 'خطأ غير معروف'}
+            {pickerError instanceof Error ? pickerError.message : t('common.unknownError')}
           </p>
         ) : groups.length === 0 ? (
           <div className="mt-2">
             <EmptyState
               icon={CalendarDays}
-              title="لا توجد مجموعات بعد — فلا حصص تُولّد"
-              hint="أنشئ مجموعة وحدد أيامها وميعادها، وحصصها هتتولّد تلقائياً وتظهر هنا للتحضير."
+              title={t('attendance.noGroupsTitle')}
+              hint={t('attendance.noGroupsHint')}
             />
           </div>
         ) : daySessions.length === 0 ? (
           <div className="mt-2">
             <EmptyState
               icon={CalendarX2}
-              title="لا توجد حصص في اليوم ده"
-              hint="جرّب تاريخاً تاني، أو راجع جدول المجموعات من شاشة الجدول."
+              title={t('attendance.noSessionsTitle')}
+              hint={t('attendance.noSessionsHint')}
             />
           </div>
         ) : (
@@ -557,7 +500,7 @@ export function AttendancePage() {
                     onClick={() => setPickedId(s.id)}
                   >
                     {s.group_name} · {formatTime12(s.start_time)}
-                    {s.status === 'cancelled' ? ' (ملغاة)' : ''}
+                    {s.status === 'cancelled' ? t('attendance.chipCancelledSuffix') : ''}
                   </Chip>
                 ))}
               </div>
@@ -567,18 +510,23 @@ export function AttendancePage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-extrabold text-[16px]">{selected.group_name}</span>
                   {selected.kind === 'extra' && (
-                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">إضافية</span>
+                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">{t('attendance.kindExtra')}</span>
                   )}
                   {selected.kind === 'moved' && (
-                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">منقولة</span>
+                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">{t('attendance.kindMoved')}</span>
                   )}
                   {selected.status === 'cancelled' && (
-                    <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">ملغاة</span>
+                    <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">{t('attendance.kindCancelled')}</span>
                   )}
                 </div>
                 <div className="text-muted text-[13.5px] mt-0.5">
-                  الساعة {formatTime12(selected.start_time)} · {selected.duration_minutes} دقيقة
-                  {selected.group_room ? ` · ${selected.group_room}` : ''}
+                  {t('attendance.sessionMeta', {
+                    time: formatTime12(selected.start_time),
+                    minutes: selected.duration_minutes,
+                  })}
+                  {selected.group_room
+                    ? t('attendance.sessionMetaRoom', { room: selected.group_room })
+                    : ''}
                 </div>
                 <div className="flex items-center gap-2 mt-2.5">
                   <div className="flex-1 h-2 rounded-full bg-soft overflow-hidden">
@@ -588,7 +536,7 @@ export function AttendancePage() {
                     />
                   </div>
                   <span className="text-[13.5px] font-extrabold">
-                    {rowsReady ? `${done}/${total}` : '…'} محضّر
+                    {t('attendance.markedCount', { done: rowsReady ? `${done}/${total}` : '…' })}
                   </span>
                 </div>
                 <div className="flex gap-2 mt-3 flex-wrap">
@@ -598,11 +546,11 @@ export function AttendancePage() {
                     disabled={statusMut.isPending}
                     className="min-h-[48px] text-[13.5px] px-3"
                   >
-                    {cancelled ? (<><Undo2 size={18} /> استرجاع الحصة</>) : 'إلغاء الحصة'}
+                    {cancelled ? (<><Undo2 size={18} /> {t('attendance.restoreSession')}</>) : t('attendance.cancelSession')}
                   </Button>
                   <Link to="/schedule" className="no-underline">
                     <Button variant="ghost" className="min-h-[48px] text-[13.5px] px-3">
-                      نقل الحصة من الجدول
+                      {t('attendance.moveFromSchedule')}
                     </Button>
                   </Link>
                 </div>
@@ -617,7 +565,7 @@ export function AttendancePage() {
           {cancelled && (
             <div className="border border-border bg-soft rounded-xl px-3 py-2.5 mb-3 text-[13.5px] font-semibold text-muted flex items-start gap-2">
               <Ban size={20} className="shrink-0 mt-0.5" />
-              <span>الحصة دي ملغاة — الحضور مقفول ومش هيتسجل لها أي حالة. استرجع الحصة الأول لو عايز تحضّرها.</span>
+              <span>{t('attendance.cancelledBanner')}</span>
             </div>
           )}
 
@@ -625,12 +573,12 @@ export function AttendancePage() {
             <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-1.5 mb-3 text-[13.5px] flex items-center gap-2">
               <AlertTriangle size={16} className="shrink-0 text-warn-text" />
               <span className="flex-1">
-                تم إصدار فواتير هذا الشهر — أي تعديل في الحضور سيسجل كتسوية مالية.
+                {t('attendance.invoicesNotice')}
               </span>
               <button
                 type="button"
                 onClick={dismissNotice}
-                aria-label="إغلاق تنبيه الفواتير"
+                aria-label={t('attendance.invoicesNoticeCloseAria')}
                 className="shrink-0 w-9 h-9 -my-1 flex items-center justify-center bg-transparent border-0 cursor-pointer text-warn-text"
               >
                 <X size={16} />
@@ -640,7 +588,7 @@ export function AttendancePage() {
 
           {group && group.links.some((l) => safeExternalUrl(l) !== null) && (
             <Card>
-              <div className="font-bold text-[15px] mb-2">روابط الملازم والواجبات</div>
+              <div className="font-bold text-[15px] mb-2">{t('attendance.groupLinksTitle')}</div>
               <div className="flex flex-col gap-1.5">
                 {group.links.map((l) => {
                   const href = safeExternalUrl(l)
@@ -674,7 +622,7 @@ export function AttendancePage() {
               message={
                 (rosterQ.error ?? attQ.error) instanceof Error
                   ? ((rosterQ.error ?? attQ.error) as Error).message
-                  : 'خطأ غير معروف'
+                  : t('common.unknownError')
               }
               onRetry={() => {
                 void rosterQ.refetch()
@@ -685,8 +633,8 @@ export function AttendancePage() {
             <Card>
               <EmptyState
                 icon={Users}
-                title="لا يوجد طلاب نشطون مسجلون في المجموعة دي"
-                hint="سجّل طلاباً في المجموعة من ملفاتهم أو من صفحة المجموعة، وهيظهروا هنا للتحضير."
+                title={t('attendance.noStudentsTitle')}
+                hint={t('attendance.noStudentsHint')}
               />
             </Card>
           ) : (
@@ -725,19 +673,19 @@ export function AttendancePage() {
                               {v.homework_done && (
                                 <span className="inline-flex items-center gap-1 text-ok-text font-semibold">
                                   <Check size={14} />
-                                  سلّم الواجب
+                                  {t('attendance.homeworkDone')}
                                 </span>
                               )}
                               {qItem && !qItem.failed && (
                                 <span className="inline-flex items-center gap-1 text-warn-text font-semibold">
                                   <Clock size={14} />
-                                  قيد الانتظار
+                                  {t('attendance.rowPending')}
                                 </span>
                               )}
                               {qItem?.failed && (
                                 <span className="inline-flex items-center gap-1 text-bad-text font-semibold">
                                   <TriangleAlert size={14} />
-                                  فشل الحفظ
+                                  {t('attendance.rowFailed')}
                                 </span>
                               )}
                             </div>
@@ -747,8 +695,8 @@ export function AttendancePage() {
                             disabled={cancelled}
                             onClick={() => changeValue(st.id, { starred: !v.starred })}
                             className="shrink-0 w-12 h-12 flex items-center justify-center bg-transparent border-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                            title={v.starred ? 'متميز — اضغط لإلغاء التمييز' : 'تمييز الطالب'}
-                            aria-label={v.starred ? 'إلغاء تمييز الطالب' : 'تمييز الطالب'}
+                            title={v.starred ? t('attendance.starUnmarkTitle') : t('attendance.starMark')}
+                            aria-label={v.starred ? t('attendance.starUnmarkAria') : t('attendance.starMark')}
                           >
                             <Star
                               size={24}
@@ -757,7 +705,7 @@ export function AttendancePage() {
                             />
                           </button>
                         </div>
-                        <div className="flex gap-1 mt-1.5 min-[480px]:mt-0 min-[480px]:flex-1" role="radiogroup" aria-label={`حالة ${st.name}`}>
+                        <div className="flex gap-1 mt-1.5 min-[480px]:mt-0 min-[480px]:flex-1" role="radiogroup" aria-label={t('attendance.statusAria', { name: st.name })}>
                           {ATTENDANCE_STATUSES.map(({ code, label }) => {
                             const active = v.status === code
                             return (
@@ -785,12 +733,12 @@ export function AttendancePage() {
                           <a href={wa} target="_blank" rel="noreferrer" className="no-underline inline-block mt-2">
                             <Button variant="soft" className="min-h-[48px] text-[13.5px] px-3">
                               <MessageCircle size={20} />
-                              إبلاغ ولي الأمر بالغياب
+                              {t('attendance.notifyAbsence')}
                             </Button>
                           </a>
                         ) : (
                           <div className="text-muted text-[13.5px] mt-2">
-                            لا يوجد رقم ولي أمر أو موبايل طالب مسجل لإبلاغ الغياب.
+                            {t('attendance.noGuardianPhone')}
                           </div>
                         ))}
                       {/* الانصراف الصريح (0012): ضبط left_at يولّد تنبيه
@@ -805,7 +753,7 @@ export function AttendancePage() {
                                 <>
                                   <span className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-primary">
                                     <LogOut size={16} />
-                                    انصرف {formatClock12(new Date(leftAt))}
+                                    {t('attendance.leftAt', { time: formatClock12(new Date(leftAt)) })}
                                   </span>
                                   <Button
                                     variant="ghost"
@@ -814,7 +762,7 @@ export function AttendancePage() {
                                     onClick={() => toggleLeft(st.id)}
                                   >
                                     <Undo2 size={16} />
-                                    تراجع
+                                    {t('attendance.undo')}
                                   </Button>
                                 </>
                               ) : (
@@ -826,11 +774,11 @@ export function AttendancePage() {
                                     onClick={() => toggleLeft(st.id)}
                                   >
                                     <LogOut size={18} />
-                                    تسجيل انصراف
+                                    {t('attendance.markLeft')}
                                   </Button>
                                   {!online && (
                                     <span className="text-muted text-[12px]">
-                                      تسجيل الانصراف بيحتاج اتصال بالنت
+                                      {t('attendance.leftNeedsOnline')}
                                     </span>
                                   )}
                                 </>
@@ -846,13 +794,13 @@ export function AttendancePage() {
               {/* تسليم الواجب — رقائق بأسماء الطلاب (المرجع §3.2) */}
               <Card>
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="font-bold text-[15px]">تسليم الواجب</div>
+                  <div className="font-bold text-[15px]">{t('attendance.homeworkSectionTitle')}</div>
                   <Link
                     to={`/homework?group=${selected.group_id}&session=${selected.id}`}
                     className="inline-flex items-center gap-1.5 text-primary text-[13.5px] font-bold no-underline min-h-[48px]"
                   >
                     <BookOpenCheck size={18} />
-                    متابعة منظمة
+                    {t('attendance.homeworkOrganized')}
                   </Link>
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -872,7 +820,7 @@ export function AttendancePage() {
                   })}
                 </div>
                 <p className="text-muted text-[13.5px] mt-2 mb-0">
-                  اضغط اسم الطالب لتبديل تسليم الواجب — بيتحفظ فوراً مع باقي بيانات حضوره.
+                  {t('attendance.homeworkHint')}
                 </p>
               </Card>
 
@@ -885,7 +833,7 @@ export function AttendancePage() {
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="font-bold text-[15px] flex items-center gap-2">
                       <BellRing size={20} className="text-primary" />
-                      تنبيهات ولي الأمر — واتساب
+                      {t('attendance.waTitle')}
                     </div>
                     <Button
                       variant="ghost"
@@ -893,13 +841,11 @@ export function AttendancePage() {
                       onClick={copyAllWaMessages}
                     >
                       <Copy size={16} />
-                      نسخ كل الرسائل
+                      {t('attendance.copyAllMessages')}
                     </Button>
                   </div>
                   <p className="text-muted text-[13.5px] mt-0">
-                    اضغط «إرسال» لكل ولي أمر على حدة — مفيش إرسال تلقائي. تنبيه البوابة
-                    (وصل/غادر) اتسجّل تلقائياً لكل طالب مع تحضيره وانصرافه وهيظهر لولي
-                    أمره في بوابته.
+                    {t('attendance.waHint')}
                   </p>
                   <div className="flex flex-col">
                     {waRows.map((r, i) => (
@@ -910,7 +856,7 @@ export function AttendancePage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-[15px]">{r.student.name}</span>
                           <span className="text-muted text-[13.5px]">
-                            ولي الأمر: {r.guardianName}
+                            {t('attendance.guardianLabel', { name: r.guardianName })}
                           </span>
                         </div>
                         <div className="flex gap-2 mt-1.5 flex-wrap">
@@ -918,13 +864,13 @@ export function AttendancePage() {
                             <a href={r.arrivalUrl} target="_blank" rel="noreferrer" className="no-underline">
                               <Button variant="soft" className="min-h-[48px] text-[13.5px] px-3">
                                 <LogIn size={18} />
-                                إرسال «وصل»
+                                {t('attendance.sendArrived')}
                               </Button>
                             </a>
                           ) : (
                             r.arrivalText && (
                               <span className="text-muted text-[12px] self-center">
-                                لا يوجد رقم ولي أمر لإرسال «وصل»
+                                {t('attendance.noPhoneArrived')}
                               </span>
                             )
                           )}
@@ -932,13 +878,13 @@ export function AttendancePage() {
                             <a href={r.departureUrl} target="_blank" rel="noreferrer" className="no-underline">
                               <Button variant="soft" className="min-h-[48px] text-[13.5px] px-3">
                                 <LogOut size={18} />
-                                إرسال «غادر»
+                                {t('attendance.sendLeft')}
                               </Button>
                             </a>
                           ) : (
                             r.departureText && (
                               <span className="text-muted text-[12px] self-center">
-                                لا يوجد رقم ولي أمر لإرسال «غادر»
+                                {t('attendance.noPhoneLeft')}
                               </span>
                             )
                           )}
@@ -964,7 +910,9 @@ export function AttendancePage() {
                     </span>
                   ))}
                   <span className="text-[13.5px] font-semibold text-muted">
-                    {statusCounts.none > 0 ? `باقي ${statusCounts.none} بلا حالة` : 'الكل اتحضّر'}
+                    {statusCounts.none > 0
+                      ? t('attendance.remainingNoStatus', { count: statusCounts.none })
+                      : t('attendance.allMarked')}
                   </span>
                   {!cancelled && (
                     <Button
@@ -973,7 +921,7 @@ export function AttendancePage() {
                       onClick={() => setScanOpen(true)}
                     >
                       <ScanQrCode size={18} />
-                      مسح QR
+                      {t('attendance.scanQr')}
                     </Button>
                   )}
                   {!cancelled && anyNotPresent && (
@@ -981,10 +929,10 @@ export function AttendancePage() {
                       variant="soft"
                       className="min-h-[48px] text-[13.5px] px-3"
                       onClick={markAllPresent}
-                      disabled={saveManyMut.isPending}
+                      disabled={sync.syncing}
                     >
                       <CheckCheck size={18} />
-                      الكل حاضر
+                      {t('attendance.markAllPresent')}
                     </Button>
                   )}
                 </div>
@@ -998,7 +946,11 @@ export function AttendancePage() {
           وتُوقف مع تركيبه/فكّه، والتسجيل يمرّ بـ handleScan ← changeValue */}
       {scanOpen && selected && (
         <QrScannerSheet
-          sessionLabel={`${selected.group_name} · ${formatDateLabel(selected.session_date)} · الساعة ${formatTime12(selected.start_time)}`}
+          sessionLabel={t('attendance.scannerSessionLabel', {
+            group: selected.group_name,
+            date: formatDateLabel(selected.session_date),
+            time: formatTime12(selected.start_time),
+          })}
           done={done}
           total={total}
           onScan={handleScan}
