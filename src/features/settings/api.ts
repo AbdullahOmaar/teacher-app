@@ -1025,6 +1025,9 @@ export async function importBackup(
   backup: BackupFile,
 ): Promise<ImportReport> {
   const supa = db()
+  // بداية الاستيراد — تُستخدم لتمييز صفوف أنشأها تريجر الوصول أثناء هذا
+  // الاستيراد نفسه (انظر معالجة guardian_notifications تحت).
+  const importStartedAt = new Date().toISOString()
   const report: ImportReport = {
     tables: [],
     totalImported: 0,
@@ -1132,6 +1135,32 @@ export async function importBackup(
         .range(from, to) as unknown as Promise<PageResult<Record<string, unknown>>>,
     )
     const existing = new Set(existingRows.map((r) => pkKeyOf(spec, r)))
+
+    // تنبيهات الوصول/المغادرة (0012): إدراج الحضور في هذا الاستيراد نفسه
+    // يُطلق تريجراً ينشئ تنبيهات تلقائية بنفس القيد الفريد
+    // (session_id, student_id, kind) وبوقت حدث = لحظة الاستيراد وحالة
+    // قراءة فارغة — فتصطدم بصفوف النسخة الأصلية (الأقدم والأدق: event_at
+    // وread_at الحقيقيان) وتفشل كتكرار. الحل: حذف الصفوف المولّدة أثناء
+    // هذا الاستيراد فقط (created_at >= بدايته) لجلسات النسخة، قبل إدراج
+    // صفوف النسخة — فتُستعاد التنبيهات الأصلية بأمانتها الكاملة.
+    if (spec.table === 'guardian_notifications') {
+      const sessionIds = [
+        ...new Set(
+          list
+            .map((r) => r.session_id)
+            .filter((v): v is string => typeof v === 'string' && !!v),
+        ),
+      ]
+      if (sessionIds.length > 0) {
+        const { error: delErr } = await supa
+          .from('guardian_notifications')
+          .delete()
+          .eq('teacher_id', teacherId)
+          .in('session_id', sessionIds)
+          .gte('created_at', importStartedAt)
+        if (delErr) noteError(spec.label, delErr)
+      }
+    }
 
     for (const row of list) {
       const key = pkKeyOf(spec, row)
