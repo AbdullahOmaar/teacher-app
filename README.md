@@ -4,7 +4,10 @@
 
 النسخة الجديدة إعادة كتابة نظيفة من الصفر بـ **React + TypeScript + Supabase**، والمرجع الوظيفي والبصري لها هو النسخة أحادية الملف القديمة كما هو موثّق في `FEATURES-UIUX-SPEC.md` (الشاشات، قواعد العمل، نظام الألوان والـ UI/UX).
 
-> حالة المشروع الحالية: **تأسيس (Scaffold)** — هيكل المشروع والـ App Shell والتنقّل جاهزون، والشاشات الداخلية placeholders ستُبنى تباعاً من المواصفات.
+> حالة المشروع: **حي على الإنتاج** — https://teacher-app-prod.vercel.app
+> المراحل 1–4 + ‏P5-1/P5-2 منشورة، والإصدار الأول موسوم `v1.0`، وبعده
+> موجات تحسين وتصليب موثقة في `CHANGELOG.md`. سجل التطوير والتقارير
+> الكاملة في Linear (مشروع «تطبيق المدرس») وملفات هدف المشروع.
 
 ## التقنيات
 
@@ -13,7 +16,7 @@
 | الواجهة | React 19 + Vite + TypeScript |
 | التنسيق | Tailwind CSS v4 (ثيم بمتغيرات CSS مطابقة للنسخة المرجعية + ثيم داكن) |
 | البيانات | Supabase (PostgreSQL + Auth + RLS) عبر `@supabase/supabase-js` |
-| جلب البيانات | TanStack Query + TanStack Table |
+| جلب البيانات | TanStack Query |
 | التنقّل | React Router |
 
 ## التشغيل المحلي
@@ -27,17 +30,23 @@ npm run dev            # http://localhost:5173
 أوامر مفيدة:
 
 ```bash
-npm run build     # بناء الإنتاج + فحص TypeScript
-npm run preview   # معاينة بناء الإنتاج محلياً
-npm run lint      # فحص الكود
+npm run check         # البوابة الكاملة: lint + build (أنواع strict) + بوابة i18n + اختبارات الوحدة + اختبارات التفويض الحية
+npm run test          # اختبارات الوحدة (Vitest)
+npm run test:coverage # قياس تغطية الاختبارات
+npm run build         # بناء الإنتاج + فحص TypeScript
+npm run preview       # معاينة بناء الإنتاج محلياً
+npm run lint          # فحص الكود (oxlint)
 ```
+
+فعّل خطاف ما قبل الالتزام مرة واحدة: `git config core.hooksPath .githooks`
+(قواعد العمل الكاملة في `AGENTS.md`).
 
 من غير قيم `.env` التطبيق يشتغل في **وضع تجريبي بلا اتصال**: الواجهة والتنقّل يعملان، ولا توجد قراءة/كتابة بيانات، ويظهر تحذير في Console وصفحة الدخول.
 
 ## إنشاء مشروع Supabase وربطه
 
 1. ادخل على [supabase.com](https://supabase.com) وأنشئ مشروعاً جديداً (اختر منطقة قريبة، وكلمة سر قوية لقاعدة البيانات واحتفظ بها).
-2. من **SQL Editor** في لوحة المشروع: الصق محتوى `supabase/migrations/0001_init.sql` كاملاً ونفّذه — ده بينشئ الجداول والعلاقات وسياسات RLS والأدوار (مدرس/مساعد/ولي أمر).
+2. طبّق ملفات `supabase/migrations/` كلها بالترتيب الرقمي (من `0001_init.sql` حتى آخر رقم) — ده بينشئ الجداول والعلاقات وسياسات RLS والأدوار (مدرس/مساعد/ولي أمر) وكل ما لحقها. في بيئة المشروع الفعلية تُنفَّذ الهجرات statement-by-statement عبر `run_migration.py` فقط (قاعدة `AGENTS.md`).
    - بديل للمحترفين: اربط المشروع بـ Supabase CLI (`supabase link`) ثم `supabase db push`.
 3. من **Project Settings → API** انسخ قيمتين:
    - `Project URL` → في `.env` باسم `VITE_SUPABASE_URL`
@@ -62,7 +71,7 @@ teacher-app/
     ├── components/
     │   ├── ui/                 # Card, Button, Sheet, EmptyState, Placeholder
     │   └── layout/             # AppShell: شريط علوي + شريط سفلي (4 تبويبات)
-    ├── features/               # شاشات كل قسم (placeholder حالياً)
+    ├── features/               # شاشات كل قسم (مبنية بالكامل)
     │   ├── home/               # الرئيسية
     │   ├── attendance/         # الحضور والغياب
     │   ├── students/           # الطلاب + ملف الطالب
@@ -103,3 +112,17 @@ teacher-app/
 | `/login` | تسجيل الدخول |
 
 الشريط السفلي 4 تبويبات (الرئيسية/الطلاب/الفواتير/المزيد)، والشاشات الفرعية مربوطة بتبويباتها كما في النسخة المرجعية.
+
+## وثائق الحوكمة والأمان
+
+| الوثيقة | المحتوى |
+|---|---|
+| `AGENTS.md` | قواعد العمل في الريبـو (بوابات، هجرات، أمان) |
+| `SECURITY.md` | سياسة الإفصاح عن الثغرات |
+| `docs/DEPENDENCY-POLICY.md` | سياسة الاعتماديات والاستجابة لبوابة OSV |
+| `docs/INCIDENT-RUNBOOK.md` | دليل الحوادث والرجوع وتدوير الأسرار |
+| `CHANGELOG.md` | سجل التغييرات لكل إصدار |
+
+المعيار الحاكم للتطوير هو «Engineering & Security Standards v1.0»،
+وجدول امتثال المشروع الكامل له (3A-302) محفوظ في ملفات هدف المشروع
+باسم `STANDARDS-COMPLIANCE.md`.
