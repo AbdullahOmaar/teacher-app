@@ -110,3 +110,9 @@ jobs:
           cache: npm
       - run: npm ci # بلا تخطي: الوظيفة تحتاج Chromium الخاص بـ Puppeteer
       - run: npm run test:e2e
+        env:
+          # إعداد Supabase العام وقت البناء (محلياً من .env.local المحجوب) —
+          # متغيرات ريبو لا أسرار: مفتاح anon يُشحن أصلاً في حزمة الإنتاج
+          # العلنية والحماية الفعلية بسياسات RLS (3A-311)
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
