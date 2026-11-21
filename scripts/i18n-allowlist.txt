@@ -2,17 +2,4 @@
 # القائمة تنكمش فقط — كل ترحيلة تحذف سطرها. لا تضف ملفات جديدة هنا
 # LoginPage باقٍ مؤقتاً لسلسلة مطابقة رسالة في auth/api.ts — يُحذف مع ترحيل .ts (PAT-6).
 # إلا بقرار موثق في WAVE-PLAN.md.
-src/features/analytics/charts.tsx
-src/features/atrisk/AtRiskPage.tsx
 src/features/auth/LoginPage.tsx
-src/features/settings/BackupPage.tsx
-src/features/settings/ExportPage.tsx
-src/features/settings/InstallAppCard.tsx
-src/features/settings/MorePage.tsx
-src/features/settings/PushNotificationsCard.tsx
-src/features/settings/SettingsPage.tsx
-src/features/students/EnrollStudentSheet.tsx
-src/features/students/StudentCardSheet.tsx
-src/features/students/StudentDetailPage.tsx
-src/features/students/StudentFormSheet.tsx
-src/features/students/import/StudentImportSheet.tsx
