@@ -34,3 +34,9 @@ pnpm-debug.log*
 
 # e2e smoke artifacts (لقطات الفشل — تُولّد محلياً ولا تُخزّن)
 e2e/artifacts/
+
+# تقارير الانحدار البصري والتقاطات المقارنة المؤقتة (3A-326) — خط
+# الأساس نفسه (e2e/visual/baseline/) ملتزَم عمداً، والتقارير تُرفع
+# كأدوات CI أو تُحفظ في مجلد أدلة الهدف لا في الشجرة
+e2e/visual/reports/
+e2e/visual/.tmp-capture-*/

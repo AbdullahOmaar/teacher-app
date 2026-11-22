@@ -165,3 +165,35 @@ jobs:
           # العلنية والحماية الفعلية بسياسات RLS (3A-311)
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+
+  visual-regression:
+    # انحدار بصري معلوماتي (3A-326): سويب لقطات لكل الشاشات من إنتاج
+    # الديمو العام ومقارنتها بخط الأساس المعتمد في e2e/visual/baseline
+    # (pixelmatch على مكدّس Puppeteer القائم — قرار الأداة وسببه في
+    # e2e/visual/README.md). الفروقات بيانات تُبلَّغ (تقرير HTML + صور
+    # فرق كأداة قابلة للفتح)، لا فشل: continue-on-error في هذه المرحلة
+    # بنمط تبنّي الأدوات (المعايير الحية v1.3)، والترقية لوظيفة حاجبة
+    # (--fail-on-diff) قرار لاحق بعد أسابيع من الإشارات المستقرة.
+    # حارس العدّاد داخل compare.mjs نفسه: لقطات صفر/ناقصة = فشل صريح
+    # بصوت عالٍ، لا جوب فارغ يمرّ كأنه نظيف. أدوات المقارنة تُثبّت
+    # --no-save داخل صندوق الوظيفة فقط فلا تُمسّ المانيفستات.
+    # لا أسرار هنا: الدخول بزر الديمو العام في صفحة الدخول نفسها.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci # بلا تخطي: الوظيفة تحتاج Chromium الخاص بـ Puppeteer
+      - run: npm i --no-save pixelmatch@5.3.0 pngjs@7.0.0
+      - name: Visual regression (سويب + مقارنة بخط الأساس)
+        run: node e2e/visual/compare.mjs --out e2e/visual/reports/ci
+      - name: رفع تقرير الفروقات
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-regression-report
+          path: e2e/visual/reports/ci
+          if-no-files-found: warn
