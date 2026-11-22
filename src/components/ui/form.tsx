@@ -96,7 +96,10 @@ export function Chip({
 
 export function ChipRow({ children }: { children: ReactNode }) {
   return (
-    <div className="flex gap-2 overflow-x-auto no-scrollbar chip-row-fade pb-1 mb-3 -mx-1 px-1">
+    // pe-10: حشوة نهاية تمرير (3A-331) — في RTL نهاية التمرير هي اليسار،
+    // و40px أكبر من مدى تلاشي .chip-row-fade (36px) فيستقر آخر شيب عند
+    // نهاية التمرير ظاهراً كاملاً خارج منطقة التلاشي. ps-1 كما كانت px-1.
+    <div className="flex gap-2 overflow-x-auto no-scrollbar chip-row-fade pb-1 mb-3 -mx-1 ps-1 pe-10">
       {children}
     </div>
   )

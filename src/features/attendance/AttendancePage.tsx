@@ -514,7 +514,7 @@ export function AttendancePage() {
         ) : (
           <>
             {daySessions.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto no-scrollbar chip-row-fade mt-3 -mx-1 px-1 pb-1">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar chip-row-fade mt-3 -mx-1 ps-1 pe-10 pb-1">
                 {daySessions.map((s) => (
                   <Chip
                     key={s.id}

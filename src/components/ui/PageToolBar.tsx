@@ -74,8 +74,9 @@ export function PageToolBar({
         )}
         {hasChipsRow && (
           <div className="flex items-center gap-2 h-14">
+            {/* pe-10 في صفّ الرقائق: حشوة نهاية تمرير (3A-331) مثل ChipRow — آخر شيب يستقر عند نهاية التمرير ظاهراً كاملاً خارج مدى تلاشي .chip-row-fade (36px) */}
             {chips && (
-              <div className="flex gap-2 overflow-x-auto no-scrollbar chip-row-fade flex-1 min-w-0 items-center py-1">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar chip-row-fade flex-1 min-w-0 items-center py-1 pe-10">
                 {chips}
               </div>
             )}
