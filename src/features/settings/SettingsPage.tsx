@@ -1,14 +1,13 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
-import { Bell, CalendarCheck2, Check, ChevronDown, ChevronUp, FolderCog, GraduationCap, Handshake, ImagePlus, Info, KeyRound, Lock, Mail, MessageCircle, MonitorSmartphone, NotebookPen, Palette, Plus, Save, Send, SlidersHorizontal, Trash2, UserPlus, UserRound, type LucideIcon } from 'lucide-react'
+import { Bell, CalendarCheck2, FolderCog, GraduationCap, Handshake, Info, MessageCircle, MonitorSmartphone, NotebookPen, Palette, SlidersHorizontal, UserRound } from 'lucide-react'
 import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Button } from '../../components/ui/Button'
-import { Chip, Field, TextArea, TextInput } from '../../components/ui/form'
-import { EmptyState } from '../../components/ui/EmptyState'
-import { ErrorState, LoadingState } from '../../components/ui/states'
+import { Chip } from '../../components/ui/form'
+import { LoadingState } from '../../components/ui/states'
 import { useAuth } from '../../lib/AuthProvider'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { useTheme, type ThemeMode } from '../../hooks/useTheme'
@@ -35,147 +34,24 @@ import { EnrolLinkCard } from '../enrol/EnrolLinkCard'
 import { PushNotificationsCard } from './PushNotificationsCard'
 import { MascotSettingsCard } from './MascotSettingsCard'
 import { WhatsAppSettingsCard } from './WhatsAppSettingsCard'
-import { formatDateLabel } from '../schedule/api'
-import { REMINDER_OPTIONS, THEME_MODES, type TeacherSettingsInput } from './api'
+import { type TeacherSettingsInput } from './api'
 import {
   useRemoveBrandLogo,
   useTeacherSettings,
   useUpdateTeacherSettings,
   useUploadBrandLogo,
 } from './hooks'
-import { ACCENT_PRESETS, brandLogoUrl } from '../../lib/brand'
-import { Logo } from '../../components/brand/Logo'
 import type { TeacherMemberRow } from '../../types/database'
+import { SettingsSection, type SettingsSectionDef } from './sections/SettingsSection'
+import { AccountSection } from './sections/AccountSection'
+import { ProfileSection } from './sections/ProfileSection'
+import { AppSettingsSection } from './sections/AppSettingsSection'
+import { BrandSection } from './sections/BrandSection'
+import { CentresSection } from './sections/CentresSection'
+import { TeamSection } from './sections/TeamSection'
 import { t } from '../../i18n'
 
-/** متغيرات قالب رسالة واتساب المتاحة في الإيصال (المرجع §3.16) */
-const WA_TEMPLATE_VARS = ['{guardian}', '{name}', '{period}', '{paid}', '{total}', '{balance}']
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function shortId(id: string) {
-  return `${id.slice(0, 8)}…${id.slice(-4)}`
-}
-
-/**
- * منتقي صلاحيات المساعد الموحّد (3A-324): كان مرسوماً ثلاث مرات
- * منسوخة (دعوة البريد + إضافة UUID + بطاقات الأعضاء) فتكرّر شكله حتى
- * بدا كأنه خطأ عرض، وشيب «عرض المالية» كان زر تبديل حيّاً يُلوَّن
- * كمفعَّل رغم أن الصلاحية محجوبة في قاعدة البيانات أصلاً — يوحي
- * بأنها قابلة للمنح وهي ليست كذلك. الآن مكوّن واحد: الصلاحيات
- * القابلة للمنح أزرار تبديل كما هي، و«عرض المالية» شيب مقفل دائماً
- * (قفل + حدّ متقطع + تعتيم + بلا تفاعل) بنفس مقاس الشقيقات وسطر
- * واحد، وسبب القفل ملحوظة صريحة تحت الصفّ.
- */
-function PermChips({
-  value,
-  onToggle,
-  disabled = false,
-  note = true,
-}: {
-  value: Record<string, boolean>
-  onToggle: (key: string) => void
-  disabled?: boolean
-  note?: boolean
-}) {
-  return (
-    <>
-      <div className="flex flex-wrap gap-2">
-        {Object.keys(PERMISSION_LABELS).map((key) => {
-          if (key === 'can_view_money') {
-            return (
-              <span
-                key={key}
-                aria-disabled="true"
-                className="inline-flex items-center gap-1.5 px-3 min-h-[48px] rounded-full border border-dashed border-border bg-soft/60 text-[13.5px] font-semibold text-muted/80 cursor-not-allowed select-none"
-              >
-                <Lock size={16} className="shrink-0" />
-                {PERMISSION_LABELS[key]}
-              </span>
-            )
-          }
-          const on = !!value[key]
-          return (
-            <button
-              key={key}
-              type="button"
-              disabled={disabled}
-              aria-pressed={on}
-              onClick={() => onToggle(key)}
-              className={`px-3 min-h-[48px] rounded-full border text-[13.5px] font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                on
-                  ? 'bg-primary text-on-primary border-primary'
-                  : 'bg-card text-muted border-border'
-              }`}
-            >
-              {PERMISSION_LABELS[key]}
-            </button>
-          )
-        })}
-      </div>
-      {note && <p className="text-muted text-[12px] mt-1.5 mb-0">{t('settings.permMoneyLockedNote')}</p>}
-    </>
-  )
-}
-
-/** تعريف قسم إعدادات واحد في خريطة الصفحة (أنكورز + أكورديون) */
-interface SettingsSectionDef {
-  id: string
-  title: string
-  icon: LucideIcon
-}
-
-/**
- * قسم إعدادات قابل للطي (موجة W3 — بحث R-11: أكورديون صفحات الأقسام):
- * ترويسة وصفية تعمل كخريطة للصفحة، والمحتوى تحتها عند الفتح. الأقسام
- * المدمجة (بطاقات مكوّنات قائمة بعناوينها الداخلية مثل Push) تُمرَّر
- * بـ bare: تُعرض كما هي ويُخفى عنوانها الداخلي اكتفاءً بالترويسة.
- */
-function SettingsSection({
-  def,
-  open,
-  onToggle,
-  bare = false,
-  children,
-}: {
-  def: SettingsSectionDef
-  open: boolean
-  onToggle: () => void
-  bare?: boolean
-  children: ReactNode
-}) {
-  const Icon = def.icon
-  return (
-    <div
-      className="mb-3 scroll-mt-[118px]"
-      id={`settings-section-${def.id}`}
-      data-settings-section={def.id}
-    >
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="w-full flex items-center gap-2 bg-card border border-border rounded-2xl px-3 min-h-[52px] cursor-pointer text-text"
-      >
-        <Icon size={22} className="text-primary shrink-0" />
-        <span className="font-bold text-[15px] flex-1 text-start">{def.title}</span>
-        {open ? (
-          <ChevronUp size={20} className="text-muted shrink-0" />
-        ) : (
-          <ChevronDown size={20} className="text-muted shrink-0" />
-        )}
-      </button>
-      {open &&
-        (bare ? (
-          <div className="mt-2 -mb-3 [&_h2]:hidden">{children}</div>
-        ) : (
-          <div className="bg-card border border-border rounded-2xl p-4 shadow-card mt-2">
-            {children}
-          </div>
-        ))}
-    </div>
-  )
-}
 
 /**
  * الإعدادات — من خطوة Auth: حسابي (البريد + معرّف الحساب)، ملف المدرس
@@ -632,178 +508,51 @@ export function SettingsPage() {
         <div className="min-w-0">
       {/* حسابي */}
       <SettingsSection {...sectionProps('account')}>
-        <div className="text-[13.5px] text-muted mb-1">{t('settings.emailLabel')}</div>
-        <div className="font-semibold mb-3 break-all" dir="ltr" style={{ textAlign: 'start' }}>
-          {user?.email ?? '—'}
-        </div>
-        <div className="text-[13.5px] text-muted mb-1">
-          {t('settings.accountIdLabel')}
-        </div>
-        <div className="flex items-center gap-2 mb-1">
-          <code className="flex-1 text-[12px] bg-soft rounded-xl px-2 py-2 overflow-hidden text-ellipsis whitespace-nowrap" dir="ltr">
-            {ownId}
-          </code>
-          <Button variant="soft" onClick={copyMyId} className="min-h-[48px] px-3 text-[13.5px]">
-            {copied ? (<><Check size={18} /> {t('settings.copied')}</>) : t('settings.copy')}
-          </Button>
-        </div>
-        <div className="text-[13.5px] text-muted mt-2 mb-0">
-          {t('settings.currentRoleLabel')}{' '}
-          <b className="text-text">
-            {teacher.role === 'owner' ? t('settings.roleOwner') : t('settings.roleAssistant')}
-          </b>
-        </div>
+        <AccountSection
+          user={user}
+          ownId={ownId}
+          copied={copied}
+          copyMyId={copyMyId}
+          role={teacher.role}
+        />
       </SettingsSection>
 
       {/* ملف المدرس — بيانات السنتر المُدار (النشط إن كان مملوكاً) */}
       {managedCentre && (
         <SettingsSection {...sectionProps('profile')}>
-          {profileMsg && <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{profileMsg}</p>}
-          <form onSubmit={handleProfileSave}>
-            <Field label={t('settings.teacherNameLabel')}>
-              <TextInput
-                value={profileName ?? managedCentre.display_name}
-                onChange={(e) => setProfileName(e.target.value)}
-                required
-              />
-            </Field>
-            <Field label={t('settings.phoneLabel')}>
-              <TextInput
-                type="tel"
-                dir="ltr"
-                value={profilePhone ?? managedCentre.phone ?? ''}
-                onChange={(e) => setProfilePhone(e.target.value)}
-                placeholder="01xxxxxxxxx"
-              />
-            </Field>
-            <Field label={t('settings.avatarUrlLabel')}>
-              <TextInput
-                type="url"
-                dir="ltr"
-                value={profileAvatar ?? managedCentre.avatar_url ?? ''}
-                onChange={(e) => setProfileAvatar(e.target.value)}
-                placeholder="https://…"
-              />
-            </Field>
-            {(profileAvatar ?? managedCentre.avatar_url) && (
-              <div className="flex items-center gap-2 mb-3">
-                <img
-                  src={profileAvatar ?? managedCentre.avatar_url ?? ''}
-                  alt={t('settings.teacherPhotoAlt')}
-                  className="w-10 h-10 rounded-full object-cover border border-border"
-                />
-                <span className="text-muted text-[12px]">{t('settings.photoPreview')}</span>
-              </div>
-            )}
-            <Button full type="submit" disabled={updateProfile.isPending}>
-              <Save size={18} />
-              {updateProfile.isPending ? t('settings.saving') : t('settings.save')}
-            </Button>
-          </form>
+          <ProfileSection
+            managedCentre={managedCentre}
+            profileMsg={profileMsg}
+            profileName={profileName}
+            profilePhone={profilePhone}
+            profileAvatar={profileAvatar}
+            setProfileName={setProfileName}
+            setProfilePhone={setProfilePhone}
+            setProfileAvatar={setProfileAvatar}
+            handleProfileSave={handleProfileSave}
+            updateProfile={updateProfile}
+          />
         </SettingsSection>
       )}
 
       {/* إعدادات التطبيق — teacher_settings كاملة (الخطوة 10) */}
       {managedCentre && (
         <SettingsSection {...sectionProps('app')}>
-          {settingsQ.isPending ? (
-            <LoadingState label={t('settings.loadingSettingsForm')} />
-          ) : settingsQ.isError ? (
-            <ErrorState
-              message={
-                settingsQ.error instanceof Error ? settingsQ.error.message : t('common.unknownError')
-              }
-              onRetry={() => void settingsQ.refetch()}
-            />
-          ) : (
-            <form onSubmit={handleSettingsSave}>
-              <Field label={t('settings.waTemplateLabel')}>
-                <TextArea
-                  rows={3}
-                  value={waTpl ?? settingsRow?.whatsapp_template ?? DEFAULT_WA_TEMPLATE}
-                  onChange={(e) => setWaTpl(e.target.value)}
-                />
-              </Field>
-              <div className="flex flex-wrap gap-1.5 mb-4 -mt-1">
-                {WA_TEMPLATE_VARS.map((v) => (
-                  <code
-                    key={v}
-                    dir="ltr"
-                    className="text-[12px] bg-soft text-primary rounded-full px-2 py-0.5 font-semibold"
-                  >
-                    {v}
-                  </code>
-                ))}
-              </div>
-
-              <Field label={t('settings.centreShareLabel')}>
-                <TextInput
-                  type="number"
-                  dir="ltr"
-                  min={0}
-                  max={100}
-                  step="0.5"
-                  value={
-                    centerShare ?? String(Number(settingsRow?.center_share_percent) || 0)
-                  }
-                  onChange={(e) => setCenterShare(e.target.value)}
-                />
-              </Field>
-
-              <div className="mb-4">
-                <div className="text-[13.5px] text-muted font-semibold mb-2">
-                  {t('settings.reminderLabel')}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {REMINDER_OPTIONS.map((opt) => (
-                    <Chip
-                      key={opt.minutes}
-                      active={(reminder ?? settingsRow?.reminder_minutes ?? 0) === opt.minutes}
-                      onClick={() => setReminder(opt.minutes)}
-                    >
-                      {opt.label}
-                    </Chip>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.themeLabel')}</div>
-                <div className="flex flex-wrap gap-2">
-                  {THEME_MODES.map((opt) => (
-                    <Chip
-                      key={opt.code}
-                      active={theme.mode === opt.code}
-                      onClick={() => handleThemePick(opt.code)}
-                    >
-                      {opt.label}
-                    </Chip>
-                  ))}
-                </div>
-                <p className="text-muted text-[12px] mb-0 mt-2">
-                  {t('settings.themeHint')}
-                </p>
-              </div>
-
-              <div className="text-[13.5px] text-muted mb-3">
-                {t('settings.lastExportLabel')}{' '}
-                <b className="text-text">
-                  {settingsRow?.last_export_at
-                    ? formatDateLabel(settingsRow.last_export_at.slice(0, 10))
-                    : t('settings.noExportYet')}
-                </b>{' '}
-                — <Link to="/backup" className="text-primary font-semibold">{t('settings.backup')}</Link>
-              </div>
-
-              {settingsMsg && (
-                <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{settingsMsg}</p>
-              )}
-              <Button full type="submit" disabled={updateSettings.isPending}>
-                <Save size={18} />
-                {updateSettings.isPending ? t('settings.saving') : t('settings.saveSettings')}
-              </Button>
-            </form>
-          )}
+          <AppSettingsSection
+            settingsQ={settingsQ}
+            settingsRow={settingsRow}
+            waTpl={waTpl}
+            setWaTpl={setWaTpl}
+            centerShare={centerShare}
+            setCenterShare={setCenterShare}
+            reminder={reminder}
+            setReminder={setReminder}
+            theme={theme}
+            handleThemePick={handleThemePick}
+            settingsMsg={settingsMsg}
+            handleSettingsSave={handleSettingsSave}
+            updateSettings={updateSettings}
+          />
         </SettingsSection>
       )}
 
@@ -813,172 +562,23 @@ export function SettingsPage() {
           الامتحان وبوابة ولي الأمر — وغياب أي عنصر يسقط للافتراضي. */}
       {managedCentre && (
         <SettingsSection {...sectionProps('brand')}>
-          <p className="text-muted text-[13.5px] mt-0 mb-3">
-            {t('settings.brandIntro')}
-          </p>
-          {settingsQ.isPending ? (
-            <LoadingState label={t('settings.loadingBrand')} />
-          ) : settingsQ.isError ? (
-            <ErrorState
-              message={
-                settingsQ.error instanceof Error ? settingsQ.error.message : t('common.unknownError')
-              }
-              onRetry={() => void settingsQ.refetch()}
-            />
-          ) : (
-            <>
-              {/* الشعار — رفع/استبدال/حذف فوري مع معاينة */}
-              <div className="flex items-center gap-3 mb-3">
-                {settingsRow?.brand_logo_path && brandLogoUrl(settingsRow.brand_logo_path) ? (
-                  <img
-                    src={brandLogoUrl(settingsRow.brand_logo_path) ?? ''}
-                    alt={t('settings.centreLogoAlt')}
-                    className="w-16 h-16 rounded-2xl object-contain bg-soft border border-border p-1 shrink-0"
-                  />
-                ) : (
-                  <span className="shrink-0">
-                    <Logo size={56} />
-                  </span>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px]">
-                    {settingsRow?.brand_logo_path ? t('settings.logoCurrent') : t('settings.logoNone')}
-                  </div>
-                  <div className="text-muted text-[12px]">
-                    {t('settings.logoHint')}
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2 mb-4">
-                <label className="flex-1 inline-flex items-center justify-center gap-2 min-h-[48px] rounded-xl bg-primary text-on-primary font-semibold text-[15px] cursor-pointer px-3">
-                  <ImagePlus size={20} />
-                  {uploadLogo.isPending
-                    ? t('settings.uploading')
-                    : settingsRow?.brand_logo_path
-                      ? t('settings.logoReplace')
-                      : t('settings.logoUpload')}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    disabled={uploadLogo.isPending}
-                    onChange={(e) => {
-                      handleLogoFile(e.target.files?.[0] ?? null)
-                      e.target.value = ''
-                    }}
-                  />
-                </label>
-                {settingsRow?.brand_logo_path &&
-                  (confirmLogoRemove ? (
-                    <>
-                      <Button
-                        variant="danger"
-                        className="min-h-[48px] text-[13.5px]"
-                        disabled={removeLogo.isPending}
-                        onClick={handleLogoRemove}
-                      >
-                        {t('settings.confirmDelete')}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="min-h-[48px] text-[13.5px]"
-                        onClick={() => setConfirmLogoRemove(false)}
-                      >
-                        {t('settings.undo')}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      className="min-h-[48px] text-[13.5px] text-bad-text"
-                      onClick={() => setConfirmLogoRemove(true)}
-                    >
-                      <Trash2 size={18} /> {t('settings.delete')}
-                    </Button>
-                  ))}
-              </div>
-
-              <form onSubmit={handleBrandSave}>
-                <Field label={t('settings.brandNameLabel')}>
-                  <TextInput
-                    value={brandName ?? settingsRow?.brand_name ?? ''}
-                    onChange={(e) => setBrandName(e.target.value)}
-                    placeholder={t('settings.brandNamePlaceholder')}
-                    maxLength={80}
-                  />
-                </Field>
-
-                <div className="mb-4">
-                  <div className="text-[13.5px] text-muted font-semibold mb-2">
-                    {t('settings.accentLabel')}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {ACCENT_PRESETS.map((p) => {
-                      const active =
-                        (brandAccent !== undefined
-                          ? brandAccent
-                          : settingsRow?.brand_accent) === p.hex
-                      return (
-                        <button
-                          key={p.hex}
-                          type="button"
-                          title={p.label}
-                          aria-label={p.label}
-                          onClick={() => setBrandAccent(p.hex)}
-                          className={`w-[48px] h-[48px] rounded-full border-2 cursor-pointer flex items-center justify-center ${
-                            active ? 'border-text' : 'border-border'
-                          }`}
-                          style={{ background: p.hex }}
-                        >
-                          {active && <Check size={20} color="#fff" />}
-                        </button>
-                      )
-                    })}
-                    <label
-                      className="inline-flex items-center gap-2 min-h-[48px] px-3 rounded-full border border-border cursor-pointer text-[13.5px] font-semibold"
-                      title={t('settings.customColorTitle')}
-                    >
-                      <input
-                        type="color"
-                        className="w-8 h-8 p-0 border-0 bg-transparent cursor-pointer"
-                        value={
-                          (brandAccent !== undefined
-                            ? brandAccent
-                            : settingsRow?.brand_accent) ?? '#4f46e5'
-                        }
-                        onChange={(e) => setBrandAccent(e.target.value.toLowerCase())}
-                      />
-                      {t('settings.custom')}
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setBrandAccent(null)}
-                      className={`px-3 min-h-[48px] rounded-full border text-[13.5px] font-semibold cursor-pointer ${
-                        (brandAccent !== undefined
-                          ? brandAccent
-                          : settingsRow?.brand_accent) == null
-                          ? 'bg-primary text-on-primary border-primary'
-                          : 'bg-card text-muted border-border'
-                      }`}
-                    >
-                      {t('settings.accentDefault')}
-                    </button>
-                  </div>
-                  <p className="text-muted text-[12px] mb-0 mt-2">
-                    {t('settings.accentHint')}
-                  </p>
-                </div>
-
-                {brandMsg && (
-                  <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{brandMsg}</p>
-                )}
-                <Button full type="submit" disabled={updateSettings.isPending}>
-                  <Save size={18} />
-                  {updateSettings.isPending ? t('settings.saving') : t('settings.saveBrand')}
-                </Button>
-              </form>
-            </>
-          )}
+          <BrandSection
+            settingsQ={settingsQ}
+            settingsRow={settingsRow}
+            brandName={brandName}
+            setBrandName={setBrandName}
+            brandAccent={brandAccent}
+            setBrandAccent={setBrandAccent}
+            brandMsg={brandMsg}
+            confirmLogoRemove={confirmLogoRemove}
+            setConfirmLogoRemove={setConfirmLogoRemove}
+            uploadLogo={uploadLogo}
+            removeLogo={removeLogo}
+            handleBrandSave={handleBrandSave}
+            handleLogoFile={handleLogoFile}
+            handleLogoRemove={handleLogoRemove}
+            updateSettings={updateSettings}
+          />
         </SettingsSection>
       )}
 
@@ -987,297 +587,51 @@ export function SettingsPage() {
           بيانات وهوية وإعدادات كل سنتر منفصلة تماماً بـ teacher_id. */}
       {(ownTeachers.length > 0 || memberships.length > 0) && (
         <SettingsSection {...sectionProps('centres')}>
-          <p className="text-muted text-[13.5px] mt-0 mb-3">
-            {t('settings.centresIntro')}
-          </p>
-          {ownTeachers.map((tok) => {
-            const active = activeCentreId === tok.id
-            return (
-              <button
-                key={tok.id}
-                type="button"
-                onClick={() => switchWorkspace(tok.id)}
-                className={`w-full flex items-center gap-2 px-3 min-h-[48px] rounded-xl border cursor-pointer mb-2 text-start ${
-                  active ? 'border-primary bg-soft font-bold' : 'border-border bg-card'
-                }`}
-              >
-                <span className="flex-1">{tok.display_name || t('settings.centreNoName')}</span>
-                <span className="text-muted text-[12px]">{t('settings.ownerBadge')}</span>
-                {active && <span className="text-primary text-[13.5px]">{t('settings.currentBadge')}</span>}
-              </button>
-            )
-          })}
-          {memberships.map((m) => {
-            const active = activeCentreId === m.teacher_id
-            return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => switchWorkspace(m.teacher_id)}
-                className={`w-full flex items-center gap-2 px-3 min-h-[48px] rounded-xl border cursor-pointer mb-2 text-start ${
-                  active ? 'border-primary bg-soft font-bold' : 'border-border bg-card'
-                }`}
-              >
-                <span className="flex-1">
-                  {t('settings.assistantAtTeacher')} <span dir="ltr">{shortId(m.teacher_id)}</span>
-                </span>
-                <span className="text-muted text-[12px]">{t('settings.assistantBadge')}</span>
-                {active && <span className="text-primary text-[13.5px]">{t('settings.currentBadge')}</span>}
-              </button>
-            )
-          })}
-
-          {/* إنشاء سنتر جديد لنفس الحساب — يبدأ فاضياً بإعدادات افتراضية
-              وننتقل إليه فوراً */}
-          {user && (
-            <form onSubmit={handleCreateCentre} className="mt-4 border-t border-border pt-4">
-              <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.createCentreTitle')}</div>
-              <Field label={t('settings.newCentreNameLabel')}>
-                <TextInput
-                  value={newCentreName}
-                  onChange={(e) => setNewCentreName(e.target.value)}
-                  placeholder={t('settings.newCentrePlaceholder')}
-                  required
-                />
-              </Field>
-              {centreMsg && (
-                <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{centreMsg}</p>
-              )}
-              <Button full type="submit" disabled={createCentre.isPending || !newCentreName.trim()}>
-                <Plus size={18} />
-                {createCentre.isPending ? t('settings.creating') : t('settings.createCentreAction')}
-              </Button>
-            </form>
-          )}
+          <CentresSection
+            ownTeachers={ownTeachers}
+            memberships={memberships}
+            activeCentreId={activeCentreId}
+            switchWorkspace={switchWorkspace}
+            user={user}
+            newCentreName={newCentreName}
+            setNewCentreName={setNewCentreName}
+            centreMsg={centreMsg}
+            handleCreateCentre={handleCreateCentre}
+            createCentre={createCentre}
+          />
         </SettingsSection>
       )}
 
       {/* فريق العمل — للمالك في مساحته فقط */}
       {ownTeacher && isOwnerWorkspace && (
         <SettingsSection {...sectionProps('team')}>
-          <p className="text-muted text-[13.5px] mt-0 mb-3">
-            {t('settings.teamIntro')}
-          </p>
-
-          {/* كل مسار إضافة في بطاقة فرعية مميزة بعنوان وأيقونة
-              (3A-324): المساران كانا بلوكين متتاليين بنفس الشكل
-              والتسميات فبدوا تكرار عرض مربكاً */}
-          <div className="border border-border rounded-2xl p-3 mb-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Mail size={20} className="text-primary shrink-0" />
-              <span className="font-bold text-[15px]">{t('settings.emailInviteTitle')}</span>
-            </div>
-          <form onSubmit={handleEmailInvite}>
-            <Field label={t('settings.assistantEmailLabel')}>
-              <TextInput
-                type="email"
-                dir="ltr"
-                placeholder="assistant@example.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                required
-              />
-            </Field>
-            {INVITE_EMAIL_RE.test(normalizeInviteEmail(inviteEmail)) && (
-              <a
-                className="inline-flex items-center gap-1.5 min-h-[48px] text-primary text-[13.5px] font-semibold mb-3 -mt-1"
-                href={`mailto:${normalizeInviteEmail(inviteEmail)}?subject=${encodeURIComponent(
-                  t('settings.inviteEmailSubject'),
-                )}&body=${encodeURIComponent(
-                  t('settings.inviteEmailBody'),
-                )}`}
-              >
-                <Mail size={18} />
-                {t('settings.notifyByEmail')}
-              </a>
-            )}
-            <div className="mb-3">
-              <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.assistantPermsLabel')}</div>
-              <PermChips
-                value={emailPerms}
-                onToggle={(key) => setEmailPerms((p) => ({ ...p, [key]: !p[key] }))}
-              />
-            </div>
-            {emailInviteMsg && (
-              <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{emailInviteMsg}</p>
-            )}
-            <Button full type="submit" disabled={inviteByEmail.isPending}>
-              <Send size={18} />
-              {inviteByEmail.isPending ? t('settings.creatingInvite') : t('settings.sendInvite')}
-            </Button>
-          </form>
-          </div>
-
-          {pendingInvites.length > 0 && (
-            <div className="mb-4">
-              <div className="text-[13.5px] text-muted font-semibold mb-2">
-                {t('settings.pendingInvitesTitle', { count: pendingInvites.length })}
-              </div>
-              {pendingInvites.map((inv) => {
-                const invPerms = (inv.permissions ?? {}) as Record<string, unknown>
-                return (
-                  <div key={inv.id} className="border border-border rounded-xl p-3 mb-2">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-bold text-[15px] flex-1 min-w-0 break-all" dir="ltr" style={{ textAlign: 'start' }}>
-                        {inv.invited_email}
-                      </span>
-                      <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
-                        {t('settings.pendingBadge')}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {Object.keys(PERMISSION_LABELS)
-                        .filter((key) => invPerms[key] === true)
-                        .map((key) => (
-                          <span
-                            key={key}
-                            className="px-2 py-1 rounded-full border border-border bg-soft text-[12px] font-semibold"
-                          >
-                            {PERMISSION_LABELS[key]}
-                          </span>
-                        ))}
-                    </div>
-                    {confirmCancelId === inv.id ? (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="danger"
-                          className="flex-1 min-h-[48px] text-[13.5px]"
-                          disabled={cancelInvite.isPending}
-                          onClick={() =>
-                            cancelInvite.mutate(inv.id, {
-                              onSuccess: () => setConfirmCancelId(null),
-                            })
-                          }
-                        >
-                          {t('settings.confirmCancelInvite')}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="flex-1 min-h-[48px] text-[13.5px]"
-                          onClick={() => setConfirmCancelId(null)}
-                        >
-                          {t('settings.undo')}
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        className="min-h-[48px] text-[13.5px] text-bad-text"
-                        onClick={() => setConfirmCancelId(inv.id)}
-                      >
-                        {t('settings.cancelInvite')}
-                      </Button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          <div className="border border-border rounded-2xl p-3 mb-4">
-            <div className="flex items-center gap-2 mb-3">
-              <KeyRound size={20} className="text-primary shrink-0" />
-              <span className="font-bold text-[15px]">{t('settings.addByIdTitle')}</span>
-            </div>
-          <form onSubmit={handleInvite}>
-            <Field label={t('settings.assistantIdLabel')}>
-              <TextInput
-                dir="ltr"
-                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                value={assistantId}
-                onChange={(e) => setAssistantId(e.target.value)}
-                required
-              />
-            </Field>
-            <div className="mb-3">
-              <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.assistantPermsLabel')}</div>
-              <PermChips
-                value={perms}
-                onToggle={(key) => setPerms((p) => ({ ...p, [key]: !p[key] }))}
-              />
-            </div>
-            {inviteMsg && (
-              <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{inviteMsg}</p>
-            )}
-            <Button full type="submit" disabled={invite.isPending}>
-              <UserPlus size={18} />
-              {invite.isPending ? t('settings.adding') : t('settings.addAssistant')}
-            </Button>
-          </form>
-          </div>
-
-          <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.teamMembersTitle')}</div>
-          {membersQ.isPending ? (
-            <LoadingState label={t('settings.loadingTeam')} />
-          ) : membersQ.isError ? (
-            <ErrorState
-              message={membersQ.error instanceof Error ? membersQ.error.message : t('common.unknownError')}
-              onRetry={() => void membersQ.refetch()}
-            />
-          ) : teamMembers.length === 0 ? (
-            <EmptyState icon={Handshake} title={t('settings.teamEmptyTitle')} hint={t('settings.teamEmptyHint')} />
-          ) : (
-            teamMembers.map((m) => {
-              const memberPerms = (m.permissions ?? {}) as Record<string, unknown>
-              return (
-                <div key={m.id} className="border border-border rounded-xl p-3 mb-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-[15px] flex-1">
-                      {m.invited_email ? (
-                        <>{t('settings.memberAssistantPrefix')} <span dir="ltr">{m.invited_email}</span></>
-                      ) : (
-                        <>{t('settings.memberAssistantPrefix')} <span dir="ltr">{shortId(m.user_id ?? '')}</span></>
-                      )}
-                    </span>
-                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
-                      {m.status === 'active' ? t('settings.statusActive') : m.status === 'invited' ? t('settings.statusInvited') : t('settings.statusSuspended')}
-                    </span>
-                  </div>
-                  <div className="mb-2">
-                    <PermChips
-                      value={Object.fromEntries(
-                        Object.keys(PERMISSION_LABELS).map((k) => [k, memberPerms[k] === true]),
-                      )}
-                      onToggle={(key) => toggleMemberPerm(m, key)}
-                      disabled={updatePerms.isPending}
-                      note={false}
-                    />
-                  </div>
-                  {confirmRemoveId === m.id ? (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="danger"
-                        className="flex-1 min-h-[48px] text-[13.5px]"
-                        disabled={removeMember.isPending}
-                        onClick={() =>
-                          removeMember.mutate(m.id, {
-                            onSuccess: () => setConfirmRemoveId(null),
-                          })
-                        }
-                      >
-                        {t('settings.confirmRemoveMember')}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="flex-1 min-h-[48px] text-[13.5px]"
-                        onClick={() => setConfirmRemoveId(null)}
-                      >
-                        {t('settings.cancel')}
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      className="min-h-[48px] text-[13.5px] text-bad-text"
-                      onClick={() => setConfirmRemoveId(m.id)}
-                    >
-                      {t('settings.removeFromTeam')}
-                    </Button>
-                  )}
-                </div>
-              )
-            })
-          )}
+          <TeamSection
+            teamMembers={teamMembers}
+            pendingInvites={pendingInvites}
+            membersQ={membersQ}
+            inviteMsg={inviteMsg}
+            emailInviteMsg={emailInviteMsg}
+            assistantId={assistantId}
+            setAssistantId={setAssistantId}
+            inviteEmail={inviteEmail}
+            setInviteEmail={setInviteEmail}
+            perms={perms}
+            setPerms={setPerms}
+            emailPerms={emailPerms}
+            setEmailPerms={setEmailPerms}
+            confirmRemoveId={confirmRemoveId}
+            setConfirmRemoveId={setConfirmRemoveId}
+            confirmCancelId={confirmCancelId}
+            setConfirmCancelId={setConfirmCancelId}
+            handleInvite={handleInvite}
+            handleEmailInvite={handleEmailInvite}
+            invite={invite}
+            inviteByEmail={inviteByEmail}
+            cancelInvite={cancelInvite}
+            removeMember={removeMember}
+            updatePerms={updatePerms}
+            toggleMemberPerm={toggleMemberPerm}
+          />
         </SettingsSection>
       )}
 
