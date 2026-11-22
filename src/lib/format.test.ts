@@ -29,16 +29,21 @@ describe('attendanceRatePct — نسبة الحضور الموحّدة (PAT-4ب)
 
 describe('formatMoney', () => {
   it('يفصّل الآلاف ويلحق «ج»', () => {
-    expect(formatMoney(1200)).toBe('1,200 ج')
-    expect(formatMoney(75)).toBe('75 ج')
+    expect(formatMoney(1200)).toBe('1,200\u00A0ج')
+    expect(formatMoney(75)).toBe('75\u00A0ج')
   })
   it('يقبل نصاً رقمياً', () => {
-    expect(formatMoney('250.5')).toBe('250.5 ج')
+    expect(formatMoney('250.5')).toBe('250.5\u00A0ج')
   })
   it('القيم الغائبة/الفاسدة = صفر', () => {
-    expect(formatMoney(null)).toBe('0 ج')
-    expect(formatMoney(undefined)).toBe('0 ج')
-    expect(formatMoney('abc')).toBe('0 ج')
+    expect(formatMoney(null)).toBe('0\u00A0ج')
+    expect(formatMoney(undefined)).toBe('0\u00A0ج')
+    expect(formatMoney('abc')).toBe('0\u00A0ج')
+  })
+  it('الفاصل قبل العملة مسافة غير قابلة للكسر — المبلغ وحدة واحدة (3A-324)', () => {
+    // أي مسافة عادية هنا تعني أن المبلغ قد ينشطر على سطرين في العروض الضيقة
+    expect(formatMoney(400)).not.toContain(' ج')
+    expect(formatMoney(400)).toContain('400\u00A0ج')
   })
 })
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
 import { Link } from 'react-router-dom'
@@ -314,6 +314,30 @@ export function NotificationsPage() {
     return () => obs.disconnect()
   }, [sections])
 
+  // إبقاء الرقاقة النشطة ظاهرة كاملة داخل صفّها (3A-324 — ملاحظات
+  // المالك ٤): الصفّ قابل للتمرير أفقياً، والرقاقة النشطة كانت تبقى
+  // خارج الحافة مقصوصة/مختفية عند تفعيلها بالتمرير (scroll-spy) أو
+  // بالنقر، لأن لا شيء يمرّر الصفّ إليها. نمرّر الرقاقة نفسها لأقرب
+  // موضع ظاهر داخل صفّها — block:nearest فلا تتحرك الصفحة رأسياً
+  // (الشريط لاصق والرقاقة داخل الشاشة أصلاً).
+  const ensureChipVisible = useCallback(
+    (kind: AlertKind) => {
+      try {
+        const row = rootRef.current?.querySelector('.chip-row-fade')
+        const idx = sections.findIndex((s) => s.kind === kind)
+        const chip = row && idx >= 0 ? row.querySelectorAll('button')[idx] : null
+        chip?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+      } catch {
+        // بيئات بلا تمرير برمجي كامل (jsdom في الاختبارات): لا إجراء —
+        // التمرير اليدوي للصفّ يظل متاحاً كما كان
+      }
+    },
+    [sections],
+  )
+  useEffect(() => {
+    if (activeKind) ensureChipVisible(activeKind)
+  }, [activeKind, ensureChipVisible])
+
   // ضغط رقاقة أنكور: يفتح قسمها (إن كان مطوياً) ويمرّر إليه
   const jumpToKind = (kind: AlertKind) => {
     setOpenKinds((prev) => {
@@ -322,6 +346,7 @@ export function NotificationsPage() {
       return next
     })
     setActiveKind(kind)
+    ensureChipVisible(kind)
     requestAnimationFrame(() => {
       document
         .getElementById(`notif-section-${kind}`)
@@ -416,8 +441,11 @@ export function NotificationsPage() {
                   <Copy size={18} />
                   {t('notifications.page.copyOverdueList')}
                 </Button>
+                {/* زرا النسخ شقيقان لنفس الفعل: ستايل واحد موحّد
+                    (3A-324 — كان الأول soft والثاني ghost فبدوا غير
+                    متناسقين في نفس البطاقة) */}
                 <Button
-                  variant="ghost"
+                  variant="soft"
                   onClick={() => copy(GENERIC_REMINDER_TEXT, t('notifications.page.copiedGenericReminder'))}
                 >
                   <Copy size={18} />
