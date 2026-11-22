@@ -257,7 +257,7 @@ export function StudentPortalPage() {
               className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.upcoming_sessions.length - 1 ? 'border-b border-border' : ''}`}
             >
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[15px] truncate">{s.group_name}</div>
+                <div className="font-semibold text-[15px] break-words">{s.group_name}</div>
                 <div className="text-muted text-[12px]">
                   {t('studentPortal.pageSessionLine', { date: formatDateLabel(s.date), time: formatTime12(s.start_time), duration: s.duration_minutes })}
                   {s.room ? ` · ${s.room}` : ''}
@@ -299,6 +299,8 @@ export function StudentPortalPage() {
                         dir="ltr"
                       >
                         <Link2 size={16} className="shrink-0" />
+                        {/* استثناء موثّق (3A-331 عائلة ب): سطر عرض الـURL نفسه يبقى قاصّاً —
+                        الرابط قيمة تقنية لا عنوان، وقصّه لا يخفي معلومة مقروءة */}
                         <span className="truncate">{link}</span>
                       </a>
                     )
@@ -345,7 +347,7 @@ export function StudentPortalPage() {
                 className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.homework.length - 1 ? 'border-b border-border' : ''}`}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] truncate">{h.group_name}</div>
+                  <div className="font-semibold text-[15px] break-words">{h.group_name}</div>
                   <div className="text-muted text-[12px]">{h.date}</div>
                 </div>
                 <span className={`text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
@@ -384,7 +386,7 @@ export function StudentPortalPage() {
                 className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.grades.length - 1 ? 'border-b border-border' : ''}`}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] truncate">{s.title}</div>
+                  <div className="font-semibold text-[15px] break-words">{s.title}</div>
                   <div className="text-muted text-[12px]">
                     {s.date} · {ASSESSMENT_TYPE_LABELS[s.type] ?? s.type}
                     {s.source === 'online_exam' ? t('studentPortal.pageGradeOnlineSuffix') : ''}
@@ -416,7 +418,7 @@ export function StudentPortalPage() {
                 className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.exam_results.length - 1 ? 'border-b border-border' : ''}`}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] truncate">{r.title}</div>
+                  <div className="font-semibold text-[15px] break-words">{r.title}</div>
                   <div className="text-muted text-[12px]">
                     {t('studentPortal.pageExamAttemptLine', { attempt: r.attempt_no, date: r.submitted_at.slice(0, 10) })}
                     {r.score_posted ? t('studentPortal.pageExamPostedSuffix') : ''}
@@ -449,7 +451,7 @@ export function StudentPortalPage() {
             >
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] truncate">
+                  <div className="font-semibold text-[15px] break-words">
                     {periodLabel(inv.period_month)} — {inv.group_name}
                   </div>
                   <div className="text-muted text-[12px]">

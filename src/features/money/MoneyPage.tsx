@@ -33,9 +33,14 @@ import { ExpenseFormSheet, RecurringFormSheet } from './sheets'
 function Kpi({ value, label, valueClass = '' }: { value: string; label: string; valueClass?: string }) {
   return (
     <Card className="mb-0 text-center h-full">
-      {/* شبكة 3 أعمدة على 360px: القيمة بسطر واحد وحجم متدرج مع العرض حتى
-          لا ينكسر مبلغ كبير (مع الفواصل و«ج») على سطرين داخل البطاقة */}
-      <b className={`block whitespace-nowrap overflow-hidden text-ellipsis text-[clamp(14px,4.6vw,19px)] font-extrabold leading-tight ${valueClass}`}>{value}</b>
+      {/* (3A-331 عائلة ب — قاعدة صارمة: رقم مالي لا يُقصّ بنقاط حذف أبداً):
+          كان whitespace-nowrap + overflow-hidden + text-ellipsis يقصّ
+          «1,644.5 ج» إلى «…644.5» بلا عملة عند 360 و390 معاً. الاختيار:
+          الالتفاف (break-words) بدل القصّ — الرقم نفسه كتلة واحدة تلتف
+          للسطر التالي سليمةً متى ضاق العمود، والعملة قد تلتف بعده، فتظهر
+          القيمة كاملة دائماً مهما كبر المبلغ (nowrap كان سيفيض أفقياً
+          مع مبالغ أكبر داخل عمود ~72px صافياً بعد حشوة البطاقة) */}
+      <b className={`block break-words text-[clamp(14px,4.6vw,19px)] font-extrabold leading-tight ${valueClass}`}>{value}</b>
       <span className="block text-muted text-[12px] font-semibold mt-0.5">{label}</span>
     </Card>
   )
@@ -65,8 +70,10 @@ function MonthBarRow({
     >
       <div className="flex justify-between items-center gap-2 mb-1.5">
         <span className="font-bold text-[13.5px]">{periodLabel(row.month)}</span>
+        {/* (3A-331 عائلة ب): صافي الشهر مبلغ — nowrap + shrink-0 حتى لا
+            ينكسر الرقم عن عملته ولا ينضغط داخل صف العنوان المرن */}
         <span
-          className={`text-[13.5px] font-extrabold ${row.net_profit < 0 ? 'text-bad-text' : 'text-ok-text'}`}
+          className={`text-[13.5px] font-extrabold whitespace-nowrap shrink-0 ${row.net_profit < 0 ? 'text-bad-text' : 'text-ok-text'}`}
           dir="ltr"
         >
           {formatMoney(row.net_profit)}
@@ -78,12 +85,12 @@ function MonthBarRow({
       <div className="h-2 rounded-full bg-border/50 overflow-hidden">
         <div className="h-full rounded-full bg-bad" style={{ width: `${expensesPct}%` }} />
       </div>
-      <div className="flex justify-between text-[12px] text-muted mt-1">
+      <div className="flex justify-between flex-wrap gap-x-2 text-[12px] text-muted mt-1">
         <span>
-          {t('money.barCollected')} <span dir="ltr">{formatMoney(row.collected)}</span>
+          {t('money.barCollected')} <span dir="ltr" className="whitespace-nowrap">{formatMoney(row.collected)}</span>
         </span>
         <span>
-          {t('money.barExpenses')} <span dir="ltr">{formatMoney(row.expenses)}</span>
+          {t('money.barExpenses')} <span dir="ltr" className="whitespace-nowrap">{formatMoney(row.expenses)}</span>
         </span>
       </div>
     </button>

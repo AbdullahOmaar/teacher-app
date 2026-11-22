@@ -692,7 +692,11 @@ export function HomeworkPage() {
                             </Link>
                           }
                           secondary={
-                            <span className="inline-flex items-center gap-1.5">
+                            // (3A-331 عائلة ب): flex flex-wrap بدل inline-flex — عند 360px كان صفّ
+                            // «الكود + شيب الحضور» يفيض أفقياً فيُقصّ الشيب («حاضـ») داخل بطاقة
+                            // overflow-hidden؛ بالالتفاف ينزل الشيب سطراً ثانياً سليماً. (يُطبَّق
+                            // النمط نفسه على قوائم «لم يسلّم» و«الآخرون» أسفله.)
+                            <span className="flex flex-wrap items-center gap-1.5">
                               <span dir="ltr">{st.public_code}</span>
                               {v.status && (
                                 <span className={`type-badge rounded-full px-2 py-0.5 ${STATUS_BADGE_CLASS[v.status]}`}>
@@ -734,7 +738,7 @@ export function HomeworkPage() {
                             </Link>
                           }
                           secondary={
-                            <span className="inline-flex items-center gap-1.5">
+                            <span className="flex flex-wrap items-center gap-1.5">
                               <span dir="ltr">{st.public_code}</span>
                               {v.status && (
                                 <span className={`type-badge rounded-full px-2 py-0.5 ${STATUS_BADGE_CLASS[v.status]}`}>
@@ -780,7 +784,7 @@ export function HomeworkPage() {
                             </Link>
                           }
                           secondary={
-                            <span className="inline-flex items-center gap-1.5">
+                            <span className="flex flex-wrap items-center gap-1.5">
                               <span dir="ltr">{st.public_code}</span>
                               {v.status === 'a' ? (
                                 <span className={`type-badge rounded-full px-2 py-0.5 ${STATUS_BADGE_CLASS.a}`}>

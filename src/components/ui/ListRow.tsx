@@ -26,11 +26,15 @@ export function ListRow({
       <div className="flex items-center gap-3 px-4 py-3 min-h-[64px]">
         {leading}
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-[15px] leading-[1.6] truncate">{title}</div>
+          {/* (3A-331 عائلة ب): العنوان يلتف كاملاً بدل truncate — القصّ كان
+              يخفي أسماء طلاب عند 360px («منى يوسف بر…»)، والالتفاف يحافظ
+              على بنية الصف (القيادي/الذيلي ثابتان والبطاقة تتمدد رأسياً) */}
+          <div className="font-semibold text-[15px] leading-[1.6] break-words">{title}</div>
           {secondary != null && (
-            /* السطر الثاني يلتف حتى سطرين بقصّ أنيق في النهاية فقط —
-               كان truncate يقصّ أسماء المجموعات منتصف الكلمة («الثانو…») */
-            <div className="text-muted text-[13.5px] leading-[1.7] line-clamp-2">{secondary}</div>
+            /* (3A-331 عائلة ب): الثانوي يلتف كاملاً بلا line-clamp — التثبيت
+               بسطرين كان يقصّ سطر بيانات الفاتورة/الطالب منتصف السنة
+               («نوفمبر 026…») عند 360–390px؛ الالتفاف الكامل يعرضه كله */
+            <div className="text-muted text-[13.5px] leading-[1.7] break-words">{secondary}</div>
           )}
         </div>
         {trailing}

@@ -390,7 +390,7 @@ function NotificationsSection({
                     {meta.label}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[15px] truncate">{n.group_name}</div>
+                    <div className="font-semibold text-[15px] break-words">{n.group_name}</div>
                     <div className="text-muted text-[12px]">
                       {t('portal.pageNotifSessionLine', { date: n.session_date, time: fmtEventTime(n.event_at) })}
                     </div>
@@ -542,6 +542,8 @@ export function PortalPage() {
                       dir="ltr"
                     >
                       <Link2 size={16} className="shrink-0" />
+                      {/* استثناء موثّق (3A-331 عائلة ب): سطر عرض الـURL نفسه يبقى قاصّاً —
+                          الرابط قيمة تقنية لا عنوان، وقصّه لا يخفي معلومة مقروءة */}
                       <span className="truncate">{link}</span>
                     </a>
                   )
@@ -566,7 +568,7 @@ export function PortalPage() {
                 className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.latest_scores.length - 1 ? 'border-b border-border' : ''}`}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] truncate">{s.title}</div>
+                  <div className="font-semibold text-[15px] break-words">{s.title}</div>
                   <div className="text-muted text-[12px]">{s.date}</div>
                 </div>
                 <div className="text-[13.5px] font-semibold whitespace-nowrap">
@@ -619,7 +621,7 @@ export function PortalPage() {
                 className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.recent_attendance.length - 1 ? 'border-b border-border' : ''}`}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] truncate">{a.group_name}</div>
+                  <div className="font-semibold text-[15px] break-words">{a.group_name}</div>
                   <div className="text-muted text-[12px]">{a.date}</div>
                 </div>
                 <span className={`text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
