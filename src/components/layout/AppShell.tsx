@@ -158,7 +158,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
               >
                 <Bell size={24} />
                 {alertsCount > 0 && (
-                  <span className="absolute top-1 end-1 min-w-[20px] h-5 px-1 rounded-full bg-bad text-white type-badge flex items-center justify-center">
+                  <span className="absolute top-1 end-1 min-w-[20px] h-5 px-1 rounded-full bg-bad text-on-status type-badge flex items-center justify-center">
                     {alertsCount > 99 ? '99+' : alertsCount}
                   </span>
                 )}

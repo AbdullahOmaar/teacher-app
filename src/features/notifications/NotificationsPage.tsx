@@ -214,7 +214,7 @@ function SectionBlock({
       >
         <KindIcon size={22} className="text-primary shrink-0" />
         <span className="font-bold text-[15px] flex-1 text-start">{SECTION_META[kind].title}</span>
-        <span className="text-[12px] font-bold bg-bad text-white rounded-full px-2 py-0.5">
+        <span className="text-[12px] font-bold bg-bad text-on-status rounded-full px-2 py-0.5">
           {items.length}
         </span>
         {open ? (

@@ -390,7 +390,7 @@ export function StudentPortalPage() {
                 </div>
                 {pct != null && (
                   <span
-                    className={`min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${pct >= 50 ? 'bg-ok' : 'bg-bad'}`}
+                    className={`min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${pct >= 50 ? 'bg-ok-text' : 'bg-bad-text'}`}
                   >
                     {pct}%
                   </span>
@@ -421,7 +421,7 @@ export function StudentPortalPage() {
                   {t('studentPortal.pageScoreOf', { score: fmtScore(r.score), max: fmtScore(r.max_score) })}
                 </div>
                 <span
-                  className={`min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${r.pct >= 50 ? 'bg-ok' : 'bg-bad'}`}
+                  className={`min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${r.pct >= 50 ? 'bg-ok-text' : 'bg-bad-text'}`}
                 >
                   {Math.round(r.pct)}%
                 </span>

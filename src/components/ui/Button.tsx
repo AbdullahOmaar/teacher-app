@@ -8,7 +8,7 @@ const variants: Record<Variant, string> = {
   // (الأبيض على أساسي الداكن #8B85F7 كان 3.09:1 — الداكن عليه 5.58:1)
   primary: 'bg-primary text-on-primary hover:bg-primary-d',
   ghost: 'bg-transparent border border-border-interactive text-text hover:bg-soft',
-  danger: 'bg-bad text-white hover:opacity-90',
+  danger: 'bg-bad text-on-status hover:opacity-90',
   soft: 'bg-soft text-primary hover:opacity-90',
 }
 

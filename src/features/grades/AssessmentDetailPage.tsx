@@ -51,7 +51,7 @@ function RankBadge({ rank }: { rank: number }) {
   return (
     <span
       className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-[13.5px] font-extrabold shrink-0 ${
-        rank === 1 ? 'bg-accent text-white' : 'bg-soft text-primary'
+        rank === 1 ? 'bg-accent text-on-accent' : 'bg-soft text-primary'
       }`}
     >
       {rank}

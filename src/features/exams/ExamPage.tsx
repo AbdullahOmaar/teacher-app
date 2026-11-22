@@ -267,7 +267,7 @@ export function ExamPage() {
           </div>
           <div
             className={`inline-block text-[15px] font-extrabold rounded-full px-3.5 py-1.5 text-white ${
-              result.passed ? 'bg-ok' : 'bg-bad'
+              result.passed ? 'bg-ok-text' : 'bg-bad-text'
             }`}
           >
             {Math.round(result.pct)}%

@@ -449,7 +449,7 @@ export function HomePage() {
 
           {/* Hero: الحصة القادمة بتدرّج نيلي — وبصمة الهوية: علامة
               الكتاب/الصح مائية بيضاء خفيفة جداً على التدرّج نفسه */}
-          <div className="rise-in relative overflow-hidden rounded-2xl p-4 mb-3 text-white bg-[linear-gradient(135deg,var(--primary),var(--primary-d))] shadow-raised" style={{ animationDelay: '50ms' }}>
+          <div className="rise-in relative overflow-hidden rounded-2xl p-4 mb-3 text-on-primary bg-[linear-gradient(135deg,var(--primary),var(--primary-d))] shadow-raised" style={{ animationDelay: '50ms' }}>
             <div className="absolute -bottom-10 -end-10 pointer-events-none" aria-hidden="true">
               <Logo mono decorative size={190} className="text-white opacity-[0.09]" />
             </div>
@@ -489,7 +489,7 @@ export function HomePage() {
                 </div>
                 <Link
                   to={`/attendance?session=${hero.id}`}
-                  className="inline-flex items-center mt-3 bg-white text-primary font-bold text-[13.5px] rounded-full px-4 min-h-[48px] no-underline"
+                  className="inline-flex items-center mt-3 bg-card text-primary font-bold text-[13.5px] rounded-full px-4 min-h-[48px] no-underline"
                 >
                   {t('home.hero.recordAttendance')}
                 </Link>

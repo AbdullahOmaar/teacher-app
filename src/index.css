@@ -34,6 +34,8 @@
   --color-primary: var(--primary);
   --color-primary-d: var(--primary-d);
   --color-on-primary: var(--on-primary);
+  --color-on-status: var(--on-status);
+  --color-on-accent: var(--on-accent);
   --color-soft: var(--soft);
   --color-accent: var(--accent);
   --color-ok: var(--ok);
@@ -65,6 +67,12 @@
   --primary-d: #4338ca;
   /* نص الزر الأساسي في الفاتح: أبيض (5.9:1 على #4F46E5) */
   --on-primary: #ffffff;
+  /* نص فوق حشوات الحالات الصلبة (الاستخدامات الحالية كلها فوق bg-bad) —
+     نمط --on-primary نفسه (3A-356): أبيض في الفاتح (4.8:1 على #DC2626) */
+  --on-status: #ffffff;
+  /* نص فوق حشوة اللهجة الكهرمانية (3A-356): الأبيض عليها 2.15:1 فقط في
+     الثيمين — الداكن #141A2E عليها 8.2:1 */
+  --on-accent: #141a2e;
   --soft: #eef2ff;
   --accent: #f59e0b;
   /* ظلال موحدة (بحث §5): بطاقة واحد + مرتفع واحد فقط */
@@ -102,6 +110,11 @@
   /* إصلاح تباين الداكن (خطوة 2): الأبيض على #8B85F7 كان 3.09:1 فقط —
      نص داكن #141A2E عليه = 5.58:1 (≥ AA) */
   --on-primary: #141a2e;
+  /* فوق حشوات الحالات المفتّحة في الداكن (3A-356): الأبيض على #F87171
+     كان 2.76:1 — الداكن #141A2E عليها = 6.4:1 */
+  --on-status: #141a2e;
+  /* الكهرماني الداكن #FBBF24 مع نص داكن = 10.6:1 (3A-356) */
+  --on-accent: #141a2e;
   --soft: #232046;
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.5);

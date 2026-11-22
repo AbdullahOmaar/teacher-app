@@ -30,7 +30,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         >
           <div
             className={`pointer-events-auto flex items-center gap-2 type-secondary font-semibold rounded-full px-4 min-h-[48px] shadow-raised ${
-              toast.kind === 'error' ? 'bg-bad text-white' : 'bg-text text-bg'
+              toast.kind === 'error' ? 'bg-bad text-on-status' : 'bg-text text-bg'
             }`}
           >
             {toast.kind === 'error' ? (

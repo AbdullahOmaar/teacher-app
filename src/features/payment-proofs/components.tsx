@@ -66,7 +66,7 @@ export function ProofsReviewSection({
           {t('paymentProofs.reviewTitle')}
         </div>
         {proofs.length > 0 && (
-          <span className="shrink-0 min-w-[24px] h-6 px-1.5 rounded-full bg-bad text-white type-badge flex items-center justify-center">
+          <span className="shrink-0 min-w-[24px] h-6 px-1.5 rounded-full bg-bad text-on-status type-badge flex items-center justify-center">
             {proofs.length}
           </span>
         )}
