@@ -1,0 +1,17 @@
+{
+  "tool": "visual-baseline 3A-326",
+  "builtAt": "2026-11-22T04:29:40.839009+00:00",
+  "builtAtNote": "2026-11-22 (Africa/Cairo) — على حالة الإنتاج النهائية بعد 3A-325 و3A-330",
+  "prodCommit": "071390e",
+  "prodEntry": "index-XN686zX8.js",
+  "prodSwShell": "teacher-app-shell-v2",
+  "prodBase": "https://teacher-app-prod.vercel.app",
+  "frozenNowUtc": "2026-11-21T22:00:00.000Z",
+  "timezone": "Africa/Cairo",
+  "sourceSweep": "~/workspace/goals/teacher-admin-app/files/visual-sweeps/2026-11-22 (62 لقطة، مراجعة شاملة أولى موثقة في بند نتائج 3A-326)",
+  "widths": {
+    "390": 31,
+    "360": 31
+  },
+  "totalScreens": 62
+}
