@@ -71,7 +71,6 @@ export const home = {
     noStudents: 'مفيش طلاب مسجلين',
     done: 'تم ({count})',
     mark: 'تحضير ({done}/{total})',
-    loadingProgress: 'بنحمّل حالة التحضير…',
   },
   /** نصوص طبقة البيانات: مدة ووقت نسبي لحصة اليوم (fmtDuration/relLabel) */
   apiMinutes: '{mins} دقيقة',

@@ -255,6 +255,8 @@ export function GroupDetailPage() {
         <EmptyState mascot icon={Users} title={t('groups.rosterEmptyTitle')} hint={t('groups.rosterEmptyHint')} />
       ) : (
         <Card className="rise-in p-0 overflow-hidden" style={{ animationDelay: '50ms' }}>
+          {/* (3A-341 قرار ٢): كود الطالب لا يظهر في قائمة المجموعة — مكانه
+              بروفايل الطالب وبطاقته وروابط البوابة فقط */}
           {roster.map((r, i) => (
             <Link key={r.id} to={`/students/${r.student_id}`} className="block no-underline text-text">
               <ListRow
@@ -279,11 +281,6 @@ export function GroupDetailPage() {
                       ? t('groups.detailPrepaid', { count: r.prepaid_sessions })
                       : ''}
                   </>
-                }
-                trailing={
-                  <span className="text-muted text-[13.5px]" dir="ltr">
-                    {r.student_code}
-                  </span>
                 }
               />
             </Link>

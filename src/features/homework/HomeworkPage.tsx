@@ -692,12 +692,12 @@ export function HomeworkPage() {
                             </Link>
                           }
                           secondary={
-                            // (3A-331 عائلة ب): flex flex-wrap بدل inline-flex — عند 360px كان صفّ
-                            // «الكود + شيب الحضور» يفيض أفقياً فيُقصّ الشيب («حاضـ») داخل بطاقة
-                            // overflow-hidden؛ بالالتفاف ينزل الشيب سطراً ثانياً سليماً. (يُطبَّق
-                            // النمط نفسه على قوائم «لم يسلّم» و«الآخرون» أسفله.)
+                            // (3A-341 قرار ٢): كود الطالب لا يظهر في الواجب — الثانوي شيب
+                            // الحضور فقط. و(3A-331 عائلة ب): flex flex-wrap بدل inline-flex
+                            // حتى لا يُقصّ الشيب عند 360px داخل بطاقة overflow-hidden؛
+                            // بالالتفاف ينزل سطراً ثانياً سليماً. (يُطبَّق النمط نفسه على
+                            // قوائم «لم يسلّم» و«الآخرون» أسفله.)
                             <span className="flex flex-wrap items-center gap-1.5">
-                              <span dir="ltr">{st.public_code}</span>
                               {v.status && (
                                 <span className={`type-badge rounded-full px-2 py-0.5 ${STATUS_BADGE_CLASS[v.status]}`}>
                                   {STATUS_LABELS[v.status]}
@@ -739,7 +739,6 @@ export function HomeworkPage() {
                           }
                           secondary={
                             <span className="flex flex-wrap items-center gap-1.5">
-                              <span dir="ltr">{st.public_code}</span>
                               {v.status && (
                                 <span className={`type-badge rounded-full px-2 py-0.5 ${STATUS_BADGE_CLASS[v.status]}`}>
                                   {STATUS_LABELS[v.status]}
@@ -785,7 +784,6 @@ export function HomeworkPage() {
                           }
                           secondary={
                             <span className="flex flex-wrap items-center gap-1.5">
-                              <span dir="ltr">{st.public_code}</span>
                               {v.status === 'a' ? (
                                 <span className={`type-badge rounded-full px-2 py-0.5 ${STATUS_BADGE_CLASS.a}`}>
                                   {t('homework.absentBadge')}

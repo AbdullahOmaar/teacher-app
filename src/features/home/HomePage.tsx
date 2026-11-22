@@ -743,7 +743,10 @@ function TodaySessionCard({
               </Link>
             )
           ) : (
-            <span className="shrink-0 text-muted text-[12px]">{t('home.today.loadingProgress')}</span>
+            // (3A-341 قرار ١): خانة محجوزة بلا نص مؤقت — الشيب يظهر مرة واحدة
+            // ببياناته الحقيقية عند اكتمال العدّ والحضور، والخانة بأبعاد الشيب
+            // المقاسة حياً (102.8×48 عند 390/360) فلا يُستبدل نص ولا يقفز التخطيط.
+            <span aria-hidden="true" className="shrink-0 inline-block min-h-[48px] min-w-[104px]" />
           ))}
       </div>
     </Card>
