@@ -71,7 +71,7 @@ export function StudentAttendanceTab({
 
   return (
     <div>
-      <Card>
+      <Card className="rise-in">
         <div className="flex items-center justify-between gap-2">
           <span className="font-bold text-[16px]">{t('attendance.commitmentRate')}</span>
           <span
@@ -97,8 +97,12 @@ export function StudentAttendanceTab({
         )}
       </Card>
 
-      {prepaidCards.map((c) => (
-        <Card key={c.enrollment.id}>
+      {prepaidCards.map((c, i) => (
+        <Card
+          key={c.enrollment.id}
+          className="rise-in"
+          style={{ animationDelay: `${50 + Math.min(i, 8) * 35}ms` }}
+        >
           <div className="flex items-center justify-between gap-2">
             <span className="font-bold text-[16px]">{t('attendance.packageTitle', { name: c.groupName })}</span>
             <span
@@ -115,7 +119,10 @@ export function StudentAttendanceTab({
 
       <h3 className="text-[16px] font-extrabold mb-2 mt-1">{t('attendance.historyTitle')}</h3>
       {records.length === 0 ? (
-        <Card>
+        <Card
+          className="rise-in"
+          style={{ animationDelay: prepaidCards.length > 0 ? '90ms' : '50ms' }}
+        >
           <EmptyState
             mascot
             icon={CalendarCheck2}
@@ -124,7 +131,10 @@ export function StudentAttendanceTab({
           />
         </Card>
       ) : (
-        <Card className="p-0 overflow-hidden">
+        <Card
+          className="rise-in p-0 overflow-hidden"
+          style={{ animationDelay: prepaidCards.length > 0 ? '90ms' : '50ms' }}
+        >
           {records.map((r, i) => (
             <div
               key={r.session_id}

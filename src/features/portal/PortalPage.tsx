@@ -278,6 +278,7 @@ function PaymentProofSection({
           )}
 
           <Button full type="submit" disabled={submit.isPending || !file || !(amt > 0)}>
+            <Send size={18} />
             {submit.isPending ? t('portal.pageProofSending') : t('portal.pageProofSubmit')}
           </Button>
         </form>
@@ -468,7 +469,7 @@ export function PortalPage() {
   return (
     <PortalShell brand={o.brand}>
       {/* البانر: الاسم + KPI الحضور + KPI الموقف المالي (§3.17) */}
-      <Card>
+      <Card className="rise-in">
         <div className="text-[19px] font-extrabold leading-[1.7]">{o.student.name}</div>
         <div className="text-muted text-[13.5px] mt-0.5">
           {t('portal.pageCodeLabel')} <span dir="ltr">{o.student.code}</span>
@@ -502,10 +503,14 @@ export function PortalPage() {
       </Card>
 
       {/* إشعارات Push الفورية — اشتراك اختياري من البوابة (Phase 4 خطوة 2) */}
-      <PortalPushToggle adapter={pushAdapter} />
+      <div className="rise-in" style={{ animationDelay: '50ms' }}>
+        <PortalPushToggle adapter={pushAdapter} />
+      </div>
 
       {/* تنبيهات الوصول والمغادرة — صندوق ولي الأمر (خطوة 6، Phase 3) */}
-      <NotificationsSection studentId={studentId} rawToken={rawToken} />
+      <div className="rise-in mt-5" style={{ animationDelay: '90ms' }}>
+        <NotificationsSection studentId={studentId} rawToken={rawToken} />
+      </div>
 
       {/* إثبات دفع — رفع لقطة تحويل ومراجعة المدرس (خطوة 7) */}
       <PaymentProofSection studentId={studentId} rawToken={rawToken} balance={o.balance} />

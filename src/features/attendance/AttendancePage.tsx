@@ -424,7 +424,7 @@ export function AttendancePage() {
           إدارة الحصة في بطاقة واحدة — كانت ترويستين مكررتين تدفعان
           قائمة الطلاب تحت أول شاشة. أزرار «مسح QR» و«الكل حاضر» لا
           توجد هنا: مكانها الوحيد الشريط اللاصق السفلي مع العدّادات. */}
-      <Card>
+      <Card className="rise-in">
         <div className="flex items-center gap-2">
           <div className="relative flex-1 min-w-0">
             <button
@@ -605,7 +605,7 @@ export function AttendancePage() {
           )}
 
           {group && group.links.some((l) => safeExternalUrl(l) !== null) && (
-            <Card>
+            <Card className="rise-in" style={{ animationDelay: '50ms' }}>
               <div className="font-bold text-[15px] mb-2">{t('attendance.groupLinksTitle')}</div>
               <div className="flex flex-col gap-1.5">
                 {group.links.map((l) => {
@@ -664,7 +664,7 @@ export function AttendancePage() {
                   والمبدّل ينزل لسطر كامل تحت الاسم في الشاشات الأضيق.
                   الافتراضي بصرياً «حاضر» أولاً، والنقر للاستثناءات فقط،
                   و«الكل حاضر» في الشريط اللاصق يعلّم الجميع دفعة واحدة. */}
-              <Card className="p-0 overflow-hidden">
+              <Card className="rise-in p-0 overflow-hidden" style={{ animationDelay: '90ms' }}>
                 {roster.map((st, i) => {
                   const v = valueOf(st.id)
                   const qItem = queueMap.get(st.id)
@@ -817,7 +817,7 @@ export function AttendancePage() {
               </Card>
 
               {/* تسليم الواجب — رقائق بأسماء الطلاب (المرجع §3.2) */}
-              <Card>
+              <Card className="rise-in" style={{ animationDelay: '140ms' }}>
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="font-bold text-[15px]">{t('attendance.homeworkSectionTitle')}</div>
                   <Link

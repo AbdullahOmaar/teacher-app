@@ -7,6 +7,7 @@ import { useAuth } from '../../lib/AuthProvider'
 import { Logo } from '../../components/brand/Logo'
 import { useMascotVisible } from '../../components/mascot/useMascotVisible'
 import doffyIcon from '../../assets/mascot/icon.webp'
+import { Check } from 'lucide-react'
 import { updatePassword } from './api'
 import { t } from '../../i18n'
 
@@ -61,7 +62,7 @@ export function ResetPasswordPage() {
   return (
     <div className="relative overflow-hidden min-h-screen bg-bg text-text flex items-start justify-center">
       <div className="relative w-full max-w-[640px] px-4 pt-14 pb-10">
-        <div className="text-center mb-6">
+        <div className="text-center mb-6 rise-in">
           <div className="flex justify-center mb-3">
             {mascotVisible ? (
               <img
@@ -79,7 +80,7 @@ export function ResetPasswordPage() {
           </div>
           <h1 className="type-screen m-0">{t('auth.resetTitle')}</h1>
         </div>
-        <Card>
+        <Card className="rise-in" style={{ animationDelay: '50ms' }}>
           {loading || !waited ? (
             <p className="text-muted text-[14px] text-center my-4">{t('auth.preparingPage')}</p>
           ) : done ? (
@@ -88,6 +89,7 @@ export function ResetPasswordPage() {
                 {t('auth.resetSuccess')}
               </p>
               <Button full type="button" onClick={() => navigate('/', { replace: true })}>
+                <Check size={18} />
                 {t('auth.continueToApp')}
               </Button>
             </>
@@ -130,6 +132,7 @@ export function ResetPasswordPage() {
                 />
               </Field>
               <Button full type="submit" disabled={busy}>
+                <Check size={18} />
                 {busy ? t('auth.saving') : t('auth.savePassword')}
               </Button>
             </form>

@@ -92,12 +92,15 @@ export function GroupsPage() {
           }
         />
       ) : (
-        groups.map((g) => {
+        groups.map((g, i) => {
           const cnt = counts.get(g.id) ?? 0
           const pct = g.capacity ? Math.min(100, Math.round((cnt / g.capacity) * 100)) : null
           return (
             <Link key={g.id} to={`/groups/${g.id}`} className="block no-underline text-text">
-              <Card className={g.archived_at != null ? 'opacity-70' : ''}>
+              <Card
+                className={`rise-in ${g.archived_at != null ? 'opacity-70' : ''}`}
+                style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
+              >
                 {/* التفاف مقصود: اسم مجموعة طويل + شارة مساعد كانا ينضغطان
                     في صف واحد فتلتف الشارة داخل كبسولتها لسطرين */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">

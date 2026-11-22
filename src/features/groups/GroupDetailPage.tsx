@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Archive, ArchiveRestore, BookOpenCheck, Link2, MapPin, Pencil, Trash2, TriangleAlert, Users } from 'lucide-react'
+import { Archive, ArchiveRestore, BookOpenCheck, Link2, MapPin, Pencil, Trash2, TriangleAlert, UserPlus, Users } from 'lucide-react'
 import { DangerConfirmSheet } from '../../components/ui/DangerConfirmSheet'
 import { useToast } from '../../components/ui/toast'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -170,7 +170,7 @@ export function GroupDetailPage() {
           sessionsCount={footprintQ.data?.sessionCount ?? null}
         />
       )}
-      <Card>
+      <Card className="rise-in">
         <div className="flex items-start justify-between gap-2">
           <div className="text-[16px] font-extrabold">
             {group.name}
@@ -233,6 +233,7 @@ export function GroupDetailPage() {
           </Link>
           {!isArchived && (
             <Button className="flex-1 min-w-[150px]" onClick={() => setEnrollOpen(true)}>
+              <UserPlus size={18} />
               {t('groups.addStudentBtn')}
             </Button>
           )}
@@ -249,7 +250,7 @@ export function GroupDetailPage() {
       {roster.length === 0 ? (
         <EmptyState mascot icon={Users} title={t('groups.rosterEmptyTitle')} hint={t('groups.rosterEmptyHint')} />
       ) : (
-        <Card className="p-0 overflow-hidden">
+        <Card className="rise-in p-0 overflow-hidden" style={{ animationDelay: '50ms' }}>
           {roster.map((r, i) => (
             <Link key={r.id} to={`/students/${r.student_id}`} className="block no-underline text-text">
               <ListRow
@@ -287,7 +288,7 @@ export function GroupDetailPage() {
       )}
 
       <h3 className="type-section mt-5 mb-2">{t('groups.waitlistTitle', { count: waitlist.length })}</h3>
-      <Card>
+      <Card className="rise-in" style={{ animationDelay: '90ms' }}>
         {waitlistQ.isPending ? (
           <LoadingState label={t('groups.waitlistLoading')} />
         ) : waitlist.length === 0 ? (
@@ -369,7 +370,7 @@ export function GroupDetailPage() {
           الأرشفة (archived_at من 0007) توقف توليد الحصص والتسجيل الجديد مع
           حفظ التاريخ كاملاً. الحذف النهائي للمالك فقط ولمجموعة فارغة تماماً
           (لا تسجيلات/حصص/فواتير/تقييمات)، وبعد كتابة اسم المجموعة كاملاً. */}
-      <Card className="border-bad/50 mt-5">
+      <Card className="rise-in border-bad/50 mt-5" style={{ animationDelay: '140ms' }}>
         <div className="flex items-center gap-2 mb-2">
           <TriangleAlert size={20} className="text-bad-text" />
           <span className="font-extrabold text-[15px] text-bad-text">{t('groups.dangerTitle')}</span>

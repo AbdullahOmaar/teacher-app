@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { t } from '../../i18n'
 import { Sheet } from '../../components/ui/Sheet'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Save } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Chip, Field, FieldError, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import type { BillingType, GroupInput, GroupRow } from '../../types/database'
@@ -139,6 +139,7 @@ export function GroupFormSheet({ onClose, teacherId, groups, initial }: GroupFor
       footer={
         <div className="flex gap-2">
           <Button full onClick={save} disabled={saving}>
+            <Save size={18} />
             {saving ? t('groups.saving') : t('groups.formSave')}
           </Button>
           <Button variant="ghost" onClick={onClose}>

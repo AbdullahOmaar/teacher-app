@@ -204,7 +204,7 @@ export function StudentPortalPage() {
   return (
     <StudentPortalShell brand={o.brand}>
       {/* البانر: الاسم + نسبة الحضور + الموقف المالي */}
-      <Card>
+      <Card className="rise-in">
         <div className="text-[19px] font-extrabold leading-[1.7] flex items-center gap-2">
           <GraduationCap size={24} className="text-primary shrink-0" />
           {o.student.name}
@@ -240,9 +240,12 @@ export function StudentPortalPage() {
       </Card>
 
       {/* إشعارات Push الفورية — اشتراك اختياري من البوابة (Phase 4 خطوة 2) */}
-      <PortalPushToggle adapter={pushAdapter} />
+      <div className="rise-in" style={{ animationDelay: '50ms' }}>
+        <PortalPushToggle adapter={pushAdapter} />
+      </div>
 
       {/* ١) حصصي القادمة */}
+      <div className="rise-in mt-5" style={{ animationDelay: '90ms' }}>
       <SectionTitle icon={CalendarDays}>{t('studentPortal.pageUpcomingTitle')}</SectionTitle>
       {o.upcoming_sessions.length === 0 ? (
         <StudentPortalEmptyNote text={t('studentPortal.pageUpcomingEmpty')} showMascot={o.brand.show_mascot} />
@@ -268,6 +271,7 @@ export function StudentPortalPage() {
           ))}
         </Card>
       )}
+      </div>
 
       {/* مواعيد مجموعاتي الثابتة وروابط الملازم */}
       {o.groups.length > 0 && (

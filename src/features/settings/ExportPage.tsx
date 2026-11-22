@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
-import { Banknote, Calculator, CalendarCheck2, DatabaseBackup, FileDown, FileSpreadsheet, FileUp, Lock, NotebookPen, ReceiptText, Users, type LucideIcon } from 'lucide-react'
+import { Banknote, Calculator, CalendarCheck2, DatabaseBackup, FileDown, FileSpreadsheet, FileUp, Lock, NotebookPen, ReceiptText, Upload, Users, type LucideIcon } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, TextArea } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -101,7 +101,7 @@ export function ExportPage() {
 
   return (
     <div>
-      <Card>
+      <Card className="rise-in">
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileUp size={22} className="text-primary" /> {t('settings.exportCsvTitle')}</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
           {t('settings.exportCsvIntro')}
@@ -146,7 +146,7 @@ export function ExportPage() {
         ))}
       </Card>
 
-      <Card>
+      <Card className="rise-in" style={{ animationDelay: '50ms' }}>
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileDown size={22} className="text-primary" /> {t('settings.quickImportTitle')}</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
           {t('settings.quickIntroPre')} <b>{t('settings.quickIntroFormat')}</b> {t('settings.quickIntroPost')}
@@ -180,11 +180,12 @@ export function ExportPage() {
           onClick={handleQuickImport}
           disabled={quickImport.isPending || !importText.trim()}
         >
+          <Upload size={18} />
           {quickImport.isPending ? t('settings.importing') : t('settings.quickImportAction')}
         </Button>
       </Card>
 
-      <Card>
+      <Card className="rise-in" style={{ animationDelay: '90ms' }}>
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileSpreadsheet size={22} className="text-primary" /> {t('settings.fileImportTitle')}</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
           {t('settings.fileImportIntro')}
@@ -196,7 +197,7 @@ export function ExportPage() {
         </Link>
       </Card>
 
-      <Card>
+      <Card className="rise-in" style={{ animationDelay: '140ms' }}>
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><DatabaseBackup size={22} className="text-primary" /> {t('settings.backupCardTitle')}</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
           {t('settings.backupCardBody')}

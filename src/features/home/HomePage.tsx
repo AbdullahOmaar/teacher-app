@@ -626,7 +626,7 @@ export function HomePage() {
 
           {/* هدف تحصيل الشهر — يظهر فقط عند وجود فواتير صادرة للشهر (المرجع §3.1) */}
           {isOwner && goalPct != null && (
-            <Card>
+            <Card className="rise-in" style={{ animationDelay: '165ms' }}>
               <div className="flex justify-between items-center mb-2">
                 <span className="font-bold text-[15px]">{t('home.goal.title')}</span>
                 <span className="font-extrabold text-ok-text">{goalPct}%</span>
@@ -646,7 +646,7 @@ export function HomePage() {
           {/* حصص اليوم */}
           <h2 className="type-section mb-2 mt-1 rise-in" style={{ animationDelay: '190ms' }}>{t('home.today.title')}</h2>
           {todaySessions.length === 0 ? (
-            <Card>
+            <Card className="rise-in" style={{ animationDelay: '215ms' }}>
               <EmptyState
                 icon={CalendarDays}
                 title={t('home.today.emptyTitle')}
@@ -654,10 +654,11 @@ export function HomePage() {
               />
             </Card>
           ) : (
-            todaySessions.map((s) => (
+            todaySessions.map((s, i) => (
               <TodaySessionCard
                 key={s.id}
                 session={s}
+                index={i}
                 total={countsQ.data?.get(s.group_id)}
                 done={markedBySession.get(s.id) ?? 0}
                 progressReady={Boolean(countsQ.data) && !marksQ.isPending}
@@ -673,18 +674,23 @@ export function HomePage() {
 
 function TodaySessionCard({
   session: s,
+  index,
   total,
   done,
   progressReady,
 }: {
   session: SessionWithGroup
+  index: number
   total: number | undefined
   done: number
   progressReady: boolean
 }) {
   const cancelled = s.status === 'cancelled'
   return (
-    <Card className={cancelled ? 'opacity-70' : ''}>
+    <Card
+      className={`rise-in ${cancelled ? 'opacity-70' : ''}`}
+      style={{ animationDelay: `${215 + Math.min(index, 4) * 35}ms` }}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">

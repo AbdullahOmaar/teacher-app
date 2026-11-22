@@ -3,7 +3,7 @@ import { t } from '../../i18n'
 import { errText } from '../../lib/supabaseErrors'
 import { Sheet } from '../../components/ui/Sheet'
 import { useToast } from '../../components/ui/toast'
-import { Check, Printer, Trash2 } from 'lucide-react'
+import { Check, Plus, Printer, Save, Trash2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Chip, ChipRow, Field, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import type {
@@ -84,6 +84,7 @@ export function AssessmentFormSheet({
       footer={
         <>
           <Button full type="submit" form="assessment-form" disabled={mut.isPending || !valid}>
+            <Save size={18} />
             {mut.isPending ? t('grades.saving') : initial ? t('grades.formSaveEdit') : t('grades.formCreate')}
           </Button>
           <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
@@ -337,6 +338,7 @@ export function ExamBuilderSheet({
         </div>
         {add.isError && <FormError message={errText(add.error)} />}
         <Button full type="submit" disabled={add.isPending || !valid}>
+          <Plus size={18} />
           {add.isPending ? t('grades.builderAdding') : t('grades.builderAddBtn')}
         </Button>
       </form>

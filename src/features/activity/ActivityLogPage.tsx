@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
-import { History, X } from 'lucide-react'
+import { History, Search, X } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -192,7 +192,7 @@ export function ActivityLogPage() {
         resultCount={logQ.isPending ? undefined : rows.length}
       />
 
-      <Card>
+      <Card className="rise-in" style={{ animationDelay: '0ms' }}>
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2">
           <History size={22} className="text-primary" /> {t('activity.page.title')}
         </h2>
@@ -226,7 +226,7 @@ export function ActivityLogPage() {
         groups.map((g) => (
           <div key={g.day} className="mb-4">
             <StickyGroupHeader top={GROUP_HEADER_TOP_WITH_SEARCH}>{formatDateLabel(g.day)}</StickyGroupHeader>
-            <Card className="p-0 overflow-hidden">
+            <Card className="p-0 overflow-hidden rise-in" style={{ animationDelay: '50ms' }}>
               {g.items.map((row, i) => {
                 const details = detailsText(row)
                 return (
@@ -295,6 +295,7 @@ export function ActivityLogPage() {
               {t('activity.page.clearAll')}
             </Button>
             <Button full onClick={() => setFilterOpen(false)}>
+              <Search size={18} />
               {t('activity.page.showResults')}
             </Button>
           </div>

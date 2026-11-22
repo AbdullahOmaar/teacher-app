@@ -22,10 +22,10 @@ export function NotFoundPage({ standalone = false }: { standalone?: boolean }) {
       action={{ label: t('common.notFoundHome'), onClick: () => navigate('/') }}
     />
   )
-  if (!standalone) return body
+  if (!standalone) return <div className="rise-in">{body}</div>
   return (
     <div className="min-h-screen bg-bg text-text flex items-center justify-center p-4">
-      <div className="max-w-sm w-full">{body}</div>
+      <div className="max-w-sm w-full rise-in">{body}</div>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CameraOff, CheckCircle2, Keyboard, ScanQrCode, TriangleAlert, X } from 'lucide-react'
+import { Camera, CameraOff, Check, CheckCircle2, ChevronRight, Keyboard, ScanQrCode, TriangleAlert, X } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { TextInput } from '../../components/ui/form'
 import { normalizeScannedCode, shouldAcceptScan } from './qr'
@@ -270,6 +270,7 @@ export function QrScannerSheet({ sessionLabel, done, total, onScan, onClose }: Q
                   setAttempt((a) => a + 1)
                 }}
               >
+                <Camera size={18} />
                 {t('attendance.cameraRetry')}
               </Button>
             </div>
@@ -317,6 +318,7 @@ export function QrScannerSheet({ sessionLabel, done, total, onScan, onClose }: Q
               />
             </div>
             <Button onClick={submitManual} disabled={!manualCode.trim()}>
+              <Check size={18} />
               {t('attendance.markPresentAction')}
             </Button>
           </div>
@@ -335,6 +337,7 @@ export function QrScannerSheet({ sessionLabel, done, total, onScan, onClose }: Q
           onClick={onClose}
           className="inline-flex items-center justify-center gap-2 rounded-xl px-4 min-h-[48px] text-[15px] font-semibold cursor-pointer bg-transparent text-white/85 border border-white/25 hover:bg-white/10"
         >
+          <ChevronRight size={18} />
           {t('attendance.backToList')}
         </button>
       </div>

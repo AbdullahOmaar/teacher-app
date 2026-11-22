@@ -1,7 +1,7 @@
 import { isUnpaid } from '../invoices/api'
 import { useMemo, useState } from 'react'
 import { errText } from '../../lib/supabaseErrors'
-import { ImageOff, ReceiptText, SearchCheck } from 'lucide-react'
+import { CheckCheck, ImageOff, ReceiptText, SearchCheck } from 'lucide-react'
 import { Avatar } from '../../components/ui/Avatar'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -179,6 +179,7 @@ function ReviewProofSheet({
               )
             }}
           >
+            <CheckCheck size={18} />
             {approve.isPending ? t('paymentProofs.approving') : t('paymentProofs.approveAction')}
           </Button>
           <Button

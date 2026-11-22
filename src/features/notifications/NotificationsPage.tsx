@@ -71,7 +71,7 @@ function WaButton({ url, label = t('notifications.page.waDefault') }: { url: str
  * زر واتساب برسالة نوع التنبيه لولي الأمر (حيث ينطبق)، وتفاصيل قابلة
  * للفتح: فواتير الطالب المستحقة (fin) أو الطلاب المنخفضون (grade).
  */
-function AlertRow({ alert }: { alert: AppAlert }) {
+function AlertRow({ alert, index = 0 }: { alert: AppAlert; index?: number }) {
   const [open, setOpen] = useState(false)
   const hasInvoices = alert.kind === 'fin' && (alert.invoices?.length ?? 0) > 0
   const hasLows = alert.kind === 'grade' && (alert.lowStudents?.length ?? 0) > 0
@@ -79,7 +79,7 @@ function AlertRow({ alert }: { alert: AppAlert }) {
   const expandable = hasInvoices || hasLows || hasPrepaid
 
   return (
-    <Card className="mb-2">
+    <Card className="mb-2 rise-in" style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}>
       <div className="flex items-start gap-2">
         <Link to={alert.to} className="flex-1 min-w-0 no-underline text-text">
           <div className="font-semibold text-[16px] leading-[1.7]">{alert.text}</div>
@@ -226,7 +226,7 @@ function SectionBlock({
       {open && (
         <div className="mt-2">
           {visible.map((a, i) => (
-            <AlertRow key={`${a.kind}-${a.to}-${i}`} alert={a} />
+            <AlertRow key={`${a.kind}-${a.to}-${i}`} alert={a} index={i} />
           ))}
           {items.length > SECTION_PREVIEW && (
             <button
@@ -379,7 +379,7 @@ export function NotificationsPage() {
             ))}
           />
 
-          <Card>
+          <Card className="rise-in" style={{ animationDelay: '0ms' }}>
             {/* دُفّي القلقان + الجرس في رأس الصفحة (MASCOT-PLAN §٤/§٦):
                 داخل صفحة التنبيهات فقط وبجانب ملخصها — لا كروت تنبيهات
                 في الرئيسية أبداً (قاعدة المالك الثابتة §٧) */}
@@ -406,7 +406,7 @@ export function NotificationsPage() {
 
           {/* بطاقة إجراءات سريعة للمتأخرات — للمالك فقط (§3.13) */}
           {isOwner && finCount > 0 && (
-            <Card className="border-warn/50 bg-warn/5">
+            <Card className="border-warn/50 bg-warn/5 rise-in" style={{ animationDelay: '90ms' }}>
               <div className="font-extrabold text-[16px] mb-1 flex items-center gap-2"><AlertTriangle size={20} className="text-warn-text" /> {t('notifications.page.overdueActionsTitle')}</div>
               <div className="text-muted text-[13.5px] mb-3">
                 {t('notifications.page.overdueActionsBody', { count: finCount })}

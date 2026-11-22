@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { formatDateTimeAr } from '../../lib/format'
-import { Banknote, CalendarDays, CheckCircle2, ReceiptText } from 'lucide-react'
+import { Banknote, CalendarDays, CheckCircle2, Lock, ReceiptText } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -181,7 +181,7 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
         />
       ) : summary ? (
         <>
-          <Card>
+          <Card className="rise-in" style={{ animationDelay: '0ms' }}>
             <div className="grid grid-cols-2 gap-2 mb-3">
               <SummaryCell label={t('money.cashboxExpectedCash')} value={formatMoney(summary.cash)} valueClass="text-ok-text" />
               <SummaryCell
@@ -265,6 +265,7 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
                   {t('money.cashboxNotClosedHint')}
                 </p>
                 <Button full onClick={() => setSheetOpen(true)}>
+                  <Lock size={18} />
                   {t('money.cashboxCloseDay')}
                 </Button>
               </div>
@@ -279,7 +280,7 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
           {closingsQ.isPending ? (
             <SkeletonCards cards={2} />
           ) : closings.length === 0 ? (
-            <Card>
+            <Card className="rise-in" style={{ animationDelay: '50ms' }}>
               <EmptyState
                 mascot
                 icon={ReceiptText}
@@ -288,7 +289,7 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
               />
             </Card>
           ) : (
-            <Card>
+            <Card className="rise-in" style={{ animationDelay: '50ms' }}>
               {closings.map((c) => (
                 <ClosingHistoryRow
                   key={c.id}

@@ -375,7 +375,7 @@ export function HomeworkPage() {
     <div>
       {/* شريط حالة مزامنة الحضور/الواجب — يظهر فقط عند وجود معلّق/فشل */}
       <SyncStatusBar online={online} sync={sync} />
-      <Card>
+      <Card className="rise-in">
         <div className="flex items-start gap-3">
           <span className="w-11 h-11 rounded-xl bg-soft text-primary flex items-center justify-center shrink-0">
             <BookOpenCheck size={24} />
@@ -433,7 +433,7 @@ export function HomeworkPage() {
         <>
           {/* الماضي واليوم: أحدث حصة فعلية في المقدمة */}
           {shownPast.length > 0 ? (
-            <Card className="p-0 overflow-hidden mb-4">
+            <Card className="rise-in p-0 overflow-hidden mb-4" style={{ animationDelay: '50ms' }}>
               {shownPast.map((s, i) => sessionRow(s, i))}
               {pastSessions.length > PICKER_LIMIT && (
                 <p className="text-muted text-[13.5px] px-4 py-2.5 m-0 border-t border-border">
@@ -468,7 +468,7 @@ export function HomeworkPage() {
                 </span>
               </button>
               {futureShown && (
-                <Card className="p-0 overflow-hidden mb-4">
+                <Card className="rise-in p-0 overflow-hidden mb-4" style={{ animationDelay: '90ms' }}>
                   {shownFuture.map((s, i) => sessionRow(s, i))}
                   {futureSessions.length > PICKER_LIMIT && (
                     <p className="text-muted text-[13.5px] px-4 py-2.5 m-0 border-t border-border">
@@ -485,7 +485,7 @@ export function HomeworkPage() {
       {selected && (
         <>
           {/* ملخص الحصة المختارة: العدّادات للحاضرين أساساً وتتحدث فوراً */}
-          <Card>
+          <Card className="rise-in" style={{ animationDelay: '140ms' }}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="font-extrabold text-[16px]">{group?.name}</div>

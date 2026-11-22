@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
-import { Banknote, CalendarCog, Lock, ReceiptText, UserRound } from 'lucide-react'
+import { Banknote, CalendarCog, Lock, ReceiptText, Undo2, UserRound } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
@@ -90,7 +90,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
 
   return (
     <div>
-      <Card>
+      <Card className="rise-in" style={{ animationDelay: '0ms' }}>
         <div className="flex items-start justify-between gap-2">
           <div>
             <Link
@@ -210,7 +210,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
       {/* سجل الدفعات */}
       <h2 className="type-section mb-2 mt-1">{t('invoices.detailPaymentsTitle')}</h2>
       {payments.length === 0 ? (
-        <Card>
+        <Card className="rise-in" style={{ animationDelay: '50ms' }}>
           <EmptyState
             icon={Banknote}
             title={t('invoices.detailNoPaymentsTitle')}
@@ -218,7 +218,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
           />
         </Card>
       ) : (
-        <Card className="p-0 overflow-hidden">
+        <Card className="p-0 overflow-hidden rise-in" style={{ animationDelay: '50ms' }}>
           {payments.map((p, i) => {
             const isReversal = p.reverses_payment_id != null || p.amount < 0
             const canVoid = p.amount > 0 && !p.voided && !isReversal
@@ -244,16 +244,17 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
                     )}
                     <button
                       type="button"
-                      className="inline-flex items-center min-h-[48px] px-2 text-[13.5px] font-bold text-primary bg-transparent border-0 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 min-h-[48px] px-2 text-[13.5px] font-bold text-primary bg-transparent border-0 cursor-pointer"
                       onClick={() => setReceipt({ payment: p })}
                     >
+                      <ReceiptText size={16} />
                       {t('invoices.detailReceiptBtn')}
                     </button>
                     {canVoid && (
                       <button
                         type="button"
                         disabled={voidPay.isPending}
-                        className="inline-flex items-center min-h-[48px] px-2 text-[13.5px] font-bold text-bad-text bg-transparent border-0 cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 min-h-[48px] px-2 text-[13.5px] font-bold text-bad-text bg-transparent border-0 cursor-pointer disabled:opacity-50"
                         onClick={() => {
                           if (
                             window.confirm(
@@ -268,6 +269,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
                           }
                         }}
                       >
+                        <Undo2 size={16} />
                         {t('invoices.detailVoid')}
                       </button>
                     )}

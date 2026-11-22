@@ -64,7 +64,7 @@ export function PortalManagePage() {
 
   return (
     <div>
-      <Card>
+      <Card className="rise-in" style={{ animationDelay: '0ms' }}>
         <p className="text-[13.5px] mb-0 leading-relaxed">
           {t('portal.manageIntroPre')}{' '}
           <b>{t('portal.manageIntroDays')}</b> {t('portal.manageIntroPost')}
@@ -85,14 +85,14 @@ export function PortalManagePage() {
       {students.length === 0 ? (
         <EmptyState icon={Users} title={t('portal.manageEmptyTitle')} hint={t('portal.manageEmptyHint')} />
       ) : filtered.length === 0 ? (
-        <Card>
+        <Card className="rise-in" style={{ animationDelay: '50ms' }}>
           <EmptyState icon={Users} title={t('portal.manageNoMatchTitle')} hint={t('portal.manageNoMatchHint')} />
         </Card>
       ) : (
-        filtered.map((s) => {
+        filtered.map((s, i) => {
           const expiresAt = activeByStudent.get(s.id)
           return (
-            <Card key={s.id}>
+            <Card key={s.id} className="rise-in" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-bold text-[15px] truncate">{s.name}</div>

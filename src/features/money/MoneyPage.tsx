@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Card } from '../../components/ui/Card'
-import { Building2, Lock, Pin, Wallet } from 'lucide-react'
+import { Building2, Lock, Pin, Plus, Wallet } from 'lucide-react'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -239,7 +239,7 @@ export function MoneyPage() {
       ) : (
         <>
           {/* ملخص الفترة — من view ‏monthly_profit حرفياً */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="grid grid-cols-3 gap-2 mb-3 rise-in" style={{ animationDelay: '0ms' }}>
             <Kpi value={formatMoney(summary.collected)} label={t('money.kpiCollected')} valueClass="text-ok-text" />
             <Kpi value={formatMoney(summary.expenses)} label={t('money.kpiExpenses')} valueClass="text-bad-text" />
             <Kpi
@@ -268,7 +268,7 @@ export function MoneyPage() {
 
           {/* آخر 6 شهور */}
           <h2 className="type-section mb-2 mt-1">{t('money.lastSixMonths')}</h2>
-          <Card>
+          <Card className="rise-in" style={{ animationDelay: '50ms' }}>
             {sixMonths.map((row) => (
               <MonthBarRow
                 key={row.month}
@@ -289,6 +289,7 @@ export function MoneyPage() {
           </div>
           <div className="flex gap-2 mb-3">
             <Button className="flex-1" onClick={() => setExpenseSheet({ mode: 'create' })}>
+              <Plus size={18} />
               {t('money.addExpense')}
             </Button>
             {templates.length > 0 && (
@@ -317,7 +318,7 @@ export function MoneyPage() {
           </div>
 
           {expenses.length === 0 ? (
-            <Card>
+            <Card className="rise-in" style={{ animationDelay: '90ms' }}>
               <EmptyState
                 mascot
                 icon={Wallet}
@@ -332,7 +333,7 @@ export function MoneyPage() {
                   {t('money.dayHeader', { date: formatDateLabel(g.day), count: g.items.length, total: formatMoney(g.total) })}
                 </StickyGroupHeader>
                 {g.items.map((exp) => (
-                  <Card key={exp.id}>
+                  <Card key={exp.id} className="rise-in" style={{ animationDelay: '90ms' }}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-bold text-[15px]">{exp.category}</div>
@@ -381,7 +382,7 @@ export function MoneyPage() {
             </Button>
           </div>
           {templates.length === 0 ? (
-            <Card>
+            <Card className="rise-in" style={{ animationDelay: '140ms' }}>
               <EmptyState
                 icon={Pin}
                 title={t('money.emptyTemplatesTitle')}
@@ -389,8 +390,8 @@ export function MoneyPage() {
               />
             </Card>
           ) : (
-            templates.map((tpl) => (
-              <Card key={tpl.id}>
+            templates.map((tpl, i) => (
+              <Card key={tpl.id} className="rise-in" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-bold text-[15px]">{tpl.category}</div>

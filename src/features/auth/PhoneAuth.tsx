@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { Check, Send } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
 import { normalizeEgyptianPhone } from '../../lib/phone'
@@ -132,6 +133,7 @@ export function PhoneAuth() {
             />
           </Field>
           <Button full type="submit" disabled={busy}>
+            <Send size={18} />
             {busy ? t('auth.sendingCode') : t('auth.sendCode')}
           </Button>
           <p className="text-muted text-[12px] mt-3 mb-0 text-center">{t('auth.phoneSignupNote')}</p>
@@ -154,6 +156,7 @@ export function PhoneAuth() {
             />
           </Field>
           <Button full type="submit" disabled={busy}>
+            <Check size={18} />
             {busy ? t('auth.verifying') : t('auth.verifyCode')}
           </Button>
           <div className="flex items-center justify-between mt-3">

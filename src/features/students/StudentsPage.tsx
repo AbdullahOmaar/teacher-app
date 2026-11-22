@@ -4,7 +4,7 @@ import { t } from '../../i18n'
 import { Link, useSearchParams } from 'react-router-dom'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Card } from '../../components/ui/Card'
-import { Check, Users, X } from 'lucide-react'
+import { Check, UserPlus, Users, X } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
 import {
@@ -221,20 +221,23 @@ export function StudentsPage() {
           }
           action={
             (studentsQ.data?.length ?? 0) === 0
-              ? { label: t('students.addStudent'), onClick: () => setFormOpen(true) }
+              ? { label: t('students.addStudent'), onClick: () => setFormOpen(true), icon: UserPlus }
               : undefined
           }
         />
       ) : (
         <>
-        {sections.map((section) => (
+        {sections.map((section, si) => (
           <div key={section.title ?? '__all'}>
             {section.title && (
               <StickyGroupHeader bleed={false} top={GROUP_HEADER_TOP_WITH_SEARCH}>
                 {t('students.sectionHeader', { title: section.title, count: section.items.length })}
               </StickyGroupHeader>
             )}
-            <Card className="p-0 overflow-hidden">
+            <Card
+              className="rise-in p-0 overflow-hidden"
+              style={{ animationDelay: `${Math.min(si, 8) * 35}ms` }}
+            >
               {section.items.map((s, i) => {
             const balance = balancesQ.data?.get(s.id) ?? 0
             // وجود صف في خريطة الأرصدة = للطالب فواتير أصلاً (الـ view
@@ -316,7 +319,7 @@ export function StudentsPage() {
         {paneStudentId ? (
           <StudentDetailPage key={paneStudentId} studentId={paneStudentId} />
         ) : (
-          <Card>
+          <Card className="rise-in" style={{ animationDelay: '50ms' }}>
             <EmptyState
               icon={Users}
               title={t('students.selectTitle')}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { UserPlus } from 'lucide-react'
 import { Sheet } from '../../components/ui/Sheet'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, Select, TextInput } from '../../components/ui/form'
@@ -87,6 +88,7 @@ export function EnrollStudentSheet({
       footer={
         <div className="flex gap-2">
           <Button full onClick={save} disabled={upsert.isPending}>
+            <UserPlus size={18} />
             {upsert.isPending ? t('groups.saving') : t('students.enrollSubmit')}
           </Button>
           <Button variant="ghost" onClick={onClose}>

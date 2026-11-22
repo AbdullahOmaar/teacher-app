@@ -94,7 +94,7 @@ function EnrolMessage({
 }) {
   return (
     <EnrolShell brand={brand}>
-      <Card className="text-center py-8">
+      <Card className="text-center py-8 rise-in">
         <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
           <Icon size={28} />
         </div>
@@ -154,7 +154,7 @@ export function EnrolPage() {
   if (done) {
     return (
       <EnrolShell brand={brand}>
-        <Card className="text-center py-8">
+        <Card className="text-center py-8 rise-in">
           <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-ok/10 text-ok flex items-center justify-center">
             <CheckCircle2 size={28} />
           </div>
@@ -208,7 +208,7 @@ export function EnrolPage() {
 
   return (
     <EnrolShell brand={brand}>
-      <Card>
+      <Card className="rise-in">
         <div className="flex items-center gap-2 mb-1">
           <CalendarCheck2 size={22} className="text-primary" />
           <h1 className="type-section mt-0 mb-0">{t('enrol.pageFormTitle')}</h1>

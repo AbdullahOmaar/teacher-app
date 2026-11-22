@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Save } from 'lucide-react'
 import { Sheet } from '../../components/ui/Sheet'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, TextInput } from '../../components/ui/form'
@@ -138,6 +139,7 @@ export function StudentFormSheet({
       footer={
         <div className="flex gap-2">
           <Button full onClick={save} disabled={saving}>
+            <Save size={18} />
             {saving ? t('groups.saving') : t('groups.formSave')}
           </Button>
           <Button variant="ghost" onClick={onClose}>

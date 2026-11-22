@@ -53,7 +53,7 @@ export function StudentPaymentsTab({
 
   return (
     <div>
-      <Card>
+      <Card className="rise-in">
         <div className="flex items-center justify-between gap-2">
           <div>
             <div className="font-extrabold text-[15px]">
@@ -84,7 +84,7 @@ export function StudentPaymentsTab({
 
       <h3 className="text-[16px] font-extrabold mb-2 mt-1">{t('invoices.studentPayInvoicesTitle')}</h3>
       {invoices.length === 0 ? (
-        <Card>
+        <Card className="rise-in" style={{ animationDelay: '50ms' }}>
           <EmptyState
             icon={ReceiptText}
             title={t('invoices.studentPayNoInvoicesTitle')}
@@ -92,7 +92,7 @@ export function StudentPaymentsTab({
           />
         </Card>
       ) : (
-        invoices.map((inv) => {
+        invoices.map((inv, i) => {
           const state = payStateOf(inv)
           return (
             <Link
@@ -100,7 +100,10 @@ export function StudentPaymentsTab({
               to={`/invoices/${inv.invoice_id}`}
               className="block no-underline text-text"
             >
-              <Card>
+              <Card
+                className="rise-in"
+                style={{ animationDelay: `${50 + Math.min(i, 8) * 35}ms` }}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="font-bold text-[16px]">
                     {periodLabel(inv.period_month)}{' '}
@@ -134,7 +137,7 @@ export function StudentPaymentsTab({
 
       <h3 className="text-[16px] font-extrabold mb-2 mt-4">{t('invoices.studentPayPaymentsTitle')}</h3>
       {payments.length === 0 ? (
-        <Card>
+        <Card className="rise-in" style={{ animationDelay: '90ms' }}>
           <EmptyState
             icon={Banknote}
             title={t('invoices.studentPayNoPaymentsTitle')}
@@ -142,7 +145,7 @@ export function StudentPaymentsTab({
           />
         </Card>
       ) : (
-        <Card className="p-0 overflow-hidden">
+        <Card className="rise-in p-0 overflow-hidden" style={{ animationDelay: '90ms' }}>
           {payments.map((p, i) => (
             <Link
               key={p.id}

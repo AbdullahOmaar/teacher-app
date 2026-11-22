@@ -53,7 +53,7 @@ export function AtRiskPage() {
 
   return (
     <div>
-      <p className="text-muted text-[13.5px] leading-[1.8] mb-3 mt-0">
+      <p className="text-muted text-[13.5px] leading-[1.8] mb-3 mt-0 rise-in" style={{ animationDelay: '0ms' }}>
         {t('atrisk.pageIntroPre')}<b className="text-text">{t('atrisk.pageIntroAbsence')}</b>{t('atrisk.pageIntroMid')}{' '}
         <b className="text-text">{t('atrisk.pageIntroOverdue')}</b>{t('atrisk.pageIntroPost')}
         {!isOwner && t('atrisk.pageIntroAssistantNote')}
@@ -77,12 +77,12 @@ export function AtRiskPage() {
           />
         </Card>
       ) : (
-        items.map((item) => {
+        items.map((item, i) => {
           const waUrl = atRiskWaUrl(item, brand.name)
           const busy =
             followUp.isPending && followUp.variables?.studentId === item.student.id
           return (
-            <Card key={item.student.id}>
+            <Card key={item.student.id} className="rise-in" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
               <div className="flex items-center gap-2.5 mb-2">
                 <Avatar name={item.student.name} />
                 <div className="min-w-0">

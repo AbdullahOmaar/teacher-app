@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { GraduationCap } from 'lucide-react'
+import { Check, GraduationCap } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
@@ -83,6 +83,7 @@ export function Onboarding() {
           />
         </Field>
         <Button full type="submit" disabled={busy}>
+          <Check size={18} />
           {busy ? t('auth.creatingProfile') : t('auth.createProfileSubmit')}
         </Button>
       </form>

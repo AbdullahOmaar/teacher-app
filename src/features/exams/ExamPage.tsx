@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Link2Off,
+  RotateCcw,
   Send,
   Timer,
   Trophy,
@@ -246,7 +247,7 @@ export function ExamPage() {
     const reviewByQ = new Map((result.review ?? []).map((r) => [r.question_id, r]))
     return (
       <ExamShell brand={brand} title={info.title}>
-        <Card className="text-center py-6">
+        <Card className="rise-in text-center py-6">
           <div
             className={`mx-auto mb-3 w-16 h-16 rounded-full flex items-center justify-center ${
               result.passed ? 'bg-ok-soft text-ok-text' : 'bg-bad-soft text-bad-text'
@@ -281,6 +282,7 @@ export function ExamPage() {
               disabled={startMut.isPending}
               onClick={() => beginWithCode(code)}
             >
+              <RotateCcw size={18} />
               {startMut.isPending
                 ? t('exams.pageStarting')
                 : t('exams.pageRetryAttempt', { left: result.attempts_left, max: info.max_attempts })}
@@ -296,7 +298,7 @@ export function ExamPage() {
         {result.review && result.review.length > 0 && (
           <>
             <h3 className="type-section mt-5 mb-2">{t('exams.pageReviewTitle')}</h3>
-            <Card className="p-0 overflow-hidden">
+            <Card className="rise-in p-0 overflow-hidden" style={{ animationDelay: '50ms' }}>
               {attempt.presentation.map((q, i) => {
                 const rev = reviewByQ.get(q.id)
                 if (!rev) return null
@@ -393,7 +395,7 @@ export function ExamPage() {
         )}
 
         {attempt.presentation.map((q, i) => (
-          <Card key={q.id}>
+          <Card key={q.id} className="rise-in" style={{ animationDelay: `${Math.min(i, 4) * 50}ms` }}>
             <div className="font-bold text-[16px] leading-[1.7]">
               {t('exams.pageQuestionLine', { num: i + 1, text: q.text })}
               <span className="text-muted text-[12px] font-bold"> {t('exams.pageQuestionPoints', { points: fmtScore(q.points) })}</span>
@@ -459,7 +461,7 @@ export function ExamPage() {
 
   return (
     <ExamShell brand={brand} title={info.title}>
-      <Card>
+      <Card className="rise-in">
         <div className="text-[19px] font-extrabold leading-[1.7]">{info.title}</div>
         <div className="text-muted text-[13.5px] mt-0.5">
           {info.group_name ? t('exams.pageGroupPrefix', { name: info.group_name }) : ''}

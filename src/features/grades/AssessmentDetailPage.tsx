@@ -260,7 +260,7 @@ export function AssessmentDetailPage() {
   return (
     <div>
       {/* شريط الملخص */}
-      <Card>
+      <Card className="rise-in">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="font-extrabold text-[16px]">{assessment.title}</div>
@@ -329,12 +329,14 @@ export function AssessmentDetailPage() {
 
       {/* الامتحان الإلكتروني بتصحيح تلقائي — Phase 3 خطوة 4 */}
       {teacherId && (
+        <div className="rise-in" style={{ animationDelay: '50ms' }}>
         <OnlineExamPanel
           teacherId={teacherId}
           assessment={assessment}
           gradableCount={gradableCount}
           questionsTotal={questionsTotal}
         />
+        </div>
       )}
 
       {maxMismatch && (
@@ -404,7 +406,7 @@ export function AssessmentDetailPage() {
         </Card>
       ) : (
         <>
-          <Card className="p-0 overflow-hidden">
+          <Card className="rise-in p-0 overflow-hidden" style={{ animationDelay: '90ms' }}>
             {roster.map((st, i) => {
               const raw = rawOf(st.id)
               const { score, valid } = parseRaw(raw)
@@ -520,7 +522,7 @@ export function AssessmentDetailPage() {
 
       {/* لوحة الشرف — أعلى 3 طلاب بالنسبة (المرجع §3.11) */}
       {honor.length > 0 && (
-        <Card>
+        <Card className="rise-in" style={{ animationDelay: '140ms' }}>
           <div className="flex items-center justify-between gap-2 mb-2">
             <span className="font-bold text-[16px] flex items-center gap-2"><Trophy size={22} className="text-accent" /> {t('grades.detailHonorTitle')}</span>
             <Button

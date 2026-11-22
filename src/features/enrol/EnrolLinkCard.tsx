@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarCheck2, Check, Copy, MessageCircle, RefreshCw } from 'lucide-react'
+import { CalendarCheck2, Check, Copy, Link2, MessageCircle, RefreshCw } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { FormError } from '../../components/ui/form'
@@ -98,6 +98,7 @@ export function EnrolLinkCard() {
         <>
           <p className="text-muted text-[13.5px]">{t('enrol.cardNoLink')}</p>
           <Button onClick={() => void doGenerate()} disabled={generate.isPending}>
+            <Link2 size={18} />
             {generate.isPending ? t('enrol.cardCreating') : t('enrol.cardCreateAction')}
           </Button>
         </>

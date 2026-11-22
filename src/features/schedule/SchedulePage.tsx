@@ -4,7 +4,7 @@ import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
-import { CalendarDays, CalendarOff, ChevronLeft, RefreshCw } from 'lucide-react'
+import { CalendarDays, CalendarOff, ChevronLeft, ChevronRight, Plus, RefreshCw } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
@@ -188,7 +188,10 @@ export function SchedulePage() {
           />
           <div className="text-center pb-2">
             <Link to="/groups" className="no-underline">
-              <Button>{t('schedule.createGroup')}</Button>
+              <Button>
+                <Plus size={18} />
+                {t('schedule.createGroup')}
+              </Button>
             </Link>
           </div>
         </Card>
@@ -366,8 +369,9 @@ function WeekView({
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <button
           onClick={onPrev}
-          className="flex-1 min-[480px]:flex-none text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
+          className="flex-1 min-[480px]:flex-none inline-flex items-center justify-center gap-1 text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
         >
+          <ChevronRight size={16} />
           {t('schedule.prevWeek')}
         </button>
         <div className="order-first w-full min-[480px]:order-none min-[480px]:w-auto font-extrabold text-[15px] text-center">
@@ -376,9 +380,10 @@ function WeekView({
         </div>
         <button
           onClick={onNext}
-          className="flex-1 min-[480px]:flex-none text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
+          className="flex-1 min-[480px]:flex-none inline-flex items-center justify-center gap-1 text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
         >
           {t('schedule.nextWeek')}
+          <ChevronLeft size={16} />
         </button>
       </div>
       {!isCurrentWeek && (
@@ -418,8 +423,8 @@ function WeekView({
                 {holiday ? t('schedule.dayHolidayEmpty') : t('schedule.dayFree')}
               </div>
             ) : (
-              daySessions.map((s) => (
-                <SessionCard key={s.id} session={s} onPick={onPick} />
+              daySessions.map((s, i) => (
+                <SessionCard key={s.id} session={s} onPick={onPick} index={i} />
               ))
             )}
           </div>
@@ -482,8 +487,9 @@ function MonthView({
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <button
           onClick={onPrevMonth}
-          className="flex-1 min-[480px]:flex-none text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
+          className="flex-1 min-[480px]:flex-none inline-flex items-center justify-center gap-1 text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
         >
+          <ChevronRight size={16} />
           {t('schedule.prevMonth')}
         </button>
         <div className="order-first w-full text-center min-[480px]:order-none min-[480px]:w-auto font-extrabold text-[15px]">
@@ -491,9 +497,10 @@ function MonthView({
         </div>
         <button
           onClick={onNextMonth}
-          className="flex-1 min-[480px]:flex-none text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
+          className="flex-1 min-[480px]:flex-none inline-flex items-center justify-center gap-1 text-[13.5px] font-bold text-primary bg-soft border-0 rounded-full px-3 min-h-[48px] cursor-pointer whitespace-nowrap"
         >
           {t('schedule.nextMonth')}
+          <ChevronLeft size={16} />
         </button>
       </div>
       {!isCurrentMonth && (
@@ -507,7 +514,7 @@ function MonthView({
         </div>
       )}
 
-      <Card>
+      <Card className="rise-in">
         <div className="grid grid-cols-7 gap-1 mb-1">
           {[t('schedule.weekdaySun'), t('schedule.weekdayMon'), t('schedule.weekdayTue'), t('schedule.weekdayWed'), t('schedule.weekdayThu'), t('schedule.weekdayFri'), t('schedule.weekdaySat')].map((n) => (
             <div key={n} className="text-center text-[12px] font-bold text-muted py-1">
@@ -579,14 +586,14 @@ function MonthView({
         </div>
       )}
       {selectedSessions.length === 0 ? (
-        <Card>
+        <Card className="rise-in" style={{ animationDelay: '50ms' }}>
           <div className="text-muted text-[13.5px] text-center py-2">
             {selectedIsHoliday ? t('schedule.selectedHolidayEmpty') : t('schedule.selectedNoSessions')}
           </div>
         </Card>
       ) : (
-        selectedSessions.map((s) => (
-          <SessionCard key={s.id} session={s} onPick={onPick}>
+        selectedSessions.map((s, i) => (
+          <SessionCard key={s.id} session={s} onPick={onPick} index={i}>
             <div className="flex gap-2 mt-2.5">
               {s.status !== 'cancelled' && (
                 <Link to={`/attendance?session=${s.id}`} className="no-underline flex-1" onClick={(e) => e.stopPropagation()}>
@@ -623,15 +630,18 @@ function SessionCard({
   session: s,
   onPick,
   children,
+  index = 0,
 }: {
   session: SessionWithGroup
   onPick: (s: SessionWithGroup) => void
   children?: React.ReactNode
+  index?: number
 }) {
   const cancelled = s.status === 'cancelled'
   return (
     <Card
-      className={`cursor-pointer ${cancelled ? 'opacity-70' : ''}`}
+      className={`rise-in cursor-pointer ${cancelled ? 'opacity-70' : ''}`}
+      style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}
       onClick={() => onPick(s)}
     >
       <div className="flex items-center justify-between gap-2">

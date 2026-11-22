@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
-import { Archive, ArchiveRestore, Construction, GraduationCap, IdCard, Link2, Lock, MessageCircle, Pencil, Phone, Trash2, TriangleAlert, UserRoundX, Users } from 'lucide-react'
+import { Archive, ArchiveRestore, Construction, GraduationCap, IdCard, Link2, Lock, MessageCircle, Pencil, Phone, Plus, Trash2, TriangleAlert, UserRoundX, Users } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { ActionTile, ActionTiles } from '../../components/ui/ActionTiles'
 import { DangerConfirmSheet } from '../../components/ui/DangerConfirmSheet'
@@ -154,7 +154,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
   return (
     <div>
       {/* الترويسة */}
-      <Card>
+      <Card className="rise-in">
         <div className="flex items-start justify-between gap-2">
           <div className="type-screen">
             {student.name}
@@ -221,7 +221,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
 
       {tab === 'data' && (
         <>
-          <Card>
+          <Card className="rise-in" style={{ animationDelay: '50ms' }}>
             <InfoRow label={t('students.codeLabel')} value={student.public_code} />
             <InfoRow label={t('students.gradeLabel')} value={student.grade} />
             <InfoRow label={t('students.schoolLabel')} value={student.school} />
@@ -236,7 +236,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
               القوائم التشغيلية وتُبقي سجلاته المالية والتاريخية سليمة.
               الحذف النهائي للمالك فقط وبشرط غياب أي فاتورة/دفعة، وبعد كتابة
               اسم الطالب كاملاً في شاشة التأكيد. */}
-          <Card className="border-bad/50">
+          <Card className="rise-in border-bad/50" style={{ animationDelay: '90ms' }}>
             <div className="flex items-center gap-2 mb-2">
               <TriangleAlert size={20} className="text-bad-text" />
               <span className="font-extrabold text-[15px] text-bad-text">{t('groups.dangerTitle')}</span>
@@ -329,12 +329,16 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
           {enrollments.length === 0 ? (
             <EmptyState icon={Users} title={t('students.detailNoGroupsTitle')} hint={t('students.detailNoGroupsHint')} />
           ) : (
-            enrollments.map((e) => {
+            enrollments.map((e, i) => {
               const g = groupById.get(e.group_id)
               if (!g) return null
               const effective = e.price_override ?? g.price
               return (
-                <Card key={e.id}>
+                <Card
+                  key={e.id}
+                  className="rise-in"
+                  style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <Link to={`/groups/${g.id}`} className="font-bold text-[15px] text-text no-underline">
                       {g.name}
@@ -368,6 +372,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
             })
           )}
           <Button full onClick={() => setEnrollOpen(true)}>
+            <Plus size={18} />
             {t('students.detailEnrollBtn')}
           </Button>
         </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Save } from 'lucide-react'
 import { errText } from '../../lib/supabaseErrors'
 import { Sheet } from '../../components/ui/Sheet'
 import { Button } from '../../components/ui/Button'
@@ -60,6 +61,7 @@ export function ExpenseFormSheet({
       footer={
         <>
           <Button full type="submit" form="expense-form" disabled={busy || !(amt > 0) || !date}>
+            <Save size={18} />
             {busy ? t('money.expenseSaving') : isEdit ? t('money.expenseSaveEdit') : t('money.expenseSubmit')}
           </Button>
           <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">
@@ -193,6 +195,7 @@ export function RecurringFormSheet({
       footer={
         <>
           <Button full type="submit" form="recurring-form" disabled={busy || !(amt > 0)}>
+            <Save size={18} />
             {busy ? t('money.expenseSaving') : isEdit ? t('money.expenseSaveEdit') : t('money.recurringSubmit')}
           </Button>
           <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">

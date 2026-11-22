@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, MessageCircle } from 'lucide-react'
+import { Check, CheckCircle2, MessageCircle, Save } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, TextInput } from '../../components/ui/form'
@@ -253,6 +253,7 @@ export function WhatsAppSettingsCard() {
             <p className="text-muted text-[12.5px] mt-0 mb-0">{t('settings.waEnabledHint')}</p>
           </div>
           <Button onClick={handleSave} disabled={upsert.isPending} className="mb-5">
+            <Save size={18} />
             {upsert.isPending ? t('settings.waSaving') : t('settings.waSave')}
           </Button>
 
@@ -357,6 +358,7 @@ export function WhatsAppSettingsCard() {
                     onClick={handleConfirmLink}
                     disabled={linkCode.trim().length < 4 || confirmLink.isPending}
                   >
+                    <Check size={18} />
                     {confirmLink.isPending ? t('settings.waLinkConfirming') : t('settings.waLinkConfirm')}
                   </Button>
                 </div>

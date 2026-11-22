@@ -147,6 +147,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
               onClick={doImport}
               disabled={importFile.isPending || importCount === 0 || !hasNameColumn}
             >
+              <Upload size={18} />
               {importFile.isPending ? t('students.importImporting') : t('students.importImportBtn', { count: importCount })}
             </Button>
             <Button variant="ghost" onClick={() => setStep('pick')} disabled={importFile.isPending}>

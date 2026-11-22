@@ -14,10 +14,10 @@ import { ASSESSMENT_TYPE_LABELS, type AssessmentListItem } from './api'
 import { useAssessments } from './hooks'
 import { AssessmentFormSheet } from './sheets'
 
-function AssessmentCard({ item }: { item: AssessmentListItem }) {
+function AssessmentCard({ item, index }: { item: AssessmentListItem; index: number }) {
   return (
     <Link to={`/assessments/${item.id}`} className="block no-underline text-text">
-      <Card>
+      <Card className="rise-in" style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}>
         <div className="flex items-start justify-between gap-2">
           <div className="font-bold text-[15px]">{item.title}</div>
           {item.avg_pct != null && (
@@ -111,7 +111,7 @@ export function GradesPage() {
           }}
         />
       ) : filtered.length === 0 ? (
-        <Card>
+        <Card className="rise-in">
           <EmptyState
             mascot
             mascotPose="writing"
@@ -130,7 +130,7 @@ export function GradesPage() {
           />
         </Card>
       ) : (
-        filtered.map((a) => <AssessmentCard key={a.id} item={a} />)
+        filtered.map((a, i) => <AssessmentCard key={a.id} item={a} index={i} />)
       )}
 
       <Fab onClick={() => setCreateOpen(true)} ariaLabel={t('grades.fabAria')} label={t('grades.fabLabel')} />

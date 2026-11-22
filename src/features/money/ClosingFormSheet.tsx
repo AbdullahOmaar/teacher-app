@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Save } from 'lucide-react'
 import { errText } from '../../lib/supabaseErrors'
 import { Sheet } from '../../components/ui/Sheet'
 import { Button } from '../../components/ui/Button'
@@ -104,6 +105,7 @@ export function ClosingFormSheet({
             form="closing-form"
             disabled={upsert.isPending || !valid}
           >
+            <Save size={18} />
             {upsert.isPending ? t('money.closingSaving') : isEdit ? t('money.closingSaveEdit') : t('money.closingSave')}
           </Button>
           <Button full variant="ghost" type="button" onClick={onClose} className="mt-2">

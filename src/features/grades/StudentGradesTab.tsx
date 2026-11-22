@@ -50,7 +50,7 @@ export function StudentGradesTab({
 
   if (rows.length === 0) {
     return (
-      <Card>
+      <Card className="rise-in">
         <EmptyState
           mascot
           mascotPose="writing"
@@ -64,7 +64,7 @@ export function StudentGradesTab({
 
   return (
     <div>
-      <Card>
+      <Card className="rise-in">
         <div className="flex items-center justify-between gap-2">
           <span className="font-bold text-[16px]">{t('grades.tabAverageTitle')}</span>
           <span
@@ -81,7 +81,7 @@ export function StudentGradesTab({
       </Card>
 
       {rows.length >= 2 && (
-        <Card>
+        <Card className="rise-in" style={{ animationDelay: '50ms' }}>
           <div className="font-bold text-[16px] mb-2">{t('grades.tabProgressTitle')}</div>
           {chronological.map((r) => (
             <div key={r.assessment_id} className="flex items-center gap-2 mb-2 last:mb-0">
@@ -107,7 +107,7 @@ export function StudentGradesTab({
       )}
 
       <h3 className="text-[16px] font-extrabold mb-2 mt-1">{t('grades.tabGradesHeading')}</h3>
-      <Card className="p-0 overflow-hidden">
+      <Card className="rise-in p-0 overflow-hidden" style={{ animationDelay: '90ms' }}>
         {rows.map((r, i) => (
           <Link
             key={r.assessment_id}

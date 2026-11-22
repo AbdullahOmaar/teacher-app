@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
-import { Bell, CalendarCheck2, Check, ChevronDown, ChevronUp, FolderCog, GraduationCap, Handshake, ImagePlus, Info, Mail, MessageCircle, MonitorSmartphone, NotebookPen, Palette, SlidersHorizontal, Trash2, UserRound, type LucideIcon } from 'lucide-react'
+import { Bell, CalendarCheck2, Check, ChevronDown, ChevronUp, FolderCog, GraduationCap, Handshake, ImagePlus, Info, Mail, MessageCircle, MonitorSmartphone, NotebookPen, Palette, Plus, Save, Send, SlidersHorizontal, Trash2, UserPlus, UserRound, type LucideIcon } from 'lucide-react'
 import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Button } from '../../components/ui/Button'
 import { Chip, Field, TextArea, TextInput } from '../../components/ui/form'
@@ -635,6 +635,7 @@ export function SettingsPage() {
               </div>
             )}
             <Button full type="submit" disabled={updateProfile.isPending}>
+              <Save size={18} />
               {updateProfile.isPending ? t('settings.saving') : t('settings.save')}
             </Button>
           </form>
@@ -737,6 +738,7 @@ export function SettingsPage() {
                 <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{settingsMsg}</p>
               )}
               <Button full type="submit" disabled={updateSettings.isPending}>
+                <Save size={18} />
                 {updateSettings.isPending ? t('settings.saving') : t('settings.saveSettings')}
               </Button>
             </form>
@@ -910,6 +912,7 @@ export function SettingsPage() {
                   <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{brandMsg}</p>
                 )}
                 <Button full type="submit" disabled={updateSettings.isPending}>
+                  <Save size={18} />
                   {updateSettings.isPending ? t('settings.saving') : t('settings.saveBrand')}
                 </Button>
               </form>
@@ -980,6 +983,7 @@ export function SettingsPage() {
                 <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{centreMsg}</p>
               )}
               <Button full type="submit" disabled={createCentre.isPending || !newCentreName.trim()}>
+                <Plus size={18} />
                 {createCentre.isPending ? t('settings.creating') : t('settings.createCentreAction')}
               </Button>
             </form>
@@ -1042,6 +1046,7 @@ export function SettingsPage() {
               <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{emailInviteMsg}</p>
             )}
             <Button full type="submit" disabled={inviteByEmail.isPending}>
+              <Send size={18} />
               {inviteByEmail.isPending ? t('settings.creatingInvite') : t('settings.sendInvite')}
             </Button>
           </form>
@@ -1146,6 +1151,7 @@ export function SettingsPage() {
               <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{inviteMsg}</p>
             )}
             <Button full type="submit" disabled={invite.isPending}>
+              <UserPlus size={18} />
               {invite.isPending ? t('settings.adding') : t('settings.addAssistant')}
             </Button>
           </form>
@@ -1278,7 +1284,7 @@ export function SettingsPage() {
       </SettingsSection>
 
       {/* تسجيل الخروج */}
-      <Card>
+      <Card className="rise-in">
         <Button full variant="danger" onClick={handleSignOut} disabled={signingOut}>
           {signingOut ? t('settings.signingOut') : t('settings.signOut')}
         </Button>

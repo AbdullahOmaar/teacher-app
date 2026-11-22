@@ -45,14 +45,16 @@ function Kpi({
 function ChartCard({
   title,
   hint,
+  delay,
   children,
 }: {
   title: string
   hint: string
+  delay?: string
   children: React.ReactNode
 }) {
   return (
-    <Card className="mb-0 h-full">
+    <Card className="mb-0 h-full rise-in" style={delay ? { animationDelay: delay } : undefined}>
       <div className="type-section mb-0.5">{title}</div>
       <p className="text-muted text-[12.5px] mb-3">{hint}</p>
       {children}
@@ -204,7 +206,7 @@ export function AnalyticsPage() {
           )}
 
           {/* بطاقات KPI — إجمالي مدى الفترة المختار */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 rise-in" style={{ animationDelay: '0ms' }}>
             <Kpi value={formatMoney(data.totalCollected)} label={t('analytics.kpiCollectedRange', { range })} />
             <Kpi
               value={data.avgAttendance == null ? '—' : `${data.avgAttendance}%`}
@@ -220,13 +222,14 @@ export function AnalyticsPage() {
 
           {/* الرسوم: عمودان على الشاشات الواسعة (R-16) — الأنواع كما هي */}
           <div className="grid gap-3 lg:grid-cols-2">
-            <ChartCard title={t('analytics.chartCollectedTitle')} hint={t('analytics.chartCollectedHint')}>
+            <ChartCard title={t('analytics.chartCollectedTitle')} hint={t('analytics.chartCollectedHint')} delay="50ms">
               <CollectedChart months={data.months} />
             </ChartCard>
 
             <ChartCard
               title={t('analytics.chartAttendanceTitle')}
               hint={t('analytics.chartAttendanceHint')}
+              delay="90ms"
             >
               <AttendanceChart months={data.months} />
             </ChartCard>
@@ -234,6 +237,7 @@ export function AnalyticsPage() {
             <ChartCard
               title={t('analytics.chartOverdueTitle')}
               hint={t('analytics.chartOverdueHint')}
+              delay="140ms"
             >
               <OverdueChart months={data.months} />
             </ChartCard>
@@ -241,6 +245,7 @@ export function AnalyticsPage() {
             <ChartCard
               title={t('analytics.chartGrowthTitle')}
               hint={t('analytics.chartGrowthHint')}
+              delay="190ms"
             >
               <GrowthChart months={data.months} />
             </ChartCard>

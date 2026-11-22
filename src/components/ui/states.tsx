@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { AlertTriangle, GraduationCap, Lock, RotateCcw } from 'lucide-react'
+import { AlertTriangle, GraduationCap, Lock, LogIn, RotateCcw } from 'lucide-react'
 import { Card } from './Card'
 import { Button } from './Button'
 import { MascotLoader } from '../mascot/MascotLoader'
@@ -99,7 +99,10 @@ export function SignInRequired() {
         {t('common.signInFirstBody')}
       </p>
       <Link to="/login">
-        <Button>{t('common.signIn')}</Button>
+        <Button>
+          <LogIn size={18} />
+          {t('common.signIn')}
+        </Button>
       </Link>
     </Card>
   )

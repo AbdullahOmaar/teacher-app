@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { Card } from '../../components/ui/Card'
-import { AlertTriangle, Check, ChevronDown, ChevronUp, DatabaseBackup, Download, Lock, Upload } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronUp, Database, DatabaseBackup, Download, Lock, Upload } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, TextArea } from '../../components/ui/form'
 import { LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -119,7 +119,7 @@ export function BackupPage() {
   return (
     <div>
       {/* حالة النسخ الاحتياطي */}
-      <Card>
+      <Card className="rise-in">
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><DatabaseBackup size={22} className="text-primary" /> {t('settings.backupStatusTitle')}</h2>
         <p className="text-[13.5px] mt-0 mb-2">{lastExportLabel(lastExport)}</p>
         {backupDue ? (
@@ -134,7 +134,7 @@ export function BackupPage() {
       </Card>
 
       {/* عمل نسخة */}
-      <Card>
+      <Card className="rise-in" style={{ animationDelay: '50ms' }}>
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><Download size={22} className="text-primary" /> {t('settings.backupCreateTitle')}</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
           {t('settings.backupContentsIntro')}
@@ -180,12 +180,13 @@ export function BackupPage() {
           />
         )}
         <Button full onClick={handleDownload} disabled={download.isPending}>
+          <Database size={18} />
           {download.isPending ? t('settings.backupPreparing') : t('settings.backupCreateAction')}
         </Button>
       </Card>
 
       {/* الاستعادة / الاستيراد */}
-      <Card>
+      <Card className="rise-in" style={{ animationDelay: '90ms' }}>
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><Upload size={22} className="text-primary" /> {t('settings.backupRestoreTitle')}</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
           {t('settings.restoreIntroPre')} <b>{t('settings.restoreIntroBold')}</b>{t('settings.restoreIntroPost')}
@@ -289,6 +290,7 @@ export function BackupPage() {
               </div>
             ) : (
               <Button full onClick={() => setConfirming(true)}>
+                <Upload size={18} />
                 {t('settings.backupImportAction')}
               </Button>
             )}

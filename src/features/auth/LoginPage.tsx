@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useLocation } from 'react-router-dom'
-import { FlaskConical } from 'lucide-react'
+import { FlaskConical, LogIn, Send, UserPlus } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
@@ -218,7 +218,7 @@ export function LoginPage() {
         <Logo decorative size={430} className="opacity-[0.06]" />
       </div>
       <div className="relative w-full max-w-[640px] px-4 pt-14 pb-10">
-        <div className="text-center mb-6">
+        <div className="text-center mb-6 rise-in">
           <div className="flex justify-center mb-3">
             {mascotVisible ? (
               <img
@@ -247,7 +247,7 @@ export function LoginPage() {
         </div>
 
         {WHATSAPP_OTP_ENABLED && (
-          <div className="flex bg-soft rounded-xl p-1 mb-4" role="tablist" aria-label={t('auth.methodLabel')}>
+          <div className="flex bg-soft rounded-xl p-1 mb-4 rise-in" style={{ animationDelay: '50ms' }} role="tablist" aria-label={t('auth.methodLabel')}>
             <button
               type="button"
               role="tab"
@@ -274,7 +274,7 @@ export function LoginPage() {
         )}
 
         {method === 'email' && (
-        <div className="flex bg-soft rounded-xl p-1 mb-4" role="tablist" aria-label={t('auth.authTabsLabel')}>
+        <div className="flex bg-soft rounded-xl p-1 mb-4 rise-in" style={{ animationDelay: '50ms' }} role="tablist" aria-label={t('auth.authTabsLabel')}>
           <button
             type="button"
             role="tab"
@@ -300,7 +300,7 @@ export function LoginPage() {
         </div>
         )}
 
-        <Card>
+        <Card className="rise-in" style={{ animationDelay: '90ms' }}>
           {notice && (
             <p className="bg-soft text-primary text-[13.5px] rounded-xl px-3 py-2 mb-3 mt-0">{notice}</p>
           )}
@@ -337,6 +337,7 @@ export function LoginPage() {
                 />
               </Field>
               <Button full type="submit" disabled={busy || !configured}>
+                <LogIn size={18} />
                 {busy ? t('auth.signingIn') : t('auth.signInSubmit')}
               </Button>
               <button
@@ -373,6 +374,7 @@ export function LoginPage() {
                 />
               </Field>
               <Button full type="submit" disabled={busy || !configured}>
+                <Send size={18} />
                 {busy ? t('auth.sending') : t('auth.sendResetLink')}
               </Button>
               <button
@@ -438,6 +440,7 @@ export function LoginPage() {
                 />
               </Field>
               <Button full type="submit" disabled={busy || !configured}>
+                <UserPlus size={18} />
                 {busy ? t('auth.creatingAccount') : t('auth.createAccount')}
               </Button>
               <p className="text-muted text-[12px] mt-3 mb-0 text-center">

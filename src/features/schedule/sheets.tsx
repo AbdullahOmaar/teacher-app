@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { t } from '../../i18n'
 import { Link } from 'react-router-dom'
 import { Sheet } from '../../components/ui/Sheet'
-import { AlertTriangle, CalendarCheck2, MoveHorizontal, NotebookPen, Undo2 } from 'lucide-react'
+import { AlertTriangle, CalendarCheck2, Check, MoveHorizontal, NotebookPen, Plus, Save, Undo2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, Select, TextInput } from '../../components/ui/form'
 import { formatTime12, shortTime } from '../../lib/format'
@@ -174,6 +174,7 @@ export function SessionDetailSheet({
             </p>
             <div className="flex gap-2">
               <Button full onClick={doMove} disabled={busy}>
+                <Check size={18} />
                 {moveMut.isPending ? t('schedule.moving') : t('schedule.moveConfirm')}
               </Button>
               <Button variant="ghost" onClick={() => setShowMove(false)}>
@@ -267,6 +268,7 @@ export function ExtraSessionSheet({
         groups.length > 0 ? (
           <div className="flex gap-2">
             <Button full onClick={save} disabled={createMut.isPending}>
+              <Plus size={18} />
               {createMut.isPending ? t('schedule.saving') : t('schedule.extraAddBtn')}
             </Button>
             <Button variant="ghost" onClick={onClose}>
@@ -380,6 +382,7 @@ export function HolidaySheet({ teacherId, onClose, onDone }: HolidaySheetProps) 
       footer={
         <div className="flex gap-2">
           <Button full onClick={save} disabled={addMut.isPending}>
+            <Save size={18} />
             {addMut.isPending ? t('schedule.saving') : t('schedule.holidaySaveBtn')}
           </Button>
           <Button variant="ghost" onClick={onClose}>
