@@ -228,6 +228,11 @@
   50% { transform: translateY(-3.5px); }
 }
 .mascot-bob { animation: mascot-bob-kf 2.8s ease-in-out infinite; }
+@keyframes mascot-type-kf {
+  0% { transform: rotate(-1.3deg) translateY(0); }
+  100% { transform: rotate(1.3deg) translateY(-1.5px); }
+}
+.mascot-type { transform-origin: 50% 100%; animation: mascot-type-kf 0.9s ease-in-out infinite alternate; }
 
 /*
  * حركات دخول التنقّل والمحتوى (3A-312 — بند ٤): انتقال صفحة خفيف عند
@@ -325,10 +330,14 @@ body {
  * تدرّج تلاشٍ عند حافة التمرير لصفوف الرقائق: في اتجاه RTL المحتوى
  * المخفي يمتد نحو اليسار، فالتلاشي على الحافة اليسرى يدلّ أن هناك
  * المزيد يُمرَّر إليه — بدل رقاقة مقصوصة بلا أي إشارة.
+ * خفّفه 3A-325 (ملاحظات المالك ٥): الشفافية الكاملة على مدى 30px كانت
+ * تظهر كرقعة بيضاء أقوى من اللازم عند حافة الفلاتر، فصارت عتامة جزئية
+ * عند الحافة (0.38) على مدى أقصر (20px) تندمج مع الخلفية — مع بقاء
+ * وظيفة الإشارة أن هناك محتوى يُمرَّر إليه.
  */
 .chip-row-fade {
-  -webkit-mask-image: linear-gradient(to left, transparent 0, black 30px);
-  mask-image: linear-gradient(to left, transparent 0, black 30px);
+  -webkit-mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.38) 0, black 20px);
+  mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.38) 0, black 20px);
 }
 
 body {

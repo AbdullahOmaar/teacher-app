@@ -66,7 +66,10 @@ export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   )
 }
 
-/** رقاقة فلترة/اختيار — هدف لمس 48px ونص 13.5px (لا تفاعلي تحت 13.5px) */
+/** رقاقة فلترة/اختيار — نص 13.5px (لا تفاعلي تحت 13.5px).
+    هدف لمسها 40px بعد 3A-325 (ملاحظات المالك ٥): شيبات فلاتر ثانوية
+    صغُرت من 48px/px-4 إلى 40px/px-3 — و40px هو نفس مقاس «لمس سليم»
+    المعتمد سابقاً لزر sm في 3A-317 */
 export function Chip({
   active,
   onClick,
@@ -80,7 +83,7 @@ export function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`px-4 min-h-[48px] rounded-full border text-[13.5px] font-semibold cursor-pointer whitespace-nowrap inline-flex items-center justify-center gap-1.5 ${
+      className={`px-3 min-h-[40px] rounded-full border text-[13.5px] font-semibold cursor-pointer whitespace-nowrap inline-flex items-center justify-center gap-1.5 ${
         active
           ? 'bg-primary text-on-primary border-primary'
           : 'bg-card text-muted border-border-interactive hover:bg-soft'

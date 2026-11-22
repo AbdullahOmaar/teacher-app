@@ -12,11 +12,14 @@ const variants: Record<Variant, string> = {
   soft: 'bg-soft text-primary hover:opacity-90',
 }
 
-// سلم أحجام موحّد (3A-317 — تدقيق الأزرار): md هو الأساس (هدف لمس 48px)،
-// وsm للأزرار الثانوية داخل البطاقات (40px — لمس سليم وأخف بصرياً)
+// سلم أحجام موحّد (3A-317 — تدقيق الأزرار؛ عدّله 3A-325 — ملاحظات المالك ٥):
+// المفاضلة: الأساسي md محفوظ عند أرضية لمس 48px وتصغيره البصري من الحشوة
+// فقط (px-3.5 بدل px-4، والخط يبقى 15px)، والثانوي sm صغُر إلى 36px/px-2.5
+// (أزرار داخل البطاقات — فوق حد WCAG 2.2 AA ‏(24px) بهامش مريح،
+// وخطه يبقى 13.5px أرضية النص التفاعلي)
 const sizes: Record<Size, string> = {
-  md: 'px-4 min-h-[48px] text-[15px] rounded-xl',
-  sm: 'px-3 min-h-[40px] text-[13.5px] rounded-[10px]',
+  md: 'px-3.5 min-h-[48px] text-[15px] rounded-xl',
+  sm: 'px-2.5 min-h-[36px] text-[13.5px] rounded-[10px]',
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
