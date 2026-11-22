@@ -14,7 +14,7 @@ import {
   type RosterStudent,
 } from '../attendance/api'
 import { fmtScore, pctOf, scoreWaUrl } from '../grades/api'
-import { MONTH_NAMES } from '../schedule/api'
+import { periodLabel } from '../schedule/api'
 
 // ---------------------------------------------------------------------------
 // مصدر الاشتقاق الواحد للتنبيهات — الخطوة 8 (المواصفات §3.13 + §5.7،
@@ -150,12 +150,6 @@ export function prepaidZone(left: number, prepaid: number): 'urgent' | 'follow' 
 
 /** نص «تذكير عام» (§3.13: نص تذكير مهذب جاهز للنسخ — المرجع لا يقتبسه حرفياً) */
 export const GENERIC_REMINDER_TEXT = t('notifications.alert.genericReminder')
-
-/** '2026-11-01' → 'نوفمبر 2026' — نفس periodLabel في وحدة الفواتير */
-function periodLabel(periodMonth: string): string {
-  const [y, m] = periodMonth.split('-').map(Number)
-  return `${MONTH_NAMES[(m ?? 1) - 1] ?? ''} ${y ?? ''}`.trim()
-}
 
 type ContactStudent = Pick<
   RosterStudent,

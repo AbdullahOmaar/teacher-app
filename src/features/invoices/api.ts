@@ -11,7 +11,7 @@ import type {
   StudentRow,
 } from '../../types/database'
 import { monthEndStr, monthStartStr, todayStr } from '../home/api'
-import { MONTH_NAMES, ensureSessionsGenerated } from '../schedule/api'
+import { ensureSessionsGenerated, periodLabel } from '../schedule/api'
 import { isAttended, saveAttendance } from '../attendance/api'
 import { fetchGroups } from '../groups/api'
 import { logActivity } from '../activity/api'
@@ -43,11 +43,8 @@ export function periodYm(periodMonth: string): string {
   return periodMonth.slice(0, 7)
 }
 
-/** '2026-11-01' → 'نوفمبر 2026' */
-export function periodLabel(periodMonth: string): string {
-  const [y, m] = periodMonth.split('-').map(Number)
-  return `${MONTH_NAMES[(m ?? 1) - 1] ?? ''} ${y ?? ''}`.trim()
-}
+/** '2026-11-01' → 'نوفمبر 2026' — التعريف الموحّد في وحدة الجدول (3A-314) */
+export { periodLabel }
 
 /** حالة سداد مشتقة من أرقام view ‏invoice_balances (المرجع §5.2) */
 export type InvoicePayState = 'paid' | 'partial' | 'due'

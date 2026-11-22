@@ -28,6 +28,13 @@ export const MONTH_NAMES = [
   t('format.monthOctober'), t('format.monthNovember'), t('format.monthDecember'),
 ]
 
+/** '2026-11-01' → 'نوفمبر 2026' — تسمية الفترة الشهرية الموحّدة لكل الوحدات
+ * (كانت مكرّرة حرفياً في invoices وnotifications — وحّدتها المراجعة الشاملة 3A-314) */
+export function periodLabel(periodMonth: string): string {
+  const [y, m] = periodMonth.split('-').map(Number)
+  return `${MONTH_NAMES[(m ?? 1) - 1] ?? ''} ${y ?? ''}`.trim()
+}
+
 export function parseDate(dateStr: string): Date {
   return new Date(`${dateStr}T00:00:00`)
 }

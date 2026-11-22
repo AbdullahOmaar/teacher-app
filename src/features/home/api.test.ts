@@ -89,4 +89,11 @@ describe('kpiDelta — دلتا المؤشر (W5 — R-13)', () => {
     expect(kpiDelta(30, 0)).toEqual({ abs: 30, pct: null, direction: 'up' })
     expect(kpiDelta(0, 0)).toEqual({ abs: 0, pct: null, direction: 'flat' })
   })
+  it('نسب عشرية: الفرق يُقرَّب لمنزلة واحدة بلا بقايا فاصلة عائمة (3A-314)', () => {
+    // 87.5 − 84.2 في الفاصلة العائمة = 3.299999999999997 — ظهرت خاماً في
+    // دلتا حضور الرئيسية قبل الإصلاح؛ المتوقع الآن 3.3 نظيفة.
+    expect(kpiDelta(87.5, 84.2)).toEqual({ abs: 3.3, pct: 4, direction: 'up' })
+    expect(kpiDelta(84.2, 87.5)).toEqual({ abs: -3.3, pct: -4, direction: 'down' })
+    expect(kpiDelta(84.2, 84.2)).toEqual({ abs: 0, pct: 0, direction: 'flat' })
+  })
 })

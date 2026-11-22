@@ -223,9 +223,14 @@ export interface KpiDelta {
   direction: 'up' | 'down' | 'flat'
 }
 
-/** دلتا نقية: القيمة الحالية مقابل نافذة المقارنة (R-13) */
+/** دلتا نقية: القيمة الحالية مقابل نافذة المقارنة (R-13).
+ * الفرق يُقرَّب لمنزلة عشرية واحدة: كل وحدات المؤشرات أعداد صحيحة أو نسب
+ * بمنزلة واحدة (attendanceRatePct)، والطرح الخام كان يُظهر بقايا فاصلة
+ * عائمة في الواجهة (87.5 − 84.2 = 3.299999999999997 — إصلاح المراجعة
+ * الشاملة 3A-314 بعد رصده حياً في دلتا حضور الرئيسية). */
 export function kpiDelta(current: number, previous: number): KpiDelta {
-  const abs = current - previous
+  const rounded = Math.round((current - previous) * 10) / 10
+  const abs = rounded === 0 ? 0 : rounded
   return {
     abs,
     pct: previous !== 0 ? Math.round((abs / Math.abs(previous)) * 100) : null,
