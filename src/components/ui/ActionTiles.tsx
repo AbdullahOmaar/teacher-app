@@ -18,6 +18,10 @@ const tileBase =
  * (أيقونة فوق تسمية، ارتفاع ثابت 68px) بدل صفوف أزرار بعرض المحتوى
  * تلتفّ على أسطر غير متناسقة. تُستخدم حيث تتعدد إجراءات الترويسة
  * (٤–٦ إجراءات)؛ للإجراءين/الثلاثة القصيرة يبقى نمط الصف المدمج.
+ * التسمية تلتفّ متوازنةً (text-balance — 3A-331 عائلة ج): وسمان من
+ * سطرين (مثل «رابط بوابة الطالب» عند 360px) يتوزّعان على سطرين
+ * متقاربين بدل سطر ممتلئ وآخر يتيم، والارتفاع ثابت أصلاً فلا تتمدد
+ * خلية عن شقيقاتها.
  */
 export function ActionTiles({
   cols = 3,
@@ -65,7 +69,7 @@ export function ActionTile({
   const inner = (
     <>
       <Icon size={20} className="shrink-0" />
-      <span className="line-clamp-2">{label}</span>
+      <span className="line-clamp-2 text-balance">{label}</span>
     </>
   )
   if (to) {

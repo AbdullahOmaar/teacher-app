@@ -346,7 +346,7 @@ export function HomePage() {
           <div className="flex items-center gap-3">
             <Mascot state="welcome" size={58} />
             <div className="flex-1 min-w-0">
-              <div className="font-bold text-[15.5px]">{welcomeGreeting}</div>
+              <div className="font-bold text-[15.5px] text-balance">{welcomeGreeting}</div>
               <div className="text-muted text-[13px] mt-0.5">
                 <span className="font-semibold text-text">{welcomeName}</span>
                 {' — '}

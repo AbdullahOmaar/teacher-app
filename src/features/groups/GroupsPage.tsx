@@ -122,7 +122,14 @@ export function GroupsPage() {
                 <div className="text-muted text-[13.5px] mt-0.5">
                   {BILLING_LABELS[g.billing_type]} · {formatMoney(g.price)} · {daysLabel(g.days)} ·{' '}
                   {formatTime12(g.start_time)} {t('groups.listDuration', { minutes: g.duration_minutes })}
-                  {g.room ? ` · ${g.room}` : ''}
+                  {g.room ? (
+                    <>
+                      {' · '}
+                      <span className="whitespace-nowrap">{g.room}</span>
+                    </>
+                  ) : (
+                    ''
+                  )}
                 </div>
                 {g.capacity != null && pct != null ? (
                   <div className="mt-2">

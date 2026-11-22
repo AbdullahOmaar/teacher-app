@@ -455,9 +455,9 @@ export function AssessmentDetailPage() {
                           href={wa}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-primary text-[13.5px] font-semibold no-underline inline-flex items-center gap-1 min-h-[48px]"
+                          className="text-primary text-[13.5px] font-semibold no-underline inline-flex items-center gap-1 min-h-[48px] whitespace-nowrap"
                         >
-                          <MessageCircle size={18} />
+                          <MessageCircle size={18} className="shrink-0" />
                           {t('grades.detailSendScore')}
                         </a>
                       ) : effScore != null ? (

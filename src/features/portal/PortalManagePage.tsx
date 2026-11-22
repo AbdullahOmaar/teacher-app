@@ -110,7 +110,8 @@ export function PortalManagePage() {
                     {s.grade ? t('portal.manageGradePart', { grade: s.grade }) : ''}
                     {s.guardian_phone ? (
                       <>
-                        {t('portal.manageGuardianPart')} <span dir="ltr">{s.guardian_phone}</span>
+                        <span className="whitespace-nowrap">{t('portal.manageGuardianPart')}</span>{' '}
+                        <span dir="ltr">{s.guardian_phone}</span>
                       </>
                     ) : (
                       t('portal.manageNoGuardian')

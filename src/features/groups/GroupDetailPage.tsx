@@ -229,9 +229,9 @@ export function GroupDetailPage() {
             })}
           </div>
         )}
-        <div className="flex flex-wrap gap-2 mt-3">
-          <Link to={`/students?group=${group.id}`} className="no-underline flex-1 min-w-[150px]">
-            <Button variant="soft" full>
+        <div className="flex flex-wrap items-stretch gap-2 mt-3">
+          <Link to={`/students?group=${group.id}`} className="no-underline flex flex-1 min-w-[150px]">
+            <Button variant="soft" full className="h-full">
               {t('groups.viewInStudents')}
             </Button>
           </Link>
