@@ -2,8 +2,8 @@
   "tool": "visual-baseline 3A-326",
   "builtAt": "2026-11-22T05:24:26.791029+00:00",
   "builtAtNote": "أُعيد بناؤه 2026-11-22 بمحرك الاستقرار النهائي (انتظار كل أوجه الخطوط + ثبات هندسي SVG) بعد قياس ضجيج ذاتي — المحتوى البصري نفسه (إنتاج 071390e) والسويب المراجَع محفوظ في مجلد أدلة الهدف",
-  "prodCommit": "071390e",
-  "prodEntry": "index-XN686zX8.js",
+  "prodCommit": "dc827b0",
+  "prodEntry": "index-DpRjqpIZ.js",
   "prodSwShell": "teacher-app-shell-v2",
   "prodBase": "https://teacher-app-prod.vercel.app",
   "frozenNowUtc": "2026-11-21T22:00:00.000Z",
@@ -13,5 +13,46 @@
     "390": 31,
     "360": 31
   },
-  "totalScreens": 62
+  "totalScreens": 62,
+  "lastUpdatedAt": "2026-11-22T08:14:34Z",
+  "updates": [
+    {
+      "at": "2026-11-22T08:14:34Z",
+      "issue": "3A-345 (متابعة 3A-331)",
+      "reason": "تحديث جزئي موثّق: أساس الشاشات الـ17 المُصلحة في دفعة 3A-331 (إنتاج dc827b0، بصمة index-DpRjqpIZ.js) — التنفيذ الأصلي حُظر بعلم فحص مخاطر على الشجرة (فرّغ نسخٌ فاشل 34 ملفًا ثم استُردّت من HEAD) واكتمل في 3A-345 بعد رفع العلم والتحقق بمجسّي كتابة وإقلاع Chrome",
+      "screensUpdated": [
+        "grades",
+        "notifications",
+        "money",
+        "homework",
+        "settings",
+        "student-detail",
+        "students",
+        "invoices",
+        "portal-parent",
+        "portal-student",
+        "assessment-detail",
+        "group-detail",
+        "groups",
+        "portal-links",
+        "home",
+        "notfound-public",
+        "attendance"
+      ],
+      "widths": [
+        390,
+        360
+      ],
+      "filesReplaced": 34,
+      "filesDifferingFromPreviousBaseline": 32,
+      "identicalFilesNote": "attendance عند العرضين متطابقة بايتيًا مع الأساس السابق (فرق 0.000% في مقارنة الإنتاج أيضًا) — بقيت كما هي فعليًا",
+      "sourceCaptures": "e2e/visual/.tmp-capture-gt4GDM (مجموعة التقاط حتمية كاملة 62 لقطة للبناء المحلي المطابق بايتيًا للإنتاج dc827b0 — بصمة الإنتاج متحققة حية وقت الاعتماد: index-DpRjqpIZ.js)",
+      "previousAnchor": {
+        "prodCommit": "071390e",
+        "prodEntry": "index-XN686zX8.js",
+        "note": "الشاشات الـ28 غير المُصلحة تحتفظ بلقطات هذا البناء — رندرها متطابق في البنائين بدليل مقارنة الإنتاج"
+      },
+      "verification": "إعادة مقارنة إنتاج كاملة قبل التحديث (62/62 التقاطًا ناجحًا): 18 فرقًا فوق السماحية = 17 داخل نطاق الشاشات المُصلحة + analytics@390 (3.615%) قُضي فيه سباق توقيت رسوم بيانية بدليل صورة الفرق (البكسلات المختلفة في مناطق الرسوم فقط و@360 نظيف 0.000%) — التقرير: e2e/visual/reports/3a345-pre-update. وتشغيلة نظيفة أخيرة بعد التحديث موثقة في تعليق إغلاق 3A-345"
+    }
+  ]
 }
