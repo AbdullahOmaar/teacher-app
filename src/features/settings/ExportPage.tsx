@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
-import { Banknote, Calculator, CalendarCheck2, DatabaseBackup, FileDown, FileSpreadsheet, FileUp, Lock, NotebookPen, ReceiptText, Upload, Users, type LucideIcon } from 'lucide-react'
+import { OwnerOnlyCard } from '../../components/OwnerOnlyCard'
+import { Banknote, Calculator, CalendarCheck2, DatabaseBackup, FileDown, FileSpreadsheet, FileUp, NotebookPen, ReceiptText, Upload, Users, type LucideIcon } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, TextArea } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -58,17 +59,7 @@ export function ExportPage() {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
 
   if (!isOwner) {
-    return (
-      <Card className="text-center py-10">
-        <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
-          <Lock size={28} />
-        </div>
-        <div className="type-section mb-1">{t('settings.exportOwnerOnlyTitle')}</div>
-        <p className="text-muted text-[13.5px] mb-0">
-          {t('settings.exportOwnerOnlyBody')}
-        </p>
-      </Card>
-    )
+    return <OwnerOnlyCard title={t('settings.exportOwnerOnlyTitle')} body={t('settings.exportOwnerOnlyBody')} />
   }
 
   const handleExport = (kind: CsvKind, label: string) => {

@@ -4,7 +4,7 @@ import { Sheet } from '../../components/ui/Sheet'
 import { useToast } from '../../components/ui/toast'
 import { Check, Copy, GraduationCap, Link2, MessageCircle, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
-import type { StudentAccessTokenRow, StudentRow } from '../../types/database'
+import type { StudentRow } from '../../types/database'
 import {
   STUDENT_PORTAL_TOKEN_TTL_DAYS,
   studentPortalLinkWaUrl,
@@ -16,6 +16,7 @@ import {
   useStudentPortalTokens,
 } from './hooks'
 import { t } from '../../i18n'
+import { TokenRow } from '../portal/TokenRow'
 
 interface StudentPortalLinkSheetProps {
   teacherId: string
@@ -27,52 +28,6 @@ const STATUS_META: Record<ReturnType<typeof studentTokenStatus>, { label: string
   active: { label: t('studentPortal.linkStatusActive'), cls: 'bg-ok/10 text-ok-text border-ok/30' },
   expired: { label: t('studentPortal.linkStatusExpired'), cls: 'bg-warn/15 text-warn-text border-warn/40' },
   revoked: { label: t('studentPortal.linkStatusRevoked'), cls: 'bg-bad/10 text-bad-text border-bad/30' },
-}
-
-function TokenRow({
-  token,
-  onRevoke,
-  revoking,
-}: {
-  token: StudentAccessTokenRow
-  onRevoke: () => void
-  revoking: boolean
-}) {
-  const status = studentTokenStatus(token)
-  const meta = STATUS_META[status]
-  return (
-    <div className="border border-border rounded-xl p-3 mb-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className={`text-[12px] font-bold border rounded-full px-2.5 py-0.5 ${meta.cls}`}>
-          {meta.label}
-        </span>
-        {status === 'active' && (
-          <button
-            type="button"
-            disabled={revoking}
-            onClick={() => {
-              if (window.confirm(t('studentPortal.linkRevokeConfirm')))
-                onRevoke()
-            }}
-            className="text-bad-text text-[13.5px] font-semibold bg-transparent border-0 cursor-pointer disabled:opacity-50"
-          >
-            {t('studentPortal.linkRevokeAction')}
-          </button>
-        )}
-      </div>
-      <div className="text-muted text-[13.5px] mt-1.5 leading-relaxed">
-        {t('studentPortal.linkCreatedLine', { created: formatDateTimeAr(token.created_at), expires: formatDateTimeAr(token.expires_at) })}
-        <br />
-        {t('studentPortal.linkLastUsedLine', { lastUsed: token.last_used_at ? formatDateTimeAr(token.last_used_at) : t('studentPortal.linkNeverUsed') })}
-        {token.revoked_at ? (
-          <>
-            <br />
-            {t('studentPortal.linkRevokedLine', { date: formatDateTimeAr(token.revoked_at) })}
-          </>
-        ) : null}
-      </div>
-    </div>
-  )
 }
 
 /**
@@ -196,18 +151,30 @@ export function StudentPortalLinkSheet({
       ) : tokens.length === 0 ? (
         <div className="text-muted text-[13.5px]">{t('studentPortal.linkEmpty')}</div>
       ) : (
-        tokens.map((tok) => (
-          <TokenRow
-            key={tok.id}
-            token={tok}
-            revoking={revokeToken.isPending}
-            onRevoke={() =>
-              revokeToken.mutate(tok.id, {
-                onError: () => toast(t('studentPortal.linkRevokeErrorToast'), 'error'),
-              })
-            }
-          />
-        ))
+        tokens.map((tok) => {
+          const meta = STATUS_META[studentTokenStatus(tok)]
+          return (
+            <TokenRow
+              key={tok.id}
+              token={tok}
+              revoking={revokeToken.isPending}
+              texts={{
+                statusLabel: meta.label,
+                statusCls: meta.cls,
+                createdLine: t('studentPortal.linkCreatedLine', { created: formatDateTimeAr(tok.created_at), expires: formatDateTimeAr(tok.expires_at) }),
+                lastUsedLine: t('studentPortal.linkLastUsedLine', { lastUsed: tok.last_used_at ? formatDateTimeAr(tok.last_used_at) : t('studentPortal.linkNeverUsed') }),
+                revokedLine: (date) => t('studentPortal.linkRevokedLine', { date }),
+                revokeConfirm: t('studentPortal.linkRevokeConfirm'),
+                revokeAction: t('studentPortal.linkRevokeAction'),
+              }}
+              onRevoke={() =>
+                revokeToken.mutate(tok.id, {
+                  onError: () => toast(t('studentPortal.linkRevokeErrorToast'), 'error'),
+                })
+              }
+            />
+          )
+        })
       )}
     </Sheet>
   )

@@ -5,7 +5,7 @@ import { Sheet } from '../../components/ui/Sheet'
 import { useToast } from '../../components/ui/toast'
 import { AlertTriangle, Check, Copy, Link2, MessageCircle, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
-import type { GuardianAccessTokenRow, StudentRow } from '../../types/database'
+import type { StudentRow } from '../../types/database'
 import {
   PORTAL_TOKEN_TTL_DAYS,
   effectiveGuardianFromStudent,
@@ -13,6 +13,7 @@ import {
   tokenStatus,
 } from './api'
 import { useCreatePortalLink, useRevokePortalToken, useStudentPortalTokens } from './hooks'
+import { TokenRow } from './TokenRow'
 
 interface PortalLinkSheetProps {
   teacherId: string
@@ -24,52 +25,6 @@ const STATUS_META: Record<ReturnType<typeof tokenStatus>, { label: string; cls: 
   active: { label: t('portal.sheetStatusActive'), cls: 'bg-ok/10 text-ok-text border-ok/30' },
   expired: { label: t('portal.sheetStatusExpired'), cls: 'bg-warn/15 text-warn-text border-warn/40' },
   revoked: { label: t('portal.sheetStatusRevoked'), cls: 'bg-bad/10 text-bad-text border-bad/30' },
-}
-
-function TokenRow({
-  token,
-  onRevoke,
-  revoking,
-}: {
-  token: GuardianAccessTokenRow
-  onRevoke: () => void
-  revoking: boolean
-}) {
-  const status = tokenStatus(token)
-  const meta = STATUS_META[status]
-  return (
-    <div className="border border-border rounded-xl p-3 mb-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className={`text-[12px] font-bold border rounded-full px-2.5 py-0.5 ${meta.cls}`}>
-          {meta.label}
-        </span>
-        {status === 'active' && (
-          <button
-            type="button"
-            disabled={revoking}
-            onClick={() => {
-              if (window.confirm(t('portal.sheetRevokeConfirm')))
-                onRevoke()
-            }}
-            className="text-bad-text text-[13.5px] font-semibold bg-transparent border-0 cursor-pointer disabled:opacity-50"
-          >
-            {t('portal.sheetRevokeAction')}
-          </button>
-        )}
-      </div>
-      <div className="text-muted text-[13.5px] mt-1.5 leading-relaxed">
-        {t('portal.sheetCreatedLine', { created: formatDateTimeAr(token.created_at), expires: formatDateTimeAr(token.expires_at) })}
-        <br />
-        {t('portal.sheetLastUsed', { value: token.last_used_at ? formatDateTimeAr(token.last_used_at) : t('portal.sheetNeverOpened') })}
-        {token.revoked_at ? (
-          <>
-            <br />
-            {t('portal.sheetRevokedLine', { date: formatDateTimeAr(token.revoked_at) })}
-          </>
-        ) : null}
-      </div>
-    </div>
-  )
 }
 
 /**
@@ -188,18 +143,30 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
       ) : tokens.length === 0 ? (
         <div className="text-muted text-[13.5px]">{t('portal.sheetNoTokens')}</div>
       ) : (
-        tokens.map((tok) => (
-          <TokenRow
-            key={tok.id}
-            token={tok}
-            revoking={revokeToken.isPending}
-            onRevoke={() =>
-              revokeToken.mutate(tok.id, {
-                onError: () => toast(t('portal.sheetRevokeErrorToast'), 'error'),
-              })
-            }
-          />
-        ))
+        tokens.map((tok) => {
+          const meta = STATUS_META[tokenStatus(tok)]
+          return (
+            <TokenRow
+              key={tok.id}
+              token={tok}
+              revoking={revokeToken.isPending}
+              texts={{
+                statusLabel: meta.label,
+                statusCls: meta.cls,
+                createdLine: t('portal.sheetCreatedLine', { created: formatDateTimeAr(tok.created_at), expires: formatDateTimeAr(tok.expires_at) }),
+                lastUsedLine: t('portal.sheetLastUsed', { value: tok.last_used_at ? formatDateTimeAr(tok.last_used_at) : t('portal.sheetNeverOpened') }),
+                revokedLine: (date) => t('portal.sheetRevokedLine', { date }),
+                revokeConfirm: t('portal.sheetRevokeConfirm'),
+                revokeAction: t('portal.sheetRevokeAction'),
+              }}
+              onRevoke={() =>
+                revokeToken.mutate(tok.id, {
+                  onError: () => toast(t('portal.sheetRevokeErrorToast'), 'error'),
+                })
+              }
+            />
+          )
+        })
       )}
     </Sheet>
   )

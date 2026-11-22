@@ -13,7 +13,6 @@ import {
   NotebookPen,
   NotebookText,
   Send,
-  Users,
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
@@ -38,7 +37,7 @@ import {
 } from './api'
 import { PortalPushToggle, type PortalPushAdapter } from '../../components/PortalPushToggle'
 import { Mascot } from '../../components/mascot/Mascot'
-import { darken } from '../../lib/brand'
+import { PublicPageShell } from '../../components/PublicPageShell'
 import { t } from '../../i18n'
 import {
   useMarkPortalNotificationsRead,
@@ -70,53 +69,27 @@ function PortalShell({
   /** الهوية البيضاء (0008) — تُمرَّر بعد تحميل العرض فقط؛ غيابها = الشكل الافتراضي */
   brand?: PortalBrand | null
 }) {
-  // لون اللهجة يلوّن عناصر الأساسي في البوابة كلها عبر متغيرات الثيم —
-  // بلا لهجة تبقى نيلي الثقة كما هي.
-  const accentVars = brand?.accent
-    ? ({
-        '--primary': brand.accent,
-        '--primary-d': darken(brand.accent, 0.15),
-      } as React.CSSProperties)
-    : undefined
+  // (COD-5: الصدفة نفسها مشتركة في PublicPageShell — الفروق المحفوظة
+  // هنا: عنوان السقوط وsubtitle البوابة ودُفّي ضيفاً في الرأس.)
   return (
-    <div className="min-h-screen bg-bg text-text" style={accentVars}>
-      <header className="sticky top-0 z-20 h-[52px] bg-card border-b border-border">
-        <div className="mx-auto max-w-[640px] h-full px-4 flex items-center gap-2">
-          {brand?.logo_url ? (
-            <img
-              src={brand.logo_url}
-              alt={brand.name ?? t('portal.pageLogoAlt')}
-              className="w-9 h-9 rounded-full object-contain bg-soft p-0.5 shrink-0"
-            />
-          ) : (
-            <span className="w-9 h-9 rounded-full bg-soft text-primary flex items-center justify-center">
-              <Users size={20} />
-            </span>
-          )}
-          <div className="min-w-0">
-            <div className="type-section leading-[1.4] truncate">
-              {brand?.name ?? t('portal.pageShellFallbackTitle')}
-            </div>
-            {brand?.name && (
-              <div className="text-muted text-[12px] leading-[1.4]">{t('portal.pageShellSubtitle')}</div>
-            )}
-          </div>
-          {/* دُفّي ضيف صغير بجانب الترويسة (خطة الهوية P-10): يظهر فقط
-              بعد تحميل العرض (brand موجود) وبمفتاح مدرس السنتر القادم
-              في الحمولة نفسها (visibleOverride) — هوية السنتر أولاً
-              دائماً ودُفّي لا ينافسها أبداً */}
-          {brand && (
-            <Mascot
-              state="welcome"
-              size={30}
-              visibleOverride={brand.show_mascot}
-              className="ms-auto shrink-0"
-            />
-          )}
-        </div>
-      </header>
-      <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-10">{children}</main>
-    </div>
+    <PublicPageShell
+      brand={brand}
+      logoAlt={t('portal.pageLogoAlt')}
+      fallbackTitle={t('portal.pageShellFallbackTitle')}
+      subtitle={brand?.name ? t('portal.pageShellSubtitle') : null}
+      headerExtra={
+        brand ? (
+          <Mascot
+            state="welcome"
+            size={30}
+            visibleOverride={brand.show_mascot}
+            className="ms-auto shrink-0"
+          />
+        ) : undefined
+      }
+    >
+      {children}
+    </PublicPageShell>
   )
 }
 

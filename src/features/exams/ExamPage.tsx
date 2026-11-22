@@ -9,14 +9,13 @@ import {
   Send,
   Timer,
   Trophy,
-  Users,
   XCircle,
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, TextInput } from '../../components/ui/form'
 import { SkeletonCards } from '../../components/ui/states'
-import { darken } from '../../lib/brand'
+import { PublicPageShell } from '../../components/PublicPageShell'
 import { t } from '../../i18n'
 import { fmtScore } from '../grades/api'
 import {
@@ -51,37 +50,18 @@ function ExamShell({
   brand?: ExamBrand | null
   title?: string
 }) {
-  const accentVars = brand?.accent
-    ? ({
-        '--primary': brand.accent,
-        '--primary-d': darken(brand.accent, 0.15),
-      } as React.CSSProperties)
-    : undefined
+  // (COD-5: الصدفة نفسها مشتركة في PublicPageShell — الفروق المحفوظة
+  // هنا: العنوان الفرعي هو عنوان الامتحان نفسه (يُقصّ truncate) وبلا دُفّي.)
   return (
-    <div className="min-h-screen bg-bg text-text" style={accentVars}>
-      <header className="sticky top-0 z-20 h-[52px] bg-card border-b border-border">
-        <div className="mx-auto max-w-[640px] h-full px-4 flex items-center gap-2">
-          {brand?.logo_url ? (
-            <img
-              src={brand.logo_url}
-              alt={brand.name ?? t('exams.pageLogoAlt')}
-              className="w-9 h-9 rounded-full object-contain bg-soft p-0.5 shrink-0"
-            />
-          ) : (
-            <span className="w-9 h-9 rounded-full bg-soft text-primary flex items-center justify-center">
-              <Users size={20} />
-            </span>
-          )}
-          <div className="min-w-0">
-            <div className="type-section leading-[1.4] truncate">
-              {brand?.name ?? t('exams.pageShellFallbackTitle')}
-            </div>
-            {title && <div className="text-muted text-[12px] leading-[1.4] truncate">{title}</div>}
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-10">{children}</main>
-    </div>
+    <PublicPageShell
+      brand={brand}
+      logoAlt={t('exams.pageLogoAlt')}
+      fallbackTitle={t('exams.pageShellFallbackTitle')}
+      subtitle={title ?? null}
+      subtitleTruncate
+    >
+      {children}
+    </PublicPageShell>
   )
 }
 

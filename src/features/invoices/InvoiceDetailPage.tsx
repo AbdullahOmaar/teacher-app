@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
+import { OwnerOnlyCard } from '../../components/OwnerOnlyCard'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
-import { Banknote, CalendarCog, Lock, ReceiptText, Undo2, UserRound } from 'lucide-react'
+import { Banknote, CalendarCog, ReceiptText, Undo2, UserRound } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
@@ -55,17 +56,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
 
   if (!isOwner) {
-    return (
-      <Card className="text-center py-10">
-        <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
-          <Lock size={28} />
-        </div>
-        <div className="type-section mb-1">{t('invoices.ownerOnlyTitle')}</div>
-        <p className="text-muted text-[13.5px] mb-0">
-          {t('invoices.detailOwnerOnlyBody')}
-        </p>
-      </Card>
-    )
+    return <OwnerOnlyCard title={t('invoices.ownerOnlyTitle')} body={t('invoices.detailOwnerOnlyBody')} />
   }
 
   if (invoiceQ.isPending || linesQ.isPending || paymentsQ.isPending)

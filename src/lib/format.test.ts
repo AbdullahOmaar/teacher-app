@@ -3,6 +3,7 @@ import {
   attendanceRatePct,
   daysLabel,
   formatClock12,
+  formatDateTimeAr,
   formatMoney,
   formatTime12,
   safeExternalUrl,
@@ -103,5 +104,22 @@ describe('waLink', () => {
     expect(waLink(null)).toBeNull()
     expect(waLink('')).toBeNull()
     expect(waLink('لا أرقام')).toBeNull()
+  })
+})
+
+describe('formatDateTimeAr — النسخة الموحّدة الوحيدة (COD-3)', () => {
+  it('تاريخ صالح يُنسَّق عربياً متوسطاً مع الوقت', () => {
+    const out = formatDateTimeAr('2026-11-22T15:30:00.000Z')
+    expect(out).not.toBe('2026-11-22')
+    expect(out.length).toBeGreaterThan(10)
+  })
+  it('قيمة غير صالحة (NaN) تسقط افتراضياً لأول 10 أحرف من النص كما هو', () => {
+    // هذا هو سلوك كل المستدعين الحاليين (شيتا البوابتين + Cashbox +
+    // WhatsAppSettingsCard) — لا مستدعي يمرّر fallback مختلفاً.
+    expect(formatDateTimeAr('not-a-date-xx')).toBe('not-a-date')
+    expect(formatDateTimeAr('2026-13-45')).toBe('2026-13-45')
+  })
+  it('fallback صريح يتقدم الافتراضي عند تمريره', () => {
+    expect(formatDateTimeAr('xx', '—')).toBe('—')
   })
 })

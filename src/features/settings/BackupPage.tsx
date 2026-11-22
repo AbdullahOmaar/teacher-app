@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { Card } from '../../components/ui/Card'
-import { AlertTriangle, Check, ChevronDown, ChevronUp, Database, DatabaseBackup, Download, Lock, Upload } from 'lucide-react'
+import { OwnerOnlyCard } from '../../components/OwnerOnlyCard'
+import { AlertTriangle, Check, ChevronDown, ChevronUp, Database, DatabaseBackup, Download, Upload } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, TextArea } from '../../components/ui/form'
 import { LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -58,17 +59,7 @@ export function BackupPage() {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
 
   if (!isOwner) {
-    return (
-      <Card className="text-center py-10">
-        <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
-          <Lock size={28} />
-        </div>
-        <div className="type-section mb-1">{t('settings.backupOwnerOnlyTitle')}</div>
-        <p className="text-muted text-[13.5px] mb-0">
-          {t('settings.backupOwnerOnlyBody')}
-        </p>
-      </Card>
-    )
+    return <OwnerOnlyCard title={t('settings.backupOwnerOnlyTitle')} body={t('settings.backupOwnerOnlyBody')} />
   }
 
   const lastExport = settingsQ.data?.last_export_at ?? null

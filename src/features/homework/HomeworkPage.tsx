@@ -104,6 +104,69 @@ function HwToggle({
   )
 }
 
+/**
+ * قسم قائمة طلاب مشترك بين «سلّم» و«لم يسلّم» (COD-5 / 3A-362): كانتا
+ * كتلتين متطابقتين هيكلياً — الفرق الوحيد هو عنوان القسم وحالة زر
+ * التبديل (done) وقيمة التبديل المستهدفة (!done). قسم «الآخرون» مختلف
+ * دلالياً (شارة غياب/بلا-حالة، شفافية صف، تبديل بقيمة الطالب الحالية)
+ * فبقي كما هو مستقلاً قصداً.
+ */
+function HomeworkStudentSection({
+  title,
+  list,
+  valueOf,
+  done,
+  cancelled,
+  onToggleStudent,
+}: {
+  title: string
+  list: { id: string; name: string }[]
+  valueOf: (studentId: string) => AttendanceValue
+  done: boolean
+  cancelled: boolean
+  onToggleStudent: (studentId: string) => void
+}) {
+  if (list.length === 0) return null
+  return (
+    <>
+      <h3 className="type-section mt-4 mb-2">{title}</h3>
+      <Card className="p-0 overflow-hidden">
+        {list.map((st, i) => {
+          const v = valueOf(st.id)
+          return (
+            <ListRow
+              key={st.id}
+              first={i === 0}
+              leading={<Avatar name={st.name} />}
+              title={
+                <Link to={`/students/${st.id}`} className="text-text no-underline">
+                  {st.name}
+                </Link>
+              }
+              secondary={
+                // (3A-341 قرار ٢): كود الطالب لا يظهر في الواجب — الثانوي شيب
+                // الحضور فقط. و(3A-331 عائلة ب): flex flex-wrap بدل inline-flex
+                // حتى لا يُقصّ الشيب عند 360px داخل بطاقة overflow-hidden؛
+                // بالالتفاف ينزل سطراً ثانياً سليماً.
+                <span className="flex flex-wrap items-center gap-1.5">
+                  {v.status && (
+                    <span className={`type-badge rounded-full px-2 py-0.5 ${STATUS_BADGE_CLASS[v.status]}`}>
+                      {STATUS_LABELS[v.status]}
+                    </span>
+                  )}
+                </span>
+              }
+              trailing={
+                <HwToggle done={done} disabled={cancelled} onToggle={() => onToggleStudent(st.id)} />
+              }
+            />
+          )
+        })}
+      </Card>
+    </>
+  )
+}
+
 export function HomeworkPage() {
   const teacher = useCurrentTeacher()
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
@@ -673,92 +736,23 @@ export function HomeworkPage() {
                 </Card>
               )}
 
-              {submittedList.length > 0 && (
-                <>
-                  <h3 className="type-section mt-4 mb-2">
-                    {t('homework.submittedSection', { count: submittedList.length })}
-                  </h3>
-                  <Card className="p-0 overflow-hidden">
-                    {submittedList.map((st, i) => {
-                      const v = valueOf(st.id)
-                      return (
-                        <ListRow
-                          key={st.id}
-                          first={i === 0}
-                          leading={<Avatar name={st.name} />}
-                          title={
-                            <Link to={`/students/${st.id}`} className="text-text no-underline">
-                              {st.name}
-                            </Link>
-                          }
-                          secondary={
-                            // (3A-341 قرار ٢): كود الطالب لا يظهر في الواجب — الثانوي شيب
-                            // الحضور فقط. و(3A-331 عائلة ب): flex flex-wrap بدل inline-flex
-                            // حتى لا يُقصّ الشيب عند 360px داخل بطاقة overflow-hidden؛
-                            // بالالتفاف ينزل سطراً ثانياً سليماً. (يُطبَّق النمط نفسه على
-                            // قوائم «لم يسلّم» و«الآخرون» أسفله.)
-                            <span className="flex flex-wrap items-center gap-1.5">
-                              {v.status && (
-                                <span className={`type-badge rounded-full px-2 py-0.5 ${STATUS_BADGE_CLASS[v.status]}`}>
-                                  {STATUS_LABELS[v.status]}
-                                </span>
-                              )}
-                            </span>
-                          }
-                          trailing={
-                            <HwToggle
-                              done
-                              disabled={cancelled}
-                              onToggle={() => changeHomework(st.id, false)}
-                            />
-                          }
-                        />
-                      )
-                    })}
-                  </Card>
-                </>
-              )}
+              <HomeworkStudentSection
+                title={t('homework.submittedSection', { count: submittedList.length })}
+                list={submittedList}
+                valueOf={valueOf}
+                done
+                cancelled={cancelled}
+                onToggleStudent={(id) => changeHomework(id, false)}
+              />
 
-              {pendingList.length > 0 && (
-                <>
-                  <h3 className="type-section mt-4 mb-2">
-                    {t('homework.pendingSection', { count: pendingList.length })}
-                  </h3>
-                  <Card className="p-0 overflow-hidden">
-                    {pendingList.map((st, i) => {
-                      const v = valueOf(st.id)
-                      return (
-                        <ListRow
-                          key={st.id}
-                          first={i === 0}
-                          leading={<Avatar name={st.name} />}
-                          title={
-                            <Link to={`/students/${st.id}`} className="text-text no-underline">
-                              {st.name}
-                            </Link>
-                          }
-                          secondary={
-                            <span className="flex flex-wrap items-center gap-1.5">
-                              {v.status && (
-                                <span className={`type-badge rounded-full px-2 py-0.5 ${STATUS_BADGE_CLASS[v.status]}`}>
-                                  {STATUS_LABELS[v.status]}
-                                </span>
-                              )}
-                            </span>
-                          }
-                          trailing={
-                            <HwToggle
-                              done={false}
-                              disabled={cancelled}
-                              onToggle={() => changeHomework(st.id, true)}
-                            />
-                          }
-                        />
-                      )
-                    })}
-                  </Card>
-                </>
-              )}
+              <HomeworkStudentSection
+                title={t('homework.pendingSection', { count: pendingList.length })}
+                list={pendingList}
+                valueOf={valueOf}
+                done={false}
+                cancelled={cancelled}
+                onToggleStudent={(id) => changeHomework(id, true)}
+              />
 
               {othersList.length > 0 && (
                 <>

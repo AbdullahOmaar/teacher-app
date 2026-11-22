@@ -18,7 +18,7 @@ import { Card } from '../../components/ui/Card'
 import { SkeletonCards } from '../../components/ui/states'
 import type { IconComponent } from '../../components/ui/EmptyState'
 import { daysLabel, formatMoney, formatTime12, safeExternalUrl } from '../../lib/format'
-import { darken } from '../../lib/brand'
+import { PublicPageShell } from '../../components/PublicPageShell'
 import { fmtScore, pctOf, ASSESSMENT_TYPE_LABELS } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import { formatDateLabel, formatDayMonth, periodLabel } from '../schedule/api'
@@ -57,51 +57,28 @@ function StudentPortalShell({
   children: React.ReactNode
   brand?: StudentPortalBrand | null
 }) {
-  const accentVars = brand?.accent
-    ? ({
-        '--primary': brand.accent,
-        '--primary-d': darken(brand.accent, 0.15),
-      } as React.CSSProperties)
-    : undefined
+  // (COD-5: الصدفة نفسها مشتركة في PublicPageShell — الفروق المحفوظة
+  // هنا: عنوان السقوط، والعنوان الفرعي هو عنوان البوابة نفسه عند وجود
+  // اسم سنتر، ودُفّي ضيفاً في الرأس.)
   return (
-    <div className="min-h-screen bg-bg text-text" style={accentVars}>
-      <header className="sticky top-0 z-20 h-[52px] bg-card border-b border-border">
-        <div className="mx-auto max-w-[640px] h-full px-4 flex items-center gap-2">
-          {brand?.logo_url ? (
-            <img
-              src={brand.logo_url}
-              alt={brand.name ?? t('studentPortal.pageCentreLogoAlt')}
-              className="w-9 h-9 rounded-full object-contain bg-soft p-0.5 shrink-0"
-            />
-          ) : (
-            <span className="w-9 h-9 rounded-full bg-soft text-primary flex items-center justify-center">
-              <Users size={20} />
-            </span>
-          )}
-          <div className="min-w-0">
-            <div className="type-section leading-[1.4] truncate">
-              {brand?.name ?? t('studentPortal.pageTitle')}
-            </div>
-            {brand?.name && (
-              <div className="text-muted text-[12px] leading-[1.4]">{t('studentPortal.pageTitle')}</div>
-            )}
-          </div>
-          {/* دُفّي ضيف صغير بجانب الترويسة (خطة الهوية P-10): يظهر فقط
-              بعد تحميل العرض (brand موجود) وبمفتاح مدرس السنتر القادم
-              في الحمولة نفسها (visibleOverride) — هوية السنتر أولاً
-              دائماً ودُفّي لا ينافسها أبداً */}
-          {brand && (
-            <Mascot
-              state="welcome"
-              size={30}
-              visibleOverride={brand.show_mascot}
-              className="ms-auto shrink-0"
-            />
-          )}
-        </div>
-      </header>
-      <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-10">{children}</main>
-    </div>
+    <PublicPageShell
+      brand={brand}
+      logoAlt={t('studentPortal.pageCentreLogoAlt')}
+      fallbackTitle={t('studentPortal.pageTitle')}
+      subtitle={brand?.name ? t('studentPortal.pageTitle') : null}
+      headerExtra={
+        brand ? (
+          <Mascot
+            state="welcome"
+            size={30}
+            visibleOverride={brand.show_mascot}
+            className="ms-auto shrink-0"
+          />
+        ) : undefined
+      }
+    >
+      {children}
+    </PublicPageShell>
   )
 }
 

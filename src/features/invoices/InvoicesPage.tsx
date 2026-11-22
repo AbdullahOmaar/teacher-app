@@ -5,9 +5,10 @@ import { t } from '../../i18n'
 import { Link, useSearchParams } from 'react-router-dom'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Card } from '../../components/ui/Card'
+import { OwnerOnlyCard } from '../../components/OwnerOnlyCard'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
-import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Lock, ReceiptText } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, ReceiptText } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
 import { Chip } from '../../components/ui/form'
@@ -205,17 +206,7 @@ export function InvoicesPage() {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
 
   if (!isOwner) {
-    return (
-      <Card className="text-center py-10">
-        <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
-          <Lock size={28} />
-        </div>
-        <div className="type-section mb-1">{t('invoices.ownerOnlyTitle')}</div>
-        <p className="text-muted text-[13.5px] mb-0">
-          {t('invoices.ownerOnlyBody')}
-        </p>
-      </Card>
-    )
+    return <OwnerOnlyCard title={t('invoices.ownerOnlyTitle')} body={t('invoices.ownerOnlyBody')} />
   }
 
   const currentMonthLabel = periodLabel(monthStartStr(todayStr()))

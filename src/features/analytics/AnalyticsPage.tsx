@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
 import { Link } from 'react-router-dom'
-import { ChartColumn, Lock, Sparkles, TrendingDown, TrendingUp, UserX, Wallet } from 'lucide-react'
+import { ChartColumn, Sparkles, TrendingDown, TrendingUp, UserX, Wallet } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { OwnerOnlyCard } from '../../components/OwnerOnlyCard'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { EmptyState } from '../../components/ui/EmptyState'
 import {
@@ -111,17 +112,7 @@ export function AnalyticsPage() {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
 
   if (!isOwner) {
-    return (
-      <Card className="text-center py-10">
-        <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
-          <Lock size={28} />
-        </div>
-        <div className="type-section mb-1">{t('analytics.ownerOnlyTitle')}</div>
-        <p className="text-muted text-[13.5px] mb-0">
-          {t('analytics.ownerOnlyBody')}
-        </p>
-      </Card>
-    )
+    return <OwnerOnlyCard title={t('analytics.ownerOnlyTitle')} body={t('analytics.ownerOnlyBody')} />
   }
 
   const data = analyticsQ.data

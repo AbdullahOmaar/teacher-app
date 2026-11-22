@@ -16,7 +16,7 @@ import { SkeletonCards } from '../../components/ui/states'
 import { Field, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import type { IconComponent } from '../../components/ui/EmptyState'
 import { daysLabel, formatTime12 } from '../../lib/format'
-import { darken } from '../../lib/brand'
+import { PublicPageShell } from '../../components/PublicPageShell'
 import { t } from '../../i18n'
 import {
   EG_MOBILE_RE,
@@ -45,39 +45,18 @@ function EnrolShell({
   children: React.ReactNode
   brand?: EnrolBrand | null
 }) {
-  const accentVars = brand?.accent
-    ? ({
-        '--primary': brand.accent,
-        '--primary-d': darken(brand.accent, 0.15),
-      } as React.CSSProperties)
-    : undefined
+  // (COD-5: الصدفة نفسها مشتركة في PublicPageShell — الفروق المحفوظة
+  // هنا: أيقونة السقوط GraduationCap وعنوان/Subtitle التسجيل، بلا دُفّي.)
   return (
-    <div className="min-h-screen bg-bg text-text" style={accentVars}>
-      <header className="sticky top-0 z-20 h-[52px] bg-card border-b border-border">
-        <div className="mx-auto max-w-[640px] h-full px-4 flex items-center gap-2">
-          {brand?.logo_url ? (
-            <img
-              src={brand.logo_url}
-              alt={brand.name ?? t('enrol.pageLogoAlt')}
-              className="w-9 h-9 rounded-full object-contain bg-soft p-0.5 shrink-0"
-            />
-          ) : (
-            <span className="w-9 h-9 rounded-full bg-soft text-primary flex items-center justify-center">
-              <GraduationCap size={20} />
-            </span>
-          )}
-          <div className="min-w-0">
-            <div className="type-section leading-[1.4] truncate">
-              {brand?.name ?? t('enrol.pageShellFallbackTitle')}
-            </div>
-            {brand?.name && (
-              <div className="text-muted text-[12px] leading-[1.4]">{t('enrol.pageShellSubtitle')}</div>
-            )}
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-10">{children}</main>
-    </div>
+    <PublicPageShell
+      brand={brand}
+      logoAlt={t('enrol.pageLogoAlt')}
+      fallbackTitle={t('enrol.pageShellFallbackTitle')}
+      subtitle={brand?.name ? t('enrol.pageShellSubtitle') : null}
+      FallbackIcon={GraduationCap}
+    >
+      {children}
+    </PublicPageShell>
   )
 }
 

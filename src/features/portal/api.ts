@@ -1,7 +1,18 @@
 import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
-import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import { waLink } from '../../lib/format'
+import {
+  buildAttMeta,
+  callPushRpc,
+  createTokenLink,
+  fetchPushStatus,
+  fetchTokenRows,
+  normalizeOverviewHead,
+  num,
+  revokeTokenRow,
+  tokenStatusOf,
+  type RawPortalBrand,
+} from './tokenLifecycle'
 import type {
   GuardianAccessTokenRow,
   GuardianRow,
@@ -183,83 +194,48 @@ export async function createPortalLink(
   teacherId: string,
   student: StudentRow,
 ): Promise<CreatedPortalLink> {
-  const supa = db()
   const guardian = await ensureGuardianAndLink(teacherId, student)
-
-  const rawToken = generateRawToken()
-  const tokenHash = await sha256Hex(rawToken)
-  const expiresAt = new Date(
-    Date.now() + PORTAL_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
-  ).toISOString()
-
-  const { error: revokeErr } = await supa
-    .from('guardian_access_tokens')
-    .update({ revoked_at: new Date().toISOString() })
-    .eq('teacher_id', teacherId)
-    .eq('student_id', student.id)
-    .is('revoked_at', null)
-  if (revokeErr) throw revokeErr
-
-  const { error: insErr } = await supa.from('guardian_access_tokens').insert({
-    teacher_id: teacherId,
-    guardian_id: guardian.id,
-    student_id: student.id,
-    token_hash: tokenHash,
-    expires_at: expiresAt,
+  // دورة الحياة المشتركة (COD-3): رمز خام ← هاش ← انتهاء 30 يوماً ←
+  // إبطال السابق ← إدراج — والفروق المحفوظة حرفياً هنا هي حلّ ولي
+  // الأمر + guardian_id وباني رابط بوابة ولي الأمر.
+  const { link, expiresAt } = await createTokenLink({
+    table: 'guardian_access_tokens',
+    teacherId,
+    studentId: student.id,
+    extraInsert: { guardian_id: guardian.id },
+    buildLink: (rawToken) => buildPortalLink(window.location.origin, student.id, rawToken),
+    generateRawToken,
+    sha256Hex,
   })
-  if (insErr) throw insErr
-
-  return {
-    link: buildPortalLink(window.location.origin, student.id, rawToken),
-    expiresAt,
-    guardian,
-  }
+  return { link, expiresAt, guardian }
 }
 
-/** روابط طالب واحد (لملف الطالب) — بلا عمود الهاش */
+/**
+ * روابط طالب واحد (لملف الطالب) — بلا عمود الهاش.
+ * (COD-3: الجلب/الإلغاء/الحالة عبر دورة الحياة المشتركة في tokenLifecycle)
+ */
 export async function fetchStudentTokens(
   teacherId: string,
   studentId: string,
 ): Promise<GuardianAccessTokenRow[]> {
-  const { data, error } = await db()
-    .from('guardian_access_tokens')
-    .select(TOKEN_COLS)
-    .eq('teacher_id', teacherId)
-    .eq('student_id', studentId)
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []) as unknown as GuardianAccessTokenRow[]
+  return fetchTokenRows<GuardianAccessTokenRow>('guardian_access_tokens', TOKEN_COLS, teacherId, studentId)
 }
 
 /** كل روابط المدرس (لصفحة إدارة البوابة) — بلا عمود الهاش */
 export async function fetchTeacherTokens(
   teacherId: string,
 ): Promise<GuardianAccessTokenRow[]> {
-  const { data, error } = await db()
-    .from('guardian_access_tokens')
-    .select(TOKEN_COLS)
-    .eq('teacher_id', teacherId)
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []) as unknown as GuardianAccessTokenRow[]
+  return fetchTokenRows<GuardianAccessTokenRow>('guardian_access_tokens', TOKEN_COLS, teacherId)
 }
 
 /** إلغاء رابط (revoked_at) — لا حذف: سجل التوكن يبقى للتدقيق */
 export async function revokePortalToken(teacherId: string, tokenId: string): Promise<void> {
-  const { error } = await db()
-    .from('guardian_access_tokens')
-    .update({ revoked_at: new Date().toISOString() })
-    .eq('teacher_id', teacherId)
-    .eq('id', tokenId)
-    .is('revoked_at', null)
-  if (error) throw error
+  return revokeTokenRow('guardian_access_tokens', teacherId, tokenId)
 }
 
 /** حالة رابط للعرض: ملغي صراحة، أو منتهٍ بمرور وقته، أو نشط */
 export function tokenStatus(t: GuardianAccessTokenRow): 'active' | 'expired' | 'revoked' {
-  if (t.revoked_at) return 'revoked'
-  if (new Date(t.expires_at).getTime() <= Date.now()) return 'expired'
-  return 'active'
+  return tokenStatusOf(t)
 }
 
 // ---------------------------------------------------------------------------
@@ -320,11 +296,6 @@ export interface PortalOverview {
   recent_attendance: PortalAttendance[]
 }
 
-function num(v: unknown): number {
-  const n = typeof v === 'string' ? parseFloat(v) : (v as number)
-  return Number.isFinite(n) ? n : 0
-}
-
 /** قراءة البوابة بالرمز الخام عبر الـ RPC — المسار الآمن الوحيد للـ anon */
 export async function fetchPortalOverview(
   rawToken: string,
@@ -337,36 +308,12 @@ export async function fetchPortalOverview(
   if (error) throw error
   if (!data) throw new Error('invalid or expired token')
   const raw = data as unknown as PortalOverview & {
-    brand?: {
-      name?: string | null
-      teacher_name?: string | null
-      logo_path?: string | null
-      accent?: string | null
-      show_mascot?: boolean | null
-    } | null
+    brand?: RawPortalBrand | null
   }
   return {
-    student: raw.student,
-    // الهوية البيضاء: الاسم التجاري يتقدم اسم المدرس، والشعار يُبنى رابطه
-    // العام من مساره، واللهجة تُمرَّر بعد التحقق من صيغتها — غياب قسم
-    // brand كله (نسخة RPC أقدم) يسقط للافتراضي بلا كسر.
-    brand: {
-      name: raw.brand?.name?.trim() || raw.brand?.teacher_name?.trim() || null,
-      logo_url: brandLogoUrl(raw.brand?.logo_path),
-      accent: isValidAccent(raw.brand?.accent) ? raw.brand.accent.toLowerCase() : null,
-      // مفتاح دُفّي لمدرس السنتر من الحمولة الخادمية (0029): لا يُخفى
-      // إلا بقيمة false صريحة — الغياب/القيم الشاذة تسقط للافتراضي true
-      show_mascot: raw.brand?.show_mascot !== false,
-    },
-    attendance_rate: raw.attendance_rate == null ? null : num(raw.attendance_rate),
-    balance: num(raw.balance),
-    groups: (raw.groups ?? []).map((g) => ({
-      name: g.name,
-      days: (g.days ?? []).map((d) => Number(d)),
-      start_time: g.start_time,
-      room: g.room ?? null,
-      links: g.links ?? [],
-    })),
+    // رأس العرض المشترك (طالب/هوية/حضور/رصيد/مجموعات) — COD-3:
+    // normalizeOverviewHead في tokenLifecycle.
+    ...normalizeOverviewHead(raw),
     latest_scores: (raw.latest_scores ?? []).map((s) => ({
       title: s.title,
       date: s.date,
@@ -663,19 +610,20 @@ function pushErrorMessage(error: unknown): string {
   return t('portal.apiPushErrorGeneric')
 }
 
+// (COD-3: استدعاءات الـ RPC الثلاثة عبر tokenLifecycle مع تمرير أسماء
+// portal_push_* كما هي حرفياً؛ مترجم الأخطاء يبقى خاصاً بهذه البوابة.)
+
 /** حالة اشتراك هذا المتصفح لبوابة ولي الأمر (نشط لهذا الطالب؟) */
 export async function fetchGuardianPushStatus(
   rawToken: string,
   studentId: string,
   endpoint: string,
 ): Promise<boolean> {
-  const { data, error } = await db().rpc('portal_push_status', {
-    p_token: rawToken,
-    p_student_id: studentId,
-    p_endpoint: endpoint,
-  })
-  if (error) throw new Error(pushErrorMessage(error))
-  return Boolean((data as unknown as { subscribed?: boolean })?.subscribed)
+  return fetchPushStatus(
+    'portal_push_status',
+    { p_token: rawToken, p_student_id: studentId, p_endpoint: endpoint },
+    pushErrorMessage,
+  )
 }
 
 /** تسجيل اشتراك Push هذا المتصفح لولي أمر طالب الرابط */
@@ -684,15 +632,18 @@ export async function subscribeGuardianPush(
   studentId: string,
   sub: { endpoint: string; p256dh: string; auth: string; userAgent: string },
 ): Promise<void> {
-  const { error } = await db().rpc('portal_push_subscribe', {
-    p_token: rawToken,
-    p_student_id: studentId,
-    p_endpoint: sub.endpoint,
-    p_p256dh: sub.p256dh,
-    p_auth: sub.auth,
-    p_user_agent: sub.userAgent,
-  })
-  if (error) throw new Error(pushErrorMessage(error))
+  return callPushRpc(
+    'portal_push_subscribe',
+    {
+      p_token: rawToken,
+      p_student_id: studentId,
+      p_endpoint: sub.endpoint,
+      p_p256dh: sub.p256dh,
+      p_auth: sub.auth,
+      p_user_agent: sub.userAgent,
+    },
+    pushErrorMessage,
+  )
 }
 
 /** إيقاف اشتراك Push هذا المتصفح من البوابة — يعطّل الصف خادمياً */
@@ -701,12 +652,11 @@ export async function unsubscribeGuardianPush(
   studentId: string,
   endpoint: string,
 ): Promise<void> {
-  const { error } = await db().rpc('portal_push_unsubscribe', {
-    p_token: rawToken,
-    p_student_id: studentId,
-    p_endpoint: endpoint,
-  })
-  if (error) throw new Error(pushErrorMessage(error))
+  return callPushRpc(
+    'portal_push_unsubscribe',
+    { p_token: rawToken, p_student_id: studentId, p_endpoint: endpoint },
+    pushErrorMessage,
+  )
 }
 
 /** شارات نوع التنبيه في البوابة — وصل/غادر بألوان مضمونة التباين */
@@ -718,10 +668,10 @@ export const PORTAL_NOTIF_META: Record<
   left: { label: t('portal.apiNotifLeft'), badge: 'bg-soft text-primary border-primary/30' },
 }
 
-/** حالات الحضور الأربع في البوابة (§2.4) — الاسم وشارة اللون */
-export const PORTAL_ATT_META: Record<string, { label: string; badge: string }> = {
-  p: { label: t('portal.apiAttPresent'), badge: 'bg-ok/10 text-ok border-ok/30' },
-  a: { label: t('portal.apiAttAbsent'), badge: 'bg-bad/10 text-bad border-bad/30' },
-  l: { label: t('portal.apiAttLate'), badge: 'bg-warn/15 text-warn border-warn/40' },
-  m: { label: t('portal.apiAttMakeup'), badge: 'bg-soft text-primary border-primary/30' },
-}
+/** حالات الحضور الأربع في البوابة (§2.4) — الشارات مشتركة (buildAttMeta)، والتسميات بمفاتيح هذه البوابة */
+export const PORTAL_ATT_META: Record<string, { label: string; badge: string }> = buildAttMeta({
+  p: t('portal.apiAttPresent'),
+  a: t('portal.apiAttAbsent'),
+  l: t('portal.apiAttLate'),
+  m: t('portal.apiAttMakeup'),
+})
