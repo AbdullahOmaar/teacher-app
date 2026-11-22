@@ -60,4 +60,9 @@ describe('scoreWaUrl — رابط درجة واتساب (PAT-4أ)', () => {
     const noPhones: RosterStudent = { ...student, guardian_phone: null, phone: null }
     expect(scoreWaUrl(noPhones, undefined, assessment, 15)).toBeNull()
   })
+  it('نهائية صفر: النسبة تسقط لصفر ولا تنكسر الرسالة — تعميق PAT-4', () => {
+    expect(textOf(scoreWaUrl(student, undefined, { title: 'اختبار', max_score: 0 }, 0))).toContain(
+      '(0%)',
+    )
+  })
 })

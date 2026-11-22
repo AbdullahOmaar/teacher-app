@@ -170,7 +170,7 @@ async function fetchContactStudents(
     .eq('teacher_id', teacherId)
     .in('id', studentIds)
   if (error) throw error
-  for (const row of (data ?? []) as unknown as (ContactStudent & { paused: boolean })[]) {
+  for (const row of data ?? []) {
     map.set(row.id, row)
   }
   return map
@@ -268,7 +268,7 @@ export async function fetchAlerts(
       .lte('sessions.session_date', today)
     if (error) throw error
     const counts = new Map<string, number>()
-    for (const row of (data ?? []) as unknown as { student_id: string }[]) {
+    for (const row of data ?? []) {
       counts.set(row.student_id, (counts.get(row.student_id) ?? 0) + 1)
     }
     const repeatIds = [...counts.entries()]
@@ -312,19 +312,9 @@ export async function fetchAlerts(
       .not('prepaid_sessions', 'is', null)
       .eq('students.paused', false)
     if (error) throw error
-    const rows = (enr ?? []) as unknown as {
-      student_id: string
-      group_id: string
-      prepaid_sessions: number
-      groups: { name?: string } | null
-      students: {
-        name?: string
-        public_code?: string
-        phone?: string | null
-        guardian_name?: string | null
-        guardian_phone?: string | null
-      } | null
-    }[]
+    // prepaid_sessions مُصفّى خادمياً بـ NOT NULL أعلاه — الـ ?? 0 حراسة
+    // نوعية فقط لقيمة لا تحدث (COD-1)
+    const rows = (enr ?? []).map((r) => ({ ...r, prepaid_sessions: r.prepaid_sessions ?? 0 }))
     if (rows.length > 0) {
       const { data: att, error: attErr } = await supa
         .from('attendance')
@@ -333,7 +323,7 @@ export async function fetchAlerts(
         .in('status', ['p', 'l', 'm'])
       if (attErr) throw attErr
       const used = new Map<string, number>()
-      for (const row of (att ?? []) as unknown as { student_id: string; sessions: { group_id: string } }[]) {
+      for (const row of att ?? []) {
         const key = `${row.student_id}|${row.sessions.group_id}`
         used.set(key, (used.get(key) ?? 0) + 1)
       }
@@ -413,9 +403,9 @@ export async function fetchAlerts(
       .eq('teacher_id', teacherId)
       .gt('balance', 0)
     if (error) throw error
-    const balRows = (bals ?? []) as unknown as { student_id: string; balance: number | string }[]
+    const balRows = bals ?? []
     if (balRows.length > 0) {
-      const studentIds = balRows.map((b) => b.student_id)
+      const studentIds = balRows.flatMap((b) => (b.student_id ? [b.student_id] : []))
       const [students, contacts, invData, groupNameById] = await Promise.all([
         fetchContactStudents(teacherId, studentIds),
         fetchGuardianContacts(teacherId, studentIds),
@@ -431,15 +421,9 @@ export async function fetchAlerts(
         groupNamePromise,
       ])
       const invoicesByStudent = new Map<string, AlertInvoiceRef[]>()
-      for (const row of (invData ?? []) as unknown as {
-        invoice_id: string
-        student_id: string
-        group_id: string
-        period_month: string
-        total: number | string
-        paid: number | string
-        balance: number | string
-      }[]) {
+      for (const row of invData ?? []) {
+        // أعمدة الـ view مولّدة nullable؛ تعريفها يضمن القيم فعلياً (COD-1)
+        if (!row.invoice_id || !row.student_id || !row.group_id || !row.period_month) continue
         const list = invoicesByStudent.get(row.student_id) ?? []
         list.push({
           invoice_id: row.invoice_id,
@@ -456,6 +440,7 @@ export async function fetchAlerts(
       }
 
       for (const b of balRows) {
+        if (!b.student_id) continue
         const st = students.get(b.student_id)
         if (!st || st.paused) continue
         const balance = Number(b.balance) || 0
@@ -493,11 +478,7 @@ export async function fetchAlerts(
       string,
       { title: string; groupId: string; max: number; lows: { student_id: string; score: number }[] }
     >()
-    for (const row of (data ?? []) as unknown as {
-      student_id: string
-      score: number | string
-      assessments: { id: string; title: string; max_score: number | string; group_id: string }
-    }[]) {
+    for (const row of data ?? []) {
       const max = Number(row.assessments.max_score) || 0
       if (max <= 0) continue
       if ((Number(row.score) / max) * 100 < 50) {
@@ -591,7 +572,7 @@ export async function fetchAlerts(
       .eq('teacher_id', teacherId)
       .maybeSingle()
     if (error) throw error
-    const last = (data as unknown as { last_export_at: string | null } | null)?.last_export_at
+    const last = data?.last_export_at
     const due = !last || Date.now() - new Date(last).getTime() >= 30 * 24 * 60 * 60 * 1000
     if (due) {
       // silent (R-8): معلومة P3 لا ترفع شارة الجرس

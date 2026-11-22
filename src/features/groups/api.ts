@@ -7,13 +7,24 @@ import type {
   GroupInput,
   GroupRow,
   GroupWaitlistRow,
+  Tables,
   WaitlistInput,
+  WaitlistSource,
 } from '../../types/database'
 
 const GROUP_COLS =
   'id, teacher_id, name, billing_type, price, days, start_time, duration_minutes, room, capacity, assistant_name, links, archived_at, created_at, updated_at'
 const ENROLLMENT_COLS = 'id, teacher_id, student_id, group_id, price_override, prepaid_sessions, created_at'
 const WAITLIST_COLS = 'id, teacher_id, group_id, name, phone, note, source, wants_trial, created_at'
+
+/**
+ * صف انتظار من العميل الم typed: ‏source نص في الأنواع المولّدة ومقيّد
+ * بقيد CHECK في المخطط (group_waitlist_source_check) لقيمتي
+ * WaitlistSource — التضييق هنا توثيق لذلك القيد.
+ */
+function toWaitlistRow(r: Tables<'group_waitlist'>): GroupWaitlistRow {
+  return { ...r, source: r.source as WaitlistSource }
+}
 
 export async function fetchGroups(teacherId: string): Promise<GroupRow[]> {
   const { data, error } = await db()
@@ -22,7 +33,7 @@ export async function fetchGroups(teacherId: string): Promise<GroupRow[]> {
     .eq('teacher_id', teacherId)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return (data ?? []) as unknown as GroupRow[]
+  return data ?? []
 }
 
 export async function fetchGroup(teacherId: string, groupId: string): Promise<GroupRow | null> {
@@ -33,7 +44,7 @@ export async function fetchGroup(teacherId: string, groupId: string): Promise<Gr
     .eq('id', groupId)
     .maybeSingle()
   if (error) throw error
-  return (data as unknown as GroupRow | null) ?? null
+  return data ?? null
 }
 
 export async function createGroup(teacherId: string, input: GroupInput): Promise<GroupRow> {
@@ -43,7 +54,7 @@ export async function createGroup(teacherId: string, input: GroupInput): Promise
     .select(GROUP_COLS)
     .single()
   if (error) throw error
-  return data as unknown as GroupRow
+  return data
 }
 
 export async function updateGroup(
@@ -59,7 +70,7 @@ export async function updateGroup(
     .select(GROUP_COLS)
     .single()
   if (error) throw error
-  return data as unknown as GroupRow
+  return data
 }
 
 /** قائمة طلاب مجموعة (roster): تسجيلات المجموعة مرتبطة ببيانات الطلاب */
@@ -74,13 +85,13 @@ export async function fetchGroupRoster(
     .eq('group_id', groupId)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
-    const st = (row.students ?? {}) as { name?: string; public_code?: string; paused?: boolean }
+  return (data ?? []).map((row) => {
+    const st = row.students
     return {
-      ...(row as unknown as EnrollmentRow),
-      student_name: st.name ?? '—',
-      student_code: st.public_code ?? '',
-      student_paused: Boolean(st.paused),
+      ...row,
+      student_name: st?.name ?? '—',
+      student_code: st?.public_code ?? '',
+      student_paused: Boolean(st?.paused),
     }
   })
 }
@@ -93,7 +104,7 @@ export async function fetchWaitlist(teacherId: string, groupId: string): Promise
     .eq('group_id', groupId)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return (data ?? []) as unknown as GroupWaitlistRow[]
+  return (data ?? []).map(toWaitlistRow)
 }
 
 export async function addWaitlistEntry(
@@ -107,7 +118,7 @@ export async function addWaitlistEntry(
     .select(WAITLIST_COLS)
     .single()
   if (error) throw error
-  return data as unknown as GroupWaitlistRow
+  return toWaitlistRow(data)
 }
 
 /** حذف طلب انتظار (رفض طلب حجز أو إزالة اسم يدوياً) */
@@ -181,7 +192,14 @@ export interface GroupFootprint {
   canDelete: boolean
 }
 
-async function countGroupRows(table: string, teacherId: string, groupId: string): Promise<number> {
+/** الجداول القابلة للعدّ في بصمة المجموعة — كلها تحمل teacher_id وgroup_id */
+type GroupCountTable = 'enrollments' | 'sessions' | 'invoices' | 'assessments' | 'group_waitlist'
+
+async function countGroupRows(
+  table: GroupCountTable,
+  teacherId: string,
+  groupId: string,
+): Promise<number> {
   const { count, error } = await db()
     .from(table)
     .select('*', { count: 'exact', head: true })

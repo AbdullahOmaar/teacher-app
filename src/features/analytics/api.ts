@@ -197,7 +197,7 @@ async function fetchAttendanceByMonth(
       .order('student_id', { ascending: true })
       .range(from, to)
     if (error) throw error
-    return (data ?? []) as unknown as Row[]
+    return data ?? []
   })
   const map = new Map<string, AttendanceAgg>()
   const absenceByGroup = new Map<string, number>()
@@ -224,7 +224,8 @@ async function fetchAttendanceByMonth(
 async function fetchInvoiceBalances(
   teacherId: string,
 ): Promise<{ period_month: string; balance: number; group_id: string }[]> {
-  type Row = { period_month: string; balance: number | string; group_id: string }
+  // أعمدة الـ view مولّدة nullable؛ تعريفها يضمن القيم فعلياً (COD-1)
+  type Row = { period_month: string | null; balance: number | null; group_id: string | null }
   const rows = await fetchAllPages<Row>(async (from, to) => {
     const { data, error } = await db()
       .from('invoice_balances')
@@ -233,12 +234,12 @@ async function fetchInvoiceBalances(
       .order('invoice_id', { ascending: true })
       .range(from, to)
     if (error) throw error
-    return (data ?? []) as unknown as Row[]
+    return data ?? []
   })
   return rows.map((r) => ({
-    period_month: r.period_month,
+    period_month: r.period_month ?? '',
     balance: Number(r.balance) || 0,
-    group_id: r.group_id,
+    group_id: r.group_id ?? '',
   }))
 }
 
@@ -265,7 +266,7 @@ async function fetchStudentsLite(
       .order('id', { ascending: true })
       .range(from, to)
     if (error) throw error
-    return (data ?? []) as unknown as Row[]
+    return data ?? []
   })
   return rows
 }

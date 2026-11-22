@@ -78,3 +78,163 @@ describe('link builders', () => {
     expect(buildEnrolLink('https://x.app', 'tok')).toBe('https://x.app/book?t=tok')
   })
 })
+
+// ---------------------------------------------------------------------------
+// تعميق PAT-4 (دفعة #10 — 3A-373): كل فرع تصنيف موثّق يُثبَّت بتمييزه عن
+// المسار العام/التمريري، لا بلقطة نصية هشّة — الرسائل من القاموس الحي.
+// ---------------------------------------------------------------------------
+
+describe('translateAuthError — كل الفروع الموثقة (تعميق)', () => {
+  const branches: [string, string][] = [
+    ['User already registered', 'already registered'],
+    ['Email address already exists', 'already exists'],
+    ['Invalid phone number', 'invalid phone'],
+    ['Phone number format is invalid', 'phone format'],
+    ['The OTP expired or is invalid', 'otp invalid'],
+    ['Token has expired', 'token expired'],
+    ['Otp expired, request a new one', 'otp expired'],
+    ['Error sending SMS to provider', 'sms send'],
+    ['Signups not allowed for this instance', 'signups'],
+    ['Password should be at least 6 characters', 'short password'],
+    ['For security purposes, you can only request this after 60 seconds', 'security wait'],
+    ['Weak password: add symbols', 'weak password'],
+    ['Password is too weak', 'too weak'],
+    ['Invalid email address', 'invalid email'],
+    ['Unable to validate email address: invalid format', 'validate email'],
+    ['Email rate limit exceeded', 'rate limit'],
+    ['Too many requests', 'too many'],
+    ['Network request failed', 'network'],
+    ['Failed to fetch', 'fetch'],
+  ]
+  it.each(branches)('«%s» تُترجم ولا تمرّ كما هي (%s)', (raw) => {
+    const out = translateAuthError(raw)
+    expect(out).not.toBe(raw)
+    expect(out.length).toBeGreaterThan(0)
+  })
+  it('غير حساسة لحالة الأحرف (تُخفَّض قبل المطابقة)', () => {
+    expect(translateAuthError('INVALID LOGIN CREDENTIALS')).toContain('غير صحيحة')
+    expect(translateAuthError('EMAIL NOT CONFIRMED')).toContain('مش متأكد')
+  })
+  it('فرع «already exists» و«already registered» رسالة واحدة', () => {
+    expect(translateAuthError('already exists')).toBe(translateAuthError('already registered'))
+  })
+})
+
+describe('translateDbError — فروع إضافية (تعميق)', () => {
+  it('RLS من نص الرسالة بلا كود', () => {
+    expect(translateDbError({ message: 'new row violates row-level security policy' })).toContain(
+      'لا تسمح',
+    )
+  })
+  it('كود غير معروف يرجع لنص الرسالة', () => {
+    expect(translateDbError({ code: '22001', message: 'value too long' })).toBe('value too long')
+  })
+  it('خطأ فارغ تماماً يرجع لاحتياطي «غير متوقع» لا لسلسلة فارغة', () => {
+    const out = translateDbError({})
+    expect(out.length).toBeGreaterThan(0)
+    expect(out).not.toBe(translateDbError({ code: '23505' }))
+  })
+})
+
+describe('friendlyDbError — فروع إضافية (تعميق)', () => {
+  it('كود 23503 على كائن عادي (ليس Error) يُترجم لرسالة الحظر', () => {
+    const err = friendlyDbError({ code: '23503', message: 'fk fails' }, 'x')
+    expect(err).toBeInstanceOf(Error)
+    expect(err.message).toContain('الأرشفة')
+  })
+  it('نص «foreign key» في رسالة Error بلا كود يكفي للترجمة', () => {
+    const err = friendlyDbError(new Error('update violates foreign key constraint'), 'x')
+    expect(err.message).toContain('الأرشفة')
+  })
+  it('أكواد أخرى (23505) تمرّ بالهوية نفسها', () => {
+    const original = Object.assign(new Error('dup'), { code: '23505' })
+    expect(friendlyDbError(original, 'fallback')).toBe(original)
+  })
+})
+
+describe('examErrorInfo — كل الفروع (تعميق)', () => {
+  const generic = examErrorInfo(new Error('zzz-unknown'))
+  const branchMsgs = [
+    'exam not published',
+    'exam not started yet',
+    'exam window closed',
+    'student not in exam group',
+    'student is paused',
+    'attempt limit reached',
+    'exam has no gradable questions',
+    'time expired',
+  ]
+  it.each(branchMsgs)('«%s» عنوانه يختلف عن العام', (msg) => {
+    expect(examErrorInfo(new Error(msg)).title).not.toBe(generic.title)
+  })
+  it('مدخل سلسلة خام (ليس Error) يُصنَّف أيضاً', () => {
+    expect(examErrorInfo('invalid or expired token').title).toBe(
+      examErrorInfo(new Error('invalid or expired token')).title,
+    )
+  })
+  it('null وundefined يرجعان للعام الآمن', () => {
+    expect(examErrorInfo(null)).toEqual(generic)
+    expect(examErrorInfo(undefined)).toEqual(generic)
+  })
+})
+
+describe('portalErrorInfo — تمييز التلميحات (تعميق)', () => {
+  const generic = portalErrorInfo(new Error('zzz-unknown'))
+  it('«not authorized» و«token not valid» مخرج واحد يختلف تلميحه عن العام', () => {
+    const a = portalErrorInfo(new Error('not authorized'))
+    const b = portalErrorInfo(new Error('token not valid'))
+    expect(a).toEqual(b)
+    expect(a.title).toBe(generic.title)
+    expect(a.hint).not.toBe(generic.hint)
+  })
+  it('المنتهي يختلف عن العام في العنوان والتلميح معاً', () => {
+    const expired = portalErrorInfo(new Error('invalid or expired'))
+    expect(expired.title).not.toBe(generic.title)
+    expect(expired.hint).not.toBe(generic.hint)
+  })
+})
+
+describe('studentPortalErrorInfo — الفرعان (تعميق)', () => {
+  it('المنتهي يختلف عن العام، والعام ثابت لغيره', () => {
+    const generic = studentPortalErrorInfo(new Error('zzz-unknown'))
+    const expired = studentPortalErrorInfo(new Error('invalid or expired'))
+    expect(expired.title).not.toBe(generic.title)
+    expect(expired.hint).not.toBe(generic.hint)
+    expect(studentPortalErrorInfo('whatever')).toEqual(generic)
+  })
+})
+
+describe('enrolErrorInfo — كل الفروع (تعميق)', () => {
+  const generic = enrolErrorInfo(new Error('zzz-unknown'))
+  const branchMsgs = [
+    'invalid or disabled',
+    'too many requests',
+    'invalid phone',
+    'invalid group',
+    'invalid name',
+    'invalid note',
+  ]
+  it.each(branchMsgs)('«%s» عنوانه يختلف عن العام', (msg) => {
+    expect(enrolErrorInfo(new Error(msg)).title).not.toBe(generic.title)
+  })
+  it('«invalid name» و«invalid note» فرع واحد بمخرج واحد', () => {
+    expect(enrolErrorInfo(new Error('invalid name'))).toEqual(
+      enrolErrorInfo(new Error('invalid note')),
+    )
+  })
+})
+
+describe('link builders — تشفير المحارف المحجوزة (تعميق)', () => {
+  it('معرّف الطالب والرمز يُشفَّران في رابط البوابة', () => {
+    expect(buildPortalLink('https://x.app', 'stu 1&y', 't+k/=')).toBe(
+      'https://x.app/portal?student=stu%201%26y&t=t%2Bk%2F%3D',
+    )
+  })
+  it('الرمز يُشفَّر في الروابط الثلاثة الأخرى', () => {
+    expect(buildExamLink('https://x.app', 'a+b/c=')).toBe('https://x.app/exam?t=a%2Bb%2Fc%3D')
+    expect(buildStudentPortalLink('https://x.app', 'a+b/c=')).toBe(
+      'https://x.app/student-portal?t=a%2Bb%2Fc%3D',
+    )
+    expect(buildEnrolLink('https://x.app', 'a+b/c=')).toBe('https://x.app/book?t=a%2Bb%2Fc%3D')
+  })
+})

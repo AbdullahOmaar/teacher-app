@@ -4,6 +4,7 @@ import {
   arrivalWaUrl,
   departureMessage,
   departureWaUrl,
+  resolveGuardian,
   type ArrivalWaContext,
   type RosterStudent,
 } from './api'
@@ -79,5 +80,41 @@ describe('arrivalWaUrl / departureWaUrl — روابط wa.me', () => {
     expect(arrivalWaUrl(noPhones, undefined, ctx)).toBeNull()
     expect(departureWaUrl(noPhones, { name: null, phone: null }, ctx)).toBeNull()
     expect(arrivalWaUrl(noPhones, { name: null, phone: '  ' }, ctx)).toBeNull()
+  })
+})
+
+describe('resolveGuardian — سلسلتا الأسبقية مباشرة (تعميق PAT-4)', () => {
+  it('جهة الاتصال المرتبطة تتقدّم في الاسم والرقم معاً', () => {
+    expect(resolveGuardian(student, { name: 'فاطمة علي', phone: '01099998888' })).toEqual({
+      name: 'فاطمة علي',
+      phone: '01099998888',
+    })
+  })
+  it('جهة اتصال بلا اسم ولا رقم ترجع لحقول الطالب', () => {
+    expect(resolveGuardian(student, { name: null, phone: null })).toEqual({
+      name: 'محمد سمير',
+      phone: '01112223334',
+    })
+  })
+  it('اسم ولي أمر من مسافات فقط يُعامل غائباً → صيغة الاسم الأول', () => {
+    const blank: RosterStudent = { ...student, guardian_name: '   ' }
+    expect(resolveGuardian(blank, undefined).name).toBe('ولي أمر أحمد')
+  })
+  it('الرقم يسقط لموبايل الطالب عند غياب رقم ولي الأمر', () => {
+    const noGuardianPhone: RosterStudent = { ...student, guardian_phone: null }
+    expect(resolveGuardian(noGuardianPhone, undefined).phone).toBe('01001234567')
+  })
+  it('الاسم الأول يُستخرج رغم مسافات زائدة في اسم الطالب', () => {
+    const spaced: RosterStudent = { ...student, name: 'أحمد  سمير  حسن', guardian_name: null }
+    expect(resolveGuardian(spaced, undefined).name).toBe('ولي أمر أحمد')
+  })
+})
+
+describe('اسم سنتر فارغ نصياً (تعميق PAT-4)', () => {
+  it('centreName = "" يسقط عبارة المكان كالغائب تماماً', () => {
+    const emptyCentre = { ...ctx, centreName: '' }
+    expect(arrivalMessage(student, undefined, emptyCentre)).toBe(
+      arrivalMessage(student, undefined, { ...ctx, centreName: null }),
+    )
   })
 })

@@ -9,6 +9,7 @@ import type {
   OnlineExamRow,
   OnlineExamStatus,
   OnlineExamTokenRow,
+  Tables,
 } from '../../types/database'
 import { generateRawToken, sha256Hex } from '../portal/api'
 
@@ -44,21 +45,24 @@ const TOKEN_COLS = 'id, teacher_id, exam_id, expires_at, revoked_at, last_used_a
 const ATTEMPT_COLS =
   'id, teacher_id, exam_id, student_id, attempt_no, status, seed, presentation, answers, started_at, submitted_at, score, max_score, pct, score_posted, created_at, updated_at'
 
-function toExam(row: Record<string, unknown>): OnlineExamRow {
+function toExam(row: Tables<'online_exams'>): OnlineExamRow {
   return {
-    ...(row as unknown as OnlineExamRow),
+    ...row,
     duration_minutes: row.duration_minutes == null ? null : Number(row.duration_minutes),
     max_attempts: Number(row.max_attempts) || 1,
   }
 }
 
-function toAttempt(row: Record<string, unknown>): ExamAttemptRow {
+function toAttempt(row: Tables<'exam_attempts'>): ExamAttemptRow {
   return {
-    ...(row as unknown as ExamAttemptRow),
+    ...row,
     attempt_no: Number(row.attempt_no) || 0,
+    // presentation jsonb يكتبه exam_start_attempt خادمياً بشكل
+    // ExamPresentationQuestion حرفياً — حدّ شكل jsonb موثّق (COD-1):
+    // التحويل هنا في المحوّل الوحيد لصف المحاولة، لا في مواقع القراءة.
     presentation: (Array.isArray(row.presentation)
       ? row.presentation
-      : []) as ExamPresentationQuestion[],
+      : []) as unknown as ExamPresentationQuestion[],
     answers: (row.answers ?? {}) as Record<string, string>,
     score: row.score == null ? null : Number(row.score),
     max_score: row.max_score == null ? null : Number(row.max_score),
@@ -82,7 +86,7 @@ export async function fetchOnlineExam(
     .eq('assessment_id', assessmentId)
     .maybeSingle()
   if (error) throw error
-  return data ? toExam(data as unknown as Record<string, unknown>) : null
+  return data ? toExam(data) : null
 }
 
 /** تحويل تقييم لامتحان إلكتروني: صف مسودة بالإعدادات الافتراضية الآمنة */
@@ -109,7 +113,7 @@ export async function createOnlineExam(
     .select(EXAM_COLS)
     .single()
   if (error) throw error
-  return toExam(data as unknown as Record<string, unknown>)
+  return toExam(data)
 }
 
 export async function updateOnlineExam(
@@ -132,7 +136,7 @@ export async function updateOnlineExam(
     .select(EXAM_COLS)
     .single()
   if (error) throw error
-  return toExam(data as unknown as Record<string, unknown>)
+  return toExam(data)
 }
 
 /** حذف الامتحان الإلكتروني (محاولاته وروابطه تُحذف CASCADE؛ درجات scores المُرحَّلة تبقى بس تفقد رابط المحاولة) */
@@ -209,7 +213,7 @@ export async function fetchExamTokens(
     .eq('exam_id', examId)
     .order('created_at', { ascending: false })
   if (error) throw error
-  return (data ?? []) as unknown as OnlineExamTokenRow[]
+  return data ?? []
 }
 
 export async function revokeExamToken(teacherId: string, tokenId: string): Promise<void> {
@@ -250,12 +254,11 @@ export async function fetchExamAttempts(
     .eq('exam_id', examId)
     .order('started_at', { ascending: false })
   if (error) throw error
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
-    const s = (row.students ?? {}) as { name?: string; public_code?: string }
+  return (data ?? []).map((row) => {
     return {
       ...toAttempt(row),
-      student_name: s.name ?? '—',
-      student_code: s.public_code ?? '',
+      student_name: row.students?.name ?? '—',
+      student_code: row.students?.public_code ?? '',
     }
   })
 }

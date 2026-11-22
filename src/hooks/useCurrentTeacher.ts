@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import { useActiveTeacherId } from '../lib/workspace'
-import { claimTeacherInvites } from '../features/auth/api'
+import { claimTeacherInvites, toMemberRow } from '../features/auth/api'
 import type { TeacherMemberRow, TeacherRow } from '../types/database'
 
 export type TeacherResolution =
@@ -129,7 +129,7 @@ export function useCurrentTeacher(): TeacherResolution {
         .eq('owner_user_id', uid)
         .order('created_at', { ascending: true })
       if (ownErr) throw ownErr
-      const ownTeachers = (ownRows ?? []) as unknown as TeacherRow[]
+      const ownTeachers = ownRows ?? []
       // السنتر الأساسي: الصف التاريخي id = uid إن وُجد، وإلا الأقدم
       const ownTeacher = ownTeachers.find((t) => t.id === uid) ?? ownTeachers[0] ?? null
 
@@ -140,7 +140,7 @@ export function useCurrentTeacher(): TeacherResolution {
         .eq('status', 'active')
         .order('created_at', { ascending: true })
       if (memErr) throw memErr
-      const memberships = (memberRows ?? []) as unknown as TeacherMemberRow[]
+      const memberships = (memberRows ?? []).map(toMemberRow)
 
       // مساحة عمل مختارة صراحة وما زالت صالحة
       if (activeTeacherId) {

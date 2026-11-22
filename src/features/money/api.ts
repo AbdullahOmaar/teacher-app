@@ -7,6 +7,7 @@ import type {
   MonthlyProfitRow,
   RecurringExpenseInput,
   RecurringExpenseRow,
+  Tables,
 } from '../../types/database'
 import { monthEndStr, monthStartStr } from '../home/api'
 
@@ -45,7 +46,7 @@ const PROFIT_COLS = 'teacher_id, month, collected, expenses, center_share_amount
 const EXPENSE_COLS = 'id, teacher_id, expense_date, category, amount, note, created_at'
 const RECURRING_COLS = 'id, teacher_id, category, amount, note, created_at, updated_at'
 
-function toProfit(row: Record<string, unknown>): MonthlyProfitRow {
+function toProfit(row: Tables<'monthly_profit'>): MonthlyProfitRow {
   return {
     teacher_id: row.teacher_id as string,
     month: row.month as string,
@@ -56,12 +57,12 @@ function toProfit(row: Record<string, unknown>): MonthlyProfitRow {
   }
 }
 
-function toExpense(row: Record<string, unknown>): ExpenseRow {
-  return { ...(row as unknown as ExpenseRow), amount: Number(row.amount) || 0 }
+function toExpense(row: Tables<'expenses'>): ExpenseRow {
+  return { ...row, amount: Number(row.amount) || 0 }
 }
 
-function toRecurring(row: Record<string, unknown>): RecurringExpenseRow {
-  return { ...(row as unknown as RecurringExpenseRow), amount: Number(row.amount) || 0 }
+function toRecurring(row: Tables<'recurring_expenses'>): RecurringExpenseRow {
+  return { ...row, amount: Number(row.amount) || 0 }
 }
 
 /** كل صفوف ملخص الأرباح الشهرية للمدرس من view ‏monthly_profit — الأحدث أولاً */
@@ -72,7 +73,7 @@ export async function fetchMonthlyProfit(teacherId: string): Promise<MonthlyProf
     .eq('teacher_id', teacherId)
     .order('month', { ascending: false })
   if (error) throw error
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map(toProfit)
+  return (data ?? []).map(toProfit)
 }
 
 /**
@@ -87,8 +88,7 @@ export async function fetchCenterSharePercent(teacherId: string): Promise<number
     .eq('teacher_id', teacherId)
     .maybeSingle()
   if (error) throw error
-  const v = (data as unknown as { center_share_percent?: number | string } | null)
-    ?.center_share_percent
+  const v = data?.center_share_percent
   return Number(v) || 0
 }
 
@@ -147,7 +147,7 @@ export async function fetchMonthExpenses(
     .order('expense_date', { ascending: false })
     .order('created_at', { ascending: false })
   if (error) throw error
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map(toExpense)
+  return (data ?? []).map(toExpense)
 }
 
 export async function createExpense(
@@ -161,7 +161,7 @@ export async function createExpense(
     .select(EXPENSE_COLS)
     .single()
   if (error) throw error
-  return toExpense(data as unknown as Record<string, unknown>)
+  return toExpense(data)
 }
 
 export async function updateExpense(
@@ -178,7 +178,7 @@ export async function updateExpense(
     .select(EXPENSE_COLS)
     .single()
   if (error) throw error
-  return toExpense(data as unknown as Record<string, unknown>)
+  return toExpense(data)
 }
 
 /** حذف مصروف — فوري بلا تأكيد كما في المرجع (§5.10: حذف مصروف فوري) */
@@ -219,7 +219,7 @@ export async function fetchRecurringExpenses(
     .eq('teacher_id', teacherId)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map(toRecurring)
+  return (data ?? []).map(toRecurring)
 }
 
 export async function createRecurringExpense(
@@ -233,7 +233,7 @@ export async function createRecurringExpense(
     .select(RECURRING_COLS)
     .single()
   if (error) throw error
-  return toRecurring(data as unknown as Record<string, unknown>)
+  return toRecurring(data)
 }
 
 export async function updateRecurringExpense(
@@ -250,7 +250,7 @@ export async function updateRecurringExpense(
     .select(RECURRING_COLS)
     .single()
   if (error) throw error
-  return toRecurring(data as unknown as Record<string, unknown>)
+  return toRecurring(data)
 }
 
 export async function deleteRecurringExpense(

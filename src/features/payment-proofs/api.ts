@@ -46,10 +46,6 @@ export interface PendingProofItem extends PaymentProofRow {
   student_code: string
 }
 
-interface ProofJoinRow extends PaymentProofRow {
-  students: { name?: string; public_code?: string } | null
-}
-
 /**
  * إثباتات معلّقة مكتملة الرفع فقط (uploaded_at موجود): الصفوف اليتيمة
  * من رفع منقطع في البوابة لا تصل للمدرس أبداً. الأقدم أولاً — طابور مراجعة.
@@ -63,7 +59,7 @@ export async function fetchPendingProofs(teacherId: string): Promise<PendingProo
     .not('uploaded_at', 'is', null)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return ((data ?? []) as unknown as ProofJoinRow[]).map((r) => ({
+  return (data ?? []).map((r) => ({
     ...r,
     amount: Number(r.amount) || 0,
     student_name: r.students?.name ?? '—',

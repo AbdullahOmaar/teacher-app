@@ -4,6 +4,8 @@ import type {
   ActivityActorRole,
   ActivityEventType,
   ActivityLogRow,
+  Json,
+  Tables,
 } from '../../types/database'
 
 // ===========================================================================
@@ -31,7 +33,7 @@ export interface ActivityEventInput {
   entity_type?: string | null
   entity_id?: string | null
   entity_label?: string | null
-  details?: Record<string, unknown>
+  details?: Record<string, Json | undefined>
 }
 
 interface ActorSnapshot {
@@ -65,7 +67,7 @@ async function resolveActor(teacherId: string): Promise<ActorSnapshot | null> {
       .select('display_name')
       .eq('id', user.id)
       .maybeSingle()
-    const display = (row as unknown as { display_name?: string } | null)?.display_name
+    const display = row?.display_name
     if (display) name = display
   } catch {
     // الاسم التخميني (بريد/بيانات الجلسة) يكفي — التسجيل لا يفشل لاسم
@@ -173,6 +175,20 @@ function sanitizeSearch(raw: string): string {
   return raw.replace(/[%_,()*\\]/g, ' ').trim()
 }
 
+/**
+ * صف سجل من العميل الم typed: ‏actor_role وevent_type نصان في الأنواع
+ * المولّدة ومقيدان بقيود CHECK في المخطط، وdetails jsonb خريطة حرة —
+ * التضييقات الموثّقة في types/database.ts تتحقق هنا في محوّل واحد.
+ */
+function toActivityRow(r: Tables<'activity_log'>): ActivityLogRow {
+  return {
+    ...r,
+    actor_role: r.actor_role as ActivityActorRole,
+    event_type: r.event_type as ActivityEventType,
+    details: (r.details ?? {}) as Record<string, unknown>,
+  }
+}
+
 export async function fetchActivityLog(
   teacherId: string,
   filters: ActivityFilters = {},
@@ -193,10 +209,7 @@ export async function fetchActivityLog(
   }
   const { data, error } = await q
   if (error) throw error
-  return ((data ?? []) as unknown as ActivityLogRow[]).map((r) => ({
-    ...r,
-    details: (r.details ?? {}) as Record<string, unknown>,
-  }))
+  return (data ?? []).map(toActivityRow)
 }
 
 function nextDayStr(dateStr: string): string {
@@ -227,16 +240,14 @@ export async function fetchActivityActors(teacherId: string): Promise<ActivityAc
     .limit(500)
   if (error) throw error
   const seen = new Map<string, ActivityActorOption>()
-  for (const row of (data ?? []) as unknown as {
-    actor_id: string
-    actor_name: string | null
-    actor_role: ActivityActorRole
-  }[]) {
+  for (const row of data ?? []) {
+    if (!row.actor_id) continue
     if (!seen.has(row.actor_id)) {
       seen.set(row.actor_id, {
         id: row.actor_id,
         name: row.actor_name ?? t('activity.page.userFallback'),
-        role: row.actor_role,
+        // actor_role مقيد بقيد CHECK في المخطط لقيمتي ActivityActorRole
+        role: row.actor_role as ActivityActorRole,
       })
     }
   }

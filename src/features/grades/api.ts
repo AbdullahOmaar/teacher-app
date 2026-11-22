@@ -10,6 +10,8 @@ import type {
   QuestionInput,
   QuestionType,
   ScoreRow,
+  ScoreSource,
+  Tables,
 } from '../../types/database'
 import { todayStr } from '../home/api'
 import {
@@ -108,9 +110,9 @@ const QUESTION_COLS =
 const SCORE_COLS =
   'teacher_id, assessment_id, student_id, score, source, exam_attempt_id, created_at, updated_at'
 
-function toAssessment(row: Record<string, unknown>): AssessmentRow {
+function toAssessment(row: AssessmentRow): AssessmentRow {
   return {
-    ...(row as unknown as AssessmentRow),
+    ...row,
     max_score: Number(row.max_score) || 0,
     pass_score: Number(row.pass_score) || 0,
   }
@@ -136,9 +138,8 @@ export async function fetchAssessments(teacherId: string): Promise<AssessmentLis
     .order('assess_date', { ascending: false })
     .order('created_at', { ascending: false })
   if (error) throw error
-  const rows = ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
-    const g = (row.groups ?? {}) as { name?: string }
-    return { base: toAssessment(row), group_name: g.name ?? '—' }
+  const rows = (data ?? []).map((row) => {
+    return { base: toAssessment(row), group_name: row.groups?.name ?? '—' }
   })
   if (rows.length === 0) return []
 
@@ -152,7 +153,7 @@ export async function fetchAssessments(teacherId: string): Promise<AssessmentLis
     .in('assessment_id', ids)
   if (scoreErr) throw scoreErr
   const scoreAgg = new Map<string, { count: number; pctSum: number }>()
-  for (const s of (scoreData ?? []) as unknown as { assessment_id: string; score: number | string }[]) {
+  for (const s of scoreData ?? []) {
     const max = maxById.get(s.assessment_id) ?? 0
     const cur = scoreAgg.get(s.assessment_id) ?? { count: 0, pctSum: 0 }
     cur.count += 1
@@ -167,7 +168,7 @@ export async function fetchAssessments(teacherId: string): Promise<AssessmentLis
     .in('assessment_id', ids)
   if (qErr) throw qErr
   const qCount = new Map<string, number>()
-  for (const q of (qData ?? []) as unknown as { assessment_id: string }[]) {
+  for (const q of qData ?? []) {
     qCount.set(q.assessment_id, (qCount.get(q.assessment_id) ?? 0) + 1)
   }
 
@@ -199,9 +200,7 @@ export async function fetchAssessment(
     .maybeSingle()
   if (error) throw error
   if (!data) return null
-  const row = data as unknown as Record<string, unknown>
-  const g = (row.groups ?? {}) as { name?: string }
-  return { ...toAssessment(row), group_name: g.name ?? '—' }
+  return { ...toAssessment(data), group_name: data.groups?.name ?? '—' }
 }
 
 export async function createAssessment(
@@ -214,7 +213,7 @@ export async function createAssessment(
     .select(ASSESS_COLS)
     .single()
   if (error) throw error
-  return toAssessment(data as unknown as Record<string, unknown>)
+  return toAssessment(data)
 }
 
 export async function updateAssessment(
@@ -230,7 +229,7 @@ export async function updateAssessment(
     .select(ASSESS_COLS)
     .single()
   if (error) throw error
-  return toAssessment(data as unknown as Record<string, unknown>)
+  return toAssessment(data)
 }
 
 /**
@@ -253,6 +252,15 @@ export async function deleteAssessment(teacherId: string, assessmentId: string):
 // وحفظ درجة = upsert على قيد المفتاح الأساسي.
 // ---------------------------------------------------------------------------
 
+/**
+ * صف درجة من العميل الم typed: ‏source نص في الأنواع المولّدة ومقيّد
+ * بقيد CHECK في المخطط (scores_source_check) لقيمتي ScoreSource —
+ * التضييق هنا توثيق لذلك القيد (انظر types/database.ts).
+ */
+function toScoreRow(r: Tables<'scores'>): ScoreRow {
+  return { ...r, source: r.source as ScoreSource, score: Number(r.score) || 0 }
+}
+
 export async function fetchAssessmentScores(
   teacherId: string,
   assessmentId: string,
@@ -263,7 +271,7 @@ export async function fetchAssessmentScores(
     .eq('teacher_id', teacherId)
     .eq('assessment_id', assessmentId)
   if (error) throw error
-  return ((data ?? []) as unknown as ScoreRow[]).map((r) => ({ ...r, score: Number(r.score) || 0 }))
+  return (data ?? []).map(toScoreRow)
 }
 
 export interface ScoreEntry {
@@ -345,10 +353,10 @@ export function scoreWaUrl(
 // المطلوب في هذه الخطوة حسب خطة المرحلة.
 // ---------------------------------------------------------------------------
 
-function toQuestion(row: Record<string, unknown>): AssessmentQuestionRow {
+function toQuestion(row: Tables<'assessment_questions'>): AssessmentQuestionRow {
   const opts = row.options
   return {
-    ...(row as unknown as AssessmentQuestionRow),
+    ...row,
     options: Array.isArray(opts) ? (opts as string[]) : null,
     points: Number(row.points) || 0,
   }
@@ -366,7 +374,7 @@ export async function fetchQuestions(
     .order('position', { ascending: true })
     .order('created_at', { ascending: true })
   if (error) throw error
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map(toQuestion)
+  return (data ?? []).map(toQuestion)
 }
 
 /** إضافة سؤال في نهاية قائمة التقييم (position = عدد الأسئلة الحالي) */
@@ -382,7 +390,7 @@ export async function addQuestion(
     .select(QUESTION_COLS)
     .single()
   if (error) throw error
-  return toQuestion(data as unknown as Record<string, unknown>)
+  return toQuestion(data)
 }
 
 /** حذف سؤال — فوري بلا تأكيد كما في المرجع (§5.10: حذف سؤال فوري) */
@@ -413,7 +421,7 @@ export async function syncAssessmentMax(
     .select(ASSESS_COLS)
     .single()
   if (error) throw error
-  return toAssessment(data as unknown as Record<string, unknown>)
+  return toAssessment(data)
 }
 
 // ---------------------------------------------------------------------------
@@ -449,18 +457,17 @@ export async function fetchStudentScores(
     .eq('teacher_id', teacherId)
     .eq('student_id', studentId)
   if (error) throw error
-  const rows = ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
-    const a = (row.assessments ?? {}) as Record<string, unknown>
-    const g = (a.groups ?? {}) as { name?: string }
+  const rows = (data ?? []).map((row) => {
+    const a = row.assessments
     const max = Number(a.max_score) || 0
     const score = Number(row.score) || 0
     return {
-      assessment_id: row.assessment_id as string,
-      title: (a.title as string) ?? '—',
-      type: (a.type as AssessmentType) ?? 'exam',
-      assess_date: (a.assess_date as string) ?? '',
-      group_id: (a.group_id as string) ?? '',
-      group_name: g.name ?? '—',
+      assessment_id: row.assessment_id,
+      title: a.title ?? '—',
+      type: a.type ?? 'exam',
+      assess_date: a.assess_date ?? '',
+      group_id: a.group_id ?? '',
+      group_name: a.groups?.name ?? '—',
       max_score: max,
       pass_score: Number(a.pass_score) || 0,
       score,

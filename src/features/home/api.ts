@@ -98,12 +98,11 @@ export async function fetchSessionsInRange(
     .order('session_date', { ascending: true })
     .order('start_time', { ascending: true })
   if (error) throw error
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
-    const g = (row.groups ?? {}) as { name?: string; room?: string | null }
+  return (data ?? []).map((row) => {
     return {
-      ...(row as unknown as SessionRow),
-      group_name: g.name ?? '—',
-      group_room: g.room ?? null,
+      ...row,
+      group_name: row.groups?.name ?? '—',
+      group_room: row.groups?.room ?? null,
     }
   })
 }
@@ -291,11 +290,17 @@ export async function fetchInvoiceBalances(teacherId: string): Promise<InvoiceBa
     .select('invoice_id, teacher_id, student_id, group_id, period_month, total, paid, balance, is_paid')
     .eq('teacher_id', teacherId)
   if (error) throw error
-  return ((data ?? []) as unknown as InvoiceBalanceRow[]).map((r) => ({
-    ...r,
+  // أعمدة الـ view مولّدة nullable؛ تعريفها يضمن القيم فعلياً (COD-1)
+  return (data ?? []).map((r) => ({
+    invoice_id: r.invoice_id ?? '',
+    teacher_id: r.teacher_id ?? '',
+    student_id: r.student_id ?? '',
+    group_id: r.group_id ?? '',
+    period_month: r.period_month ?? '',
     total: Number(r.total) || 0,
     paid: Number(r.paid) || 0,
     balance: Number(r.balance) || 0,
+    is_paid: Boolean(r.is_paid),
   }))
 }
 
@@ -317,7 +322,7 @@ export async function fetchAttendanceForSessions(
     .eq('teacher_id', teacherId)
     .in('session_id', sessionIds)
   if (error) throw error
-  return (data ?? []) as unknown as SessionAttendanceMark[]
+  return data ?? []
 }
 
 /** عدد الطلاب النشطين المسجلين في كل مجموعة (تسجيل + طالب غير موقوف) */
@@ -334,7 +339,7 @@ export async function fetchActiveCountsByGroup(
     .in('group_id', groupIds)
     .eq('students.paused', false)
   if (error) throw error
-  for (const row of (data ?? []) as unknown as { group_id: string }[]) {
+  for (const row of data ?? []) {
     map.set(row.group_id, (map.get(row.group_id) ?? 0) + 1)
   }
   return map

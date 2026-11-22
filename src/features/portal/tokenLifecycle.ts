@@ -1,5 +1,6 @@
 import { db } from '../../lib/supabase'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
+import type { Database } from '../../types/database'
 
 // ===========================================================================
 // دورة حياة توكنات الروابط الموقّعة — وحدة مشتركة بين بوابة ولي الأمر
@@ -175,10 +176,13 @@ export type PushRpcName =
   | 'student_portal_push_subscribe'
   | 'student_portal_push_unsubscribe'
 
+/** وسيطات RPC باسمها المولّد من المخطط الحي (COD-1) — كل بوابة تُدقَّق وسيطاتها */
+type PushRpcArgs<N extends PushRpcName> = Database['public']['Functions'][N]['Args']
+
 /** حالة اشتراك Push لهذا المتصفح (نشط؟) عبر RPC الحالة الخاصة بالبوابة */
-export async function fetchPushStatus(
-  rpc: PushRpcName,
-  params: Record<string, string>,
+export async function fetchPushStatus<N extends PushRpcName>(
+  rpc: N,
+  params: PushRpcArgs<N>,
   mapError: (error: unknown) => string,
 ): Promise<boolean> {
   const { data, error } = await db().rpc(rpc, params)
@@ -187,9 +191,9 @@ export async function fetchPushStatus(
 }
 
 /** تسجيل/إيقاف اشتراك Push عبر RPC البوابة — أي خطأ يُترجم بمترجم البوابة */
-export async function callPushRpc(
-  rpc: PushRpcName,
-  params: Record<string, string>,
+export async function callPushRpc<N extends PushRpcName>(
+  rpc: N,
+  params: PushRpcArgs<N>,
   mapError: (error: unknown) => string,
 ): Promise<void> {
   const { error } = await db().rpc(rpc, params)

@@ -4,7 +4,7 @@ import { toCsv } from '../../lib/csv'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import { STATUS_LABELS } from '../attendance/api'
 import { fetchGroups } from '../groups/api'
-import { fetchPaged, todayFileStamp, type PageResult } from './apiShared'
+import { fetchPaged, todayFileStamp } from './apiShared'
 
 // ===========================================================================
 // تصدير CSV وتنزيل الملفات (الدفعة #7 / 3A-360 — COD-2: فُصلت من
@@ -64,7 +64,7 @@ async function buildStudentsCsv(teacherId: string): Promise<{ headers: string[];
       .select(STUDENT_COLS)
       .eq('teacher_id', teacherId)
       .order('created_at', { ascending: true })
-      .range(from, to) as unknown as Promise<PageResult<Record<string, unknown>>>,
+      .range(from, to),
   )
   const groups = await fetchGroups(teacherId)
   const groupName = new Map(groups.map((g) => [g.id, g.name]))
@@ -74,7 +74,7 @@ async function buildStudentsCsv(teacherId: string): Promise<{ headers: string[];
       .select('student_id, group_id')
       .eq('teacher_id', teacherId)
       .order('created_at', { ascending: true })
-      .range(from, to) as unknown as Promise<PageResult<{ student_id: string; group_id: string }>>,
+      .range(from, to),
   )
   const groupsByStudent = new Map<string, string[]>()
   for (const e of enrollments) {
@@ -109,14 +109,14 @@ async function buildInvoicesCsv(teacherId: string): Promise<{ headers: string[];
       .eq('teacher_id', teacherId)
       .order('period_month', { ascending: false })
       .order('created_at', { ascending: false })
-      .range(from, to) as unknown as Promise<PageResult<Record<string, unknown>>>,
+      .range(from, to),
   )
   const balances = await fetchPaged<Record<string, unknown>>((from, to) =>
     supa
       .from('invoice_balances')
       .select('invoice_id, total, paid, balance')
       .eq('teacher_id', teacherId)
-      .range(from, to) as unknown as Promise<PageResult<Record<string, unknown>>>,
+      .range(from, to),
   )
   const balById = new Map(balances.map((b) => [b.invoice_id as string, b]))
   return {
@@ -147,7 +147,7 @@ async function buildPaymentsCsv(teacherId: string): Promise<{ headers: string[];
       .eq('teacher_id', teacherId)
       .order('paid_on', { ascending: false })
       .order('created_at', { ascending: false })
-      .range(from, to) as unknown as Promise<PageResult<Record<string, unknown>>>,
+      .range(from, to),
   )
   return {
     // أعمدة المرجع §5.8 حرفياً: التاريخ، رقم الإيصال، الطالب، الشهر، المبلغ، الطريقة
@@ -177,7 +177,7 @@ async function buildAttendanceCsv(teacherId: string): Promise<{ headers: string[
       .select('status, sessions!inner(session_date, groups(name)), students(name)')
       .eq('teacher_id', teacherId)
       .not('status', 'is', null)
-      .range(from, to) as unknown as Promise<PageResult<Record<string, unknown>>>,
+      .range(from, to),
   )
   const flat = rows.map((r) => {
     const se = (r.sessions ?? {}) as { session_date?: string; groups?: { name?: string } | null }
@@ -207,7 +207,7 @@ async function buildScoresCsv(teacherId: string): Promise<{ headers: string[]; r
       .from('scores')
       .select('score, assessments!inner(title, assess_date, max_score, groups(name)), students(name)')
       .eq('teacher_id', teacherId)
-      .range(from, to) as unknown as Promise<PageResult<Record<string, unknown>>>,
+      .range(from, to),
   )
   const flat = rows.map((r) => {
     const a = (r.assessments ?? {}) as {
@@ -245,7 +245,7 @@ async function buildExpensesCsv(teacherId: string): Promise<{ headers: string[];
       .eq('teacher_id', teacherId)
       .order('expense_date', { ascending: false })
       .order('created_at', { ascending: false })
-      .range(from, to) as unknown as Promise<PageResult<Record<string, unknown>>>,
+      .range(from, to),
   )
   return {
     // أعمدة المرجع §5.8 حرفياً: التاريخ، النوع، المبلغ، ملاحظة

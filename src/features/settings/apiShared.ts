@@ -6,7 +6,7 @@
 // ===========================================================================
 
 export const SETTINGS_COLS =
-  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, show_mascot, last_export_at, created_at, updated_at'
+  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, mascot_accessory, show_mascot, last_export_at, created_at, updated_at'
 
 export function todayFileStamp(): string {
   const d = new Date()
@@ -26,7 +26,7 @@ export interface PageResult<T> {
 }
 
 export async function fetchPaged<T>(
-  run: (from: number, to: number) => Promise<PageResult<T>>,
+  run: (from: number, to: number) => PromiseLike<PageResult<T>>,
 ): Promise<T[]> {
   const PAGE = 1000
   const out: T[] = []

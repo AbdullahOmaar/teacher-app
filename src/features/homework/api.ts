@@ -34,7 +34,7 @@ export async function fetchGroupSessions(
     .order('start_time', { ascending: false })
     .limit(limit)
   if (error) throw error
-  return (data ?? []) as unknown as SessionRow[]
+  return data ?? []
 }
 
 /** علامة واجب/حضور واحدة لطالب في حصة — الحد الأدنى لحساب ملخصات الحصص */
@@ -57,7 +57,7 @@ export async function fetchHomeworkMarks(
     .eq('teacher_id', teacherId)
     .in('session_id', sessionIds)
   if (error) throw error
-  return (data ?? []) as unknown as HomeworkMark[]
+  return data ?? []
 }
 
 export interface HomeworkSummary {

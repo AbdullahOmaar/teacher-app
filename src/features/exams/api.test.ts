@@ -6,7 +6,8 @@ const token = (overrides: Partial<OnlineExamTokenRow>): OnlineExamTokenRow => ({
   id: 'tok1',
   teacher_id: 't1',
   exam_id: 'e1',
-  expires_at: null,
+  // المخطط الحي: expires_at ‏NOT NULL — كل رابط له انتهاء فعلي (صحّحه COD-1)
+  expires_at: '2027-01-01T00:00:00.000Z',
   revoked_at: null,
   last_used_at: null,
   created_at: '2026-11-01T00:00:00.000Z',
@@ -14,7 +15,7 @@ const token = (overrides: Partial<OnlineExamTokenRow>): OnlineExamTokenRow => ({
 })
 
 describe('examTokenStatus — حالة رابط الامتحان للعرض', () => {
-  it('بلا انتهاء ولا إلغاء = نشط', () => {
+  it('انتهاء مستقبلي ولا إلغاء = نشط', () => {
     expect(examTokenStatus(token({}))).toBe('active')
   })
 

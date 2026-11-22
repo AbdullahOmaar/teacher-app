@@ -101,6 +101,73 @@ export function splitArrears(rows: InvoiceBalanceRow[], monthStart: string): Arr
   return { unpaidCount, arrearsTotal, dueThisMonthCount, dueThisMonthTotal, overdueCount, overdueTotal }
 }
 
+export interface UnpaidStudentRow {
+  studentId: string
+  name: string
+  total: number
+}
+
+export interface UnpaidStudentSummary {
+  rows: UnpaidStudentRow[]
+  total: number
+  count: number
+}
+
+export interface UnpaidByStudent {
+  overdue: UnpaidStudentSummary
+  currentDue: UnpaidStudentSummary
+}
+
+/**
+ * تجميع «غير المسدد» لكل طالب (PAT-4 — دفعة #10): التعريف الموحّد
+ * لمجموعات صفحة الفواتير. غير المسدد (isUnpaid) يُجمَّع بالطالب ويُرتَّب
+ * تنازلياً بالمبلغ، وينقسم عند الشهر الحالي: «متأخر» = فترة أقدم من
+ * الشهر الحالي، و«مستحق حالي» = فترة الشهر الحالي أو أحدث.
+ * استُخرج حرفياً من InvoicesPage حيث كان inline داخل useMemo.
+ */
+export function summarizeUnpaidByStudent(
+  invoices: InvoiceListItem[],
+  currentMonth: string,
+): UnpaidByStudent {
+  const aggregate = (list: InvoiceListItem[]): UnpaidStudentSummary => {
+    const byStudent = new Map<string, { name: string; total: number }>()
+    for (const inv of list) {
+      const cur = byStudent.get(inv.student_id) ?? { name: inv.student_name, total: 0 }
+      cur.total += inv.balance
+      byStudent.set(inv.student_id, cur)
+    }
+    const rows = [...byStudent.entries()]
+      .map(([studentId, v]) => ({ studentId, ...v }))
+      .sort((a, b) => b.total - a.total)
+    return { rows, total: rows.reduce((s, r) => s + r.total, 0), count: rows.length }
+  }
+  const unpaid = invoices.filter(isUnpaid)
+  return {
+    overdue: aggregate(unpaid.filter((i) => i.period_month < currentMonth)),
+    currentDue: aggregate(unpaid.filter((i) => i.period_month >= currentMonth)),
+  }
+}
+
+export interface StudentInvoicesSummary {
+  dueTotal: number
+  dueCount: number
+  totalPaid: number
+}
+
+/**
+ * ملخص فواتير طالب واحد (PAT-4 — دفعة #10): إجمالي وعدد غير المسدد
+ * (isUnpaid) وإجمالي المدفوع عبر كل الفواتير. استُخرج حرفياً من
+ * StudentPaymentsTab حيث كان inline داخل useMemo.
+ */
+export function summarizeStudentInvoices(invoices: InvoiceListItem[]): StudentInvoicesSummary {
+  const due = invoices.filter(isUnpaid)
+  return {
+    dueTotal: due.reduce((s, i) => s + i.balance, 0),
+    dueCount: due.length,
+    totalPaid: invoices.reduce((s, i) => s + i.paid, 0),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // القراءات — الفواتير من جدول invoices + أرصدتها من view ‏invoice_balances
 // (الإجمالي/المدفوع/المتبقي محسوب في قاعدة البيانات دائماً، لا مخزّن)
@@ -141,7 +208,7 @@ async function fetchBalancesByInvoice(teacherId: string): Promise<Map<string, In
     .eq('teacher_id', teacherId)
   if (error) throw error
   const map = new Map<string, InvoiceBalanceRow>()
-  for (const row of (data ?? []) as unknown as Record<string, unknown>[]) {
+  for (const row of data ?? []) {
     const b = toBalance(row)
     map.set(b.invoice_id, b)
   }
@@ -190,7 +257,7 @@ export async function fetchInvoices(teacherId: string): Promise<InvoiceListItem[
     .order('created_at', { ascending: false })
   if (error) throw error
   const balances = await fetchBalancesByInvoice(teacherId)
-  return ((data ?? []) as unknown as InvoiceJoinRow[]).map((r) => toListItem(r, balances))
+  return (data ?? []).map((r) => toListItem(r, balances))
 }
 
 /** فاتورة واحدة مع رصيدها وأسماء الطالب والمجموعة */
@@ -207,7 +274,7 @@ export async function fetchInvoice(
   if (error) throw error
   if (!data) return null
   const balances = await fetchBalancesByInvoice(teacherId)
-  return toListItem(data as unknown as InvoiceJoinRow, balances)
+  return toListItem(data, balances)
 }
 
 /** فواتير طالب واحد — لتبويب المدفوعات في ملفه */
@@ -224,7 +291,7 @@ export async function fetchStudentInvoices(
     .order('created_at', { ascending: false })
   if (error) throw error
   const balances = await fetchBalancesByInvoice(teacherId)
-  return ((data ?? []) as unknown as InvoiceJoinRow[]).map((r) => toListItem(r, balances))
+  return (data ?? []).map((r) => toListItem(r, balances))
 }
 
 export async function fetchInvoiceLines(
@@ -238,7 +305,7 @@ export async function fetchInvoiceLines(
     .eq('invoice_id', invoiceId)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return ((data ?? []) as unknown as InvoiceLineRow[]).map((r) => ({
+  return (data ?? []).map((r) => ({
     ...r,
     amount: Number(r.amount) || 0,
   }))
@@ -256,7 +323,7 @@ export async function fetchInvoicePayments(
     .order('paid_on', { ascending: false })
     .order('created_at', { ascending: false })
   if (error) throw error
-  return ((data ?? []) as unknown as PaymentRow[]).map((r) => ({
+  return (data ?? []).map((r) => ({
     ...r,
     amount: Number(r.amount) || 0,
   }))
@@ -280,13 +347,10 @@ export async function fetchStudentPayments(
     .order('paid_on', { ascending: false })
     .order('created_at', { ascending: false })
   if (error) throw error
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
-    const inv = (row.invoices ?? {}) as {
-      period_month?: string
-      groups?: { name?: string } | null
-    }
+  return (data ?? []).map((row) => {
+    const { invoices: inv, ...pay } = row
     return {
-      ...(row as unknown as PaymentRow),
+      ...pay,
       amount: Number(row.amount) || 0,
       period_month: inv.period_month ?? '',
       group_name: inv.groups?.name ?? '—',
@@ -318,15 +382,8 @@ export interface IssueResult {
   total: number
 }
 
-interface EnrollmentForBilling {
-  student_id: string
-  group_id: string
-  price_override: number | null
-  prepaid_sessions: number | null
-}
-
 /** عدد أيام الشهر المطابقة لأيام جدول المجموعة (بديل عند غياب صفوف الحصص) */
-export function calendarSessionsInMonth(group: GroupRow, periodMonth: string): number {
+export function calendarSessionsInMonth(group: Pick<GroupRow, 'days'>, periodMonth: string): number {
   const [y, m] = periodMonth.split('-').map(Number)
   const daysInMonth = new Date(y, m, 0).getDate()
   let count = 0
@@ -416,7 +473,7 @@ export async function generateInvoices(
   if (opts.studentId) enrQuery = enrQuery.eq('student_id', opts.studentId)
   const { data: enrData, error: enrErr } = await enrQuery
   if (enrErr) throw enrErr
-  const enrollments = (enrData ?? []) as unknown as EnrollmentForBilling[]
+  const enrollments = enrData ?? []
 
   // الفحص المسبق لمنع التكرار: فواتير الفترة القائمة
   const { data: existing, error: exErr } = await supa
@@ -444,10 +501,7 @@ export async function generateInvoices(
         .gte('sessions.session_date', period)
         .lte('sessions.session_date', upper)
       if (error) throw error
-      for (const row of (data ?? []) as unknown as {
-        student_id: string
-        sessions: { group_id: string }
-      }[]) {
+      for (const row of data ?? []) {
         const key = `${row.student_id}|${row.sessions.group_id}`
         attendedCount.set(key, (attendedCount.get(key) ?? 0) + 1)
       }
@@ -576,7 +630,7 @@ export async function generateInvoices(
         .select('id, student_id, group_id')
       if (bulkErr) throw bulkErr
       const idByKey = new Map(
-        ((inserted ?? []) as unknown as { id: string; student_id: string; group_id: string }[]).map(
+        (inserted ?? []).map(
           (r) => [`${r.student_id}|${r.group_id}`, r.id] as const,
         ),
       )
@@ -612,7 +666,7 @@ export async function generateInvoices(
           }
           throw invErr
         }
-        const invoiceId = (inv as unknown as { id: string }).id
+        const invoiceId = inv.id
         const { error: lineErr } = await supa.from('invoice_lines').insert(
           p.lines.map((l) => ({
             teacher_id: teacherId,
@@ -687,7 +741,7 @@ export async function createPayment(
     .select(PAY_COLS)
     .single()
   if (error) throw error
-  const row = data as unknown as PaymentRow
+  const row = data
   const payment = { ...row, amount: Number(row.amount) || 0 }
   // سجل النشاط: إنشاء دفعة (يشمل الدفعة التي ينشئها اعتماد إثبات دفع —
   // حدث الاعتماد نفسه يُسجَّل منفصلاً من وحدة الإثباتات)
@@ -746,7 +800,7 @@ export async function voidPayment(teacherId: string, payment: PaymentRow): Promi
     .eq('id', payment.id)
   if (markErr) throw markErr
 
-  const row = data as unknown as PaymentRow
+  const row = data
   const reversal = { ...row, amount: Number(row.amount) || 0 }
   // سجل النشاط: عكس الدفعة هو «حذف/إبطال» الدفعات في هذا النظام (لا حذف
   // فعلي للدفتر أبداً) — يُسجَّل باسم الأصلية المعكوسة ومبلغها الأصلي.
@@ -802,11 +856,7 @@ export async function fetchInvoiceMonthAttendance(
     .order('session_date', { ascending: true })
     .order('start_time', { ascending: true })
   if (sessErr) throw sessErr
-  const sessions = (sess ?? []) as unknown as {
-    id: string
-    session_date: string
-    start_time: string
-  }[]
+  const sessions = sess ?? []
   if (sessions.length === 0) return []
 
   const { data: att, error: attErr } = await db()
@@ -820,12 +870,7 @@ export async function fetchInvoiceMonthAttendance(
     )
   if (attErr) throw attErr
   const bySession = new Map(
-    ((att ?? []) as unknown as {
-      session_id: string
-      status: AttendanceStatus | null
-      homework_done: boolean
-      starred: boolean
-    }[]).map((a) => [a.session_id, a]),
+    (att ?? []).map((a) => [a.session_id, a]),
   )
   return sessions.map((s) => {
     const a = bySession.get(s.id)
@@ -859,10 +904,7 @@ export async function applyAttendanceAdjustment(
     .eq('group_id', invoice.group_id)
     .maybeSingle()
   if (enrErr) throw enrErr
-  const enrRow = enr as unknown as {
-    price_override: number | null
-    groups: { price?: number | string } | null
-  } | null
+  const enrRow = enr
   const price = enrRow?.price_override ?? Number(enrRow?.groups?.price ?? 0)
 
   const delta =
@@ -901,7 +943,7 @@ export async function fetchTeacherDisplayName(teacherId: string): Promise<string
     .eq('id', teacherId)
     .maybeSingle()
   if (error) throw error
-  return ((data as unknown as { display_name?: string } | null)?.display_name ?? '').trim()
+  return (data?.display_name ?? '').trim()
 }
 
 export async function fetchWhatsappTemplate(teacherId: string): Promise<string | null> {
@@ -911,7 +953,7 @@ export async function fetchWhatsappTemplate(teacherId: string): Promise<string |
     .eq('teacher_id', teacherId)
     .maybeSingle()
   if (error) throw error
-  const tpl = (data as unknown as { whatsapp_template?: string } | null)?.whatsapp_template
+  const tpl = data?.whatsapp_template
   return tpl?.trim() ? tpl : null
 }
 

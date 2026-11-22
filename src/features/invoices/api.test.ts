@@ -12,6 +12,9 @@ import {
   periodYm,
   receiptWaUrl,
   splitArrears,
+  summarizeStudentInvoices,
+  summarizeUnpaidByStudent,
+  type InvoiceListItem,
 } from './api'
 
 describe('isUnpaid — تعريف غير المسدد الموحد (PAT-4)', () => {
@@ -42,13 +45,13 @@ describe('تسميات الفترة', () => {
 })
 
 describe('calendarSessionsInMonth — البديل التقويمي', () => {
-  const group = { days: [1, 3] } as unknown as GroupRow // اثنين + أربعاء
+  const group: Pick<GroupRow, 'days'> = { days: [1, 3] } // اثنين + أربعاء
   it('يعدّ أيام الجدول داخل الشهر', () => {
     // نوفمبر 2026: الاثنين 2,9,16,23,30 (5) + الأربعاء 4,11,18,25 (4)
     expect(calendarSessionsInMonth(group, '2026-11-01')).toBe(9)
   })
   it('بلا أيام = صفر', () => {
-    expect(calendarSessionsInMonth({ days: [] } as unknown as GroupRow, '2026-11-01')).toBe(0)
+    expect(calendarSessionsInMonth({ days: [] }, '2026-11-01')).toBe(0)
   })
 })
 
@@ -173,5 +176,89 @@ describe('splitArrears — تقسيم متأخرات الرئيسية (M4 — 3A
       overdueCount: 0,
       overdueTotal: 0,
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// استخراج PAT-4 (دفعة #10): اختبارات توصيف للدالتين المستخرجتين حرفياً من
+// InvoicesPage وStudentPaymentsTab — تثبت السلوك القائم قبل/بعد النقل.
+// ---------------------------------------------------------------------------
+
+const invItem = (over: Partial<InvoiceListItem>): InvoiceListItem => ({
+  invoice_id: 'inv-1',
+  teacher_id: 't1',
+  student_id: 's1',
+  group_id: 'g1',
+  period_month: '2026-11-01',
+  total: 300,
+  paid: 0,
+  balance: 300,
+  is_paid: false,
+  created_at: '2026-11-01T00:00:00Z',
+  student_name: 'أحمد سمير',
+  student_code: 'ST-1',
+  group_name: 'السبت',
+  ...over,
+})
+
+describe('summarizeUnpaidByStudent — تجميع غير المسدد لكل طالب', () => {
+  const CM = '2026-11'
+  it('قائمة فارغة: مجموعتان فارغتان بأصفار', () => {
+    expect(summarizeUnpaidByStudent([], CM)).toEqual({
+      overdue: { rows: [], total: 0, count: 0 },
+      currentDue: { rows: [], total: 0, count: 0 },
+    })
+  })
+  it('يجمّع فواتير الطالب الواحد ويرتّب تنازلياً بالمبلغ', () => {
+    const out = summarizeUnpaidByStudent(
+      [
+        invItem({ invoice_id: 'a', student_id: 's1', balance: 300 }),
+        invItem({ invoice_id: 'b', student_id: 's1', balance: 100, period_month: '2026-11-01' }),
+        invItem({ invoice_id: 'c', student_id: 's2', student_name: 'خالد', balance: 500 }),
+      ],
+      CM,
+    )
+    expect(out.currentDue.rows).toEqual([
+      { studentId: 's2', name: 'خالد', total: 500 },
+      { studentId: 's1', name: 'أحمد سمير', total: 400 },
+    ])
+    expect(out.currentDue.total).toBe(900)
+    expect(out.currentDue.count).toBe(2)
+    expect(out.overdue).toEqual({ rows: [], total: 0, count: 0 })
+  })
+  it('الحد الفاصل: فترة أقدم = متأخر، والشهر الحالي والأحدث = مستحق حالي', () => {
+    const out = summarizeUnpaidByStudent(
+      [
+        invItem({ invoice_id: 'old', period_month: '2026-10-01', balance: 200 }),
+        invItem({ invoice_id: 'cur', period_month: '2026-11-01', balance: 300 }),
+        invItem({ invoice_id: 'fut', period_month: '2026-12-01', balance: 400 }),
+      ],
+      CM,
+    )
+    expect(out.overdue.rows).toEqual([{ studentId: 's1', name: 'أحمد سمير', total: 200 }])
+    expect(out.currentDue.total).toBe(700)
+  })
+  it('المسددة (رصيد صفر) تُستبعد من المجموعتين', () => {
+    const out = summarizeUnpaidByStudent(
+      [invItem({ balance: 0, paid: 300, is_paid: true })],
+      CM,
+    )
+    expect(out.currentDue.count).toBe(0)
+    expect(out.overdue.count).toBe(0)
+  })
+})
+
+describe('summarizeStudentInvoices — ملخص فواتير طالب واحد', () => {
+  it('المستحق من غير المسدد فقط، والمدفوع من الكل', () => {
+    expect(
+      summarizeStudentInvoices([
+        invItem({ balance: 300, paid: 0 }),
+        invItem({ balance: 0, paid: 250, is_paid: true }),
+        invItem({ balance: 100, paid: 50 }),
+      ]),
+    ).toEqual({ dueTotal: 400, dueCount: 2, totalPaid: 300 })
+  })
+  it('قائمة فارغة: أصفار', () => {
+    expect(summarizeStudentInvoices([])).toEqual({ dueTotal: 0, dueCount: 0, totalPaid: 0 })
   })
 })

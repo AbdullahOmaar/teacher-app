@@ -43,7 +43,7 @@ export async function fetchEnrolmentLink(teacherId: string): Promise<EnrolmentLi
     .eq('teacher_id', teacherId)
     .maybeSingle()
   if (error) throw error
-  return (data as unknown as EnrolmentLinkRow | null) ?? null
+  return data ?? null
 }
 
 /**
@@ -169,8 +169,10 @@ export async function submitBooking(rawToken: string, input: BookingInput): Prom
     p_guardian_phone: input.guardianPhone,
     p_group_id: input.groupId,
     p_wants_trial: input.wantsTrial,
-    p_note: input.note,
-    p_honeypot: input.honeypot,
+    // الوسيطان اختياريان بقيمة افتراضية NULL في المخطط: غيابهما ≡ تمرير
+    // NULL حرفياً، فيُحوَّل null المحلي لغياب (COD-1 — بلا تغيير سلوكي)
+    p_note: input.note ?? undefined,
+    p_honeypot: input.honeypot ?? undefined,
   })
   if (error) throw error
 }

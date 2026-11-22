@@ -1,6 +1,6 @@
 import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
-import type { TeacherMemberRow, TeacherRow, TeacherSettingsRow } from '../../types/database'
+import type { Tables, TeacherMemberRow, TeacherRow, TeacherSettingsRow } from '../../types/database'
 import { logActivity } from '../activity/api'
 
 /** ترجمة أخطاء Supabase Auth الشائعة لرسائل عربية واضحة */
@@ -215,9 +215,17 @@ export async function signInDemo(): Promise<void> {
 
 const TEACHER_COLS = 'id, owner_user_id, display_name, avatar_url, phone, created_at, updated_at'
 const SETTINGS_COLS =
-  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, show_mascot, last_export_at, created_at, updated_at'
+  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, mascot_accessory, show_mascot, last_export_at, created_at, updated_at'
 const MEMBER_COLS =
   'id, teacher_id, user_id, invited_email, role, permissions, status, created_at, updated_at'
+
+/**
+ * صف عضو من العميل الم typed: ‏permissions jsonb شكله خريطة صلاحيات
+ * بتصميم كاتبه الوحيد — التضييق الموثّق في types/database.ts يتحقق هنا.
+ */
+export function toMemberRow(r: Tables<'teacher_members'>): TeacherMemberRow {
+  return { ...r, permissions: r.permissions as Record<string, unknown> }
+}
 
 export async function fetchOwnTeacher(userId: string): Promise<TeacherRow | null> {
   const { data, error } = await db()
@@ -226,7 +234,7 @@ export async function fetchOwnTeacher(userId: string): Promise<TeacherRow | null
     .eq('id', userId)
     .maybeSingle()
   if (error) throw error
-  return (data as unknown as TeacherRow | null) ?? null
+  return data ?? null
 }
 
 export async function ensureTeacherProfile(
@@ -287,7 +295,7 @@ export async function createCentre(userId: string, displayName: string): Promise
     .select(TEACHER_COLS)
     .single()
   if (error) throw new Error(translateDbError(error))
-  const centre = data as unknown as TeacherRow
+  const centre = data
 
   const { error: sErr } = await client
     .from('teacher_settings')
@@ -304,7 +312,7 @@ export async function fetchTeacherSettings(teacherId: string): Promise<TeacherSe
     .eq('teacher_id', teacherId)
     .maybeSingle()
   if (error) throw error
-  return (data as unknown as TeacherSettingsRow | null) ?? null
+  return data ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -356,7 +364,7 @@ export async function fetchMyMemberships(userId: string): Promise<TeacherMemberR
     .eq('user_id', userId)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return (data ?? []) as unknown as TeacherMemberRow[]
+  return (data ?? []).map(toMemberRow)
 }
 
 /** أعضاء فريق مدرس (يديرهم المالك بسياسة members_owner_all) */
@@ -367,7 +375,7 @@ export async function fetchTeamMembers(teacherId: string): Promise<TeacherMember
     .eq('teacher_id', teacherId)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return (data ?? []) as unknown as TeacherMemberRow[]
+  return (data ?? []).map(toMemberRow)
 }
 
 export async function inviteAssistant(
@@ -392,7 +400,7 @@ export async function inviteAssistant(
       throw new Error(t('auth.authApiAssistantIdNotFound'))
     throw new Error(translateDbError(error))
   }
-  const row = data as unknown as TeacherMemberRow
+  const row = toMemberRow(data)
   // سجل النشاط: إضافة مساعد مباشرة بمعرّف حسابه (عضوية فعّالة فوراً)
   void logActivity(teacherId, {
     event_type: 'member_invited',
@@ -438,7 +446,7 @@ export async function inviteAssistantByEmail(
     .eq('teacher_id', teacherId)
     .eq('invited_email', email)
   if (exErr) throw new Error(translateDbError(exErr))
-  const rows = (existing ?? []) as unknown as TeacherMemberRow[]
+  const rows = (existing ?? []).map(toMemberRow)
   if (rows.some((r) => r.user_id != null)) {
     throw new Error(t('auth.authApiAssistantAlreadyMember'))
   }
@@ -466,7 +474,7 @@ export async function inviteAssistantByEmail(
     }
     throw new Error(translateDbError(error))
   }
-  const row = data as unknown as TeacherMemberRow
+  const row = toMemberRow(data)
   // سجل النشاط: دعوة مساعد بالبريد (معلّقة حتى الادعاء)
   void logActivity(teacherId, {
     event_type: 'member_invited',
@@ -486,7 +494,7 @@ export async function cancelTeamInvite(teacherId: string, inviteId: string): Pro
     .eq('teacher_id', teacherId)
     .eq('id', inviteId)
     .maybeSingle()
-  const beforeRow = (before as unknown as TeacherMemberRow | null) ?? null
+  const beforeRow = before ? toMemberRow(before) : null
   const { error } = await db()
     .from('teacher_members')
     .delete()
@@ -573,7 +581,7 @@ export async function removeTeamMember(teacherId: string, memberId: string): Pro
     .eq('teacher_id', teacherId)
     .eq('id', memberId)
     .maybeSingle()
-  const beforeRow = (before as unknown as TeacherMemberRow | null) ?? null
+  const beforeRow = before ? toMemberRow(before) : null
   const { error } = await db()
     .from('teacher_members')
     .delete()

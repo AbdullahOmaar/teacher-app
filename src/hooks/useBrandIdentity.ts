@@ -24,7 +24,7 @@ export function useBrandIdentity(teacherId: string | undefined, enabled = true) 
           .maybeSingle(),
       ])
       const teacherName =
-        (teacherRes.data as unknown as { display_name?: string } | null)?.display_name ?? null
+        teacherRes.data?.display_name ?? null
       return resolveBrand({
         brandName: settings?.brand_name,
         teacherName,

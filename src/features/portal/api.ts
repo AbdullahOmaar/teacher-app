@@ -143,7 +143,7 @@ export async function ensureGuardianAndLink(
     .limit(1)
     .maybeSingle()
   if (linkErr) throw linkErr
-  const linked = (link as unknown as { guardians: GuardianRow | null } | null)?.guardians
+  const linked = link?.guardians
   if (linked) return linked
 
   const { name, phone } = effectiveGuardianFromStudent(student)
@@ -159,7 +159,7 @@ export async function ensureGuardianAndLink(
     .maybeSingle()
   if (exErr) throw exErr
 
-  let guardian = (existing as unknown as GuardianRow | null) ?? null
+  let guardian = existing ?? null
   if (!guardian) {
     const { data: created, error: insErr } = await supa
       .from('guardians')
@@ -167,7 +167,7 @@ export async function ensureGuardianAndLink(
       .select(GUARDIAN_COLS)
       .single()
     if (insErr) throw insErr
-    guardian = created as unknown as GuardianRow
+    guardian = created
   }
 
   const { error: gsErr } = await supa.from('guardian_students').upsert(
@@ -581,7 +581,8 @@ export async function markPortalNotificationsRead(
   const { data, error } = await db().rpc('portal_mark_notifications_read', {
     p_token: rawToken,
     p_student_id: studentId,
-    p_ids: ids ?? null,
+    // وسيط اختياري افتراضيه NULL في المخطط: غيابه ≡ NULL حرفياً (COD-1)
+    p_ids: ids ?? undefined,
   })
   if (error) throw new Error(notificationErrorMessage(error))
   const raw = (data ?? {}) as unknown as { unread_count?: number }

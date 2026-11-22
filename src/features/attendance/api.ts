@@ -1,7 +1,7 @@
 import { t } from '../../i18n'
 import { db } from '../../lib/supabase'
 import { waLink } from '../../lib/format'
-import type { AttendanceRow, AttendanceStatus, StudentRow } from '../../types/database'
+import type { AttendanceRow, AttendanceStatus, StudentRow, Tables } from '../../types/database'
 import { fetchSessionsInRange, monthStartStr, type SessionWithGroup } from '../home/api'
 import { logActivity, logAttendanceTouch } from '../activity/api'
 
@@ -83,12 +83,15 @@ const SESSION_COLS =
 const ATT_COLS =
   'teacher_id, session_id, student_id, status, homework_done, starred, left_at, created_at, updated_at'
 
-function withGroup(row: Record<string, unknown>): SessionWithGroup {
-  const g = (row.groups ?? {}) as { name?: string; room?: string | null }
+type SessionJoinRow = Tables<'sessions'> & {
+  groups: { name: string; room: string | null } | null
+}
+
+function withGroup(row: SessionJoinRow): SessionWithGroup {
   return {
-    ...(row as unknown as SessionWithGroup),
-    group_name: g.name ?? '—',
-    group_room: g.room ?? null,
+    ...row,
+    group_name: row.groups?.name ?? '—',
+    group_room: row.groups?.room ?? null,
   }
 }
 
@@ -105,7 +108,7 @@ export async function fetchSessionById(
     .maybeSingle()
   if (error) throw error
   if (!data) return null
-  return withGroup(data as unknown as Record<string, unknown>)
+  return withGroup(data)
 }
 
 export type RosterStudent = Pick<
@@ -129,15 +132,15 @@ export async function fetchSessionRoster(
     .eq('students.paused', false)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
-    const st = (row.students ?? {}) as Record<string, unknown>
+  return (data ?? []).map((row) => {
+    const st = row.students
     return {
-      id: row.student_id as string,
-      name: (st.name as string) ?? '—',
-      public_code: (st.public_code as string) ?? '',
-      phone: (st.phone as string | null) ?? null,
-      guardian_name: (st.guardian_name as string | null) ?? null,
-      guardian_phone: (st.guardian_phone as string | null) ?? null,
+      id: row.student_id,
+      name: st.name ?? '—',
+      public_code: st.public_code ?? '',
+      phone: st.phone ?? null,
+      guardian_name: st.guardian_name ?? null,
+      guardian_phone: st.guardian_phone ?? null,
     }
   })
 }
@@ -166,11 +169,11 @@ export async function fetchGuardianContacts(
     .eq('teacher_id', teacherId)
     .in('student_id', studentIds)
   if (error) throw error
-  for (const row of (data ?? []) as unknown as Record<string, unknown>[]) {
-    const sid = row.student_id as string
+  for (const row of data ?? []) {
+    const sid = row.student_id
     if (map.has(sid)) continue
-    const g = (row.guardians ?? {}) as { display_name?: string; phone?: string }
-    map.set(sid, { name: g.display_name?.trim() ? g.display_name : null, phone: g.phone ?? null })
+    const g = row.guardians
+    map.set(sid, { name: g?.display_name?.trim() ? g.display_name : null, phone: g?.phone ?? null })
   }
   return map
 }
@@ -232,7 +235,7 @@ export async function fetchSessionAttendance(
     .eq('teacher_id', teacherId)
     .eq('session_id', sessionId)
   if (error) throw error
-  return (data ?? []) as unknown as AttendanceRow[]
+  return data ?? []
 }
 
 export async function saveAttendance(
@@ -514,16 +517,15 @@ export async function fetchStudentAttendance(
     .eq('teacher_id', teacherId)
     .eq('student_id', studentId)
   if (error) throw error
-  const rows = ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
-    const se = (row.sessions ?? {}) as Record<string, unknown>
-    const g = (se.groups ?? {}) as { name?: string }
+  const rows = (data ?? []).map((row) => {
+    const se = row.sessions
     return {
-      session_id: row.session_id as string,
-      session_date: (se.session_date as string) ?? '',
-      start_time: (se.start_time as string) ?? '',
-      group_id: (se.group_id as string) ?? '',
-      group_name: g.name ?? '—',
-      status: (row.status as AttendanceStatus | null) ?? null,
+      session_id: row.session_id,
+      session_date: se.session_date ?? '',
+      start_time: se.start_time ?? '',
+      group_id: se.group_id ?? '',
+      group_name: se.groups?.name ?? '—',
+      status: row.status ?? null,
       homework_done: Boolean(row.homework_done),
       starred: Boolean(row.starred),
     }
@@ -559,11 +561,7 @@ export async function fetchStudentAttendanceStats(
     .maybeSingle()
   if (error) throw error
   if (!data) return { marked: 0, attended: 0, rate: null }
-  const row = data as unknown as {
-    marked_sessions: number | string
-    attended_sessions: number | string
-    attendance_rate: number | string | null
-  }
+  const row = data
   return {
     marked: Number(row.marked_sessions) || 0,
     attended: Number(row.attended_sessions) || 0,

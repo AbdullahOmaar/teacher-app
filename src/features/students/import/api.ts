@@ -44,7 +44,7 @@ async function createStudentWithCode(
     .select(STUDENT_COLS)
     .single()
   if (error) throw error
-  return data as unknown as StudentRow
+  return data
 }
 
 export async function importStudentsFromFile(

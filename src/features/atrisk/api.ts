@@ -250,7 +250,7 @@ export async function fetchAtRisk(
       : Promise.resolve({ data: null, error: null }),
   ])
   if (studentsRes.error) throw studentsRes.error
-  const students = (studentsRes.data ?? []) as unknown as RosterStudent[]
+  const students = studentsRes.data ?? []
   if (students.length === 0) return []
   const studentById = new Map(students.map((s) => [s.id, s]))
   if (groupsRes.error) throw groupsRes.error
@@ -258,14 +258,21 @@ export async function fetchAtRisk(
     ((groupsRes.data ?? []) as { id: string; name: string }[]).map((g) => [g.id, g.name]),
   )
   if (sessionsRes.error) throw sessionsRes.error
-  const sessions = (sessionsRes.data ?? []) as unknown as SessionLite[]
+  const sessions = sessionsRes.data ?? []
   if (isOwner && balancesRes.error) throw balancesRes.error
-  const balRows = (balancesRes.data ?? []) as unknown as {
-    invoice_id: string
-    student_id: string
-    period_month: string
-    balance: number | string
-  }[]
+  // أعمدة الـ view مولّدة nullable؛ تعريفها يضمن القيم فعلياً (COD-1)
+  const balRows = (balancesRes.data ?? []).flatMap((r) =>
+    r.invoice_id && r.student_id && r.period_month
+      ? [
+          {
+            invoice_id: r.invoice_id,
+            student_id: r.student_id,
+            period_month: r.period_month,
+            balance: r.balance ?? 0,
+          },
+        ]
+      : [],
+  )
 
   // الموجة ٢: التسجيلات (تحتاج معرّفات الطلاب) + علامات الحضور (تحتاج
   // معرّفات الحصص) + لحظات إنشاء الفواتير المتأخرة (تحتاج معرّفات

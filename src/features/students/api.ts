@@ -6,7 +6,6 @@ import type {
   EnrollmentInput,
   EnrollmentRow,
   GroupRow,
-  StudentBalanceRow,
   StudentInput,
   StudentRow,
 } from '../../types/database'
@@ -22,7 +21,7 @@ export async function fetchStudents(teacherId: string): Promise<StudentRow[]> {
     .eq('teacher_id', teacherId)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return (data ?? []) as unknown as StudentRow[]
+  return data ?? []
 }
 
 export async function fetchStudent(teacherId: string, studentId: string): Promise<StudentRow | null> {
@@ -33,7 +32,7 @@ export async function fetchStudent(teacherId: string, studentId: string): Promis
     .eq('id', studentId)
     .maybeSingle()
   if (error) throw error
-  return (data as unknown as StudentRow | null) ?? null
+  return data ?? null
 }
 
 export async function fetchEnrollments(teacherId: string): Promise<EnrollmentRow[]> {
@@ -43,7 +42,7 @@ export async function fetchEnrollments(teacherId: string): Promise<EnrollmentRow
     .eq('teacher_id', teacherId)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return (data ?? []) as unknown as EnrollmentRow[]
+  return data ?? []
 }
 
 export async function fetchStudentEnrollments(
@@ -57,7 +56,7 @@ export async function fetchStudentEnrollments(
     .eq('student_id', studentId)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return (data ?? []) as unknown as EnrollmentRow[]
+  return data ?? []
 }
 
 /** أرصدة الطلاب من view ‏student_balances (محسوبة، غير مخزنة) */
@@ -68,7 +67,9 @@ export async function fetchStudentBalances(teacherId: string): Promise<Map<strin
     .eq('teacher_id', teacherId)
   if (error) throw error
   const map = new Map<string, number>()
-  for (const row of (data ?? []) as unknown as StudentBalanceRow[]) {
+  for (const row of data ?? []) {
+    // أعمدة الـ view مولّدة nullable؛ تعريف الـ view يضمن وجودها فعلياً
+    if (!row.student_id) continue
     map.set(row.student_id, Number(row.balance) || 0)
   }
   return map
@@ -82,7 +83,7 @@ export async function createStudent(teacherId: string, input: StudentInput): Pro
     .select(STUDENT_COLS)
     .single()
   if (error) throw error
-  return data as unknown as StudentRow
+  return data
 }
 
 export async function updateStudent(
@@ -98,7 +99,7 @@ export async function updateStudent(
     .select(STUDENT_COLS)
     .single()
   if (error) throw error
-  return data as unknown as StudentRow
+  return data
 }
 
 export async function setStudentPaused(
@@ -139,7 +140,7 @@ export async function upsertEnrollment(
     .select(ENROLLMENT_COLS)
     .single()
   if (error) throw error
-  return data as unknown as EnrollmentRow
+  return data
 }
 
 export async function deleteEnrollment(teacherId: string, enrollmentId: string): Promise<void> {
@@ -183,10 +184,13 @@ export interface StudentFootprint {
   canDelete: boolean
 }
 
+/** الجداول القابلة للعدّ في بصمة الطالب — كلها تحمل teacher_id وstudent_id */
+type StudentCountTable = 'invoices' | 'enrollments' | 'attendance' | 'scores'
+
 async function countRows(
-  table: string,
+  table: StudentCountTable,
   teacherId: string,
-  column: string,
+  column: 'student_id',
   value: string,
 ): Promise<number> {
   const { count, error } = await db()

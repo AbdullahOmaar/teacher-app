@@ -33,7 +33,7 @@ export async function uploadBrandLogo(teacherId: string, file: File): Promise<st
     .eq('teacher_id', teacherId)
     .maybeSingle()
   const oldPath =
-    (current as unknown as { brand_logo_path?: string | null } | null)?.brand_logo_path ?? null
+    current?.brand_logo_path ?? null
 
   const path = `${teacherId}/logo.${ext}`
   const { error: upErr } = await supa.storage
@@ -68,7 +68,7 @@ export async function removeBrandLogo(teacherId: string): Promise<void> {
     .eq('teacher_id', teacherId)
     .maybeSingle()
   const path =
-    (current as unknown as { brand_logo_path?: string | null } | null)?.brand_logo_path ?? null
+    current?.brand_logo_path ?? null
   const { error } = await supa
     .from('teacher_settings')
     .upsert(

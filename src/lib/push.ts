@@ -237,7 +237,7 @@ export async function subscribeTeacherPush(params: {
     .select(PUSH_SUB_COLS)
     .single()
   if (error) throw error
-  return data as unknown as PushSubscriptionRow
+  return data
 }
 
 /**

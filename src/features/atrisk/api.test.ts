@@ -180,4 +180,10 @@ describe('atRiskWaUrl — رابط متابعة واتساب (PAT-4أ)', () => {
     }
     expect(atRiskWaUrl(noPhones, 'سنتر النور')).toBeNull()
   })
+  it('بلا أسباب: التحية والختام فقط (سطران) — تعميق PAT-4', () => {
+    const lines = textOf(atRiskWaUrl(item([]), 'سنتر النور')).split('\n')
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toBe('أهلاً محمد سمير، معاكم سنتر النور.')
+    expect(lines[1]).toBe('شكراً لمتابعتكم، ويسعدنا دايماً تواصلكم معانا.')
+  })
 })

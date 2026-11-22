@@ -177,7 +177,7 @@ export async function fetchHolidays(teacherId: string): Promise<HolidayRow[]> {
     .eq('teacher_id', teacherId)
     .order('holiday_date', { ascending: true })
   if (error) throw error
-  return (data ?? []) as unknown as HolidayRow[]
+  return data ?? []
 }
 
 /** يضيف أيام إجازة (يتجاهل الأيام الموجودة) ويُلغي حصصها القائمة */
@@ -265,7 +265,7 @@ export async function createExtraSession(
     .select(SESSION_COLS)
     .single()
   if (error) throw error
-  return data as unknown as SessionRow
+  return data
 }
 
 export async function moveSession(
@@ -305,7 +305,7 @@ export async function moveSession(
     .select('id')
     .single()
   if (error) throw error
-  const newId = (data as unknown as { id: string }).id
+  const newId = data.id
 
   const { error: cancelErr } = await db()
     .from('sessions')

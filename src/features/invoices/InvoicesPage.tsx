@@ -1,4 +1,4 @@
-import { isUnpaid } from './api'
+import { summarizeUnpaidByStudent } from './api'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
@@ -159,25 +159,10 @@ export function InvoicesPage() {
   // المسددة «مستحقات جارية» لا «متأخرات»، فلا تدخل بطاقة المتأخرات
   // (كانت فواتير تُصدر للتوّ تظهر «متأخرات مستحقة» بعد دقيقة من إصدارها).
   const currentMonth = monthStartStr(todayStr())
-  const { overdue, currentDue } = useMemo(() => {
-    const aggregate = (list: InvoiceListItem[]) => {
-      const byStudent = new Map<string, { name: string; total: number }>()
-      for (const inv of list) {
-        const cur = byStudent.get(inv.student_id) ?? { name: inv.student_name, total: 0 }
-        cur.total += inv.balance
-        byStudent.set(inv.student_id, cur)
-      }
-      const rows = [...byStudent.entries()]
-        .map(([studentId, v]) => ({ studentId, ...v }))
-        .sort((a, b) => b.total - a.total)
-      return { rows, total: rows.reduce((s, r) => s + r.total, 0), count: rows.length }
-    }
-    const unpaid = invoices.filter(isUnpaid)
-    return {
-      overdue: aggregate(unpaid.filter((inv) => inv.period_month < currentMonth)),
-      currentDue: aggregate(unpaid.filter((inv) => inv.period_month >= currentMonth)),
-    }
-  }, [invoices, currentMonth])
+  const { overdue, currentDue } = useMemo(
+    () => summarizeUnpaidByStudent(invoices, currentMonth),
+    [invoices, currentMonth],
+  )
 
   // ترقيم الصفحات (و-7ب): 25/صفحة فوق القائمة المفلترة كاملة — الصفحة
   // تُقصّ دائماً داخل النطاق إن انكمشت النتائج تحتها (بيانات تغيّرت)

@@ -38,7 +38,7 @@ export async function fetchWhatsappConfig(
     .eq('teacher_id', teacherId)
     .maybeSingle()
   if (error) throw error
-  return (data as unknown as TeacherWhatsappConfigRow | null) ?? null
+  return data ?? null
 }
 
 /** حفظ الحقول غير السرية (upsert بسياسة المالك) */
@@ -66,7 +66,7 @@ export async function upsertWhatsappConfig(
     .select(WHATSAPP_CONFIG_COLS)
     .single()
   if (error) throw error
-  return data as unknown as TeacherWhatsappConfigRow
+  return data
 }
 
 /**

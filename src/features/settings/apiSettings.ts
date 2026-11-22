@@ -129,7 +129,7 @@ export async function updateTeacherSettings(
     .select(SETTINGS_COLS)
     .single()
   if (error) throw error
-  const row = data as unknown as TeacherSettingsRow
+  const row = data
   return { ...row, center_share_percent: Number(row.center_share_percent) || 0 }
 }
 
@@ -159,7 +159,7 @@ export async function updatePushDigestSettings(
     .select(SETTINGS_COLS)
     .single()
   if (error) throw error
-  const row = data as unknown as TeacherSettingsRow
+  const row = data
   return { ...row, center_share_percent: Number(row.center_share_percent) || 0 }
 }
 
@@ -179,7 +179,7 @@ export async function updateMascotVisibility(
     .select(SETTINGS_COLS)
     .single()
   if (error) throw error
-  const row = data as unknown as TeacherSettingsRow
+  const row = data
   return { ...row, center_share_percent: Number(row.center_share_percent) || 0 }
 }
 

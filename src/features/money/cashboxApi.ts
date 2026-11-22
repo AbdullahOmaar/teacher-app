@@ -4,6 +4,7 @@ import type {
   DailyClosingInput,
   DailyClosingRow,
   PaymentMethod,
+  Tables,
 } from '../../types/database'
 import { logActivity } from '../activity/api'
 
@@ -121,9 +122,9 @@ export async function fetchDaySummary(teacherId: string, date: string): Promise<
 const CLOSING_COLS =
   'id, teacher_id, closing_date, expected_cash, expected_electronic, expenses_total, counted_cash, counted_electronic, note, closed_by, created_at, updated_at'
 
-function toClosing(row: Record<string, unknown>): DailyClosingRow {
+function toClosing(row: Tables<'daily_closings'>): DailyClosingRow {
   return {
-    ...(row as unknown as DailyClosingRow),
+    ...row,
     expected_cash: Number(row.expected_cash) || 0,
     expected_electronic: Number(row.expected_electronic) || 0,
     expenses_total: Number(row.expenses_total) || 0,
@@ -144,7 +145,7 @@ export async function fetchDailyClosings(
     .order('closing_date', { ascending: false })
     .limit(limit)
   if (error) throw error
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map(toClosing)
+  return (data ?? []).map(toClosing)
 }
 
 /** إغلاق يوم واحد إن وُجد */
@@ -159,7 +160,7 @@ export async function fetchDailyClosing(
     .eq('closing_date', date)
     .maybeSingle()
   if (error) throw error
-  return data ? toClosing(data as unknown as Record<string, unknown>) : null
+  return data ? toClosing(data) : null
 }
 
 /** حفظ/تعديل إغلاق يوم (upsert على (teacher_id, closing_date)) */
@@ -179,7 +180,7 @@ export async function upsertDailyClosing(
     .select(CLOSING_COLS)
     .single()
   if (error) throw error
-  const closing = toClosing(data as unknown as Record<string, unknown>)
+  const closing = toClosing(data)
   // سجل النشاط: إغلاق/إعادة إغلاق يوم للخزنة (upsert — الحدث واحد في
   // الحالتين، والتفاصيل تحمل لقطة المعدود والمتوقع والفرق الكلي)
   void logActivity(teacherId, {

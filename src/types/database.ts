@@ -1,267 +1,246 @@
 /**
- * أنواع صفوف قاعدة البيانات — منقولة حرفياً من supabase/migrations/0001_init.sql
- * (لا أعمدة مخترعة). الأنواع العددية numeric في Postgres تصل من PostgREST
- * كـ number عادةً، ونبقيها number هنا مع التحويل عند الحاجة.
+ * أنواع قاعدة البيانات — COD-1 (دفعة #10، 3A-373).
+ *
+ * مصدر الحقيقة الآن هو المخطط الحي: `database.generated.ts` مولّد آلياً
+ * من قاعدة البيانات الفعلية (scripts/gen_db_types.py — لا يُحرَّر يدوياً).
+ * هذا الملف يربط الأنواع المولّدة بالأسماء المستقرة التي يستخدمها الكود
+ * (‏*Row والاتحادات) ويضيف ما لا يعرفه المولّد وحده:
+ *  - تضييقات موثّقة لأعمدة jsonb/نصية مقيدة بقيود CHECK (شكلها الدقيق
+ *    مضمون بقيد المخطط أو بكاتبها الوحيد في الكود).
+ *  - حذف أعمدة لا تصل للعميل أبداً بالتصميم (token_hash وأمثاله).
+ *  - أنواع الإدخال اليدوية (*Input) وأشكال العرض الخاصة.
+ *
+ * انحرافات صُحّحت بهذا الربط مقابل الأنواع اليدوية القديمة:
+ *  - ‏teacher_settings.mascot_accessory: كان `string | null` والعمود الحي
+ *    NOT NULL بقيمة افتراضية 'none' — النوع الآن string حرفياً.
+ *  - أعمدة الـ views كانت تُكتب يدوياً بلا null؛ المولّد يراها nullable
+ *    (Postgres لا يتتبع عدم خلوّ أعمدة الـ views) — تُصحَّح بمحوّل
+ *    NonNullRow لأن تعريفات الـ views نفسها تضمن عدم الخلوّ (أعمدة
+ *    مفاتيح غير خالية + COALESCE) — تحقق من pg_get_viewdef 2026-11-22.
  */
+import type { Enums, Tables } from './database.generated'
 
-export type BillingType =
-  | 'monthly_fixed'
-  | 'per_session_prepaid'
-  | 'per_session_attended'
-  | 'weekly_package'
+export type { Database, Json, Tables, TablesInsert, TablesUpdate, Enums, CompositeTypes } from './database.generated'
 
-export type MemberRole = 'owner' | 'assistant'
-export type MemberStatus = 'invited' | 'active' | 'suspended'
+/** صف view بلا أي null — انظر ترويسة الملف لضمان تعريف الـ view */
+type NonNullRow<T> = { [K in keyof T]: NonNullable<T[K]> }
 
-export type AttendanceStatus = 'p' | 'a' | 'l' | 'm'
-export type SessionKind = 'regular' | 'extra' | 'moved'
-export type SessionStatus = 'scheduled' | 'cancelled'
-export type PaymentMethod = 'cash' | 'vodafone_cash' | 'instapay' | 'bank_transfer'
-export type InvoiceLineType = 'base' | 'discount' | 'adjustment'
+/** استبدال أنواع حقول مختارة بشكل أدق موثّق (jsonb/قيود CHECK) */
+type WithFields<T, F> = Omit<T, keyof F> & F
 
-export interface TeacherRow {
-  id: string
-  /** حساب Auth المالك لهذا السنتر (0016) — السنتر الأساسي: owner_user_id = id */
-  owner_user_id: string
-  display_name: string
-  avatar_url: string | null
-  phone: string | null
-  created_at: string
-  updated_at: string
-}
+// ---------------------------------------------------------------------------
+// الاتحادات — enums حقيقية في المخطط (تُقرأ من Enums المولّدة)
+// ---------------------------------------------------------------------------
 
-export interface TeacherSettingsRow {
-  teacher_id: string
-  whatsapp_template: string
-  center_share_percent: number
-  reminder_minutes: number
-  theme: string // 'auto' | 'light' | 'dark' (check في المخطط)
-  // الهوية البيضاء (migration ‏0008): اسم السنتر التجاري، مسار الشعار في
-  // bucket ‏brand-logos، ولون لهجة #RRGGBB — كلها اختيارية (null = افتراضي)
-  brand_name: string | null
-  brand_logo_path: string | null
-  brand_accent: string | null
-  // ملخص Push اليومي للمدرس (migration ‏0015): التفعيل + وقت الإرسال
-  // (بتوقيت القاهرة) يحرّرهما المدرس من بطاقة Push في الإعدادات، أما
-  // last_sent_on فيديره نظام الإرسال فقط كعلامة منع تكرار (لا يُحرَّر)
-  push_daily_digest_enabled: boolean
-  push_daily_digest_time: string // 'HH:MM:SS' (time في القاعدة)
-  push_daily_digest_last_sent_on: string | null
-  // عمود migration ‏0017 (ماسكوت قديم موقوف): موجود في المخطط الحي ولا
-  // تستخدمه أي ميزة — يُوثَّق هنا لتصحيح انحراف الأنواع (COD-1) دون
-  // بناء أي سلوك فوقه. مفتاح دُفّي الفعلي هو show_mascot (0028) تحت.
-  mascot_accessory: string | null
-  // إظهار الماسكوت «دُفّي» (migration ‏0028 — MASCOT-PLAN §٦): افتراضي
-  // true، والمالك يوقفه من بطاقة «الماسكوت» في الإعدادات فيختفي دُفّي
-  // من كل نقاط الظهور ويرجع لوجو التحميل/السبلاش للكتاب الأصلي
-  show_mascot: boolean
-  last_export_at: string | null
-  created_at: string
-  updated_at: string
-}
+export type BillingType = Enums<'billing_type'>
+export type MemberRole = Enums<'member_role'>
+export type MemberStatus = Enums<'member_status'>
+export type AttendanceStatus = Enums<'attendance_status'>
+export type SessionKind = Enums<'session_kind'>
+export type SessionStatus = Enums<'session_status'>
+export type PaymentMethod = Enums<'payment_method'>
+export type InvoiceLineType = Enums<'invoice_line_type'>
+export type GuardianNotificationKind = Enums<'guardian_notification_kind'>
+export type PushSubscriberKind = Enums<'push_subscriber_kind'>
+export type PushDeliveryStatus = Enums<'push_delivery_status'>
+export type PaymentProofStatus = Enums<'payment_proof_status'>
+export type AssessmentType = Enums<'assessment_type'>
+export type QuestionType = Enums<'question_type'>
+export type OnlineExamStatus = Enums<'online_exam_status'>
+export type ExamAttemptStatus = Enums<'exam_attempt_status'>
 
-/**
- * إعدادات واتساب الاختيارية لكل سنتر (migration ‏0026 — نموذج 3A-300
- * الاختياري per-teacher): حقول Meta غير السرية فقط. التوكن نفسه ليس
- * هنا إطلاقاً — يعيش في Supabase Vault ولا يقرأه العميل أبداً؛ الصف
- * يحمل مؤشر وجوده (token_vault_secret_id — لا يُختار من العميل أصلاً،
- * انظر WHATSAPP_CONFIG_COLS) وطابع آخر حفظ له (token_updated_at).
- */
-export interface TeacherWhatsappConfigRow {
-  teacher_id: string
-  enabled: boolean
-  phone_number_id: string
-  waba_id: string
-  template_name: string
-  template_language: string
-  token_updated_at: string | null
-  last_test_at: string | null
-  created_at: string
-  updated_at: string
-}
-
-/** سجل ملخص Push اليومي (migration ‏0015) — كان بلا نوع صف (انحراف COD-1) */
-export interface PushDigestLogRow {
-  id: string
-  teacher_id: string
-  digest_date: string
-  sessions_count: number
-  overdue_count: number
-  overdue_amount: number
-  sent_at: string
-}
-
-export interface TeacherMemberRow {
-  id: string
-  teacher_id: string
-  /** null = دعوة معلّقة بالبريد لم تُدّعَ بعد (migration ‏0006) */
-  user_id: string | null
-  /** بريد الدعوة مُطبَّعاً (أحرف صغيرة) — يُضبط عند الدعوة بالبريد ويبقى بعد الادعاء كسجل للبريد الذي انضم به العضو */
-  invited_email: string | null
-  role: MemberRole
-  permissions: Record<string, unknown>
-  status: MemberStatus
-  created_at: string
-  updated_at: string
-}
-
-export interface GroupRow {
-  id: string
-  teacher_id: string
-  name: string
-  billing_type: BillingType
-  price: number
-  days: number[] // 0 = الأحد ... 6 = السبت (مطابق Date.getDay())
-  start_time: string // "HH:MM:SS" من Postgres
-  duration_minutes: number
-  room: string | null
-  capacity: number | null // null = بلا حد
-  assistant_name: string | null
-  links: string[]
-  /** أرشفة المجموعة (0007): null = نشطة، وغير ذلك = مؤرشفة (لا حصص/تسجيل جديد، التاريخ محفوظ) */
-  archived_at: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface StudentRow {
-  id: string
-  teacher_id: string
-  public_code: string // كود عشوائي 8 أحرف يولّده trigger عند الترك فارغاً
-  name: string
-  grade: string | null
-  school: string | null
-  paused: boolean
-  phone: string | null
-  guardian_name: string | null
-  guardian_phone: string | null
-  level_note: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface EnrollmentRow {
-  id: string
-  teacher_id: string
-  student_id: string
-  group_id: string
-  price_override: number | null // null = سعر المجموعة
-  prepaid_sessions: number | null
-  created_at: string
-}
-
-/** مصدر طلب الانتظار: يدوي من المدرس، أو صفحة الحجز العامة (0019) */
+/** مصدر طلب الانتظار: يدوي من المدرس، أو صفحة الحجز العامة (0019) — قيد CHECK في المخطط */
 export type WaitlistSource = 'manual' | 'booking_page'
 
-export interface GroupWaitlistRow {
-  id: string
-  teacher_id: string
-  group_id: string
-  name: string
-  phone: string | null
-  note: string | null
-  source: WaitlistSource
-  wants_trial: boolean
-  created_at: string
-}
+/** مصدر الدرجة (migration ‏0010): إدخال يدوي أم ترحيل من امتحان إلكتروني — قيد CHECK في المخطط */
+export type ScoreSource = 'manual' | 'online_exam'
 
-/** رابط الحجز العام للسنتر (0019) — الهاش لا يصل للعميل أبداً */
-export interface EnrolmentLinkRow {
-  teacher_id: string
-  enabled: boolean
-  last_used_at: string | null
-  created_at: string
-  updated_at: string
-}
+// ---------------------------------------------------------------------------
+// الصفوف — أسماء مستقرة فوق الأنواع المولّدة
+// ---------------------------------------------------------------------------
 
-export interface StudentNoteRow {
-  id: string
-  teacher_id: string
-  student_id: string
-  note_date: string
-  text: string
-  created_at: string
-}
-
-export interface GuardianRow {
-  id: string
-  teacher_id: string
-  user_id: string | null
-  display_name: string
-  phone: string
-  created_at: string
-  updated_at: string
-}
-
-export interface GuardianStudentRow {
-  teacher_id: string
-  guardian_id: string
-  student_id: string
-  relationship: string | null
-  created_at: string
-}
+export type TeacherRow = Tables<'teachers'>
 
 /**
- * رابط وصول موقّع لبوابة ولي الأمر — جدول guardian_access_tokens حرفياً.
- * token_hash موجود في الجدول (SHA-256 hex) لكنه لا يُقرأ للعميل أبداً:
- * القائمة هنا بلا عمود الهاش، والهاش يُكتب عند الإنشاء فقط.
+ * إعدادات السنتر. ‏theme نص مقيد بقيد CHECK ‏('auto'|'light'|'dark')
+ * ويبقى string كما كان (القاموس يتعامل معه كنص).
+ * ‏mascot_accessory (0017، موقوف): NOT NULL افتراضي 'none' في المخطط
+ * الحي — صُحّح هنا من `string | null` اليدوي الخاطئ (انحراف COD-1).
+ * مفتاح دُفّي الفعلي هو show_mascot (0028).
  */
-export interface GuardianAccessTokenRow {
-  id: string
-  teacher_id: string
-  guardian_id: string
-  student_id: string | null // null في المخطط = كل أولاد ولي الأمر؛ روابطنا دائماً لطالب واحد
-  expires_at: string
-  revoked_at: string | null
-  last_used_at: string | null
-  created_at: string
-}
+export type TeacherSettingsRow = Tables<'teacher_settings'>
 
 /**
- * رابط وصول موقّع لبوابة الطالب — جدول student_access_tokens (migration ‏0011) حرفياً.
- * منفصل تماماً عن روابط ولي الأمر والامتحانات. token_hash موجود في الجدول
- * (SHA-256 hex) لكنه لا يُقرأ للعميل أبداً: القائمة هنا بلا عمود الهاش،
- * والهاش يُكتب عند الإنشاء فقط.
+ * إعدادات واتساب الاختيارية لكل سنتر (migration ‏0026 — نموذج 3A-300):
+ * حقول Meta غير السرية فقط. التوكن نفسه يعيش في Supabase Vault ولا
+ * يقرأه العميل أبداً؛ ‏token_vault_secret_id مؤشر داخلي لا يُختار من
+ * العميل أصلاً (انظر WHATSAPP_CONFIG_COLS) — يُحذف من النوع بالتصميم.
  */
-export interface StudentAccessTokenRow {
-  id: string
-  teacher_id: string
-  student_id: string
-  expires_at: string
-  revoked_at: string | null
-  last_used_at: string | null
-  created_at: string
-}
+export type TeacherWhatsappConfigRow = Omit<Tables<'teacher_whatsapp_config'>, 'token_vault_secret_id'>
+
+/** سجل ملخص Push اليومي (migration ‏0015) */
+export type PushDigestLogRow = Tables<'push_digest_log'>
+
+/**
+ * عضو فريق السنتر. ‏permissions jsonb شكله Record بتصميم كاتبه الوحيد
+ * (خريطة صلاحيات member_has_permission) — تضييق موثّق من Json.
+ */
+export type TeacherMemberRow = WithFields<
+  Tables<'teacher_members'>,
+  { permissions: Record<string, unknown> }
+>
+
+export type GroupRow = Tables<'groups'>
+export type StudentRow = Tables<'students'>
+export type EnrollmentRow = Tables<'enrollments'>
+
+/** قائمة الانتظار — ‏source مقيد بقيد CHECK لقيمتي WaitlistSource */
+export type GroupWaitlistRow = WithFields<Tables<'group_waitlist'>, { source: WaitlistSource }>
+
+/** رابط الحجز العام للسنتر (0019) — ‏token_hash لا يصل للعميل أبداً */
+export type EnrolmentLinkRow = Omit<Tables<'enrolment_links'>, 'token_hash'>
+
+export type StudentNoteRow = Tables<'student_notes'>
+export type GuardianRow = Tables<'guardians'>
+export type GuardianStudentRow = Tables<'guardian_students'>
+
+/**
+ * رابط وصول موقّع لبوابة ولي الأمر. ‏token_hash (SHA-256 hex) موجود في
+ * الجدول لكنه لا يُقرأ للعميل أبداً: يُكتب عند الإنشاء فقط — محذوف هنا.
+ * ‏student_id قد يكون null في المخطط (= كل أولاد ولي الأمر)؛ روابطنا
+ * دائماً لطالب واحد.
+ */
+export type GuardianAccessTokenRow = Omit<Tables<'guardian_access_tokens'>, 'token_hash'>
+
+/** رابط وصول موقّع لبوابة الطالب (0011) — ‏token_hash محذوف كسابقه */
+export type StudentAccessTokenRow = Omit<Tables<'student_access_tokens'>, 'token_hash'>
 
 /** صف من view ‏student_balances — الرصيد محسوب دائماً، لا مخزّن */
-export interface StudentBalanceRow {
-  teacher_id: string
-  student_id: string
-  balance: number
+export type StudentBalanceRow = NonNullRow<Tables<'student_balances'>>
+
+export type SessionRow = Tables<'sessions'>
+export type HolidayRow = Tables<'holidays'>
+export type AttendanceRow = Tables<'attendance'>
+export type GuardianNotificationRow = Tables<'guardian_notifications'>
+export type PushSubscriptionRow = Tables<'push_subscriptions'>
+export type PushDeliveryLogRow = Tables<'push_delivery_log'>
+export type InvoiceRow = Tables<'invoices'>
+export type InvoiceLineRow = Tables<'invoice_lines'>
+
+/** صف من view ‏invoice_balances — الإجمالي/المدفوع/المتبقي محسوب دائماً */
+export type InvoiceBalanceRow = NonNullRow<Tables<'invoice_balances'>>
+
+/** إثبات دفع رفعه ولي الأمر من البوابة — جدول payment_proofs (migration ‏0005) */
+export type PaymentProofRow = Tables<'payment_proofs'>
+
+export type PaymentRow = Tables<'payments'>
+
+/** تقييم (امتحان/واجب) فوق مجموعة */
+export type AssessmentRow = Tables<'assessments'>
+
+/**
+ * سؤال بنك أسئلة مرتبط بتقييم. ‏options jsonb: مصفوفة نصوص (حتى 4
+ * اختيارات للـ MCQ) أو null — تضييق موثّق من Json.
+ */
+export type AssessmentQuestionRow = WithFields<
+  Tables<'assessment_questions'>,
+  { options: string[] | null }
+>
+
+/** درجة طالب في تقييم — ‏source مقيد بقيد CHECK لقيمتي ScoreSource */
+export type ScoreRow = WithFields<Tables<'scores'>, { source: ScoreSource }>
+
+/** امتحان إلكتروني فوق تقييم قائم — جدول online_exams (migration ‏0010) */
+export type OnlineExamRow = Tables<'online_exams'>
+
+/** رابط امتحان — جدول online_exam_tokens بلا عمود الهاش (يُكتب عند الإنشاء فقط) */
+export type OnlineExamTokenRow = Omit<Tables<'online_exam_tokens'>, 'token_hash'>
+
+/** سؤال كما يراه الطالب في لقطة عرض المحاولة — بلا أي إجابة صحيحة بالتصميم */
+export interface ExamPresentationQuestion {
+  id: string
+  text: string
+  points: number
+  options: string[]
 }
 
-export interface SessionRow {
-  id: string
-  teacher_id: string
-  group_id: string
-  session_date: string // 'YYYY-MM-DD'
-  start_time: string // "HH:MM:SS" من Postgres
-  duration_minutes: number
-  kind: SessionKind
-  status: SessionStatus
-  origin_session_id: string | null
-  note: string | null
-  created_at: string
-  updated_at: string
-}
+/**
+ * محاولة طالب — جدول exam_attempts (migration ‏0010). ‏presentation
+ * وanswers jsonb بأشكال دقيقة يكتبها exam_start_attempt ويقرأها مسار
+ * الامتحان — تضييق موثّق من Json.
+ */
+export type ExamAttemptRow = WithFields<
+  Tables<'exam_attempts'>,
+  { presentation: ExamPresentationQuestion[]; answers: Record<string, string> }
+>
 
-export interface HolidayRow {
-  id: string
-  teacher_id: string
-  holiday_date: string // 'YYYY-MM-DD' — صف لكل يوم (قيد فريد teacher_id + holiday_date)
-  name: string | null
-  created_at: string
-}
+/** مصروف فعلي — جدول expenses (الفئة مقيدة بقيد المخطط لقيم EXP_CATS الخمس، وتبقى string) */
+export type ExpenseRow = Tables<'expenses'>
+
+/** قالب مصروف شهري ثابت — جدول recurring_expenses */
+export type RecurringExpenseRow = Tables<'recurring_expenses'>
+
+/** صف من view ‏monthly_profit — ملخص مالي شهري محسوب في قاعدة البيانات دائماً */
+export type MonthlyProfitRow = NonNullRow<Tables<'monthly_profit'>>
+
+/**
+ * إغلاق يومي للخزنة — جدول daily_closings (migration 0004).
+ * صف واحد لكل (مدرس، يوم): لقطة المتوقع وقت الإغلاق + المعدود فعلياً.
+ * الفرق (معدود − متوقع) مشتق دائماً ولا يُخزّن.
+ */
+export type DailyClosingRow = Tables<'daily_closings'>
+
+// ---------------------------------------------------------------------------
+// سجل النشاط — جدول activity_log (migration ‏0009)
+// ---------------------------------------------------------------------------
+
+/** أنواع أحداث السجل — قائمة قيد CHECK في المخطط حرفياً */
+export type ActivityEventType =
+  | 'payment_created'
+  | 'payment_voided'
+  | 'invoice_created'
+  | 'invoices_generated'
+  | 'attendance_saved'
+  | 'member_invited'
+  | 'member_joined'
+  | 'member_removed'
+  | 'member_invite_cancelled'
+  | 'member_permissions_updated'
+  | 'proof_approved'
+  | 'proof_rejected'
+  | 'student_deleted'
+  | 'student_archived'
+  | 'student_unarchived'
+  | 'group_deleted'
+  | 'group_archived'
+  | 'group_unarchived'
+  | 'cashbox_closed'
+
+/** دور الفاعل — قيد CHECK في المخطط */
+export type ActivityActorRole = 'owner' | 'assistant'
+
+/**
+ * صف سجل نشاط — لقطة الفاعل والكيان وقت الحدث (تبقى بعد حذف الكيان).
+ * ‏actor_role وevent_type مقيدان بقيود CHECK، وdetails خريطة حرة.
+ */
+export type ActivityLogRow = WithFields<
+  Tables<'activity_log'>,
+  {
+    actor_role: ActivityActorRole
+    event_type: ActivityEventType
+    details: Record<string, unknown>
+  }
+>
+
+// ---------------------------------------------------------------------------
+// متابعات «معرّضون للفقد» — جدول at_risk_followups (migration ‏0018)
+// ---------------------------------------------------------------------------
+
+export type AtRiskFollowupRow = Tables<'at_risk_followups'>
+
+// ---------------------------------------------------------------------------
+// أنواع الإدخال اليدوية — حمولات كتابة تبنيها الواجهة (ليست صفوفاً)
+// ---------------------------------------------------------------------------
 
 /** حقول إنشاء حصة إضافية (kind = 'extra') */
 export interface ExtraSessionInput {
@@ -270,153 +249,6 @@ export interface ExtraSessionInput {
   start_time: string // 'HH:MM'
   duration_minutes: number
   note: string | null
-}
-
-export interface AttendanceRow {
-  teacher_id: string
-  session_id: string
-  student_id: string
-  status: AttendanceStatus | null // null = لم يُسجّل بعد
-  homework_done: boolean
-  starred: boolean
-  /** وقت الانصراف الفعلي (0012) — null = لم ينصرف؛ زر «انصراف» في شاشة الحضور */
-  left_at: string | null
-  created_at: string
-  updated_at: string
-}
-
-/** نوع تنبيه ولي الأمر (0012): وصل الحصة / غادرها */
-export type GuardianNotificationKind = 'arrived' | 'left'
-
-/**
- * تنبيه وصول/مغادرة لولي الأمر (0012): يتولد بـ trigger على attendance
- * (قيد فريد session+student+kind يجعله idempotent)، وread_at لا يضبطه
- * إلا RPC البوابة بالتوكن.
- */
-export interface GuardianNotificationRow {
-  id: string
-  teacher_id: string
-  student_id: string
-  guardian_id: string | null
-  session_id: string
-  kind: GuardianNotificationKind
-  event_at: string
-  read_at: string | null
-  created_at: string
-}
-
-/** نوع مشترك الـ Push ‏(0013): مدرس مسجل / بوابة ولي أمر / بوابة طالب */
-export type PushSubscriberKind = 'teacher' | 'guardian' | 'student'
-
-/** حالة نتيجة إرسال Push واحدة في سجل الإرسال (0013) */
-export type PushDeliveryStatus = 'sent' | 'failed' | 'gone' | 'skipped_inactive'
-
-/**
- * اشتراك Web Push ‏(0013): endpoint فريد عالمياً + مفتاحا التشفير.
- * teacher: ‏user_id حساب Auth صاحب المتصفح. البوابات (الخطوة 2):
- * portal_token_id لقطة توكن الإذن + student_id إلزامي.
- */
-export interface PushSubscriptionRow {
-  id: string
-  teacher_id: string
-  subscriber_kind: PushSubscriberKind
-  user_id: string | null
-  portal_token_id: string | null
-  guardian_id: string | null
-  student_id: string | null
-  endpoint: string
-  p256dh: string
-  auth: string
-  user_agent: string | null
-  is_active: boolean
-  disabled_at: string | null
-  disabled_reason: string | null
-  failure_count: number
-  last_success_at: string | null
-  last_failure_at: string | null
-  created_at: string
-  updated_at: string
-}
-
-/** صف سجل نتيجة إرسال Push ‏(0013) — كتابته من الـ Edge Function فقط */
-export interface PushDeliveryLogRow {
-  id: string
-  subscription_id: string | null
-  teacher_id: string | null
-  endpoint_host: string | null
-  title: string | null
-  status: PushDeliveryStatus
-  http_status: number | null
-  error: string | null
-  created_at: string
-}
-
-export interface InvoiceRow {
-  id: string
-  teacher_id: string
-  student_id: string
-  group_id: string
-  period_month: string // أول يوم في الشهر 'YYYY-MM-DD' (قيد المخطط)
-  created_at: string
-}
-
-export interface InvoiceLineRow {
-  id: string
-  teacher_id: string
-  invoice_id: string
-  line_type: InvoiceLineType
-  description: string
-  amount: number // قد يكون سالباً (خصم / تسوية)
-  reason: string | null // سبب الخصم أو التسوية
-  created_at: string
-}
-
-/** صف من view ‏invoice_balances — الإجمالي/المدفوع/المتبقي محسوب دائماً */
-export interface InvoiceBalanceRow {
-  invoice_id: string
-  teacher_id: string
-  student_id: string
-  group_id: string
-  period_month: string // أول يوم في الشهر 'YYYY-MM-DD'
-  total: number
-  paid: number
-  balance: number
-  is_paid: boolean
-}
-
-export type PaymentProofStatus = 'pending' | 'approved' | 'rejected'
-
-/** إثبات دفع رفعه ولي الأمر من البوابة — جدول payment_proofs (migration ‏0005) حرفياً */
-export interface PaymentProofRow {
-  id: string
-  teacher_id: string
-  guardian_id: string
-  student_id: string
-  invoice_id: string | null // اختياري وقت الرفع؛ يُربط فعلياً عبر payment عند الاعتماد
-  amount: number // المبلغ كما ادّعاه ولي الأمر
-  method: PaymentMethod // check في المخطط: ليس 'cash' أبداً
-  storage_path: string // داخل bucket ‏payment-proofs — «<teacher_id>/<proof_id>.<ext>»
-  status: PaymentProofStatus
-  rejection_reason: string | null
-  reviewed_by: string | null
-  reviewed_at: string | null
-  payment_id: string | null // الدفعة الحقيقية التي أنشأها الاعتماد
-  uploaded_at: string | null // null = رفع لم يكتمل — لا يظهر للمدرس
-  created_at: string
-  updated_at: string
-}
-
-export interface PaymentRow {
-  id: string
-  teacher_id: string
-  invoice_id: string
-  amount: number // سالب = دفعة عكسية
-  method: PaymentMethod
-  paid_on: string // 'YYYY-MM-DD'
-  receipt_no: string
-  reverses_payment_id: string | null
-  voided: boolean
-  created_at: string
 }
 
 /** حقول إنشاء/تعديل طالب (public_code يُترك فارغاً عند الإنشاء فيولّده الـ trigger) */
@@ -457,73 +289,6 @@ export interface WaitlistInput {
   note: string | null
 }
 
-export type AssessmentType = 'exam' | 'homework'
-export type QuestionType = 'mcq' | 'essay'
-
-export interface AssessmentRow {
-  id: string
-  teacher_id: string
-  group_id: string
-  title: string
-  type: AssessmentType
-  assess_date: string // 'YYYY-MM-DD'
-  max_score: number // > 0 (قيد المخطط)
-  pass_score: number // >= 0 (قيد المخطط)
-  created_at: string
-  updated_at: string
-}
-
-/** سؤال بنك أسئلة مرتبط بتقييم — لا جدول بنك مستقل في المخطط (انظر وحدة الدرجات) */
-export interface AssessmentQuestionRow {
-  id: string
-  teacher_id: string
-  assessment_id: string
-  position: number
-  type: QuestionType
-  text: string
-  options: string[] | null // jsonb — حتى 4 اختيارات للـ MCQ
-  correct_answer: string | null
-  points: number // >= 0 (قيد المخطط)
-  created_at: string
-}
-
-/** درجة طالب في تقييم — غياب الصف = لا درجة مسجلة؛ المفتاح (assessment_id, student_id) */
-export interface ScoreRow {
-  teacher_id: string
-  assessment_id: string
-  student_id: string
-  score: number // >= 0 (قيد المخطط)
-  /** مصدر الدرجة (migration ‏0010): إدخال يدوي أم ترحيل من امتحان إلكتروني */
-  source: ScoreSource
-  /** المحاولة صاحبة الدرجة عند الترحيل من امتحان إلكتروني، وإلا null */
-  exam_attempt_id: string | null
-  created_at: string
-  updated_at: string
-}
-
-export type ScoreSource = 'manual' | 'online_exam'
-
-export type OnlineExamStatus = 'draft' | 'published' | 'closed'
-export type ExamAttemptStatus = 'in_progress' | 'submitted' | 'expired'
-
-/** امتحان إلكتروني فوق تقييم قائم — جدول online_exams (migration ‏0010) حرفياً */
-export interface OnlineExamRow {
-  id: string
-  teacher_id: string
-  assessment_id: string
-  group_id: string
-  status: OnlineExamStatus
-  duration_minutes: number | null // null = بلا مؤقّت
-  max_attempts: number
-  starts_at: string | null
-  ends_at: string | null
-  allow_review: boolean
-  shuffle_questions: boolean
-  shuffle_options: boolean
-  created_at: string
-  updated_at: string
-}
-
 export interface OnlineExamInput {
   status: OnlineExamStatus
   duration_minutes: number | null
@@ -533,46 +298,6 @@ export interface OnlineExamInput {
   allow_review: boolean
   shuffle_questions: boolean
   shuffle_options: boolean
-}
-
-/** رابط امتحان — جدول online_exam_tokens حرفياً بلا عمود الهاش (يُكتب عند الإنشاء فقط) */
-export interface OnlineExamTokenRow {
-  id: string
-  teacher_id: string
-  exam_id: string
-  expires_at: string | null
-  revoked_at: string | null
-  last_used_at: string | null
-  created_at: string
-}
-
-/** سؤال كما يراه الطالب في لقطة عرض المحاولة — بلا أي إجابة صحيحة بالتصميم */
-export interface ExamPresentationQuestion {
-  id: string
-  text: string
-  points: number
-  options: string[]
-}
-
-/** محاولة طالب — جدول exam_attempts (migration ‏0010) حرفياً */
-export interface ExamAttemptRow {
-  id: string
-  teacher_id: string
-  exam_id: string
-  student_id: string
-  attempt_no: number
-  status: ExamAttemptStatus
-  seed: string
-  presentation: ExamPresentationQuestion[]
-  answers: Record<string, string>
-  started_at: string
-  submitted_at: string | null
-  score: number | null
-  max_score: number | null
-  pct: number | null
-  score_posted: boolean
-  created_at: string
-  updated_at: string
 }
 
 export interface AssessmentInput {
@@ -592,38 +317,6 @@ export interface QuestionInput {
   points: number
 }
 
-/** مصروف فعلي — جدول expenses في المخطط حرفياً (لا حقل عنوان: الفئة + الملحوظة) */
-export interface ExpenseRow {
-  id: string
-  teacher_id: string
-  expense_date: string // 'YYYY-MM-DD'
-  category: string // مقيدة بقيد المخطط لقيم EXP_CATS الخمس
-  amount: number // > 0 (قيد المخطط)
-  note: string | null
-  created_at: string
-}
-
-/** قالب مصروف شهري ثابت — جدول recurring_expenses (لا عمود تفعيل/يوم في المخطط) */
-export interface RecurringExpenseRow {
-  id: string
-  teacher_id: string
-  category: string
-  amount: number // > 0 (قيد المخطط)
-  note: string | null
-  created_at: string
-  updated_at: string
-}
-
-/** صف من view ‏monthly_profit — ملخص مالي شهري محسوب في قاعدة البيانات دائماً */
-export interface MonthlyProfitRow {
-  teacher_id: string
-  month: string // أول يوم في الشهر 'YYYY-MM-DD'
-  collected: number
-  expenses: number
-  center_share_amount: number
-  net_profit: number
-}
-
 export interface ExpenseInput {
   expense_date: string // 'YYYY-MM-DD'
   category: string
@@ -637,26 +330,6 @@ export interface RecurringExpenseInput {
   note: string | null
 }
 
-/**
- * إغلاق يومي للخزنة — جدول daily_closings (migration 0004).
- * صف واحد لكل (مدرس، يوم): لقطة المتوقع وقت الإغلاق + المعدود فعلياً.
- * الفرق (معدود − متوقع) مشتق دائماً ولا يُخزّن.
- */
-export interface DailyClosingRow {
-  id: string
-  teacher_id: string
-  closing_date: string // 'YYYY-MM-DD'
-  expected_cash: number
-  expected_electronic: number
-  expenses_total: number // لقطة مصروفات اليوم وقت الإغلاق (عرض فقط)
-  counted_cash: number // >= 0 (قيد المخطط)
-  counted_electronic: number // >= 0 (قيد المخطط)
-  note: string | null
-  closed_by: string // حساب Auth لمن أغلق — المالك فقط (لا سياسة مالية للمساعد)
-  created_at: string
-  updated_at: string
-}
-
 export interface DailyClosingInput {
   closing_date: string // 'YYYY-MM-DD'
   expected_cash: number
@@ -664,63 +337,5 @@ export interface DailyClosingInput {
   expenses_total: number
   counted_cash: number
   counted_electronic: number
-  note: string | null
-}
-
-// ---------------------------------------------------------------------------
-// سجل النشاط — جدول activity_log (migration ‏0009، Phase 3 خطوة 2)
-// ---------------------------------------------------------------------------
-
-/** أنواع أحداث السجل — قائمة قيد CHECK في المخطط حرفياً */
-export type ActivityEventType =
-  | 'payment_created'
-  | 'payment_voided'
-  | 'invoice_created'
-  | 'invoices_generated'
-  | 'attendance_saved'
-  | 'member_invited'
-  | 'member_joined'
-  | 'member_removed'
-  | 'member_invite_cancelled'
-  | 'member_permissions_updated'
-  | 'proof_approved'
-  | 'proof_rejected'
-  | 'student_deleted'
-  | 'student_archived'
-  | 'student_unarchived'
-  | 'group_deleted'
-  | 'group_archived'
-  | 'group_unarchived'
-  | 'cashbox_closed'
-
-export type ActivityActorRole = 'owner' | 'assistant'
-
-/** صف سجل نشاط — لقطة الفاعل والكيان وقت الحدث (تبقى بعد حذف الكيان) */
-export interface ActivityLogRow {
-  id: string
-  teacher_id: string
-  actor_id: string | null // يُصفَّر عند حذف حساب الفاعل — اللقطة النصية تبقى
-  actor_role: ActivityActorRole
-  actor_name: string | null
-  event_type: ActivityEventType
-  entity_type: string | null
-  entity_id: string | null // بلا FK عمداً: السجل يبقى بعد حذف الكيان
-  entity_label: string | null
-  details: Record<string, unknown>
-  created_at: string
-}
-
-// ---------------------------------------------------------------------------
-// متابعات «معرّضون للفقد» — جدول at_risk_followups (migration ‏0018،
-// Phase 5 خطوة 1): صف لكل ضغطة «تمت المتابعة»؛ القائمة نفسها مشتقّة
-// في العميل، والجدول مرجع إخفاء الطالب حتى حدث خطر أحدث من followed_at.
-// ---------------------------------------------------------------------------
-
-export interface AtRiskFollowupRow {
-  id: string
-  teacher_id: string
-  student_id: string
-  followed_by: string | null // يُصفَّر عند حذف حساب الفاعل
-  followed_at: string
   note: string | null
 }

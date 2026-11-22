@@ -1,7 +1,7 @@
 import { db } from '../../lib/supabase'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { t } from '../../i18n'
 import { isValidAccent } from '../../lib/brand'
-import type { TeacherSettingsRow } from '../../types/database'
 import { SETTINGS_COLS, fetchPaged, todayFileStamp, type PageResult } from './apiShared'
 import {
   REMINDER_VALUES,
@@ -14,6 +14,17 @@ import {
 // النسخ الاحتياطي JSON — تصدير وتحقق واستيراد (الدفعة #7 / 3A-360 —
 // COD-2: فُصلت من settings/api.ts بنقل حرفي؛ السطح العام يبقى عبر api.ts).
 // ===========================================================================
+
+/**
+ * عميل بلا أنواع المخطط — استثناء COD-1 الموثّق (3A-373): هذه الوحدة
+ * سباكة عامة موجَّهة بمواصفات BACKUP_TABLES فوق صفوف JSON مُتحقَّق
+ * منها زمنياً (parseBackupJson هو المدقق الفعلي)، فجداولها وأعمدتها
+ * تُختار زمنياً ولا يستطيع سطح الأنواع المولّدة التعبير عنها. كل وحدة
+ * أخرى في التطبيق على العميل الم typed كاملاً.
+ */
+function rawDb(): SupabaseClient {
+  return db()
+}
 
 // ===========================================================================
 // النسخة الاحتياطية JSON — نطاقها: كل جداول بيانات المدرس التشغيلية في
@@ -152,7 +163,7 @@ export interface BackupFile {
 
 /** تجميع النسخة الكاملة لنطاق المدرس الحالي من قاعدة البيانات */
 export async function fetchBackup(teacherId: string): Promise<BackupFile> {
-  const supa = db()
+  const supa = rawDb()
   const data: BackupFile['data'] = { teacher_settings: null }
 
   const { data: settings, error: sErr } = await supa
@@ -161,7 +172,7 @@ export async function fetchBackup(teacherId: string): Promise<BackupFile> {
     .eq('teacher_id', teacherId)
     .maybeSingle()
   if (sErr) throw sErr
-  data.teacher_settings = (settings as unknown as Record<string, unknown> | null) ?? null
+  data.teacher_settings = settings ?? null
 
   for (const spec of BACKUP_TABLES) {
     const cols = spec.columns.join(', ')
@@ -400,7 +411,7 @@ export async function importBackup(
   teacherId: string,
   backup: BackupFile,
 ): Promise<ImportReport> {
-  const supa = db()
+  const supa = rawDb()
   // بداية الاستيراد — تُستخدم لتمييز صفوف أنشأها تريجر الوصول أثناء هذا
   // الاستيراد نفسه (انظر معالجة guardian_notifications تحت).
   const importStartedAt = new Date().toISOString()
@@ -428,7 +439,7 @@ export async function importBackup(
         .select(SETTINGS_COLS)
         .eq('teacher_id', teacherId)
         .maybeSingle()
-      const cur = (current as unknown as TeacherSettingsRow | null) ?? null
+      const cur = current ?? null
       const centerRaw = Number(s.center_share_percent)
       const reminderRaw = Number(s.reminder_minutes)
       await updateTeacherSettings(teacherId, {
@@ -627,7 +638,7 @@ export async function importBackup(
       currentQ = currentQ.eq(col, val as string)
     }
     const { data: current } = await currentQ.maybeSingle()
-    const curVal = (current as unknown as Record<string, unknown> | null)?.[d.field]
+    const curVal = (current as Record<string, unknown> | null)?.[d.field]
     if (curVal != null) continue
     let updateQ = supa
       .from(d.table)

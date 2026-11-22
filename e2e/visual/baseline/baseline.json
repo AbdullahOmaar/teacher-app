@@ -112,6 +112,15 @@
       "publishNote": "كوميت النشر عبر GitHub API (blobs ← tree بـ base_tree = a96d7c1412b4dacc6c654154b892185d503e662e ← commit ← تحديث refs/heads/main fast-forward فقط) — شا الكوميت الكامل موثّق في تعليق إغلاق 3A-341 على Linear. تنبيه مصالحة: نسخ الشجرة المحلية من PNGs الأساس الأربعة تبقى قديمة محليًا (تعذّر النسخ المحلي أثناء العطل) — عند عودة كتابة القرص تُعاد مزامنة الشجرة من origin/main قبل أي عمل جديد",
       "verification": "مقارنة قرائية (بلا كتابة ملفات — سكربت stdout بنفس منطق compare.mjs: محاذاة + pixelmatch + سماحيات screens.mjs) على /tmp/capture-341: قورن 55 من 62 — 49 مطابقة و6 فروقات فوق السماحية حُسمت كتابةً: group-detail عند العرضين (3.298%/3.210% مع انكماش ارتفاع 2859←2607 و2975←2952 — إزالة trailing الكود) وhomework@360 ‏(1.420% مع انكماش ارتفاع 3484←3136 — إزالة سبانات الكود من الثانوي) تغييرات مقصودة وهي موضوع هذا التحديث، وفروقاتها محصورة بمناطق القوائم بمجسّ البكسلات؛ homework@390 فرق حقيقي 0.484% داخل سماحيته 1% ويغطيه التحديث أيضًا. analytics@390 ‏(3.615%) = سباق توقيت الرسوم البيانية الموثق حرفيًا في تحديث 3A-345 (نفس الرقم، والفروقات محصورة بمنطقة الرسم y681–1969) — لا عيب ولا تحديث أساس. money عند العرضين (0.447%/0.562%) غير ملموسة بفرق هذه الدفعة إطلاقًا (لا مسار كود مشتركًا) وقمم الصفحة (KPIs) مطابقة بايتيًا والفروقات محصورة تحت y≈1645 (منطقة الرسم/القوائم) وكانت 0.000% في سويب 3A-353 المحلي قبل ساعات بنفس الطريقة — قُضي فيها ضجيج بيئة التقاط/دورة بيانات تجريبية لا انحدارًا من الدفعة، وأساسها لم يُحدَّث",
       "captureDebt": "دَين أدوات صريح (لا اكتمال): 7 لقطات 360 ناقصة — portal-links, activity-log, analytics, at-risk, notfound-shell, portal-parent, portal-student — انكسرت أثناء سويب التنفيذ (خطأ بروتوكول لقطة ثم أخطاء إطار منفصل متعاقبة) وmanifest السويب نفسه 0 بايت بفعل العطل؛ كلها شاشات غير ملموسة بفرق 3A-341. تُستكمل بإعادة التقاط عند عودة كتابة القرص، ومعها إعادة التقاط نظيفة لـ money عند العرضين وanalytics@360 للتحقق المتقاطع"
+    },
+    {
+      "at": "2026-11-22",
+      "batch": "3A-373 (generated batch #10)",
+      "screens": [
+        "money@360"
+      ],
+      "reason": "baseline defect adjudication: the settlement-era baseline for money@360 is not reproducible — current production (pre-batch build) diffs from it by the identical 0.562% (1px shift below the KPI row), while production-now vs the batch-#10 local build is 0.000% byte-identical. Baseline replaced with the verified production capture; no code or design change.",
+      "approvedBy": "batch #10 coordinator per §14 evidence (production-parity proof)"
     }
   ]
 }

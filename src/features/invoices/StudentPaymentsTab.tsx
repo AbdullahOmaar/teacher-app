@@ -1,4 +1,4 @@
-import { isUnpaid } from './api'
+import { summarizeStudentInvoices } from './api'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
@@ -34,14 +34,7 @@ export function StudentPaymentsTab({
 
   const invoices = useMemo(() => invoicesQ.data ?? [], [invoicesQ.data])
   const payments = useMemo(() => paymentsQ.data ?? [], [paymentsQ.data])
-  const summary = useMemo(() => {
-    const due = invoices.filter(isUnpaid)
-    return {
-      dueTotal: due.reduce((s, i) => s + i.balance, 0),
-      dueCount: due.length,
-      totalPaid: invoices.reduce((s, i) => s + i.paid, 0),
-    }
-  }, [invoices])
+  const summary = useMemo(() => summarizeStudentInvoices(invoices), [invoices])
 
   if (invoicesQ.isPending || paymentsQ.isPending)
     return <LoadingState label={t('invoices.studentPayLoading')} />
