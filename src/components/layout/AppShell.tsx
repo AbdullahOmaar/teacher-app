@@ -1,4 +1,5 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import type { ReactNode } from 'react'
 import {
   Bell,
   ChevronRight,
@@ -86,7 +87,13 @@ function resolveRoute(pathname: string): { screen: string; tab: TabKey } {
 
 const TAB_ROOTS = new Set(['home', 'students', 'invoices', 'more'])
 
-export function AppShell() {
+/**
+ * قشرة التطبيق: تُركَّب كعنصر مسار (Outlet) للشاشات الداخلية، أو
+ * بمحتوى صريح عبر children — بوابة 404 (NotFoundGate) تلفّ صفحتها
+ * بالقشرة هكذا لأنها تعيش عند المسار العلوي `*` خارج شجرة المسارات
+ * المتداخلة (إصلاح 3A-331). غياب children يعني سلوك Outlet الأصلي.
+ */
+export function AppShell({ children }: { children?: ReactNode }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { toggle } = useTheme()
@@ -198,7 +205,7 @@ export function AppShell() {
           ) : teacher.status === 'no-teacher' ? (
             <Onboarding />
           ) : (
-            <Outlet />
+            (children ?? <Outlet />)
           )}
         </div>
       </main>

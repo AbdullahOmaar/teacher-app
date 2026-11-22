@@ -10,6 +10,7 @@ import { HomePage } from './features/home/HomePage'
 import { LoginPage } from './features/auth/LoginPage'
 import { ResetPasswordPage } from './features/auth/ResetPasswordPage'
 import { RequireAuth } from './features/auth/RequireAuth'
+import { NotFoundGate } from './features/notfound/NotFoundGate'
 
 /*
  * تقسيم المسارات (Phase 2 — الخطوة 12): كل شاشة غير أولية تُحمَّل كسولاً
@@ -103,9 +104,8 @@ const AnalyticsPage = lazy(() =>
 const AtRiskPage = lazy(() =>
   import('./features/atrisk/AtRiskPage').then((m) => ({ default: m.AtRiskPage })),
 )
-const NotFoundPage = lazy(() =>
-  import('./features/notfound/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
-)
+/* صفحة 404 لا تُعرَّف هنا: بوابتها (features/notfound/NotFoundGate)
+   تحملها كسولاً بنفسها — انظر تعليق مسار `*` العلوي أسفل الشجرة */
 
 /*
  * تسخين الحزم (3A-312 — بند ٢): تسجيل نفس import() الخاص بكل مسار
@@ -382,27 +382,19 @@ export default function App() {
                   </LazyRoute>
                 }
               />
-              {/* catch-all داخل الجلسة (خطة الهوية P-5): أي مسار مجهول
-                  داخل القشرة يعرض صفحة 404 بدُفّي الأوبس بدل الفراغ */}
-              <Route
-                path="*"
-                element={
-                  <LazyRoute>
-                    <NotFoundPage />
-                  </LazyRoute>
-                }
-              />
             </Route>
             </Route>
-            {/* catch-all علوي: مسارات مجهولة خارج شجرة الجلسة أصلاً */}
-            <Route
-              path="*"
-              element={
-                <LazyRoute>
-                  <NotFoundPage standalone />
-                </LazyRoute>
-              }
-            />
+            {/* catch-all وحيد واعٍ بالجلسة (إصلاح 3A-331): كان هنا
+                مساران `*` متنافسان — هذا وآخر متداخل داخل فرع
+                RequireAuth>AppShell أُزيل — فكان RequireAuth يبتلع
+                المسار المجهول لغير المسجّل ويحوّله إلى /login قبل
+                رسم أي 404. البوابة الواحدة هنا لا تُبلَغ إلا لمسار
+                لم يطابق أي مسار معروف (المسارات المعروفة أعلى درجة
+                من `*` فتُحسم أولاً: الداخلية منها عبر RequireAuth
+                وتحويله إلى /login محفوظ، والعامة كما هي)، وداخلها:
+                تحميل الجلسة → MascotSplash، بلا جلسة → 404 منفردة،
+                بجلسة → 404 داخل القشرة */}
+            <Route path="*" element={<NotFoundGate />} />
           </Routes>
         </BrowserRouter>
         </ToastProvider>
