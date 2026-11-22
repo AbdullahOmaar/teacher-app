@@ -13,7 +13,7 @@ import { useToast } from '../../components/ui/toast'
 import { formatClock12, formatMoney } from '../../lib/format'
 import { PAYMENT_METHOD_LABELS, periodLabel } from '../invoices/api'
 import { useStudentInvoices } from '../invoices/hooks'
-import type { PendingProofItem } from './api'
+import { proofDate, type PendingProofItem } from './api'
 import { useApproveProof, usePendingProofs, useProofImageUrl, useRejectProof } from './hooks'
 import { t } from '../../i18n'
 
@@ -21,7 +21,7 @@ import { t } from '../../i18n'
 function proofDateTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return `${d.toLocaleDateString('ar-EG')} · ${formatClock12(d)}`
+  return `${proofDate(iso)} · ${formatClock12(d)}`
 }
 
 // ---------------------------------------------------------------------------

@@ -23,11 +23,9 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
 import { SCREENS } from './screens.mjs';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 function arg(name, def) {
   const i = args.indexOf('--' + name);

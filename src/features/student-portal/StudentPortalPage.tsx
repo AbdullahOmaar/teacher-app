@@ -21,7 +21,7 @@ import { daysLabel, formatMoney, formatTime12, safeExternalUrl } from '../../lib
 import { darken } from '../../lib/brand'
 import { fmtScore, pctOf, ASSESSMENT_TYPE_LABELS } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
-import { formatDateLabel, formatDayMonth } from '../schedule/api'
+import { formatDateLabel, formatDayMonth, periodLabel } from '../schedule/api'
 import {
   STUDENT_PORTAL_ATT_META,
   fetchStudentPushStatus,
@@ -151,13 +151,6 @@ function SectionTitle({ icon: Icon, children }: { icon: IconComponent; children:
       {children}
     </h3>
   )
-}
-
-/** تسمية شهر الفاتورة: '2026-11-01' → اسم الشهر والسنة بالعربية */
-function periodLabel(periodMonth: string): string {
-  const d = new Date(`${periodMonth.slice(0, 10)}T00:00:00`)
-  if (Number.isNaN(d.getTime())) return periodMonth.slice(0, 7)
-  return d.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })
 }
 
 export function StudentPortalPage() {

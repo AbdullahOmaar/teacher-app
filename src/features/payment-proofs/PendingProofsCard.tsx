@@ -6,14 +6,8 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import { usePendingProofs } from './hooks'
+import { proofDate } from './api'
 import { t } from '../../i18n'
-
-/** تاريخ رفع الإثبات بصيغة محلية مختصرة (يوم/شهر/سنة) */
-function proofDate(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleDateString('ar-EG')
-}
 
 /**
  * بطاقة «إثباتات دفع معلّقة» في الرئيسية (موجة W1 — بند د-1): بنفس نمط

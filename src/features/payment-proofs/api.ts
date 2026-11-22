@@ -30,6 +30,14 @@ import { logActivity } from '../activity/api'
 
 export const PROOF_BUCKET = 'payment-proofs'
 
+/** تاريخ رفع الإثبات بصيغة محلية مختصرة (يوم/شهر/سنة) — دالة نقية موحّدة
+ * كانت مكرّرة في بطاقة المعلّقات ومكوّنات المراجعة (3A-349) */
+export function proofDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('ar-EG')
+}
+
 const PROOF_COLS =
   'id, teacher_id, guardian_id, student_id, invoice_id, amount, method, storage_path, status, rejection_reason, reviewed_by, reviewed_at, payment_id, uploaded_at, created_at, updated_at'
 

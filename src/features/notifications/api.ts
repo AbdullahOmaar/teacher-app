@@ -201,7 +201,8 @@ export async function fetchAlerts(
   // grade ← proof ← backup) — إعادة جدولة نداءات فقط: نفس الاشتقاق
   // والنصوص والترتيب داخل كل قسم، وأي فشل يرفض الكل كما كان.
   // استعلام أسماء المجموعات يبدأ فوراً كوعد مستقل لا ينتظره إلا قسما
-  // fin/grade عند الحاجة داخلياً.
+  // fin/grade عند الحاجة داخلياً، ويُنتظَر في التجميع النهائي أيضاً
+  // ليبقى رفضه رافضاً للكل كما كان (تحفظ المراجعة 3A-349).
   const groupNamePromise: Promise<Map<string, string>> = (async () => {
     const groupNameById = new Map<string, string>()
     const { data, error } = await supa
@@ -599,6 +600,10 @@ export async function fetchAlerts(
     return section
   }
 
+  // groupNamePromise في التجميع النهائي (3A-349 — تحفظ المراجعة): الوعد
+  // لا ينتظره إلا قسما fin/grade وعند الحاجة داخلياً، فلو لم يحتجاه صار
+  // رفضه وعداً عائماً بدل رفض الكل كما كان في الأصل التسلسلي. انتظاره
+  // هنا يضمن: أي فشل في أسماء المجموعات يرفض fetchAlerts كله.
   const [att, absence, prepaid, fin, grade, proof, backup] = await Promise.all([
     attSection(),
     absenceSection(),
@@ -607,6 +612,7 @@ export async function fetchAlerts(
     gradeSection(),
     proofSection(),
     backupSection(),
+    groupNamePromise,
   ])
   return [...att, ...absence, ...prepaid, ...fin, ...grade, ...proof, ...backup]
 }
