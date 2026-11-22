@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
 import { ActionTile, ActionTiles } from '../../components/ui/ActionTiles'
@@ -21,8 +23,9 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatDateLabel } from '../schedule/api'
-import { useGuardianContacts, useSessionRoster } from '../attendance/hooks'
+import { ATT, useGuardianContacts, useSessionRoster } from '../attendance/hooks'
 import { useGroups } from '../groups/hooks'
+import { SG } from '../students/hooks'
 import {
   ASSESSMENT_TYPE_LABELS,
   TONE_BADGE,
@@ -33,6 +36,7 @@ import {
   type ScoreEntry,
 } from './api'
 import {
+  GRADES,
   useAssessment,
   useAssessmentScores,
   useQuestions,
@@ -65,6 +69,7 @@ function RankBadge({ rank }: { rank: number }) {
  * لكل طالب، ورابط إرسال الدرجة لولي الأمر (§5.6)، ولوحة شرف لأعلى 3.
  */
 export function AssessmentDetailPage() {
+  const qc = useQueryClient()
   const { id } = useParams()
   const navigate = useNavigate()
   const teacher = useCurrentTeacher()
@@ -258,6 +263,13 @@ export function AssessmentDetailPage() {
   const pendingChanges = changedEntries().length
 
   return (
+    <PullToRefresh
+      onRefresh={async () => {
+        await qc.invalidateQueries({ queryKey: [GRADES] })
+        await qc.invalidateQueries({ queryKey: [ATT] })
+        await qc.invalidateQueries({ queryKey: [SG] })
+      }}
+    >
     <div>
       {/* شريط الملخص */}
       <Card className="rise-in">
@@ -587,5 +599,6 @@ export function AssessmentDetailPage() {
         />
       )}
     </div>
+    </PullToRefresh>
   )
 }

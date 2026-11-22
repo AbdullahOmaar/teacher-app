@@ -55,9 +55,14 @@
         :root[data-theme="dark"] #boot-splash { background: #0e1120; }
         /* دخلة الإقلاع (خطة الهوية P-2): دُفّي يهبط بنطّة + انضغاطة هبوط
            + تمايلة كوفية، ثم يكمل نبضه الهادئ القائم — CSS خالص على نفس
-           الأصل بلا ملفات جديدة ولا حجب لأول رسم (السبلاش هو أول رسم) */
+           الأصل بلا ملفات جديدة ولا حجب لأول رسم (السبلاش هو أول رسم).
+           (3A-325): لوجو الكتاب (#boot-logo — يظهر عند إيقاف الماسكوت)
+           كان ثابتاً بلا أي حركة بينما دُفّي يتحرك؛ الآن يأخذ عائلة
+           الحركة نفسها (نفس الدخلة + نفس النبض) فالسبلاش متحرك في
+           الحالتين. سبلاش نظام التشغيل نفسه (من أيقونات الـmanifest)
+           ثابت برمجياً ولا تقنية ويب تحرّكه — الحركة هنا لأسطح التطبيق. */
         #boot-doffy { transform-origin: 50% 100%; animation: boot-enter 0.8s cubic-bezier(0.22, 0.9, 0.32, 1) both, boot-bounce 1.2s ease-in-out 0.8s infinite; }
-        #boot-logo { display: none; }
+        #boot-logo { display: none; transform-origin: 50% 100%; animation: boot-enter 0.8s cubic-bezier(0.22, 0.9, 0.32, 1) both, boot-bounce 1.2s ease-in-out 0.8s infinite; }
         :root[data-mascot="off"] #boot-doffy { display: none; }
         :root[data-mascot="off"] #boot-logo { display: block; }
         .boot-name { font-family: "IBM Plex Sans Arabic", system-ui, sans-serif; font-weight: 800; font-size: 21px; color: #141a2e; animation: boot-name-in 0.55s ease-out 0.35s both; }
@@ -79,7 +84,7 @@
           55% { transform: translateY(0) scale(1.04, 0.95); }
           75% { transform: translateY(-4px) scale(1, 1.01); }
         }
-        @media (prefers-reduced-motion: reduce) { #boot-doffy, .boot-name { animation: none; } }
+        @media (prefers-reduced-motion: reduce) { #boot-doffy, #boot-logo, .boot-name { animation: none; } }
       </style>
     </div>
     <script type="module" src="/src/main.tsx"></script>

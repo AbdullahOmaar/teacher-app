@@ -11,15 +11,23 @@ import {
   ptrRefreshed,
   ptrStart,
   PTR_MAX_PULL_PX,
+  PTR_THRESHOLD_PX,
   type PtrState,
 } from './pullToRefresh'
 
 /**
  * السحب للتحديث (خطة الهوية P-11 — 3A-307): إيماءة لمس من قمة الصفحة
- * تُظهر مؤشر دُفّي (وضع التفكير + سطر §٨ «ثواني… بقلّب في الدفتر.»)
- * ينزلق مع السحب، والإفلات فوق العتبة يُطلق onRefresh الخاص بالصفحة
- * (إبطال استعلاماتها). منطق الإيماءة كله في pullToRefresh.ts النقي؛
+ * تُظهر مؤشر دُفّي (سطر §٨ «ثواني… بقلّب في الدفتر.») ينزلق مع السحب،
+ * والإفلات فوق العتبة يُطلق onRefresh الخاص بالصفحة (إبطال
+ * استعلاماتها). منطق الإيماءة كله في pullToRefresh.ts النقي؛
  * هذا المكوّن يربط أحداث اللمس به ويرسم المؤشر.
+ *
+ * مؤشر اللابتوب المتحرك (3A-325 — دفعة ملاحظات المالك ٥، بند ٢):
+ * دُفّي بوضعية اللابتوب (state="laptop"، حركة mascot-type «شغل على
+ * لابتوب») بدل وضع التفكير الثابت، وغلافه يحمل تحوّل تقدم مرتبطاً
+ * بمسافة السحب نفسها: كلما اقترب السحب من عتبة الإطلاق اعتدل دُفّي
+ * (rotate من ‎-7deg‎ إلى ‎0deg‎) وكبر (scale من ‎0.85‎ إلى ‎1‎) —
+ * تغذية بصرية فورية بقرب الإطلاق بلا حالة React أثناء السحب.
  *
  * قرارات تصميم موثقة:
  * - موضع المؤشر يُكتب مباشرة على DOM (لا حالة React أثناء السحب) حتى
@@ -44,6 +52,10 @@ export function PullToRefresh({
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const indicatorRef = useRef<HTMLDivElement>(null)
+  const doffyRef = useRef<HTMLSpanElement>(null)
+  // هل كُتب تحوّل تقدم على غلاف دُفّي؟ (لتصفيره مرة واحدة عند الحاجة
+  // في فرع تقليل الحركة بدل كتابته مع كل حدث لمس)
+  const doffyTransformedRef = useRef(false)
   const stateRef = useRef<PtrState>(initialPtrState)
   const refreshRef = useRef(onRefresh)
   const [refreshing, setRefreshing] = useState(false)
@@ -65,14 +77,28 @@ export function PullToRefresh({
     if (!el) return
     el.style.transition = animate ? 'transform 220ms ease-out, opacity 180ms ease-out' : 'none'
     if (reducedRef.current) {
-      // بلا انزلاق: ظهور بعتامة فقط في موضع ثابت أعلى المحتوى
+      // بلا انزلاق: ظهور بعتامة فقط في موضع ثابت أعلى المحتوى،
+      // وبلا أي تحوّل تقدم على غلاف دُفّي (يُصفَّر مرة واحدة إن كُتب)
       el.style.transform = 'translateY(10px)'
       el.style.opacity = pull > 0 ? '1' : '0'
+      if (doffyTransformedRef.current && doffyRef.current) {
+        doffyRef.current.style.transform = ''
+        doffyTransformedRef.current = false
+      }
       return
     }
     const y = Math.min(-52 + pull * 0.97, -52 + PTR_MAX_PULL_PX * 0.97)
     el.style.transform = `translateY(${y}px)`
     el.style.opacity = String(Math.min(pull / 32, 1))
+    // تحوّل تقدم دُفّي المرتبط بمسافة السحب (3A-325): يعتدل ويكبر
+    // كلما اقترب الإطلاق — يُكتب على الغلاف لا على الصورة نفسها حتى
+    // لا يتصارع مع حركة mascot-type على عنصر واحد
+    const doffy = doffyRef.current
+    if (doffy) {
+      const frac = Math.min(Math.max(pull / PTR_THRESHOLD_PX, 0), 1)
+      doffy.style.transform = `rotate(${-7 + 7 * frac}deg) scale(${0.85 + 0.15 * frac})`
+      doffyTransformedRef.current = true
+    }
   }
 
   useEffect(() => {
@@ -173,7 +199,9 @@ export function PullToRefresh({
         <div className="flex items-center gap-2 bg-elevated border border-border shadow-raised rounded-full ps-2 pe-3 py-1.5">
           {mascotVisible ? (
             <>
-              <Mascot state="thinking" size={26} still />
+              <span ref={doffyRef} className="flex shrink-0">
+                <Mascot state="laptop" size={30} />
+              </span>
               <span className="text-[12.5px] font-semibold text-muted">{t('mascot.loading')}</span>
             </>
           ) : (

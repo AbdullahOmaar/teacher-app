@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Link2, Users } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
@@ -9,8 +11,8 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { t } from '../../i18n'
 import type { StudentRow } from '../../types/database'
 import { tokenStatus } from './api'
-import { useTeacherPortalTokens } from './hooks'
-import { useStudents } from '../students/hooks'
+import { PORTAL, useTeacherPortalTokens } from './hooks'
+import { SG, useStudents } from '../students/hooks'
 import { PortalLinkSheet } from './PortalLinkSheet'
 
 /**
@@ -20,6 +22,7 @@ import { PortalLinkSheet } from './PortalLinkSheet'
  */
 export function PortalManagePage() {
   const teacher = useCurrentTeacher()
+  const qc = useQueryClient()
   const [selected, setSelected] = useState<StudentRow | null>(null)
   const [search, setSearch] = useState('')
 
@@ -63,6 +66,12 @@ export function PortalManagePage() {
   if (error) return <ErrorState message={error instanceof Error ? error.message : t('common.unknownError')} />
 
   return (
+    <PullToRefresh
+      onRefresh={async () => {
+        await qc.invalidateQueries({ queryKey: [PORTAL] })
+        await qc.invalidateQueries({ queryKey: [SG] })
+      }}
+    >
     <div>
       <Card className="rise-in" style={{ animationDelay: '0ms' }}>
         <p className="text-[13.5px] mb-0 leading-relaxed">
@@ -137,5 +146,6 @@ export function PortalManagePage() {
         />
       )}
     </div>
+    </PullToRefresh>
   )
 }

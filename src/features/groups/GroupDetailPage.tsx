@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Button } from '../../components/ui/Button'
 import { Archive, ArchiveRestore, BookOpenCheck, Link2, MapPin, Pencil, Trash2, TriangleAlert, UserPlus, Users } from 'lucide-react'
 import { DangerConfirmSheet } from '../../components/ui/DangerConfirmSheet'
@@ -13,7 +15,7 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
 import { BILLING_LABELS, daysLabel, formatMoney, formatTime12, safeExternalUrl } from '../../lib/format'
-import { useStudents } from '../students/hooks'
+import { SG, useStudents } from '../students/hooks'
 import { EnrollStudentSheet } from '../students/EnrollStudentSheet'
 import {
   useAcceptWaitlistEntry,
@@ -35,6 +37,7 @@ import { GroupStarCheer } from './GroupStarCheer'
  * وقسم قائمة الانتظار (عرض + إضافة) — group_waitlist.
  */
 export function GroupDetailPage() {
+  const qc = useQueryClient()
   const { id } = useParams()
   const teacher = useCurrentTeacher()
   const [editOpen, setEditOpen] = useState(false)
@@ -159,6 +162,7 @@ export function GroupDetailPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [SG] })}>
     <div>
       {/* احتفال النجم عند محطات المجموعة (خطة الهوية P-12): يُشتق من
           قائمة المجموعة المحمّلة هنا وبصمتها — مرة واحدة لكل محطة */}
@@ -499,5 +503,6 @@ export function GroupDetailPage() {
         }
       />
     </div>
+    </PullToRefresh>
   )
 }

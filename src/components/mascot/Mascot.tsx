@@ -14,6 +14,7 @@ import inspectorImg from '../../assets/mascot/inspector.webp'
 import writingImg from '../../assets/mascot/writing.webp'
 import explainingImg from '../../assets/mascot/explaining.webp'
 import starImg from '../../assets/mascot/star.webp'
+import laptopImg from '../../assets/mascot/laptop.webp'
 
 // ===========================================================================
 // دُفّي — مكوّن الماسكوت (MASCOT-PLAN §٦ بند ٢)
@@ -24,8 +25,10 @@ import starImg from '../../assets/mascot/star.webp'
 // inspector للمخاطر، writing للدرجات/الواجبات، explaining للشرح و«ابدأ
 // هنا». حالة star وجدت موضعها في احتفالات محطات المجموعات (P-12)،
 // وكل الأوضاع تُعاين في معرض الإعدادات (P-13).
-// لقطة اللابتوب (§٣ بند ٧) أصل هوية/بطل محفوظ في assets/mascot/laptop.webp
-// لاستخدامات لاحقة (صفحة تعريف/سوشيال) ولا حالة عرض لها هنا.
+// لقطة اللابتوب (§٣ بند ٧) كانت أصل هوية/بطل محفوظاً في
+// assets/mascot/laptop.webp لاستخدامات لاحقة بلا حالة عرض — وبقرار
+// 3A-325 (دفعة ملاحظات المالك ٥، بند ٢) بقيت حالة عرض رسمية: مؤشر
+// السحب للتحديث المتحرك (PullToRefresh) بحركة «شغل على لابتوب».
 //
 // الحركة: كلاسات CSS خفيفة لكل حالة (index.css — mascot-*) تعمل فقط
 // تحت prefers-reduced-motion: no-preference. سلسلة السقوط عند فشل أي
@@ -47,6 +50,7 @@ export type MascotState =
   | 'writing'
   | 'explaining'
   | 'star'
+  | 'laptop'
 
 const POSES: Record<MascotState, string> = {
   welcome: welcomeImg,
@@ -61,6 +65,7 @@ const POSES: Record<MascotState, string> = {
   writing: writingImg,
   explaining: explainingImg,
   star: starImg,
+  laptop: laptopImg,
 }
 
 /** كلاس الحركة الخفيفة لكل حالة — بلا حركة = سلسلة فارغة */
@@ -77,6 +82,7 @@ const MOTION_CLASS: Record<MascotState, string> = {
   writing: '',
   explaining: 'mascot-bob',
   star: 'mascot-jump',
+  laptop: 'mascot-type',
 }
 
 interface MascotProps {

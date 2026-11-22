@@ -63,8 +63,20 @@ export function MascotLoader({ size = 96, className = '' }: MascotLoaderProps) {
   }, [animated, size])
 
   if (!visible) {
-    // الماسكوت موقوف من الإعدادات: لوجو التحميل هو الكتاب الأصلي
-    return <Logo size={size} className={className} decorative />
+    // الماسكوت موقوف من الإعدادات: لوجو التحميل هو الكتاب الأصلي.
+    // (3A-325): كان اللوجو ثابتاً تماماً هنا بينما دُفّي متحرك، فأخذ
+    // كلاس «mascot-breathe» القائم في index.css (نبض هادئ مستمر —
+    // الأنسب للودر: rise-in دخلة لمرة واحدة تنتهي ساكنة، وmascot-jump
+    // أسرع/أنطّ من اللازم؛ والجمع بين كلاسين مستحيل لأن كليهما يكتب
+    // خاصية animation فتُلغي المتأخرةُ في الملف الأولى). قاعدة
+    // prefers-reduced-motion العامة في index.css تُسطّحه تلقائياً.
+    return (
+      <Logo
+        size={size}
+        className={`${className} mascot-breathe`.trim()}
+        decorative
+      />
+    )
   }
 
   if (imgFailed || !ASSET) {

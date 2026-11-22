@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
 import { Link } from 'react-router-dom'
 import { ChartColumn, Lock, Sparkles, TrendingDown, TrendingUp, UserX, Wallet } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { EmptyState } from '../../components/ui/EmptyState'
 import {
   ErrorState,
@@ -14,7 +16,7 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import { periodLabel } from '../invoices/api'
 import type { AnalyticsRange } from './api'
-import { useAnalytics } from './hooks'
+import { ANALYTICS, useAnalytics } from './hooks'
 import { AttendanceChart, CollectedChart, GrowthChart, OverdueChart } from './charts'
 
 const RANGES: { value: AnalyticsRange; label: string }[] = [
@@ -97,6 +99,7 @@ function InsightRow({
  */
 export function AnalyticsPage() {
   const teacher = useCurrentTeacher()
+  const qc = useQueryClient()
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
   const [range, setRange] = useState<AnalyticsRange>(6)
@@ -124,6 +127,7 @@ export function AnalyticsPage() {
   const data = analyticsQ.data
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [ANALYTICS] })}>
     <div className="flex flex-col gap-3">
       {/* اختيار المدى */}
       <div className="flex gap-2" role="group" aria-label={t('analytics.rangeAria')}>
@@ -253,5 +257,6 @@ export function AnalyticsPage() {
         </>
       ) : null}
     </div>
+    </PullToRefresh>
   )
 }

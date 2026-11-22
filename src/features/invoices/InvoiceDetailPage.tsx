@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
 import { Banknote, CalendarCog, Lock, ReceiptText, Undo2, UserRound } from 'lucide-react'
@@ -10,8 +12,9 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import type { PaymentRow } from '../../types/database'
 import { useGroup } from '../groups/hooks'
+import { SG } from '../students/hooks'
 import { PAYMENT_METHOD_LABELS, payStateOf, periodLabel } from './api'
-import { useInvoice, useInvoiceLines, useInvoicePayments, useVoidPayment } from './hooks'
+import { INV, useInvoice, useInvoiceLines, useInvoicePayments, useVoidPayment } from './hooks'
 import { AdjustSheet, PaySheet, ReceiptSheet } from './sheets'
 import { t } from '../../i18n'
 
@@ -24,6 +27,7 @@ import { t } from '../../i18n'
  */
 export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
   const params = useParams()
+  const qc = useQueryClient()
   // نمط List-Detail (≥1024px): المعرّف من قائمة الفواتير؛ وصفحة التفاصيل
   // المستقلة تقرأه من الرابط كالمعتاد (الروابط العميقة كما هي)
   const id = invoiceId ?? params.id
@@ -103,6 +107,12 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
         : 'file'
 
   return (
+    <PullToRefresh
+      onRefresh={async () => {
+        await qc.invalidateQueries({ queryKey: [INV] })
+        await qc.invalidateQueries({ queryKey: [SG] })
+      }}
+    >
     <div>
       <Card className="rise-in" style={{ animationDelay: '0ms' }}>
         <div className="flex items-start justify-between gap-2">
@@ -369,5 +379,6 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
         />
       )}
     </div>
+    </PullToRefresh>
   )
 }

@@ -2,6 +2,8 @@ import { CalendarX2, CheckCheck, MessageCircle, ReceiptText, ShieldCheck, UserRo
 import { Avatar } from '../../components/ui/Avatar'
 import { ActionTile, ActionTiles } from '../../components/ui/ActionTiles'
 import { Card } from '../../components/ui/Card'
+import { useQueryClient } from '@tanstack/react-query'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useToast } from '../../components/ui/toast'
@@ -9,7 +11,7 @@ import { useAuth } from '../../lib/AuthProvider'
 import { useBrandIdentity } from '../../hooks/useBrandIdentity'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { atRiskWaUrl, type AtRiskStudent } from './api'
-import { useAtRisk, useMarkAtRiskFollowedUp } from './hooks'
+import { ATRISK, useAtRisk, useMarkAtRiskFollowedUp } from './hooks'
 import { t } from '../../i18n'
 
 /**
@@ -21,6 +23,7 @@ import { t } from '../../i18n'
  */
 export function AtRiskPage() {
   const teacher = useCurrentTeacher()
+  const qc = useQueryClient()
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
   const { user } = useAuth()
@@ -52,6 +55,7 @@ export function AtRiskPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [ATRISK] })}>
     <div>
       <p className="text-muted text-[13.5px] leading-[1.8] mb-3 mt-0 rise-in" style={{ animationDelay: '0ms' }}>
         {t('atrisk.pageIntroPre')}<b className="text-text">{t('atrisk.pageIntroAbsence')}</b>{t('atrisk.pageIntroMid')}{' '}
@@ -154,5 +158,6 @@ export function AtRiskPage() {
         })
       )}
     </div>
+    </PullToRefresh>
   )
 }

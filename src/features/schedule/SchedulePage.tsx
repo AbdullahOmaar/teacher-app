@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
 import { CalendarDays, CalendarOff, ChevronLeft, ChevronRight, Plus, RefreshCw } from 'lucide-react'
@@ -11,6 +13,7 @@ import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } 
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { DAY_NAMES, formatTime12 } from '../../lib/format'
 import { useGroups } from '../groups/hooks'
+import { SG } from '../students/hooks'
 import { addDaysStr } from '../home/api'
 import {
   MONTH_NAMES,
@@ -29,6 +32,7 @@ import {
   type SessionWithGroup,
 } from './api'
 import {
+  SCHED,
   useDeleteHoliday,
   useGeneration,
   useHolidays,
@@ -49,6 +53,7 @@ type ViewMode = 'week' | 'month'
  */
 export function SchedulePage() {
   const teacher = useCurrentTeacher()
+  const qc = useQueryClient()
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
 
   const today = todayStr()
@@ -139,6 +144,12 @@ export function SchedulePage() {
   )
 
   return (
+    <PullToRefresh
+      onRefresh={async () => {
+        await qc.invalidateQueries({ queryKey: [SCHED] })
+        await qc.invalidateQueries({ queryKey: [SG] })
+      }}
+    >
     <div>
       {/* المبدّل الثلاثي (المرجع §3.8) */}
       <div className="flex gap-2 mb-3">
@@ -334,6 +345,7 @@ export function SchedulePage() {
         <HolidaySheet teacherId={tid} onClose={() => setHolidayOpen(false)} onDone={toast} />
       )}
     </div>
+    </PullToRefresh>
   )
 }
 

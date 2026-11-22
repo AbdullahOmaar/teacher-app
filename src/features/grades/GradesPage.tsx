@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { NotebookPen } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
@@ -10,8 +12,9 @@ import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../.
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatDateLabel } from '../schedule/api'
 import { useGroups } from '../groups/hooks'
+import { SG } from '../students/hooks'
 import { ASSESSMENT_TYPE_LABELS, type AssessmentListItem } from './api'
-import { useAssessments } from './hooks'
+import { GRADES, useAssessments } from './hooks'
 import { AssessmentFormSheet } from './sheets'
 
 function AssessmentCard({ item, index }: { item: AssessmentListItem; index: number }) {
@@ -56,6 +59,7 @@ function AssessmentCard({ item, index }: { item: AssessmentListItem; index: numb
  */
 export function GradesPage() {
   const teacher = useCurrentTeacher()
+  const qc = useQueryClient()
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
 
   const [groupFilter, setGroupFilter] = useState<string>('all')
@@ -82,6 +86,12 @@ export function GradesPage() {
   const error = assessmentsQ.error ?? groupsQ.error
 
   return (
+    <PullToRefresh
+      onRefresh={async () => {
+        await qc.invalidateQueries({ queryKey: [GRADES] })
+        await qc.invalidateQueries({ queryKey: [SG] })
+      }}
+    >
     <div>
       {groups.length > 1 && (
         <ChipRow>
@@ -143,5 +153,6 @@ export function GradesPage() {
         />
       )}
     </div>
+    </PullToRefresh>
   )
 }

@@ -44,6 +44,14 @@ describe('Mascot — مكوّن دُفّي', () => {
     }
   })
 
+  it('وضع laptop مربوط برسمة اللابتوب وحركة mascot-type (مؤشر السحب للتحديث — 3A-325)', () => {
+    const { container } = render(<Mascot state="laptop" />)
+    const img = container.querySelector('img')
+    expect(img).not.toBeNull()
+    expect(img!.getAttribute('src')).toContain('laptop')
+    expect(img!.className).toContain('mascot-type')
+  })
+
   it('still يلغي الحركة الخفيفة', () => {
     const { container } = render(<Mascot state="celebrate" still />)
     const img = container.querySelector('img')

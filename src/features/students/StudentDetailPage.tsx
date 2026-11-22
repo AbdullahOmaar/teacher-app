@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Archive, ArchiveRestore, Construction, GraduationCap, IdCard, Link2, Lock, MessageCircle, Pencil, Phone, Plus, Trash2, TriangleAlert, UserRoundX, Users } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { ActionTile, ActionTiles } from '../../components/ui/ActionTiles'
@@ -12,7 +14,11 @@ import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../.
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { BILLING_LABELS, formatMoney, waLink } from '../../lib/format'
 import { useGroups } from '../groups/hooks'
+import { ATT } from '../attendance/hooks'
+import { GRADES } from '../grades/hooks'
+import { INV } from '../invoices/hooks'
 import {
+  SG,
   useDeleteEnrollment,
   useDeleteStudent,
   useSetStudentPaused,
@@ -61,6 +67,7 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
  * (المدفوعات للمالك فقط)؛ الملاحظات هيكل جاهز لوحدتها القادمة.
  */
 export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
+  const qc = useQueryClient()
   const params = useParams()
   // في نمط List-Detail (≥1024px) يمرَّر المعرّف من قائمة الطلاب؛
   // وصفحة التفاصيل المستقلة تقرأه من الرابط كالمعتاد (الروابط العميقة كما هي)
@@ -152,6 +159,14 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
   }
 
   return (
+    <PullToRefresh
+      onRefresh={async () => {
+        await qc.invalidateQueries({ queryKey: [SG] })
+        await qc.invalidateQueries({ queryKey: [ATT] })
+        await qc.invalidateQueries({ queryKey: [INV] })
+        await qc.invalidateQueries({ queryKey: [GRADES] })
+      }}
+    >
     <div>
       {/* الترويسة */}
       <Card className="rise-in">
@@ -472,5 +487,6 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
         }
       />
     </div>
+    </PullToRefresh>
   )
 }

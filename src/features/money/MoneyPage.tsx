@@ -183,7 +183,11 @@ export function MoneyPage() {
     )
   }
 
-  const pending = profitQ.isPending || expensesQ.isPending || recurringQ.isPending
+  // (3A-325 — تدقيق بند ٥): centerQ داخل الحزمة أيضاً — كان مقطع
+  // «حصة المركز» (centerPercent) الاستعلام الوحيد خارجها فيظهر متأخراً
+  // منفصلاً بعد اكتمال باقي الصفحة؛ الآن الصفحة كلها تظهر دفعة واحدة.
+  const pending =
+    profitQ.isPending || centerQ.isPending || expensesQ.isPending || recurringQ.isPending
   const error = profitQ.error ?? centerQ.error ?? expensesQ.error ?? recurringQ.error
   const isCurrentMonth = selectedMonth === currentMonth
   const defaultExpenseDate = isCurrentMonth ? todayStr() : selectedMonth

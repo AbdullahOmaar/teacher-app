@@ -33,12 +33,14 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { Chip } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, PageLoadingOverlay, SignInRequired, Skeleton } from '../../components/ui/states'
 import { Avatar } from '../../components/ui/Avatar'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatClock12, formatTime12, safeExternalUrl } from '../../lib/format'
 import type { AttendanceStatus } from '../../types/database'
 import { useGroups } from '../groups/hooks'
+import { SG } from '../students/hooks'
 import { formatDateLabel, generationWindowMonths, monthStartStr, todayStr } from '../schedule/api'
-import { useGeneration, useSetSessionStatus } from '../schedule/hooks'
+import { SCHED, useGeneration, useSetSessionStatus } from '../schedule/hooks'
 import {
   ATTENDANCE_STATUSES,
   EMPTY_VALUE,
@@ -415,6 +417,13 @@ export function AttendancePage() {
   const pickerError = groupsQ.error ?? genQ.error ?? dayQ.error ?? paramQ.error
 
   return (
+    <PullToRefresh
+      onRefresh={async () => {
+        await qc.invalidateQueries({ queryKey: [ATT] })
+        await qc.invalidateQueries({ queryKey: [SCHED] })
+        await qc.invalidateQueries({ queryKey: [SG] })
+      }}
+    >
     <div>
       {/* حالة الأوفلاين/المزامنة (خطوة 11) — تظهر فقط عند الحاجة */}
       <SyncStatusBar online={online} sync={sync} />
@@ -1012,5 +1021,6 @@ export function AttendancePage() {
         />
       )}
     </div>
+    </PullToRefresh>
   )
 }

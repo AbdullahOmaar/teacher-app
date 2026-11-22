@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   Ban,
@@ -11,6 +12,7 @@ import {
   Users,
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Button } from '../../components/ui/Button'
 import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
@@ -33,6 +35,7 @@ import {
   type AttendanceValue,
 } from '../attendance/api'
 import {
+  ATT,
   useSessionAttendance,
   useSessionById,
   useSessionRoster,
@@ -41,8 +44,9 @@ import { enqueueStored } from '../attendance/offlineQueue'
 import { useOfflineSync, useOnlineStatus } from '../attendance/useOfflineSync'
 import { SyncStatusBar } from '../attendance/SyncStatusBar'
 import { useGroups } from '../groups/hooks'
+import { SG } from '../students/hooks'
 import { formatDateLabel, generationWindowMonths, monthStartStr, todayStr } from '../schedule/api'
-import { useGeneration } from '../schedule/hooks'
+import { SCHED, useGeneration } from '../schedule/hooks'
 import { summarizeHomework, type HomeworkSummary } from './api'
 import { t } from '../../i18n'
 import { useGroupSessions, useHomeworkMarks } from './hooks'
@@ -103,6 +107,7 @@ function HwToggle({
 export function HomeworkPage() {
   const teacher = useCurrentTeacher()
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
+  const qc = useQueryClient()
   const [searchParams] = useSearchParams()
   const paramGroupId = searchParams.get('group')
   const paramSessionId = searchParams.get('session') ?? searchParams.get('sessionId')
@@ -368,10 +373,47 @@ export function HomeworkPage() {
     )
   }
 
-  const pickerPending = genQ.isPending || sessionsQ.isPending
+  // (3A-325 — بند ٥): صفوف المنتقي لا تظهر إلا بعد جاهزية الحصص +
+  // العلامات + القائمة معاً، لأن ملخص كل صف (شارة النسبة وشريط التقدم
+  // ولاحقة «سلّم N من K») يُحسب من العلامات مفلترةً بعضوية القائمة —
+  // عرض الصفوف قبل اكتمالها كان يُظهرها عارية ثم تقفز الشارة والشريط
+  // داخلها فجأة (قياس حي: صفوف t≈1.9s ثم الشارة t≈2.25s). الشرط مقيد
+  // بوجود حصص معروضة فعلاً حتى لا يعلق الفراغ/الخطأ على سكيليتون.
+  const pickerPending =
+    genQ.isPending ||
+    sessionsQ.isPending ||
+    (shownSessions.length > 0 && (marksQ.isPending || rosterQ.isPending))
   const pickerError = genQ.error ?? sessionsQ.error
 
+  // سكيليتون المنتقي (3A-325): صفوف بارتفاع الصف الحقيقي (~92px: عنوان
+  // + سطر وقت/ملخص + شريط تقدم) داخل كارت واحد لكل قسم ظاهر، وبعدد
+  // يقارب المعروض فعلياً متى عُرفت الحصص (وإلا ٣ صفوف افتراضية) —
+  // فالمحتوى الكامل يظهر دفعة واحدة بلا قفزات حجم.
+  const pickerSkeletonCard = (count: number, key: string) => (
+    <Card key={key} className="p-0 overflow-hidden mb-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className={`h-[92px] px-4 py-3 flex flex-col justify-center gap-2 ${
+            i > 0 ? 'border-t border-border' : ''
+          }`}
+        >
+          <Skeleton className="h-[18px] w-2/5 rounded-full" />
+          <Skeleton className="h-[14px] w-3/5 rounded-full" />
+          <Skeleton className="h-[6px] w-full rounded-full" />
+        </div>
+      ))}
+    </Card>
+  )
+
   return (
+    <PullToRefresh
+      onRefresh={async () => {
+        await qc.invalidateQueries({ queryKey: [ATT] })
+        await qc.invalidateQueries({ queryKey: [SCHED] })
+        await qc.invalidateQueries({ queryKey: [SG] })
+      }}
+    >
     <div>
       {/* شريط حالة مزامنة الحضور/الواجب — يظهر فقط عند وجود معلّق/فشل */}
       <SyncStatusBar online={online} sync={sync} />
@@ -411,8 +453,9 @@ export function HomeworkPage() {
       <h3 className="type-section mt-1 mb-2">{t('homework.sessionsOf', { name: group?.name ?? '' })}</h3>
       {pickerPending ? (
         <>
-          <Skeleton className="h-[64px] mb-3" />
-          <Skeleton className="h-[64px]" />
+          {pickerSkeletonCard(shownPast.length > 0 ? shownPast.length : 3, 'past')}
+          {futureSessions.length > 0 &&
+            pickerSkeletonCard(shownFuture.length, 'future')}
         </>
       ) : pickerError ? (
         <ErrorState
@@ -508,43 +551,60 @@ export function HomeworkPage() {
                 )}
               </span>
             </div>
-            {detailSummary && (
-              <>
-                <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-                  <div className="rounded-xl bg-ok-soft px-2 py-2.5">
-                    <div className="text-[20px] font-extrabold text-ok-text leading-none">
-                      {rowsReady ? detailSummary.submitted : '…'}
-                    </div>
-                    <div className="text-[13.5px] font-semibold text-ok-text mt-1">{t('homework.submitted')}</div>
+            {detailSummary &&
+              (!rowsReady ? (
+                <>
+                  {/* حجز مساحة العدّادات + شريط النسبة (3A-325 — بند ٥):
+                      سكيليتون بنفس أبعاد المحتوى الرقمي (٣ بلاطات ~60px +
+                      شريط) بدل «…» ثم قفزة الأرقام — الأرقام تظهر دفعة
+                      واحدة عند الجاهزية، وترويسة الكارت فوق ثابتة كما هي */}
+                  <div className="grid grid-cols-3 gap-2 mt-3" aria-hidden="true">
+                    <Skeleton className="h-[60px]" />
+                    <Skeleton className="h-[60px]" />
+                    <Skeleton className="h-[60px]" />
                   </div>
-                  <div className="rounded-xl bg-warn-soft px-2 py-2.5">
-                    <div className="text-[20px] font-extrabold text-warn-text leading-none">
-                      {rowsReady ? detailSummary.pending : '…'}
-                    </div>
-                    <div className="text-[13.5px] font-semibold text-warn-text mt-1">{t('homework.notSubmitted')}</div>
+                  <div className="flex items-center gap-2 mt-3" aria-hidden="true">
+                    <Skeleton className="flex-1 h-2 rounded-full" />
+                    <Skeleton className="h-[20px] w-[64px] rounded-full" />
                   </div>
-                  <div className="rounded-xl bg-soft px-2 py-2.5">
-                    <div className="text-[20px] font-extrabold leading-none">
-                      {rowsReady ? detailSummary.attended : '…'}
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+                    <div className="rounded-xl bg-ok-soft px-2 py-2.5">
+                      <div className="text-[20px] font-extrabold text-ok-text leading-none">
+                        {detailSummary.submitted}
+                      </div>
+                      <div className="text-[13.5px] font-semibold text-ok-text mt-1">{t('homework.submitted')}</div>
                     </div>
-                    <div className="text-[13.5px] font-semibold text-muted mt-1">{t('homework.attendedLabel')}</div>
-                  </div>
-                </div>
-                {detailSummary.attended > 0 && (
-                  <div className="flex items-center gap-2 mt-3">
-                    <div className="flex-1 h-2 rounded-full bg-soft overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${detailSummary.rate === 100 ? 'bg-ok' : 'bg-primary'}`}
-                        style={{ width: `${detailSummary.rate ?? 0}%` }}
-                      />
+                    <div className="rounded-xl bg-warn-soft px-2 py-2.5">
+                      <div className="text-[20px] font-extrabold text-warn-text leading-none">
+                        {detailSummary.pending}
+                      </div>
+                      <div className="text-[13.5px] font-semibold text-warn-text mt-1">{t('homework.notSubmitted')}</div>
                     </div>
-                    <span className="text-[13.5px] font-extrabold">
-                      {t('homework.deliveryRate', { rate: detailSummary.rate ?? '' })}
-                    </span>
+                    <div className="rounded-xl bg-soft px-2 py-2.5">
+                      <div className="text-[20px] font-extrabold leading-none">
+                        {detailSummary.attended}
+                      </div>
+                      <div className="text-[13.5px] font-semibold text-muted mt-1">{t('homework.attendedLabel')}</div>
+                    </div>
                   </div>
-                )}
-              </>
-            )}
+                  {detailSummary.attended > 0 && (
+                    <div className="flex items-center gap-2 mt-3">
+                      <div className="flex-1 h-2 rounded-full bg-soft overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${detailSummary.rate === 100 ? 'bg-ok' : 'bg-primary'}`}
+                          style={{ width: `${detailSummary.rate ?? 0}%` }}
+                        />
+                      </div>
+                      <span className="text-[13.5px] font-extrabold">
+                        {t('homework.deliveryRate', { rate: detailSummary.rate ?? '' })}
+                      </span>
+                    </div>
+                  )}
+                </>
+              ))}
             <div className="flex gap-2 mt-3 flex-wrap">
               <Link to={`/attendance?session=${selected.id}`} className="no-underline">
                 <Button variant="soft">
@@ -576,9 +636,20 @@ export function HomeworkPage() {
             />
           ) : rosterQ.isPending || attQ.isPending || !rowsReady ? (
             <>
-              <Skeleton className="h-[72px] mb-3" />
-              <Skeleton className="h-[72px] mb-3" />
-              <Skeleton className="h-[72px]" />
+              {/* (3A-325 — بند ٥): متى وصلت القائمة وبقي الحضور، عدد
+                  السكيليتونات يقارب حجم القائمة فعلياً (بسقف ١٢) بدل ٣
+                  ثابتة مهما كان الحجم؛ وإن كان الاستعلامان معاً pending
+                  يبقى ٣ — الحجم غير معروف بعد أصلاً */}
+              {Array.from({
+                length: rosterQ.data
+                  ? Math.min(Math.max(roster.length, 1), 12)
+                  : 3,
+              }).map((_, i, arr) => (
+                <Skeleton
+                  key={i}
+                  className={`h-[72px]${i < arr.length - 1 ? ' mb-3' : ''}`}
+                />
+              ))}
             </>
           ) : roster.length === 0 ? (
             <Card>
@@ -740,5 +811,6 @@ export function HomeworkPage() {
         </>
       )}
     </div>
+    </PullToRefresh>
   )
 }
