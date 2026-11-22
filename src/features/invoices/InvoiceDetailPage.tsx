@@ -10,7 +10,7 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import type { PaymentRow } from '../../types/database'
 import { useGroup } from '../groups/hooks'
-import { PAYMENT_METHOD_LABELS, payStateOf, periodLabel, periodYm } from './api'
+import { PAYMENT_METHOD_LABELS, payStateOf, periodLabel } from './api'
 import { useInvoice, useInvoiceLines, useInvoicePayments, useVoidPayment } from './hooks'
 import { AdjustSheet, PaySheet, ReceiptSheet } from './sheets'
 import { t } from '../../i18n'
@@ -88,6 +88,20 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
   const isAttendedGroup = groupQ.data?.billing_type === 'per_session_attended'
   const lines = linesQ.data ?? []
 
+  // إجراءات الترويسة الظاهرة فعلاً وترتيبها — عند عدد فردي يمتد
+  // الإجراء الأخير على العرض الكامل بدل خلية نصفية وحيدة معلّقة في
+  // سطر أخير (3A-324: زر «إيصال» كان وحده بعرض جزئي)
+  const actionCount =
+    1 + (invoice.balance > 0 ? 1 : 0) + (latestPayment ? 1 : 0) + (isAttendedGroup ? 1 : 0)
+  const orphanSpan = actionCount % 2 === 1 ? 'col-span-2' : ''
+  const lastAction: 'adjust' | 'receipt' | 'pay' | 'file' = isAttendedGroup
+    ? 'adjust'
+    : latestPayment
+      ? 'receipt'
+      : invoice.balance > 0
+        ? 'pay'
+        : 'file'
+
   return (
     <div>
       <Card className="rise-in" style={{ animationDelay: '0ms' }}>
@@ -99,13 +113,19 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
             >
               {invoice.student_name}
             </Link>
-            <div className="text-muted text-[13.5px] mt-0.5">
-              {invoice.group_name} · {periodLabel(invoice.period_month)} (
-              <span dir="ltr">{periodYm(invoice.period_month)}</span>)
+            {/* سطر تعريف من مقاطع لا تنشطر (3A-324): حُذفت صيغة
+                (YYYY-MM) المكررة بجانب اسم الشهر، وصار كل مقطع وحدة
+                nowrap فلا يقع الكود وحده في سطر بلا تسميته */}
+            <div className="text-muted text-[13.5px] mt-0.5 flex flex-wrap items-center gap-x-1.5">
+              <span>{invoice.group_name}</span>
+              <span aria-hidden="true">·</span>
+              <span className="whitespace-nowrap">{periodLabel(invoice.period_month)}</span>
               {invoice.student_code ? (
                 <>
-                  {' · '}
-                  {t('invoices.detailCodeLabel')} <span dir="ltr">{invoice.student_code}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="whitespace-nowrap">
+                    {t('invoices.detailCodeLabel')} <span dir="ltr">{invoice.student_code}</span>
+                  </span>
                 </>
               ) : null}
             </div>
@@ -177,29 +197,44 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
 
         {/* إجراءات الترويسة: شبكة خلايا متساوية (نقطة ٢) — كل خلية
             بنفس العرض والارتفاع 48px مهما تغيّر عدد الإجراءات الظاهرة
-            (٢–٤)، بدل التفاف بعرض المحتوى. الألوان الدلالية كما هي
-            (تسجيل دفعة يبقى الأساسي) والسلوك لم يتغير */}
+            (٢–٤)، بدل التفاف بعرض المحتوى. وعند عدد فردي يمتد الأخير
+            على العرض الكامل (3A-324) فلا تبقى خلية نصفية وحيدة.
+            الألوان الدلالية كما هي (تسجيل دفعة يبقى الأساسي) والسلوك
+            لم يتغير */}
         <div className="grid grid-cols-2 gap-2 mt-3">
-          <Link to={`/students/${invoice.student_id}`} className="flex no-underline">
+          <Link
+            to={`/students/${invoice.student_id}`}
+            className={`flex no-underline ${lastAction === 'file' ? orphanSpan : ''}`}
+          >
             <Button variant="soft" full className="flex-1">
               <UserRound size={20} />
               {t('invoices.detailStudentFile')}
             </Button>
           </Link>
           {invoice.balance > 0 && (
-            <Button full onClick={() => setPayOpen(true)}>
+            <Button full onClick={() => setPayOpen(true)} className={lastAction === 'pay' ? orphanSpan : undefined}>
               <Banknote size={20} />
               {t('invoices.recordPayment')}
             </Button>
           )}
           {latestPayment && (
-            <Button variant="ghost" full onClick={() => setReceipt({ payment: latestPayment })}>
+            <Button
+              variant="ghost"
+              full
+              onClick={() => setReceipt({ payment: latestPayment })}
+              className={lastAction === 'receipt' ? orphanSpan : undefined}
+            >
               <ReceiptText size={20} />
               {t('invoices.receiptWord')}
             </Button>
           )}
           {isAttendedGroup && (
-            <Button variant="ghost" full onClick={() => setAdjustOpen(true)}>
+            <Button
+              variant="ghost"
+              full
+              onClick={() => setAdjustOpen(true)}
+              className={lastAction === 'adjust' ? orphanSpan : undefined}
+            >
               <CalendarCog size={20} />
               {t('invoices.detailAdjustAttendance')}
             </Button>

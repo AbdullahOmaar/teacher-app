@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
@@ -6,6 +7,7 @@ import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
 import {
   AlertTriangle,
+  ArrowLeftRight,
   Ban,
   BellRing,
   BookOpenCheck,
@@ -93,6 +95,18 @@ export function AttendancePage() {
   // وضع مسح QR (خطوة 4): الكاميرا لا تُفتح إلا بضغط الزر صراحةً، وصفّ آخر
   // طالب سُجّل بالمسح يومض في القائمة بعد إغلاق الماسح (flashId)
   const [scanOpen, setScanOpen] = useState(false)
+  // ارتفاع الشريط اللاصق السفلي مقاساً فعلياً — يُبنى به فاصل سفلي
+  // بنفس الارتفاع حتى يمرّ آخر محتوى بالكامل فوق الشريط (3A-324)
+  const [barEl, setBarEl] = useState<HTMLDivElement | null>(null)
+  const [barH, setBarH] = useState(0)
+  useEffect(() => {
+    if (!barEl || typeof ResizeObserver === 'undefined') return
+    const update = () => setBarH(barEl.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(barEl)
+    return () => ro.disconnect()
+  }, [barEl])
   const [flashId, setFlashId] = useState<string | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toast = useToast()
@@ -434,7 +448,10 @@ export function AttendancePage() {
               className="w-full flex items-center gap-2 border border-border rounded-xl px-3 min-h-[48px] bg-card text-text cursor-pointer"
             >
               <CalendarDays size={20} className="text-primary shrink-0" />
-              <span className="flex-1 text-start font-semibold text-[15px] truncate">
+              {/* بلا truncate (3A-324): السنة كانت تُبتر بـ «…» لأن
+                  شارة حالة الحفظ كانت تزاحم الزر في نفس الصف — الشارة
+                  انتقلت لصفّ التقدّم فصار للتاريخ عرض البطاقة كاملاً */}
+              <span className="flex-1 text-start font-semibold text-[15px] whitespace-nowrap">
                 {/^\d{4}-\d{2}-\d{2}$/.test(date)
                   ? formatDateLabel(date).replace(' ', t('attendance.dateSeparator'))
                   : t('attendance.pickSessionDate')}
@@ -455,28 +472,6 @@ export function AttendancePage() {
               className="absolute inset-0 w-full opacity-0 pointer-events-none"
             />
           </div>
-          {selected && (
-            <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
-              {saving ? (
-                t('attendance.saving')
-              ) : !online ? (
-                <>
-                  <CloudOff size={14} className="text-warn-text" />
-                  {t('attendance.offlineSaving')}
-                </>
-              ) : sync.pendingCount > 0 ? (
-                <>
-                  <Clock size={14} className="text-warn-text" />
-                  {t('attendance.pendingCount', { count: sync.pendingCount })}
-                </>
-              ) : (
-                <>
-                  <Check size={14} className="text-ok-text" />
-                  {t('attendance.saveInstant')}
-                </>
-              )}
-            </span>
-          )}
         </div>
         {paramSessionId && paramQ.isSuccess && !paramQ.data && (
           <p className="text-warn-text text-[13.5px] mt-2 mb-0">
@@ -556,6 +551,29 @@ export function AttendancePage() {
                   <span className="text-[13.5px] font-extrabold">
                     {t('attendance.markedCount', { done: rowsReady ? `${done}/${total}` : '…' })}
                   </span>
+                  {/* شارة حالة الحفظ انتقلت هنا من صفّ التاريخ (3A-324):
+                      كانت تزاحمه فتُبتر السنة — ومكانها الطبيعي بجانب
+                      عدّاد التقدّم الذي تصف حالته */}
+                  <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
+                    {saving ? (
+                      t('attendance.saving')
+                    ) : !online ? (
+                      <>
+                        <CloudOff size={14} className="text-warn-text" />
+                        {t('attendance.offlineSaving')}
+                      </>
+                    ) : sync.pendingCount > 0 ? (
+                      <>
+                        <Clock size={14} className="text-warn-text" />
+                        {t('attendance.pendingCount', { count: sync.pendingCount })}
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} className="text-ok-text" />
+                        {t('attendance.saveInstant')}
+                      </>
+                    )}
+                  </span>
                 </div>
                 <div className="flex gap-2 mt-3 flex-wrap">
                   <Button
@@ -564,10 +582,11 @@ export function AttendancePage() {
                     disabled={statusMut.isPending}
                     className="min-h-[48px] text-[13.5px] px-3"
                   >
-                    {cancelled ? (<><Undo2 size={18} /> {t('attendance.restoreSession')}</>) : t('attendance.cancelSession')}
+                    {cancelled ? (<><Undo2 size={18} /> {t('attendance.restoreSession')}</>) : (<><CalendarX2 size={18} /> {t('attendance.cancelSession')}</>)}
                   </Button>
                   <Link to="/schedule" className="no-underline">
                     <Button variant="ghost" className="min-h-[48px] text-[13.5px] px-3">
+                      <ArrowLeftRight size={18} />
                       {t('attendance.moveFromSchedule')}
                     </Button>
                   </Link>
@@ -855,14 +874,18 @@ export function AttendancePage() {
                   داخل بوابة ولي الأمر يتولد تلقائياً في القاعدة أصلاً. */}
               {waRows.length > 0 && (
                 <Card>
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <div className="font-bold text-[15px] flex items-center gap-2">
-                      <BellRing size={20} className="text-primary" />
+                  {/* flex-wrap + زر بلا التفاف (3A-324): العنوان والزر
+                      لا يتسع لهما صفّ واحد في العروض الضيقة فكان نص
+                      الزر يلتف سطرين ويتشوّه — الآن ينزل الزر سليماً
+                      لسطر مستقل عند الضيق ويبقى بجانب العنوان عند الاتساع */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                    <div className="font-bold text-[15px] flex items-center gap-2 min-w-0">
+                      <BellRing size={20} className="text-primary shrink-0" />
                       {t('attendance.waTitle')}
                     </div>
                     <Button
                       variant="ghost"
-                      className="min-h-[48px] text-[13.5px] px-3"
+                      className="min-h-[48px] text-[13.5px] px-3 shrink-0 whitespace-nowrap"
                       onClick={copyAllWaMessages}
                     >
                       <Copy size={16} />
@@ -922,7 +945,7 @@ export function AttendancePage() {
 
               {/* شريط ملخص لاصق: عدّادات حية لكل حالة + «الكل حاضر» —
                   يطفو فوق الشريط السفلي أثناء تمرير القائمة ويتحدث مع كل تعديل */}
-              <div className="sticky bottom-[calc(84px+env(safe-area-inset-bottom,0px))] z-10 mt-1">
+              <div ref={setBarEl} className="sticky bottom-[calc(84px+env(safe-area-inset-bottom,0px))] z-10 mt-1">
                 <div className="bg-card border border-border shadow-raised rounded-2xl px-3 py-2 flex items-center gap-x-3 gap-y-1 flex-wrap">
                   {ATTENDANCE_STATUSES.map(({ code, label }) => (
                     <span key={code} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold">
@@ -962,6 +985,12 @@ export function AttendancePage() {
                   )}
                 </div>
               </div>
+              {/* فاصل سفلي بارتفاع الشريط اللاصق نفسه (مقاس فعلياً
+                  بـ ResizeObserver — 3A-324): الشريط كان يطفو فوق
+                  آخر المحتوى (زر «إرسال وصل» للطالب الأخير مقصوص
+                  وراءه)؛ الفاصل يمنح القائمة مدى تمرير إضافياً بقدر
+                  ارتفاع الشريط فيمرّ كل محتوى بالكامل فوقه */}
+              <div aria-hidden="true" style={{ height: barH }} />
             </>
           )}
         </>

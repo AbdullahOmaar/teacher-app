@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
-import { Bell, CalendarCheck2, Check, ChevronDown, ChevronUp, FolderCog, GraduationCap, Handshake, ImagePlus, Info, Mail, MessageCircle, MonitorSmartphone, NotebookPen, Palette, Plus, Save, Send, SlidersHorizontal, Trash2, UserPlus, UserRound, type LucideIcon } from 'lucide-react'
+import { Bell, CalendarCheck2, Check, ChevronDown, ChevronUp, FolderCog, GraduationCap, Handshake, ImagePlus, Info, KeyRound, Lock, Mail, MessageCircle, MonitorSmartphone, NotebookPen, Palette, Plus, Save, Send, SlidersHorizontal, Trash2, UserPlus, UserRound, type LucideIcon } from 'lucide-react'
 import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Button } from '../../components/ui/Button'
 import { Chip, Field, TextArea, TextInput } from '../../components/ui/form'
@@ -55,6 +55,67 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 function shortId(id: string) {
   return `${id.slice(0, 8)}…${id.slice(-4)}`
+}
+
+/**
+ * منتقي صلاحيات المساعد الموحّد (3A-324): كان مرسوماً ثلاث مرات
+ * منسوخة (دعوة البريد + إضافة UUID + بطاقات الأعضاء) فتكرّر شكله حتى
+ * بدا كأنه خطأ عرض، وشيب «عرض المالية» كان زر تبديل حيّاً يُلوَّن
+ * كمفعَّل رغم أن الصلاحية محجوبة في قاعدة البيانات أصلاً — يوحي
+ * بأنها قابلة للمنح وهي ليست كذلك. الآن مكوّن واحد: الصلاحيات
+ * القابلة للمنح أزرار تبديل كما هي، و«عرض المالية» شيب مقفل دائماً
+ * (قفل + حدّ متقطع + تعتيم + بلا تفاعل) بنفس مقاس الشقيقات وسطر
+ * واحد، وسبب القفل ملحوظة صريحة تحت الصفّ.
+ */
+function PermChips({
+  value,
+  onToggle,
+  disabled = false,
+  note = true,
+}: {
+  value: Record<string, boolean>
+  onToggle: (key: string) => void
+  disabled?: boolean
+  note?: boolean
+}) {
+  return (
+    <>
+      <div className="flex flex-wrap gap-2">
+        {Object.keys(PERMISSION_LABELS).map((key) => {
+          if (key === 'can_view_money') {
+            return (
+              <span
+                key={key}
+                aria-disabled="true"
+                className="inline-flex items-center gap-1.5 px-3 min-h-[48px] rounded-full border border-dashed border-border bg-soft/60 text-[13.5px] font-semibold text-muted/80 cursor-not-allowed select-none"
+              >
+                <Lock size={16} className="shrink-0" />
+                {PERMISSION_LABELS[key]}
+              </span>
+            )
+          }
+          const on = !!value[key]
+          return (
+            <button
+              key={key}
+              type="button"
+              disabled={disabled}
+              aria-pressed={on}
+              onClick={() => onToggle(key)}
+              className={`px-3 min-h-[48px] rounded-full border text-[13.5px] font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                on
+                  ? 'bg-primary text-on-primary border-primary'
+                  : 'bg-card text-muted border-border'
+              }`}
+            >
+              {PERMISSION_LABELS[key]}
+            </button>
+          )
+        })}
+      </div>
+      {note && <p className="text-muted text-[12px] mt-1.5 mb-0">{t('settings.permMoneyLockedNote')}</p>}
+    </>
+  )
 }
 
 /** تعريف قسم إعدادات واحد في خريطة الصفحة (أنكورز + أكورديون) */
@@ -998,8 +1059,15 @@ export function SettingsPage() {
             {t('settings.teamIntro')}
           </p>
 
-          <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.emailInviteTitle')}</div>
-          <form onSubmit={handleEmailInvite} className="mb-4">
+          {/* كل مسار إضافة في بطاقة فرعية مميزة بعنوان وأيقونة
+              (3A-324): المساران كانا بلوكين متتاليين بنفس الشكل
+              والتسميات فبدوا تكرار عرض مربكاً */}
+          <div className="border border-border rounded-2xl p-3 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Mail size={20} className="text-primary shrink-0" />
+              <span className="font-bold text-[15px]">{t('settings.emailInviteTitle')}</span>
+            </div>
+          <form onSubmit={handleEmailInvite}>
             <Field label={t('settings.assistantEmailLabel')}>
               <TextInput
                 type="email"
@@ -1025,22 +1093,10 @@ export function SettingsPage() {
             )}
             <div className="mb-3">
               <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.assistantPermsLabel')}</div>
-              <div className="flex flex-wrap gap-2">
-                {Object.keys(PERMISSION_LABELS).map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setEmailPerms((p) => ({ ...p, [key]: !p[key] }))}
-                    className={`px-3 min-h-[48px] rounded-full border text-[13.5px] font-semibold cursor-pointer ${
-                      emailPerms[key]
-                        ? 'bg-primary text-on-primary border-primary'
-                        : 'bg-card text-muted border-border'
-                    }`}
-                  >
-                    {PERMISSION_LABELS[key]}
-                  </button>
-                ))}
-              </div>
+              <PermChips
+                value={emailPerms}
+                onToggle={(key) => setEmailPerms((p) => ({ ...p, [key]: !p[key] }))}
+              />
             </div>
             {emailInviteMsg && (
               <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{emailInviteMsg}</p>
@@ -1050,6 +1106,7 @@ export function SettingsPage() {
               {inviteByEmail.isPending ? t('settings.creatingInvite') : t('settings.sendInvite')}
             </Button>
           </form>
+          </div>
 
           {pendingInvites.length > 0 && (
             <div className="mb-4">
@@ -1117,8 +1174,12 @@ export function SettingsPage() {
             </div>
           )}
 
-          <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.addByIdTitle')}</div>
-          <form onSubmit={handleInvite} className="mb-4">
+          <div className="border border-border rounded-2xl p-3 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <KeyRound size={20} className="text-primary shrink-0" />
+              <span className="font-bold text-[15px]">{t('settings.addByIdTitle')}</span>
+            </div>
+          <form onSubmit={handleInvite}>
             <Field label={t('settings.assistantIdLabel')}>
               <TextInput
                 dir="ltr"
@@ -1130,22 +1191,10 @@ export function SettingsPage() {
             </Field>
             <div className="mb-3">
               <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.assistantPermsLabel')}</div>
-              <div className="flex flex-wrap gap-2">
-                {Object.keys(PERMISSION_LABELS).map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setPerms((p) => ({ ...p, [key]: !p[key] }))}
-                    className={`px-3 min-h-[48px] rounded-full border text-[13.5px] font-semibold cursor-pointer ${
-                      perms[key]
-                        ? 'bg-primary text-on-primary border-primary'
-                        : 'bg-card text-muted border-border'
-                    }`}
-                  >
-                    {PERMISSION_LABELS[key]}
-                  </button>
-                ))}
-              </div>
+              <PermChips
+                value={perms}
+                onToggle={(key) => setPerms((p) => ({ ...p, [key]: !p[key] }))}
+              />
             </div>
             {inviteMsg && (
               <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{inviteMsg}</p>
@@ -1155,6 +1204,7 @@ export function SettingsPage() {
               {invite.isPending ? t('settings.adding') : t('settings.addAssistant')}
             </Button>
           </form>
+          </div>
 
           <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.teamMembersTitle')}</div>
           {membersQ.isPending ? (
@@ -1183,25 +1233,15 @@ export function SettingsPage() {
                       {m.status === 'active' ? t('settings.statusActive') : m.status === 'invited' ? t('settings.statusInvited') : t('settings.statusSuspended')}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {Object.keys(PERMISSION_LABELS).map((key) => {
-                      const on = memberPerms[key] === true
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          disabled={updatePerms.isPending}
-                          onClick={() => toggleMemberPerm(m, key)}
-                          className={`px-2 min-h-[48px] rounded-full border text-[13.5px] font-semibold cursor-pointer ${
-                            on
-                              ? 'bg-primary text-on-primary border-primary'
-                              : 'bg-card text-muted border-border'
-                          }`}
-                        >
-                          {PERMISSION_LABELS[key]}
-                        </button>
-                      )
-                    })}
+                  <div className="mb-2">
+                    <PermChips
+                      value={Object.fromEntries(
+                        Object.keys(PERMISSION_LABELS).map((k) => [k, memberPerms[k] === true]),
+                      )}
+                      onToggle={(key) => toggleMemberPerm(m, key)}
+                      disabled={updatePerms.isPending}
+                      note={false}
+                    />
                   </div>
                   {confirmRemoveId === m.id ? (
                     <div className="flex gap-2">

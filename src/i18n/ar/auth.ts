@@ -76,7 +76,7 @@ export const auth = {
   authPermStudents: 'إدارة الطلاب',
   authPermGroups: 'إدارة المجموعات',
   authPermGrades: 'إدارة الدرجات',
-  authPermMoney: 'عرض المالية (محفوظة — محجوبة في قاعدة البيانات)',
+  authPermMoney: 'عرض المالية',
   authApiAssistantAlreadyAdded: 'المساعد ده مضاف لفريقك بالفعل.',
   authApiAssistantIdNotFound: 'معرّف الحساب ده غير موجود — اتأكد إن المساعد أنشأ حسابه ونسخ المعرّف صح.',
   authApiInviteEmailInvalid: 'صيغة البريد الإلكتروني غير صحيحة — اتأكد من البريد وحاول تاني.',
