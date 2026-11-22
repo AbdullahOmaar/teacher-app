@@ -10,8 +10,8 @@ interface EmptyStateProps {
   icon?: IconComponent
   title: string
   hint?: string
-  /** زر إجراء اختياري تحت الإرشاد */
-  action?: { label: string; onClick: () => void }
+  /** زر إجراء اختياري تحت الإرشاد — أيقونة اختيارية (لغة الأيقونة أولاً 3A-317) */
+  action?: { label: string; onClick: () => void; icon?: IconComponent }
   /**
    * إظهار دُفّي بدل دائرة الأيقونة (MASCOT-PLAN §٦ — الحالات الفارغة
    * أولى نقاط الظهور). اختياري بالكامل: غيابه يُبقي الشكل الحالي
@@ -28,6 +28,7 @@ interface EmptyStateProps {
 
 /** حالة الفراغ الكاملة — أيقونة Lucide + عنوان + إرشاد + زر إجراء اختياري (بحث §5) */
 export function EmptyState({ icon: Icon = FolderOpen, title, hint, action, mascot = false, mascotPose = 'empty' }: EmptyStateProps) {
+  const ActionIcon = action?.icon
   const iconCircle = (
     <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-soft text-primary flex items-center justify-center">
       <Icon size={28} />
@@ -47,7 +48,10 @@ export function EmptyState({ icon: Icon = FolderOpen, title, hint, action, masco
       {hint && <div className="text-muted type-secondary">{hint}</div>}
       {action && (
         <div className="mt-4">
-          <Button onClick={action.onClick}>{action.label}</Button>
+          <Button onClick={action.onClick}>
+            {ActionIcon ? <ActionIcon size={18} /> : null}
+            {action.label}
+          </Button>
         </div>
       )}
     </div>

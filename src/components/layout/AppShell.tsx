@@ -17,6 +17,7 @@ import { useHomeAlerts } from '../../features/home/hooks'
 import { Onboarding } from '../../features/auth/Onboarding'
 import { AttendanceSyncBridge } from '../../features/attendance/SyncBridge'
 import { OfflineStrip } from './OfflineStrip'
+import { InstallButton } from '../InstallButton'
 import { LoadingState } from '../ui/states'
 import { t } from '../../i18n'
 import { Logo } from '../brand/Logo'
@@ -201,6 +202,10 @@ export function AppShell() {
           )}
         </div>
       </main>
+
+      {/* زر تثبيت PWA الذكي (3A-317): يظهر عند قابلية التثبيت فقط،
+          ويختفي مع التنقّل إن لم يُضغط — انظر InstallButton */}
+      <InstallButton />
 
       {/* الشريط السفلي — أيقونة + نص دائماً، pill خلف النشط بأيقونة ممتلئة،
           منطقة لمس 64px مع safe-area (بحث §5) */}
