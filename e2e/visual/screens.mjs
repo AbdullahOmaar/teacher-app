@@ -25,7 +25,7 @@ export const SCREENS = [
   /* ---------------- داخل الجلسة (حساب الديمو) ---------------- */
   { id: 'home', name: 'الرئيسية', path: '/', auth: 'demo', maxDiffRatio: 0.01, volatile: 'بطاقات اليوم/الحصص مرتبطة بتاريخ اليوم المجمّد' },
   { id: 'attendance', name: 'الحضور (أول يوم بجلسة)', path: '/attendance', auth: 'demo', resolve: 'attendance', maxDiffRatio: 0.01, volatile: 'تُقدَّم الأيام حتى أول جلسة (منطق E2E نفسه) — اليوم المختار يُسجَّل في البيان' },
-  { id: 'homework', name: 'الواجب', path: '/homework', auth: 'demo' },
+  { id: 'homework', name: 'الواجب', path: '/homework', auth: 'demo', maxDiffRatio: 0.01, volatile: 'ضجيج مقاس 0.40–0.42% (قوائم أسماء طويلة — أشباح حروف دون البكسل) — قياسات 3A-326' },
   { id: 'students', name: 'الطلاب', path: '/students', auth: 'demo' },
   { id: 'student-detail', name: 'ملف طالب', path: null, auth: 'demo', resolve: 'first-student' },
   { id: 'groups', name: 'المجموعات', path: '/groups', auth: 'demo' },
@@ -40,11 +40,11 @@ export const SCREENS = [
   { id: 'more', name: 'المزيد', path: '/more', auth: 'demo' },
   { id: 'settings', name: 'الإعدادات', path: '/settings', auth: 'demo' },
   { id: 'export', name: 'التصدير', path: '/export', auth: 'demo' },
-  { id: 'backup', name: 'النسخ الاحتياطي', path: '/backup', auth: 'demo' },
+  { id: 'backup', name: 'النسخ الاحتياطي', path: '/backup', auth: 'demo', maxDiffRatio: 0.01, volatile: 'ضجيج متقطع مقاس حتى 0.66% (0.000% في تشغيلتين) — قياسات 3A-326' },
   { id: 'portal-links', name: 'إدارة روابط البوابات', path: '/portal-links', auth: 'demo' },
   { id: 'activity-log', name: 'سجل النشاط', path: '/activity-log', auth: 'demo', maxDiffRatio: 0.01, volatile: 'طوابع زمنية للنشاط' },
   { id: 'analytics', name: 'التحليلات', path: '/analytics', auth: 'demo', maxDiffRatio: 0.01, volatile: 'فترة الشهر الحالي المجمّد' },
-  { id: 'at-risk', name: 'المعرضون للخطر', path: '/at-risk', auth: 'demo' },
+  { id: 'at-risk', name: 'المعرضون للخطر', path: '/at-risk', auth: 'demo', maxDiffRatio: 0.01, volatile: 'بصمة ضجيج ثابتة 0.481% في ثلاث قياسات مستقلة والمحتوى مطابق بالعين — قياسات 3A-326' },
   { id: 'notfound-shell', name: '404 داخل الجلسة', path: '/no-such-screen-xyz', auth: 'demo' },
 
   /* ---------------- البوابتان (روابط مولّدة، سياق مجهول) ---------------- */
