@@ -20,7 +20,7 @@ const authState = vi.hoisted(() => ({
   loading: false,
   configured: true,
 }))
-vi.mock('../../lib/AuthProvider', () => ({
+vi.mock('../../lib/useAuth', () => ({
   useAuth: () => ({
     session: authState.session,
     user: null,

@@ -35,11 +35,16 @@ export function PhoneAuth() {
   const [notice, setNotice] = useState<string | null>(null)
   const [resendIn, setResendIn] = useState(0)
 
+  // عدّاد إعادة الإرسال (3A-361): الاعتماديات هي resendIn نفسه — التعبير
+  // [resendIn > 0] كان يخفي التبعية ويثير تحذيرين؛ التوقيت مطابق عمليًا
+  // (بانحراف ملي ثوانٍ لكل نبضة من إعادة إنشاء المؤقت كل ثانية):
+  // المؤقت يُعاد إنشاؤه كل ثانية لأن ردّ النداء تحديث دالّي بلا إغلاق
+  // على resendIn، والعدّ يبقى نبضة كل ثانية ويتوقف عند الصفر كما كان
   useEffect(() => {
     if (resendIn <= 0) return
     const id = window.setInterval(() => setResendIn((s) => Math.max(0, s - 1)), 1000)
     return () => window.clearInterval(id)
-  }, [resendIn > 0])
+  }, [resendIn])
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault()

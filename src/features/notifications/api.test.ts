@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { prepaidLeft, prepaidZone } from './api'
+import type { AppAlert } from './api'
+import { overdueListText, prepaidLeft, prepaidZone } from './api'
 
 describe('prepaidLeft — باقي الباقة (§5.7)', () => {
   it('المدفوع مسبقاً ناقص الحضور الفعلي', () => {
@@ -29,5 +30,32 @@ describe('prepaidZone — تصنيف عرض الباقة (W4 — R-7)', () => {
   })
   it('باقة بحجم صفري لا تُقسّم عليها', () => {
     expect(prepaidZone(1, 0)).toBeNull()
+  })
+})
+
+describe('overdueListText — قائمة المتأخرات كنص قابل للنسخ (§3.13)', () => {
+  const alert = (kind: AppAlert['kind'], text: string): AppAlert => ({ kind, text, to: '/x' })
+
+  it('يجمع نصوص تنبيهات fin فقط، سطر لكل تنبيه، بالترتيب', () => {
+    expect(
+      overdueListText([
+        alert('fin', 'أحمد — متأخر 200 ج'),
+        alert('att', 'حصة اليوم 10 ص'),
+        alert('fin', 'سارة — متأخرة 150 ج'),
+        alert('prepaid', 'باقة عمر أوشكت على النفاد'),
+      ]),
+    ).toBe('أحمد — متأخر 200 ج\nسارة — متأخرة 150 ج')
+  })
+
+  it('تنبيه fin واحد = نصه وحده بلا سطر جديد', () => {
+    expect(overdueListText([alert('fin', 'متأخر واحد')])).toBe('متأخر واحد')
+  })
+
+  it('بلا تنبيهات fin = نص فارغ', () => {
+    expect(overdueListText([alert('att', 'حصة'), alert('grade', 'درجة')])).toBe('')
+  })
+
+  it('قائمة فارغة = نص فارغ', () => {
+    expect(overdueListText([])).toBe('')
   })
 })

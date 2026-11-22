@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { GroupRow } from '../../types/database'
+import type { GroupRow, InvoiceBalanceRow } from '../../types/database'
 import {
   baseChargeFor,
   buildReceiptMessage,
@@ -11,6 +11,7 @@ import {
   periodLabel,
   periodYm,
   receiptWaUrl,
+  splitArrears,
 } from './api'
 
 describe('isUnpaid — تعريف غير المسدد الموحد (PAT-4)', () => {
@@ -109,5 +110,68 @@ describe('رسالة الإيصال (§5.6)', () => {
       'https://wa.me/201112345678',
     )
     expect(receiptWaUrl({ guardian_phone: null, phone: null }, 'x')).toBeNull()
+  })
+})
+
+describe('splitArrears — تقسيم متأخرات الرئيسية (M4 — 3A-361)', () => {
+  const row = (period_month: string, balance: number): InvoiceBalanceRow => ({
+    invoice_id: `inv-${period_month}-${balance}`,
+    teacher_id: 't1',
+    student_id: 's1',
+    group_id: 'g1',
+    period_month,
+    total: 300,
+    paid: 300 - balance,
+    balance,
+    is_paid: balance <= 0,
+  })
+
+  it('يقسّم على حدّ الشهر: فترة الشهر الحالي مستحقة، والأقدم متأخرة', () => {
+    const rows = [
+      row('2026-11-01', 300), // مستحق هذا الشهر
+      row('2026-11-01', 150), // مستحق هذا الشهر
+      row('2026-10-01', 200), // متأخر
+      row('2026-09-01', 100), // متأخر
+    ]
+    expect(splitArrears(rows, '2026-11-01')).toEqual({
+      unpaidCount: 4,
+      arrearsTotal: 750,
+      dueThisMonthCount: 2,
+      dueThisMonthTotal: 450,
+      overdueCount: 2,
+      overdueTotal: 300,
+    })
+  })
+
+  it('فواتير أشهر قادمة غير مسددة تدخل الإجمالي فقط — لا المستحق ولا المتأخر', () => {
+    const rows = [row('2026-12-01', 300), row('2026-11-01', 100)]
+    const split = splitArrears(rows, '2026-11-01')
+    expect(split.unpaidCount).toBe(2)
+    expect(split.arrearsTotal).toBe(400)
+    expect(split.dueThisMonthCount).toBe(1)
+    expect(split.overdueCount).toBe(0)
+  })
+
+  it('صفوف فارغة = أصفار كلها', () => {
+    expect(splitArrears([], '2026-11-01')).toEqual({
+      unpaidCount: 0,
+      arrearsTotal: 0,
+      dueThisMonthCount: 0,
+      dueThisMonthTotal: 0,
+      overdueCount: 0,
+      overdueTotal: 0,
+    })
+  })
+
+  it('مسدد بالكامل = أصفار حتى مع فواتير في الشهر الحالي وشهور أقدم', () => {
+    const rows = [row('2026-11-01', 0), row('2026-10-01', 0), row('2026-09-01', -50)]
+    expect(splitArrears(rows, '2026-11-01')).toEqual({
+      unpaidCount: 0,
+      arrearsTotal: 0,
+      dueThisMonthCount: 0,
+      dueThisMonthTotal: 0,
+      overdueCount: 0,
+      overdueTotal: 0,
+    })
   })
 })

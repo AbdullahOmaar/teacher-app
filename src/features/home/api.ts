@@ -18,6 +18,17 @@ export function todayStr(): string {
   return toDateStr(new Date())
 }
 
+/**
+ * «الآن» كقيمة واحدة لكل تصيير — تلتقطها الصفحة مرة واحدة أعلى المكوّن
+ * وتمرّرها للاشتقاقات (hero/الترحيب/الوقت النسبي) حتى لا تتضارب ساعتان
+ * في تصيير واحد. (3A-361: بديل new Date() المباشر في العرض، الذي
+ * يخالف react(purity) — والمساعد نفسه يستدعي new Date() داخلياً
+ * كما يفعل todayStr() أصلاً.)
+ */
+export function nowDate(): Date {
+  return new Date()
+}
+
 export function addDaysStr(dateStr: string, n: number): string {
   const d = new Date(`${dateStr}T00:00:00`)
   d.setDate(d.getDate() + n)

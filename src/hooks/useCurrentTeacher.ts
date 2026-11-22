@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/AuthProvider'
+import { useAuth } from '../lib/useAuth'
 import { useActiveTeacherId } from '../lib/workspace'
 import { claimTeacherInvites } from '../features/auth/api'
 import type { TeacherMemberRow, TeacherRow } from '../types/database'

@@ -3,7 +3,7 @@ import { Bell, BellOff, CheckCircle2, Newspaper } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { TextInput } from '../../components/ui/form'
-import { useAuth } from '../../lib/AuthProvider'
+import { useAuth } from '../../lib/useAuth'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import {
   getBrowserPushState,

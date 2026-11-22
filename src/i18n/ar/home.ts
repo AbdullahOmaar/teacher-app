@@ -49,6 +49,7 @@ export const home = {
     unpaidTotal: 'بإجمالي {amount}',
     noArrears: 'لا توجد متأخرات',
     unpaidDefinition: 'أي رصيد غير مسدد — كل الشهور',
+    arrearsSplit: 'مستحق هذا الشهر: {dueCount} ({dueAmount}) · متأخر: {overdueCount} ({overdueAmount})',
     noComparison: 'لا مقارنة بعد',
     deltaVs: 'عن نفس أيام الشهر الماضي',
   },
@@ -71,6 +72,7 @@ export const home = {
     noStudents: 'مفيش طلاب مسجلين',
     done: 'تم ({count})',
     mark: 'تحضير ({done}/{total})',
+    progressError: 'تعذّر التحميل — إعادة المحاولة',
   },
   /** نصوص طبقة البيانات: مدة ووقت نسبي لحصة اليوم (fmtDuration/relLabel) */
   apiMinutes: '{mins} دقيقة',

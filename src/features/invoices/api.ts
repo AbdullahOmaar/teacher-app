@@ -64,6 +64,43 @@ export function isUnpaid(b: { balance: number }): boolean {
   return b.balance > 0
 }
 
+export interface ArrearsSplit {
+  unpaidCount: number
+  arrearsTotal: number
+  dueThisMonthCount: number
+  dueThisMonthTotal: number
+  overdueCount: number
+  overdueTotal: number
+}
+
+/**
+ * تقسيم المتأخرات (M4 — 3A-361): «مستحق هذا الشهر» = غير مسدد بفترة
+ * الشهر الحالي (period_month == monthStart)، و«متأخر» = غير مسدد
+ * بفترة أقدم (period_month < monthStart). فواتير أشهر قادمة غير
+ * مسددة تدخل الإجمالي والعدد فقط — لا في المستحق ولا في المتأخر.
+ */
+export function splitArrears(rows: InvoiceBalanceRow[], monthStart: string): ArrearsSplit {
+  let unpaidCount = 0
+  let arrearsTotal = 0
+  let dueThisMonthCount = 0
+  let dueThisMonthTotal = 0
+  let overdueCount = 0
+  let overdueTotal = 0
+  for (const r of rows) {
+    if (!isUnpaid(r)) continue
+    unpaidCount += 1
+    arrearsTotal += r.balance
+    if (r.period_month === monthStart) {
+      dueThisMonthCount += 1
+      dueThisMonthTotal += r.balance
+    } else if (r.period_month < monthStart) {
+      overdueCount += 1
+      overdueTotal += r.balance
+    }
+  }
+  return { unpaidCount, arrearsTotal, dueThisMonthCount, dueThisMonthTotal, overdueCount, overdueTotal }
+}
+
 // ---------------------------------------------------------------------------
 // القراءات — الفواتير من جدول invoices + أرصدتها من view ‏invoice_balances
 // (الإجمالي/المدفوع/المتبقي محسوب في قاعدة البيانات دائماً، لا مخزّن)

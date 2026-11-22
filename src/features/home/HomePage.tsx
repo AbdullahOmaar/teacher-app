@@ -1,4 +1,4 @@
-import { isUnpaid } from '../invoices/api'
+import { splitArrears } from '../invoices/api'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
@@ -27,6 +27,7 @@ import { formatMoney, formatTime12 } from '../../lib/format'
 import {
   kpiDelta,
   monthStartStr,
+  nowDate,
   relLabel,
   sessionEnd,
   todayStr,
@@ -52,7 +53,7 @@ import { AtRiskCard } from '../atrisk/AtRiskCard'
 import { ATRISK } from '../atrisk/hooks'
 import { PendingProofsCard } from '../payment-proofs/PendingProofsCard'
 import { useGroups } from '../groups/hooks'
-import { useAuth } from '../../lib/AuthProvider'
+import { useAuth } from '../../lib/useAuth'
 import { DEMO_EMAIL } from '../auth/api'
 
 /** فاصل ميتا: نقطة مستقلة أخف بصرياً داخل صف flex متباعد (طلب المالك:
@@ -149,6 +150,10 @@ export function HomePage() {
 
   const today = todayStr()
   const monthStart = monthStartStr(today)
+  // «الآن» الوحيدة للتصيير كله (3A-361): تلتقط مرة واحدة هنا وتمرّر
+  // للاشتقاقات (hero/الترحيب/الوقت النسبي) حتى لا تتضارب ساعتان
+  // في تصيير واحد — وnew Date() المباشر في العرض ممنوع (react/purity)
+  const now = nowDate()
 
   const activeStudentsQ = useActiveStudentsCount(teacherId)
   const monthAttendanceQ = useMonthlyAttendance(teacherId)
@@ -267,20 +272,16 @@ export function HomePage() {
   }, [marksQ.data])
 
   // الحصة القادمة: أول حصة مجدولة (غير ملغاة) لم تنتهِ بعد — اليوم ثم غداً
-  const hero = useMemo(() => {
-    const now = new Date()
-    return (
-      sessions.find((s) => s.status === 'scheduled' && sessionEnd(s) > now) ?? null
-    )
-  }, [sessions])
+  // بلا useMemo: `now` جديد كل تصيير فيعيد الحساب على أي حال (بحث خطي تافه)،
+  // فالاشتقاق المباشر أوضح من memo لا يخزّن شيئاً.
+  const hero = sessions.find((s) => s.status === 'scheduled' && sessionEnd(s) > now) ?? null
 
-  // مشتقات الفواتير من view ‏invoice_balances
+  // مشتقات الفواتير من view ‏invoice_balances — التقسيم في splitArrears
+  // (M4): مستحق هذا الشهر مقابل متأخر، والإجمالي كما كان
   const invoiceStats = useMemo(() => {
     const rows = balancesQ.data ?? []
-    const unpaid = rows.filter(isUnpaid)
     return {
-      unpaidCount: unpaid.length,
-      arrearsTotal: unpaid.reduce((sum, r) => sum + r.balance, 0),
+      ...splitArrears(rows, monthStart),
       monthIssuedTotal: rows
         .filter((r) => r.period_month === monthStart)
         .reduce((sum, r) => sum + r.total, 0),
@@ -316,7 +317,6 @@ export function HomePage() {
     sessionsQ.error ??
     (isOwner ? (paymentsQ.error ?? balancesQ.error) : null)
 
-  const now = new Date()
   // تحية الترحيب بحسب الساعة (صباحاً/مساءً) — من نفس «الآن» المحسوبة
   // أصلاً لاشتقاقات الصفحة حتى لا تتضارب ساعتان في تصيير واحد
   // تحية دُفّي بنص MASCOT-PLAN §٨ حرفياً (خطة الهوية P-3) — اسم المدرس
@@ -617,7 +617,14 @@ export function HomePage() {
                 valueClass={invoiceStats.unpaidCount > 0 ? 'text-warn-text' : ''}
                 delta={
                   <span className="block text-muted text-[11.5px] mt-0.5">
-                    {t('home.kpi.unpaidDefinition')}
+                    {invoiceStats.unpaidCount > 0
+                      ? t('home.kpi.arrearsSplit', {
+                          dueCount: invoiceStats.dueThisMonthCount,
+                          dueAmount: formatMoney(invoiceStats.dueThisMonthTotal),
+                          overdueCount: invoiceStats.overdueCount,
+                          overdueAmount: formatMoney(invoiceStats.overdueTotal),
+                        })
+                      : t('home.kpi.unpaidDefinition')}
                   </span>
                 }
               />
@@ -662,6 +669,11 @@ export function HomePage() {
                 total={countsQ.data?.get(s.group_id)}
                 done={markedBySession.get(s.id) ?? 0}
                 progressReady={Boolean(countsQ.data) && !marksQ.isPending}
+                progressError={countsQ.isError || marksQ.isError}
+                onRetry={() => {
+                  void countsQ.refetch()
+                  void marksQ.refetch()
+                }}
               />
             ))
           )}
@@ -678,12 +690,18 @@ function TodaySessionCard({
   total,
   done,
   progressReady,
+  progressError,
+  onRetry,
 }: {
   session: SessionWithGroup
   index: number
   total: number | undefined
   done: number
   progressReady: boolean
+  /** فشل أحد استعلامي العدّ/الحضور — يُعرض مؤشر خطأ قابل للنقر (3A-361) */
+  progressError: boolean
+  /** إعادة جلب استعلامي العدّ والحضور معاً */
+  onRetry: () => void
 }) {
   const cancelled = s.status === 'cancelled'
   return (
@@ -724,7 +742,19 @@ function TodaySessionCard({
           </div>
         </div>
         {!cancelled &&
-          (progressReady && total != null ? (
+          (progressError ? (
+            // (3A-361 تحفظ المراجعة #5): عند الخطأ فقط — شيب مضغوط بنفس
+            // ارتفاع الخانة (48px) بأيقونة + نص قصير، وقابل للنقر لإعادة
+            // المحاولة؛ التحميل يبقى خانة فارغة بلا تغيير وبلا قفز تخطيط
+            <button
+              type="button"
+              onClick={onRetry}
+              className="shrink-0 inline-flex items-center gap-1.5 text-[12.5px] font-bold bg-bad/10 text-bad-text border border-bad/30 rounded-full px-3 min-h-[48px]"
+            >
+              <X size={15} className="shrink-0" />
+              {t('home.today.progressError')}
+            </button>
+          ) : progressReady && total != null ? (
             total === 0 ? (
               <span className="shrink-0 text-muted text-[12px]">{t('home.today.noStudents')}</span>
             ) : done >= total ? (

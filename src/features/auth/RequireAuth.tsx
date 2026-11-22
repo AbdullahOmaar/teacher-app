@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { useAuth } from '../../lib/AuthProvider'
+import { useAuth } from '../../lib/useAuth'
 import { MascotSplash } from '../../components/mascot/MascotLoader'
 
 /**

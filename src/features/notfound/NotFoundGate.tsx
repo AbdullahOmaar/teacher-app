@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { useAuth } from '../../lib/AuthProvider'
+import { useAuth } from '../../lib/useAuth'
 import { AppShell } from '../../components/layout/AppShell'
 import { MascotSplash } from '../../components/mascot/MascotLoader'
 import { LoadingState } from '../../components/ui/states'

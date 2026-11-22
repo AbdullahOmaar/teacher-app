@@ -4,7 +4,7 @@ import { Check, GraduationCap } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
-import { useAuth } from '../../lib/AuthProvider'
+import { useAuth } from '../../lib/useAuth'
 import { ensureTeacherProfile } from './api'
 import { t } from '../../i18n'
 
