@@ -17,7 +17,11 @@
  *
  * الاستخدام:
  *   node e2e/visual/capture.mjs --out <dir> [--base <url>]
- *        [--widths 390,360] [--only id1,id2] [--no-tokens]
+ *        [--widths 390,360] [--only id1,id2] [--no-tokens] [--theme dark|light]
+ *   --theme: يضبط localStorage ‏teacher-app-theme قبل التحميل (آلية
+ *   useTheme الفعلية: المفتاح نفسه في index.html/useTheme.ts) + محاكاة
+ *   prefers-color-scheme بنفس القيمة (حتى لا يقلب مزامنة إعدادات الحساب
+ *   «auto» الشاشةَ للفاتح أثناء لقطة الداكن). بلا --theme السلوك كما كان.
  * يخرج بكود 1 بصوت عالٍ إن فشلت أي شاشة (البيان يوثّق الخطأ) — لا
  * يُقبل سويب ناقص كأنه كامل (حارس العدّاد).
  */
@@ -40,6 +44,11 @@ const BASE = (arg('base', process.env.VISUAL_BASE || 'https://teacher-app-prod.v
 const WIDTHS = arg('widths', '390,360').split(',').map(Number);
 const ONLY = arg('only', null)?.split(',') ?? null;
 const WITH_TOKENS = !args.includes('--no-tokens');
+const THEME = arg('theme', null);
+if (THEME != null && THEME !== 'dark' && THEME !== 'light') {
+  console.error(`--theme يقبل dark أو light فقط (وصل: ${THEME})`);
+  process.exit(2);
+}
 const RELAY =
   process.env.VISUAL_RELAY != null
     ? process.env.VISUAL_RELAY === '1'
@@ -123,10 +132,37 @@ const FREEZE_AND_FLATTEN = (frozenIso) => {
   attach();
 };
 
+const SET_THEME = (mode) => {
+  try {
+    localStorage.setItem('teacher-app-theme', mode);
+  } catch { /* صفحات بلا تخزين (about:blank) — تُعاد عند التنقّل الفعلي */ }
+  // حارس ضد قلب صفحة الإعدادات للثيم: SettingsPage تزامن ثيم الحساب
+  // المحفوظ في القاعدة (للديمو: فاتح) فوق الاختيار المحلي عند فتحها،
+  // فتُلتقط فاتحة وسط سويب داكن — المراقب يعيد فرض الثيم المطلوب على
+  // dataset.theme فور أي تغيير، والفواصل تعيد كتابة مفتاح التخزين.
+  const enforce = () => {
+    try {
+      localStorage.setItem('teacher-app-theme', mode);
+    } catch { /* تجاهل */ }
+    const el = document.documentElement;
+    if (el && el.dataset.theme !== mode) el.dataset.theme = mode;
+  };
+  const arm = () => {
+    if (!document.documentElement) return setTimeout(arm, 10);
+    new MutationObserver(enforce).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    enforce();
+    setInterval(enforce, 500);
+  };
+  arm();
+};
+
 async function preparePage(page, stats) {
   if (RELAY) await enableRelay(page, stats);
   await page.emulateTimezone(TIMEZONE);
-  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+  const media = [{ name: 'prefers-reduced-motion', value: 'reduce' }];
+  if (THEME) media.push({ name: 'prefers-color-scheme', value: THEME });
+  await page.emulateMediaFeatures(media);
+  if (THEME) await page.evaluateOnNewDocument(SET_THEME, THEME);
   await page.evaluateOnNewDocument(FREEZE_AND_FLATTEN, FROZEN_UTC);
   page.on('dialog', async (d) => {
     await d.accept().catch(() => {});
@@ -234,6 +270,40 @@ async function shoot(page, file) {
   const w = buf.readUInt32BE(16);
   const h = buf.readUInt32BE(20);
   return { bytes: buf.length, pngWidth: w, pngHeight: h };
+}
+
+/** تدقيق DOM برمجي (تسوية التحقق): تجاوز أفقي للوثيقة + عناصر تتجاوز
+ *  عرض الشاشة أو مقصوصة بمخفيّ overflow — تُسجَّل في البيان فقط، لا
+ *  تؤثر في اللقطة ولا في نجاحها. */
+async function collectDomAudit(page) {
+  return page
+    .evaluate(() => {
+      const de = document.documentElement;
+      const vw = de.clientWidth;
+      const docOverflowX = Math.max(de.scrollWidth, document.body?.scrollWidth ?? 0) > vw;
+      const offenders = [];
+      const clipped = [];
+      for (const el of document.querySelectorAll('*')) {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) continue;
+        const style = getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden') continue;
+        const desc =
+          el.tagName.toLowerCase() +
+          (el.className && typeof el.className === 'string' ? '.' + el.className.split(/\s+/).slice(0, 3).join('.') : '') +
+          ' «' + (el.textContent || '').trim().slice(0, 40) + '»';
+        if ((r.right > vw + 1 || r.left < -1) && offenders.length < 10)
+          offenders.push({ desc, left: Math.round(r.left), right: Math.round(r.right), vw });
+        if (
+          clipped.length < 10 &&
+          ((style.overflowX === 'hidden' && el.scrollWidth > el.clientWidth + 1) ||
+            (style.overflowY === 'hidden' && el.scrollHeight > el.clientHeight + 1))
+        )
+          clipped.push({ desc, sw: el.scrollWidth, cw: el.clientWidth, sh: el.scrollHeight, ch: el.clientHeight });
+      }
+      return { docOverflowX, docScrollWidth: Math.max(de.scrollWidth, document.body?.scrollWidth ?? 0), vw, theme: de.dataset.theme ?? null, offenders, clipped };
+    })
+    .catch((e) => ({ error: e.message }));
 }
 
 /* ------------------------------ الجلسة ------------------------------ */
@@ -366,7 +436,8 @@ async function capturePortal(browser, page, stats, kind, width, file) {
         await preparePage(p2, stats);
         await p2.goto(url, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
         await settle(p2);
-        const info = await shoot(p2, file);
+        const dom = await collectDomAudit(p2);
+        const info = { ...(await shoot(p2, file)), dom };
         const txt = await p2.evaluate(() => document.body.innerText);
         if (/غير صالح|انتهت صلاحية الرابط|رابط غير صحيح/.test(txt)) throw new Error('البوابة عرضت خطأ رابط غير صالح');
         return info;
@@ -398,6 +469,7 @@ async function main() {
     frozenNowUtc: FROZEN_UTC,
     timezone: TIMEZONE,
     relay: RELAY,
+    theme: THEME ?? 'default(saved/auto)',
     startedAt: new Date().toISOString(),
     widths: {},
   };
@@ -418,7 +490,8 @@ async function main() {
         try {
           await page.goto(BASE + s.path, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
           await settle(page);
-          const info = await shoot(page, file);
+          const dom = await collectDomAudit(page);
+          const info = { ...(await shoot(page, file)), dom };
           entries.push({ id: s.id, file: `${width}/${s.id}.png`, path: s.path, ...info });
           console.log(`✓ [${width}] ${s.id}`);
         } catch (e) {
@@ -487,7 +560,8 @@ async function main() {
             await page.goto(BASE + s.path, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
           }
           await settle(page);
-          const info = await shoot(page, file);
+          const dom = await collectDomAudit(page);
+          const info = { ...(await shoot(page, file)), dom };
           entries.push({ id: s.id, file: `${width}/${s.id}.png`, path: s.path || resolved[s.resolve] || null, ...(note ? { note } : {}), ...info });
           console.log(`✓ [${width}] ${s.id}`);
         } catch (e) {
