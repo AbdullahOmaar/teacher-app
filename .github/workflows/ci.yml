@@ -93,6 +93,55 @@ jobs:
             console.log('depcruise: ' + total + ' modules cruised, ' + circ.length + ' circular violations');
           "
 
+  code-signals:
+    # إشارات جودة معلوماتية (3A-314 — تبنّي أدوات مراجعة أوبن سورس):
+    # ‏Knip (ملفات/صادرات/اعتماديات ميتة) + jscpd (تكرار) — بنمط
+    # architecture-graph وe2e-smoke نفسه: continue-on-error في هذه
+    # المرحلة، والترقية لوظيفة حاجبة قرار لاحق بالأدلة بعد أسابيع من
+    # الإشارات المستقرة. الأداتان تُثبّتان --no-save داخل صندوق الوظيفة
+    # فقط (مع typescript@5.9.3 — مترجم المشروع 7.0.2 خارج نطاق دعم
+    # Knip كما مع dependency-cruiser) فلا تُمسّ مانيفستات المشروع.
+    # حرّاس ضد «النجاح الصامت»: عدّادات ملفات مفحوصة صريحة لكل أداة —
+    # جوبٌ فارغ يُفشل الخطوة بصوت عالٍ بدل أن يمرّ كأنه نظيف.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true' # كما في بقية الوظائف
+      - run: npm i --no-save typescript@5.9.3 knip@5 jscpd@4
+      - name: Knip (كود ميت — إشارة)
+        run: |
+          npx knip --reporter json > /tmp/knip.json || true
+          node -e "
+            const r = require('/tmp/knip.json');
+            const files = new Set((r.issues || []).map(i => i.file));
+            const count = k => (r.issues || []).reduce((s, i) => s + ((i[k] || []).length), 0);
+            console.log('knip: unused files=' + (r.files || []).length +
+              ' exports=' + count('exports') + ' types=' + count('types') +
+              ' deps=' + (count('dependencies') + count('devDependencies')) +
+              ' across ' + files.size + ' files with issues');
+            for (const f of r.files || []) console.log('::warning::knip unused file: ' + f);
+            if (files.size < 30) { console.error('knip touched only ' + files.size + ' files — silent-empty trap (compiler mismatch?)'); process.exit(1); }
+          "
+      - name: jscpd (تكرار — إشارة)
+        run: |
+          npx jscpd src --min-lines 8 --reporters console 2>&1 | tee /tmp/jscpd.txt | tail -4
+          node -e "
+            const fs = require('fs');
+            const txt = fs.readFileSync('/tmp/jscpd.txt', 'utf8');
+            const m = txt.match(/Total:\s*│\s*(\d+)/);
+            const found = txt.match(/Found (\d+) clones/);
+            if (!m) { console.error('jscpd summary missing — scan did not complete'); process.exit(1); }
+            if (Number(m[1]) < 150) { console.error('jscpd analyzed only ' + m[1] + ' files — silent-empty trap'); process.exit(1); }
+            console.log('jscpd: ' + m[1] + ' files analyzed, ' + (found ? found[1] : '?') + ' clones');
+          "
+
   e2e-smoke:
     # اختبارات E2E دخانية معلوماتية (R1 — 3A-311): ستة تدفقات حرجة
     # بـ Puppeteer على بناء معاينة محلي ضد Supabase الحي بحساب الديمو

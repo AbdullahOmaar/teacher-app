@@ -1,0 +1,1 @@
+{"$schema":"https://unpkg.com/knip@5/schema.json","entry":["src/main.tsx"],"ignore":["src/types/database.ts","src/test/**","src/app-version.d.ts"],"ignoreDependencies":["tailwindcss"],"project":["src/**/*.{ts,tsx}"]}
