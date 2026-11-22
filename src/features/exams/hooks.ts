@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import type { OnlineExamInput } from '../../types/database'
-import { GRADES } from '../grades/hooks'
+import { INVALIDATION_SETS, useInvalidatePrefixes } from '../../lib/invalidate'
 import {
   createExamLink,
   createOnlineExam,
@@ -46,14 +46,12 @@ export function useExamAttempts(teacherId: string | undefined, examId: string | 
 /**
  * أي تغيير في الامتحان/نتائجه يبطل كاش الامتحانات والدرجات معاً:
  * الترحيل التلقائي يكتب في scores فتبويب درجات الطالب وقوائم الدرجات
- * لازم يعيدوا القراءة بعد أي تسليم/تعديل يمسّهم.
+ * لازم يعيدوا القراءة بعد أي تسليم/تعديل يمسّهم — وتنبيهات الرئيسية
+ * تقرأ scores أيضاً (fetchAlerts) فتدخل 'home' في المجموعة (3A-377).
+ * المجموعة الكاملة في INVALIDATION_SETS.exams (lib/invalidate.ts).
  */
 function useInvalidateExams() {
-  const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [EXAMS] })
-    void qc.invalidateQueries({ queryKey: [GRADES] })
-  }
+  return useInvalidatePrefixes(INVALIDATION_SETS.exams)
 }
 
 export function useCreateOnlineExam(teacherId: string) {

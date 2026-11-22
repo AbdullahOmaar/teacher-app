@@ -1,4 +1,6 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
@@ -7,7 +9,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState } from '../../components/ui/states'
 import { formatDateLabel } from '../schedule/api'
 import { ASSESSMENT_TYPE_LABELS, TONE_BADGE, fmtScore, pctTone } from './api'
-import { useStudentScores } from './hooks'
+import { GRADES, useStudentScores } from './hooks'
 
 /**
  * تبويب الدرجات في ملف الطالب (المرجع §3.4): درجات الطالب فعلياً من جدول
@@ -24,6 +26,7 @@ export function StudentGradesTab({
   teacherId: string
   studentId: string
 }) {
+  const qc = useQueryClient()
   const scoresQ = useStudentScores(teacherId, studentId)
 
   const { average, chronological } = useMemo(() => {
@@ -41,7 +44,7 @@ export function StudentGradesTab({
     return (
       <ErrorState
         message={scoresQ.error instanceof Error ? scoresQ.error.message : t('common.unknownError')}
-        onRetry={() => void scoresQ.refetch()}
+        onRetry={() => void invalidatePrefixes(qc, [GRADES])}
       />
     )
   }

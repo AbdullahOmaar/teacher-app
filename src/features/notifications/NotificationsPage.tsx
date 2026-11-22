@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
@@ -366,7 +367,7 @@ export function NotificationsPage() {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
 
   return (
-    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [HOME] })}>
+    <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [HOME])}>
     <div ref={rootRef}>
       {alertsQ.isPending ? (
         <>
@@ -377,7 +378,7 @@ export function NotificationsPage() {
       ) : alertsQ.isError ? (
         <ErrorState
           message={alertsQ.error instanceof Error ? alertsQ.error.message : t('common.unknownError')}
-          onRetry={() => void alertsQ.refetch()}
+          onRetry={() => void invalidatePrefixes(qc, [HOME])}
         />
       ) : alerts.length === 0 ? (
         <Card>

@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { CalendarX2, CheckCheck, MessageCircle, ReceiptText, ShieldCheck, UserRound } from 'lucide-react'
 import { Avatar } from '../../components/ui/Avatar'
 import { ActionTile, ActionTiles } from '../../components/ui/ActionTiles'
@@ -55,7 +56,7 @@ export function AtRiskPage() {
   }
 
   return (
-    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [ATRISK] })}>
+    <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [ATRISK])}>
     <div>
       <p className="text-muted text-[13.5px] leading-[1.8] mb-3 mt-0 rise-in" style={{ animationDelay: '0ms' }}>
         {t('atrisk.pageIntroPre')}<b className="text-text">{t('atrisk.pageIntroAbsence')}</b>{t('atrisk.pageIntroMid')}{' '}
@@ -68,7 +69,7 @@ export function AtRiskPage() {
       ) : atRiskQ.error ? (
         <ErrorState
           message={atRiskQ.error instanceof Error ? atRiskQ.error.message : t('common.unknownError')}
-          onRetry={() => void atRiskQ.refetch()}
+          onRetry={() => void invalidatePrefixes(qc, [ATRISK])}
         />
       ) : items.length === 0 ? (
         <Card>

@@ -1,5 +1,7 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { isUnpaid } from '../invoices/api'
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { errText } from '../../lib/supabaseErrors'
 import { CheckCheck, ImageOff, ReceiptText, SearchCheck } from 'lucide-react'
 import { Avatar } from '../../components/ui/Avatar'
@@ -14,7 +16,7 @@ import { formatClock12, formatMoney } from '../../lib/format'
 import { PAYMENT_METHOD_LABELS, periodLabel } from '../invoices/api'
 import { useStudentInvoices } from '../invoices/hooks'
 import { proofDate, type PendingProofItem } from './api'
-import { useApproveProof, usePendingProofs, useProofImageUrl, useRejectProof } from './hooks'
+import { PP, useApproveProof, usePendingProofs, useProofImageUrl, useRejectProof } from './hooks'
 import { t } from '../../i18n'
 
 /** تاريخ ووقت رفع الإثبات بصيغة مقروءة (التوقيت المحلي للمتصفح) */
@@ -39,6 +41,7 @@ export function ProofsReviewSection({
   teacherId: string
   reviewerId: string
 }) {
+  const qc = useQueryClient()
   const proofsQ = usePendingProofs(teacherId, true)
   const [selected, setSelected] = useState<PendingProofItem | null>(null)
   const toast = useToast()
@@ -50,7 +53,7 @@ export function ProofsReviewSection({
       <Card className="border-warn/50">
         <ErrorState
           message={errText(proofsQ.error)}
-          onRetry={() => void proofsQ.refetch()}
+          onRetry={() => void invalidatePrefixes(qc, [PP])}
         />
       </Card>
     )

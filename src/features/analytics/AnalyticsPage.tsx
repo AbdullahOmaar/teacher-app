@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
@@ -118,7 +119,7 @@ export function AnalyticsPage() {
   const data = analyticsQ.data
 
   return (
-    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [ANALYTICS] })}>
+    <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [ANALYTICS])}>
     <div className="flex flex-col gap-3">
       {/* اختيار المدى */}
       <div className="flex gap-2" role="group" aria-label={t('analytics.rangeAria')}>
@@ -144,7 +145,7 @@ export function AnalyticsPage() {
       ) : analyticsQ.isError ? (
         <ErrorState
           message={analyticsQ.error?.message ?? t('analytics.errorUnknown')}
-          onRetry={() => void analyticsQ.refetch()}
+          onRetry={() => void invalidatePrefixes(qc, [ANALYTICS])}
         />
       ) : data && !data.hasAnyData ? (
         <Card className="p-0">

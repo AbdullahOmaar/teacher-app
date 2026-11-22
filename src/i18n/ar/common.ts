@@ -40,6 +40,8 @@ export const common = {
   dbNotConfigured: 'الاتصال بقاعدة البيانات غير مضبوط.',
   deleteBlockedByLinks:
     'مينفعش الحذف النهائي: العنصر مرتبط بسجلات مالية أو تاريخية محفوظة في القاعدة. الأرشفة هي الخيار المتاح.',
+  saveError: 'حصلت مشكلة أثناء الحفظ',
+  saveBlockedByMissingLink: 'تعذّر الحفظ: سجل مرتبط غير موجود — حدّث الصفحة وحاول تاني',
   unexpectedError: 'حصل خطأ غير متوقع',
   supabaseEnvMissing:
     '[تطبيق المدرس] متغيرات VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY غير موجودة — التطبيق يعمل في وضع تجريبي بلا اتصال بـ Supabase. انسخ .env.example إلى .env واملأ القيم.',

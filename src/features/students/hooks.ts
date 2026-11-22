@@ -1,10 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ANALYTICS } from '../analytics/hooks'
-import { ATRISK } from '../atrisk/hooks'
-import { ATT } from '../attendance/hooks'
-import { GRADES } from '../grades/hooks'
-import { HOME } from '../home/hooks'
-import { invalidatePrefixes } from '../../lib/invalidate'
+import { INVALIDATION_SETS, invalidatePrefixes, useInvalidatePrefixes } from '../../lib/invalidate'
 import type { EnrollmentInput, StudentInput } from '../../types/database'
 import {
   createStudent,
@@ -64,10 +59,14 @@ export function useStudentBalances(teacherId: string | undefined) {
   })
 }
 
+/**
+ * إبطال وحدة الطلاب/التسجيلات — المجموعة الكاملة في INVALIDATION_SETS.students:
+ * التسجيلات تغذي قوائم حضور المجموعات (roster)، والطلاب يغذون عدّادات
+ * التحليلات، والتسجيل/الإيقاف يغيّر مجموعة مرشحي المعرّضين — فكانت
+ * [SG, HOME] وحدها ناقصة (3A-377).
+ */
 function useInvalidateModule() {
-  const qc = useQueryClient()
-  // الطلاب/التسجيلات تغذي عدّاد الرئيسية النشط أيضاً (PAT-1)
-  return () => invalidatePrefixes(qc, [SG, HOME])
+  return useInvalidatePrefixes(INVALIDATION_SETS.students)
 }
 
 export function useCreateStudent(teacherId: string) {
@@ -119,14 +118,15 @@ export function useStudentFootprint(
 
 /**
  * حذف نهائي لطالب بلا أثر مالي. الحذف يطال وحدات أخرى (حضور/درجات cascade)
- * فنُبطل كل الوحدات المتأثرة صراحة بدل إبطال شامل أعمى (PAT-1).
+ * فنُبطل كل الوحدات المتأثرة صراحة بدل إبطال شامل أعمى (PAT-1) —
+ * المجموعة في INVALIDATION_SETS.studentsDelete.
  */
 export function useDeleteStudent(teacherId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (studentId: string) => deleteStudent(teacherId, studentId),
     onSuccess: () => {
-      invalidatePrefixes(qc, [SG, HOME, ATT, GRADES, ATRISK, ANALYTICS])
+      void invalidatePrefixes(qc, INVALIDATION_SETS.studentsDelete)
     },
   })
 }

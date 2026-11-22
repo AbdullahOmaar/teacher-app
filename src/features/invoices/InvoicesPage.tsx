@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { summarizeUnpaidByStudent } from './api'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -201,7 +202,7 @@ export function InvoicesPage() {
       : (filtered[0]?.invoice_id ?? null)
 
   return (
-    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [INV] })}>
+    <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [INV])}>
     <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-5 lg:items-start">
       <div className="min-w-0">
       {/* شريط الأدوات الموحّد (W3 — R-10): بحث + رقائق حالة + عدّاد */}
@@ -236,7 +237,7 @@ export function InvoicesPage() {
       ) : invoicesQ.isError ? (
         <ErrorState
           message={invoicesQ.error instanceof Error ? invoicesQ.error.message : t('common.unknownError')}
-          onRetry={() => void invoicesQ.refetch()}
+          onRetry={() => void invalidatePrefixes(qc, [INV])}
         />
       ) : (
         <>

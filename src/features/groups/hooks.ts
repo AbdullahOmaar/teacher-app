@@ -6,11 +6,7 @@ import type {
   WaitlistInput,
 } from '../../types/database'
 import { SG } from '../students/hooks'
-import { ANALYTICS } from '../analytics/hooks'
-import { ATT } from '../attendance/hooks'
-import { HOME } from '../home/hooks'
-import { SCHED } from '../schedule/hooks'
-import { invalidatePrefixes } from '../../lib/invalidate'
+import { INVALIDATION_SETS, invalidatePrefixes, useInvalidatePrefixes } from '../../lib/invalidate'
 import {
   acceptWaitlistEntry,
   addWaitlistEntry,
@@ -58,11 +54,14 @@ export function useWaitlist(teacherId: string | undefined, groupId: string | und
   })
 }
 
+/**
+ * إبطال وحدة المجموعات — المجموعة الكاملة في INVALIDATION_SETS.groups:
+ * إنشاء/تعديل مجموعة يغيّر قوائم الجدول (التوليد يقرأ المجموعات) وقوائم
+ * الحضور وعدّادات التحليلات، فكانت [SG] وحدها ناقصة (3A-377 — توحيد
+ * مع مسار الأرشفة/الحذف الذي كان يبطل المجموعة الكاملة أصلاً).
+ */
 function useInvalidateModule() {
-  const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [SG] })
-  }
+  return useInvalidatePrefixes(INVALIDATION_SETS.groups)
 }
 
 export function useCreateGroup(teacherId: string) {
@@ -119,7 +118,7 @@ export function useSetGroupArchived(teacherId: string) {
     mutationFn: ({ groupId, archived }: { groupId: string; archived: boolean }) =>
       setGroupArchived(teacherId, groupId, archived),
     onSuccess: () => {
-      invalidatePrefixes(qc, [SG, HOME, SCHED, ATT, ANALYTICS])
+      void invalidatePrefixes(qc, INVALIDATION_SETS.groups)
     },
   })
 }
@@ -130,7 +129,7 @@ export function useDeleteGroup(teacherId: string) {
   return useMutation({
     mutationFn: (groupId: string) => deleteGroup(teacherId, groupId),
     onSuccess: () => {
-      invalidatePrefixes(qc, [SG, HOME, SCHED, ATT, ANALYTICS])
+      void invalidatePrefixes(qc, INVALIDATION_SETS.groups)
     },
   })
 }
@@ -153,13 +152,15 @@ export function useDeleteWaitlistEntry(teacherId: string) {
 }
 
 /** قبول طلب انتظار → طالب مسجل في نفس المجموعة — يبطل قوائم الطلاب
- * والرئيسية وقائمة حضور المجموعة حتى يظهر الطالب الجديد فيها كلها (PAT-1) */
+ * والرئيسية وقائمة حضور المجموعة حتى يظهر الطالب الجديد فيها كلها (PAT-1)؛
+ * التسجيل الجديد يغيّر أيضاً عدّادات التحليلات ومجموعة مرشحي المعرّضين
+ * فتُستخدم مجموعة الطلاب الكاملة (INVALIDATION_SETS.students). */
 export function useAcceptWaitlistEntry(teacherId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (entry: GroupWaitlistRow) => acceptWaitlistEntry(teacherId, entry),
     onSuccess: () => {
-      invalidatePrefixes(qc, [SG, HOME, ATT])
+      void invalidatePrefixes(qc, INVALIDATION_SETS.students)
     },
   })
 }

@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { Link, useSearchParams } from 'react-router-dom'
@@ -346,12 +347,13 @@ export function AttendancePage() {
 
   const toggleSessionStatus = () => {
     if (!selected) return
+    // بلا إبطال يدوي هنا: onSuccess في useSetSessionStatus يبطل مجموعة
+    // الجدول الكاملة ([schedule, home, attendance] — INVALIDATION_SETS.schedule)
     statusMut.mutate(
       { sessionId: selected.id, status: cancelled ? 'scheduled' : 'cancelled' },
       {
         onSuccess: () => {
           toast(cancelled ? t('attendance.sessionRestored') : t('attendance.sessionCancelledToast'))
-          void qc.invalidateQueries({ queryKey: [ATT] })
         },
         onError: () => toast(t('attendance.genericErrorToast')),
       },
@@ -419,9 +421,7 @@ export function AttendancePage() {
   return (
     <PullToRefresh
       onRefresh={async () => {
-        await qc.invalidateQueries({ queryKey: [ATT] })
-        await qc.invalidateQueries({ queryKey: [SCHED] })
-        await qc.invalidateQueries({ queryKey: [SG] })
+        await invalidatePrefixes(qc, [ATT, SCHED, SG])
       }}
     >
     <div>
@@ -672,6 +672,7 @@ export function AttendancePage() {
                   : t('common.unknownError')
               }
               onRetry={() => {
+                // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال 'attendance' كان سيعيد جلب حصص اليوم والجلسة وجهات الاتصال والفواتير الشهرية السليمة أيضاً.
                 void rosterQ.refetch()
                 void attQ.refetch()
               }}

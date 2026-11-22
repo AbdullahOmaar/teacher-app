@@ -60,7 +60,10 @@ export function BrandSection({
           message={
             settingsQ.error instanceof Error ? settingsQ.error.message : t('common.unknownError')
           }
-          onRetry={() => void settingsQ.refetch()}
+          onRetry={() => {
+            // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال 'settings' كان سيعيد جلب إعداد واتساب وبطاقات أخرى سليمة أيضاً.
+            void settingsQ.refetch()
+          }}
         />
       ) : (
         <>

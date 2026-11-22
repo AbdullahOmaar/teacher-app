@@ -1,12 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import type {
   ExpenseInput,
   RecurringExpenseInput,
   RecurringExpenseRow,
 } from '../../types/database'
-import { HOME } from '../home/hooks'
-import { ANALYTICS } from '../analytics/hooks'
-import { invalidatePrefixes } from '../../lib/invalidate'
+import { INVALIDATION_SETS, useInvalidatePrefixes } from '../../lib/invalidate'
 import {
   applyRecurringExpenses,
   createExpense,
@@ -64,11 +62,10 @@ export function useRecurringExpenses(teacherId: string | undefined, enabled: boo
  * أي تغيير مالي هنا يبطل كاش الفلوس والرئيسية معاً: الرئيسية تعرض محصّل
  * الشهر وهدف التحصيل، وأي مصروف جديد يغيّر ملخص الفترة وصافي الربح الذي
  * تفتحه بطاقة «محصّل الشهر» في الرئيسية (عقد الإبطال المطلوب لهذه الخطوة).
+ * المجموعة الكاملة في INVALIDATION_SETS.money (lib/invalidate.ts).
  */
 function useInvalidateMoney() {
-  const qc = useQueryClient()
-  // المصروفات/الأسهم تغذي التحليلات أيضاً (صافي الربح) — PAT-1
-  return () => invalidatePrefixes(qc, [MONEY, HOME, ANALYTICS])
+  return useInvalidatePrefixes(INVALIDATION_SETS.money)
 }
 
 export function useCreateExpense(teacherId: string) {

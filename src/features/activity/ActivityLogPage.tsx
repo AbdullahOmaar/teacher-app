@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
@@ -149,7 +150,7 @@ export function ActivityLogPage() {
   }
 
   return (
-    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [ACTIVITY] })}>
+    <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [ACTIVITY])}>
     <div>
       {/* شريط الأدوات الموحّد (W3 — R-10): بحث + فلاتر مفعّلة + تصفية */}
       <PageToolBar
@@ -210,7 +211,10 @@ export function ActivityLogPage() {
       ) : logQ.isError ? (
         <ErrorState
           message={logQ.error instanceof Error ? logQ.error.message : t('activity.page.loadError')}
-          onRetry={() => void logQ.refetch()}
+          onRetry={() => {
+            // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال 'activity' كان سيعيد جلب استعلام الممثلين السليم أيضاً بلا فائدة.
+            void logQ.refetch()
+          }}
         />
       ) : rows.length === 0 ? (
         <EmptyState

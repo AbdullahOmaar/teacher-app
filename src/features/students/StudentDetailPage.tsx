@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -114,6 +115,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
       <ErrorState
         message={error instanceof Error ? error.message : t('common.unknownError')}
         onRetry={() => {
+          // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال 'sg' كان سيعيد جلب الأرصدة والبصمة السليمة أيضاً.
           void studentQ.refetch()
           void enrollmentsQ.refetch()
           void groupsQ.refetch()
@@ -161,10 +163,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
   return (
     <PullToRefresh
       onRefresh={async () => {
-        await qc.invalidateQueries({ queryKey: [SG] })
-        await qc.invalidateQueries({ queryKey: [ATT] })
-        await qc.invalidateQueries({ queryKey: [INV] })
-        await qc.invalidateQueries({ queryKey: [GRADES] })
+        await invalidatePrefixes(qc, [SG, ATT, INV, GRADES])
       }}
     >
     <div>

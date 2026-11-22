@@ -1,12 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { AttendanceStatus, PaymentMethod, PaymentRow } from '../../types/database'
-import { HOME } from '../home/hooks'
-import { SG } from '../students/hooks'
 import { ATT } from '../attendance/hooks'
-import { ANALYTICS } from '../analytics/hooks'
-import { ATRISK } from '../atrisk/hooks'
-import { MONEY } from '../money/hooks'
-import { invalidatePrefixes } from '../../lib/invalidate'
+import { INVALIDATION_SETS, invalidatePrefixes, useInvalidatePrefixes } from '../../lib/invalidate'
 import {
   applyAttendanceAdjustment,
   createPayment,
@@ -128,13 +123,11 @@ export function useWhatsappTemplate(teacherId: string | undefined, enabled: bool
 /**
  * أي عملية مالية تبطل كاش الفواتير والرئيسية والطلاب معاً:
  * الرئيسية تحسب محصّل الشهر وعدد الفواتير غير المسددة وهدف التحصيل منها،
- * والطلاب يعرضون شارات الأرصدة من student_balances.
+ * والطلاب يعرضون شارات الأرصدة من student_balances — المجموعة الكاملة
+ * في INVALIDATION_SETS.invoices (lib/invalidate.ts).
  */
 function useInvalidateInvoices() {
-  const qc = useQueryClient()
-  // الفلوس تغذي أيضاً: وحدة الفلوس (الربح)، التحليلات، والمعرّضين
-  // (سبب المتأخرات) — PAT-1
-  return () => invalidatePrefixes(qc, [INV, HOME, SG, MONEY, ANALYTICS, ATRISK])
+  return useInvalidatePrefixes(INVALIDATION_SETS.invoices)
 }
 
 export function useIssueInvoices(teacherId: string) {
@@ -185,7 +178,7 @@ export function useApplyAdjustment(teacherId: string) {
     onSuccess: () => {
       invalidateInvoices()
       // التسوية تعدّل حالة حضور فعلية — كاش الحضور يتأثر أيضاً
-      void qc.invalidateQueries({ queryKey: [ATT] })
+      void invalidatePrefixes(qc, [ATT])
     },
   })
 }

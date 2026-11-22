@@ -1,9 +1,12 @@
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Handshake, KeyRound, Mail, Send, UserPlus } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { Field, TextInput } from '../../../components/ui/form'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { ErrorState, LoadingState } from '../../../components/ui/states'
+import { invalidatePrefixes } from '../../../lib/invalidate'
+import { useToast } from '../../../components/ui/toast'
 import type { TeacherMemberRow } from '../../../types/database'
 import {
   INVITE_EMAIL_RE,
@@ -18,6 +21,7 @@ import type {
   useTeamMembers,
   useUpdateMemberPermissions,
 } from '../../auth/hooks'
+import { TEAM_KEY } from '../../auth/hooks'
 import { PermChips } from './PermChips'
 import { shortId } from './helpers'
 import { t } from '../../../i18n'
@@ -76,6 +80,8 @@ export function TeamSection({
   updatePerms: ReturnType<typeof useUpdateMemberPermissions>
   toggleMemberPerm: (member: TeacherMemberRow, key: string) => void
 }) {
+  const qc = useQueryClient()
+  const toast = useToast()
   return (
     <>
       <p className="text-muted text-[13.5px] mt-0 mb-3">
@@ -169,6 +175,7 @@ export function TeamSection({
                       onClick={() =>
                         cancelInvite.mutate(inv.id, {
                           onSuccess: () => setConfirmCancelId(null),
+                          onError: () => toast(t('settings.cancelInviteFailedToast'), 'error'),
                         })
                       }
                     >
@@ -235,7 +242,7 @@ export function TeamSection({
       ) : membersQ.isError ? (
         <ErrorState
           message={membersQ.error instanceof Error ? membersQ.error.message : t('common.unknownError')}
-          onRetry={() => void membersQ.refetch()}
+          onRetry={() => void invalidatePrefixes(qc, [TEAM_KEY])}
         />
       ) : teamMembers.length === 0 ? (
         <EmptyState icon={Handshake} title={t('settings.teamEmptyTitle')} hint={t('settings.teamEmptyHint')} />
@@ -275,6 +282,7 @@ export function TeamSection({
                     onClick={() =>
                       removeMember.mutate(m.id, {
                         onSuccess: () => setConfirmRemoveId(null),
+                        onError: () => toast(t('settings.removeMemberFailedToast'), 'error'),
                       })
                     }
                   >

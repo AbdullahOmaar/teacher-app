@@ -1,3 +1,5 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -84,6 +86,7 @@ export function GroupDetailPage() {
       <ErrorState
         message={error instanceof Error ? error.message : t('common.unknownError')}
         onRetry={() => {
+          // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال 'sg' كان سيعيد جلب المجموعات والطلاب والانتظار والبصمة السليمة أيضاً.
           void groupQ.refetch()
           void rosterQ.refetch()
         }}
@@ -162,7 +165,7 @@ export function GroupDetailPage() {
   }
 
   return (
-    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [SG] })}>
+    <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [SG])}>
     <div>
       {/* احتفال النجم عند محطات المجموعة (خطة الهوية P-12): يُشتق من
           قائمة المجموعة المحمّلة هنا وبصمتها — مرة واحدة لكل محطة */}
@@ -384,8 +387,21 @@ export function GroupDetailPage() {
               full
               disabled={setGroupArchived.isPending}
               onClick={async () => {
-                await setGroupArchived.mutateAsync({ groupId: group.id, archived: false })
-                toast(t('groups.unarchivedToast', { name: group.name }))
+                try {
+                  await setGroupArchived.mutateAsync({ groupId: group.id, archived: false })
+                  toast(t('groups.unarchivedToast', { name: group.name }))
+                } catch (e) {
+                  // (3A-377 — PAT-2) إلغاء الأرشفة كان رفضاً صامتاً بلا
+                  // try/catch؛ الخطأ يظهر توست مصنّفاً ويُحفَظ في
+                  // dangerError أيضاً (ورقة الخطر تعرضه عند فتحها)
+                  const msg = friendlyDbError(
+                    e,
+                    t('common.saveError'),
+                    t('common.saveBlockedByMissingLink'),
+                  ).message
+                  setDangerError(msg)
+                  toast(msg, 'error')
+                }
               }}
             >
               <ArchiveRestore size={20} /> {t('groups.unarchiveBtn')}

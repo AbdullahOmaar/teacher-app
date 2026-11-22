@@ -1,11 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import type { PaymentProofRow } from '../../types/database'
-import { HOME } from '../home/hooks'
-import { INV } from '../invoices/hooks'
-import { SG } from '../students/hooks'
-import { ANALYTICS } from '../analytics/hooks'
-import { MONEY } from '../money/hooks'
-import { invalidatePrefixes } from '../../lib/invalidate'
+import { INVALIDATION_SETS, useInvalidatePrefixes } from '../../lib/invalidate'
 import {
   approveProof,
   fetchPendingProofs,
@@ -38,12 +33,12 @@ export function useProofImageUrl(storagePath: string | null) {
 /**
  * الاعتماد/الرفض عمليتان ماليتان: تبطلان كاش الإثباتات والفواتير
  * والرئيسية (محصّل الشهر + تنبيه إثباتات الانتظار في fetchAlerts)
- * والطلاب (شارات الأرصدة) — نفس عقد إبطالات وحدة الفواتير.
+ * والطلاب (شارات الأرصدة) — نفس عقد إبطالات وحدة الفواتير، زائد
+ * المعرّضين: اعتماد إثبات ينشئ دفعة فتتغير المتأخرات التي تُشتق
+ * منها قائمة المعرّضين (3A-377). المجموعة في INVALIDATION_SETS.paymentProofs.
  */
 function useInvalidateProofs() {
-  const qc = useQueryClient()
-  // اعتماد إثبات ينشئ دفعة: يغذي الفلوس والتحليلات أيضاً — PAT-1
-  return () => invalidatePrefixes(qc, [PP, INV, HOME, SG, MONEY, ANALYTICS])
+  return useInvalidatePrefixes(INVALIDATION_SETS.paymentProofs)
 }
 
 export function useApproveProof(teacherId: string, reviewerId: string) {

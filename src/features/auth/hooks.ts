@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { INVALIDATION_SETS, invalidatePrefixes, useInvalidatePrefixes } from '../../lib/invalidate'
 import {
   cancelTeamInvite,
   createCentre,
@@ -30,11 +31,7 @@ export function useTeamMembers(teacherId: string | undefined, enabled: boolean) 
 }
 
 function useInvalidateTeam() {
-  const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [TEAM_KEY] })
-    void qc.invalidateQueries({ queryKey: ['current-teacher'] })
-  }
+  return useInvalidatePrefixes(INVALIDATION_SETS.authTeam)
 }
 
 export function useInviteAssistant(teacherId: string) {
@@ -101,7 +98,7 @@ export function useUpdateOwnProfile(teacherId: string) {
     mutationFn: (input: { display_name: string; phone: string | null; avatar_url?: string | null }) =>
       updateOwnTeacherProfile(teacherId, input),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['current-teacher'] })
+      void invalidatePrefixes(qc, INVALIDATION_SETS.currentTeacher)
     },
   })
 }
@@ -112,7 +109,7 @@ export function useCreateCentre(userId: string) {
   return useMutation({
     mutationFn: (displayName: string) => createCentre(userId, displayName),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['current-teacher'] })
+      void invalidatePrefixes(qc, INVALIDATION_SETS.currentTeacher)
     },
   })
 }

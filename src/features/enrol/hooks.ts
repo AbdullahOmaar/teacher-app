@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { INVALIDATION_SETS, invalidatePrefixes } from '../../lib/invalidate'
 import {
   fetchEnrolmentLink,
   generateEnrolmentLink,
@@ -22,7 +23,7 @@ export function useGenerateEnrolmentLink(teacherId: string) {
   return useMutation({
     mutationFn: () => generateEnrolmentLink(teacherId),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: [ENROL, 'link', teacherId] })
+      void invalidatePrefixes(qc, INVALIDATION_SETS.enrol)
     },
   })
 }
@@ -33,7 +34,7 @@ export function useSetEnrolmentEnabled(teacherId: string) {
   return useMutation({
     mutationFn: (enabled: boolean) => setEnrolmentEnabled(teacherId, enabled),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: [ENROL, 'link', teacherId] })
+      void invalidatePrefixes(qc, INVALIDATION_SETS.enrol)
     },
   })
 }

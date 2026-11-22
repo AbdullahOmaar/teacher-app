@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -126,6 +127,8 @@ export function SchedulePage() {
 
   const refreshAll = async () => {
     // إعادة توليد كاملة: مسح ذاكرة الجلسة ثم RPC ثم إعادة قراءة الحصص
+    // (3A-377) ترتيب مقصود: RPC التوليد أولاً ثم إعادة قراءة الحصص —
+    // إبطال البادئة كان سيعيد جلبهما متزامنين فتُقرأ الحصص قبل اكتمال التوليد.
     resetGenerationCache()
     toast(t('schedule.refreshingToast'))
     await genQ.refetch()
@@ -146,8 +149,7 @@ export function SchedulePage() {
   return (
     <PullToRefresh
       onRefresh={async () => {
-        await qc.invalidateQueries({ queryKey: [SCHED] })
-        await qc.invalidateQueries({ queryKey: [SG] })
+        await invalidatePrefixes(qc, [SCHED, SG])
       }}
     >
     <div>
@@ -182,12 +184,7 @@ export function SchedulePage() {
       ) : primaryError ? (
         <ErrorState
           message={primaryError instanceof Error ? primaryError.message : t('common.unknownError')}
-          onRetry={() => {
-            void groupsQ.refetch()
-            void holidaysQ.refetch()
-            void genQ.refetch()
-            void sessionsQ.refetch()
-          }}
+          onRetry={() => void invalidatePrefixes(qc, [SG, SCHED])}
         />
       ) : groups.length === 0 ? (
         <Card>

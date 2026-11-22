@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, Send } from 'lucide-react'
@@ -102,7 +103,7 @@ export function PhoneAuth() {
         } catch {
           // تجاهل: لا دعوات أو ستُدّعى في دخول قادم
         }
-        await qc.invalidateQueries({ queryKey: ['current-teacher'] })
+        await invalidatePrefixes(qc, ['current-teacher'])
       }
       // تغيّر الجلسة في AuthProvider يعيد التوجيه من LoginPage تلقائياً
     } catch (err) {

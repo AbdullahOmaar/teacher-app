@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
@@ -66,11 +67,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
     return (
       <ErrorState
         message={error instanceof Error ? error.message : t('common.unknownError')}
-        onRetry={() => {
-          void invoiceQ.refetch()
-          void linesQ.refetch()
-          void paymentsQ.refetch()
-        }}
+        onRetry={() => void invalidatePrefixes(qc, [INV])}
       />
     )
   if (!invoice) {
@@ -100,8 +97,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
   return (
     <PullToRefresh
       onRefresh={async () => {
-        await qc.invalidateQueries({ queryKey: [INV] })
-        await qc.invalidateQueries({ queryKey: [SG] })
+        await invalidatePrefixes(qc, [INV, SG])
       }}
     >
     <div>

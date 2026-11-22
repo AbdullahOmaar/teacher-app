@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useLocation } from 'react-router-dom'
@@ -193,7 +194,7 @@ export function LoginPage() {
         // الإبطال يعلق المسجّل الجديد على شاشة «كمّل إعداد حسابك» رغم
         // أن التسجيل جمع بياناته والملف صار موجوداً. الإبطال يجبر حلّ
         // الهوية على إعادة القراءة بعد اكتمال الإنشاء/الادعاء.
-        await qc.invalidateQueries({ queryKey: ['current-teacher'] })
+        await invalidatePrefixes(qc, ['current-teacher'])
       } else {
         setMode('signin')
         setPassword('')

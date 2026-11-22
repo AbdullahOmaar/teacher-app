@@ -1,5 +1,6 @@
 import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import { formatMoney, waLink } from '../../lib/format'
 import type {
   AttendanceStatus,
@@ -614,7 +615,7 @@ export async function generateInvoices(
         })),
       )
       const { error } = await supa.from('invoice_lines').insert(allLines)
-      if (error) throw error
+      if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
     }
     try {
       const { data: inserted, error: bulkErr } = await supa
@@ -740,7 +741,7 @@ export async function createPayment(
     })
     .select(PAY_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   const row = data
   const payment = { ...row, amount: Number(row.amount) || 0 }
   // سجل النشاط: إنشاء دفعة (يشمل الدفعة التي ينشئها اعتماد إثبات دفع —
@@ -791,7 +792,7 @@ export async function voidPayment(teacherId: string, payment: PaymentRow): Promi
     })
     .select(PAY_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
 
   const { error: markErr } = await db()
     .from('payments')
@@ -927,7 +928,7 @@ export async function applyAttendanceAdjustment(
       amount: deltaAmount,
       reason: trimmed,
     })
-    if (error) throw error
+    if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   }
   return { delta: deltaAmount }
 }

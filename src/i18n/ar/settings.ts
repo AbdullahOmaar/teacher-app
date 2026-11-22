@@ -220,6 +220,8 @@ export const settings = {
   inviteAdded: 'تمت إضافة المساعد لفريقك — هيقدر يشتغل بصلاحياته فوراً.',
   inviteAddFailed: 'تعذّرت إضافة المساعد.',
   permSaveFailedToast: 'حصلت مشكلة في حفظ الصلاحية — حاول تاني',
+  cancelInviteFailedToast: 'حصلت مشكلة في إلغاء الدعوة — حاول تاني',
+  removeMemberFailedToast: 'حصلت مشكلة في إزالة العضو — حاول تاني',
   teamMembersTitle: 'أعضاء الفريق الحاليون',
   loadingTeam: 'بنحمّل الفريق…',
   teamEmptyTitle: 'لا يوجد مساعدون بعد',

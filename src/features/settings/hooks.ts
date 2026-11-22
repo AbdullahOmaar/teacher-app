@@ -2,9 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { TeacherSettingsRow } from '../../types/database'
 import { fetchTeacherSettings } from '../auth/api'
 import { HOME } from '../home/hooks'
-import { INV } from '../invoices/hooks'
-import { MONEY } from '../money/hooks'
-import { SG } from '../students/hooks'
+import { INVALIDATION_SETS, invalidatePrefixes } from '../../lib/invalidate'
 import {
   buildBackupDownload,
   buildCsvFile,
@@ -50,12 +48,7 @@ export function useUpdateTeacherSettings(teacherId: string) {
     mutationFn: (input: TeacherSettingsInput) => updateTeacherSettings(teacherId, input),
     onSuccess: (row: TeacherSettingsRow) => {
       qc.setQueryData([SETTINGS, 'teacher-settings', teacherId], row)
-      void qc.invalidateQueries({ queryKey: [SETTINGS] })
-      void qc.invalidateQueries({ queryKey: [MONEY] })
-      void qc.invalidateQueries({ queryKey: [INV] })
-      void qc.invalidateQueries({ queryKey: [HOME] })
-      // الهوية البيضاء قد تتغير مع الحفظ — أسطح العرض تقرأ ['brand-identity']
-      void qc.invalidateQueries({ queryKey: ['brand-identity'] })
+      void invalidatePrefixes(qc, INVALIDATION_SETS.settings)
     },
   })
 }
@@ -71,7 +64,7 @@ export function useUpdatePushDigestSettings(teacherId: string) {
       updatePushDigestSettings(teacherId, input),
     onSuccess: (row: TeacherSettingsRow) => {
       qc.setQueryData([SETTINGS, 'teacher-settings', teacherId], row)
-      void qc.invalidateQueries({ queryKey: [SETTINGS] })
+      void invalidatePrefixes(qc, [SETTINGS])
     },
   })
 }
@@ -87,7 +80,7 @@ export function useUpdateMascotVisibility(teacherId: string) {
     mutationFn: (showMascot: boolean) => updateMascotVisibility(teacherId, showMascot),
     onSuccess: (row: TeacherSettingsRow) => {
       qc.setQueryData([SETTINGS, 'teacher-settings', teacherId], row)
-      void qc.invalidateQueries({ queryKey: [SETTINGS] })
+      void invalidatePrefixes(qc, [SETTINGS])
     },
   })
 }
@@ -101,7 +94,9 @@ export function useWhatsappConfig(teacherId: string | undefined, enabled: boolea
   })
 }
 
-/** حفظ حقول واتساب غير السرية — يحدّث كاش القسم بالصف الجديد */
+/** حفظ حقول واتساب غير السرية — يحدّث كاش القسم بالصف الجديد.
+ * إبطال دقيق بمفتاح واحد مقصود (3A-377): إبطال بادئة 'settings'
+ * كلها كان سيعيد جلب إعدادات المدرس وبطاقات أخرى بلا داعٍ. */
 export function useUpsertWhatsappConfig(teacherId: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -116,6 +111,7 @@ export function useUpsertWhatsappConfig(teacherId: string) {
 /**
  * كتابة/حذف التوكن (Vault) — بعده نبطّل كاش الإعداد حتى ينعكس
  * token_updated_at (حالة «محفوظ») في البطاقة فوراً.
+ * (إبطال دقيق بمفتاح واحد مقصود — نفس سبب useUpsertWhatsappConfig.)
  */
 export function useSetWhatsappToken(teacherId: string) {
   const qc = useQueryClient()
@@ -127,7 +123,8 @@ export function useSetWhatsappToken(teacherId: string) {
   })
 }
 
-/** إرسال كود تجريبي — بعده نبطّل الكاش لينعكس last_test_at وحدّ المعدل */
+/** إرسال كود تجريبي — بعده نبطّل الكاش لينعكس last_test_at وحدّ المعدل.
+ * (إبطال دقيق بمفتاح واحد مقصود — نفس سبب useUpsertWhatsappConfig.) */
 export function useSendWhatsappTest(teacherId: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -162,8 +159,7 @@ export function useUploadBrandLogo(teacherId: string) {
   return useMutation({
     mutationFn: (file: File) => uploadBrandLogo(teacherId, file),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: [SETTINGS] })
-      void qc.invalidateQueries({ queryKey: ['brand-identity'] })
+      void invalidatePrefixes(qc, INVALIDATION_SETS.settingsBrand)
     },
   })
 }
@@ -174,8 +170,7 @@ export function useRemoveBrandLogo(teacherId: string) {
   return useMutation({
     mutationFn: () => removeBrandLogo(teacherId),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: [SETTINGS] })
-      void qc.invalidateQueries({ queryKey: ['brand-identity'] })
+      void invalidatePrefixes(qc, INVALIDATION_SETS.settingsBrand)
     },
   })
 }
@@ -194,7 +189,9 @@ function useAfterSuccessfulExport() {
         // ظاهراً حتى التصدير التالي، وهو السلوك الآمن.
       })
       .finally(() => {
-        void qc.invalidateQueries({ queryKey: [SETTINGS] })
+        void invalidatePrefixes(qc, [SETTINGS])
+        // تنبيه النسخة في الرئيسية مفتاح فرعي دقيق ([HOME, 'alerts']) —
+        // إبطال 'home' كلها كان سيعيد جلب كل بطاقات الرئيسية بلا داعٍ (3A-377)
         void qc.invalidateQueries({ queryKey: [HOME, 'alerts'] })
       })
   }
@@ -226,14 +223,17 @@ export function useDownloadBackup(teacherId: string) {
   })
 }
 
-/** استيراد طلاب سريع من نص — يبطل كاش الطلاب/المجموعات والرئيسية */
+/**
+ * استيراد طلاب سريع من نص — يبطل كاش الطلاب/المجموعات والرئيسية (نفس عقد
+ * الاستيراد الملفّي)؛ الاستيراد ينشئ طلاباً وتسجيلات فتُستخدم مجموعة
+ * الطلاب الكاملة (INVALIDATION_SETS.students) لا [SG, HOME] وحدهما.
+ */
 export function useQuickImportStudents(teacherId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (text: string) => quickImportStudents(teacherId, text),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: [SG] })
-      void qc.invalidateQueries({ queryKey: [HOME] })
+      void invalidatePrefixes(qc, INVALIDATION_SETS.students)
     },
   })
 }

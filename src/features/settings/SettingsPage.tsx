@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -200,7 +201,7 @@ export function SettingsPage() {
 
   const switchWorkspace = (teacherId: string | null) => {
     setActiveTeacherId(teacherId)
-    void qc.invalidateQueries({ queryKey: ['current-teacher'] })
+    void invalidatePrefixes(qc, ['current-teacher'])
     navigate('/')
   }
 

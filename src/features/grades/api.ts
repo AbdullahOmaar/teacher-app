@@ -212,7 +212,7 @@ export async function createAssessment(
     .insert({ teacher_id: teacherId, ...input })
     .select(ASSESS_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return toAssessment(data)
 }
 
@@ -228,7 +228,7 @@ export async function updateAssessment(
     .eq('id', assessmentId)
     .select(ASSESS_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return toAssessment(data)
 }
 
@@ -303,7 +303,7 @@ export async function saveScores(
     const { error } = await supa
       .from('scores')
       .upsert(upserts, { onConflict: 'assessment_id,student_id' })
-    if (error) throw error
+    if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   }
   const deletions = entries.filter((e) => e.score == null).map((e) => e.studentId)
   if (deletions.length > 0) {
@@ -313,7 +313,7 @@ export async function saveScores(
       .eq('teacher_id', teacherId)
       .eq('assessment_id', assessmentId)
       .in('student_id', deletions)
-    if (error) throw error
+    if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   }
 }
 
@@ -389,7 +389,7 @@ export async function addQuestion(
     .insert({ teacher_id: teacherId, assessment_id: assessmentId, position, ...input })
     .select(QUESTION_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return toQuestion(data)
 }
 
@@ -420,7 +420,7 @@ export async function syncAssessmentMax(
     .eq('id', assessment.id)
     .select(ASSESS_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return toAssessment(data)
 }
 

@@ -358,13 +358,24 @@ export function ExamPage() {
         </div>
 
         {autoSubmitFailed && (
-          <p
+          <div
             role="alert"
             className="flex items-start gap-2 bg-bad-soft text-bad-text text-[13.5px] font-bold rounded-xl px-3 py-2.5 mb-3 mt-0"
           >
             <XCircle size={18} className="shrink-0 mt-0.5" />
-            <span>{t('exams.pageAutoSubmitFailed')}</span>
-          </p>
+            <span className="flex-1">
+              {t('exams.pageAutoSubmitFailed')}
+              {submitMut.error ? ` ${examErrorInfo(submitMut.error).hint}` : ''}
+            </span>
+            <Button
+              variant="danger"
+              className="shrink-0 min-h-[40px] text-[13px] px-3"
+              disabled={submitMut.isPending}
+              onClick={() => doSubmit(true)}
+            >
+              <RotateCcw size={16} /> {t('exams.pageRetrySubmit')}
+            </Button>
+          </div>
         )}
 
         {attempt.resumed && (

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { todayStr } from '../home/api'
+import { INVALIDATION_SETS, invalidatePrefixes } from '../../lib/invalidate'
 import { fetchAtRisk, markAtRiskFollowedUp } from './api'
 
 /** كل مفاتيح وحدة «معرّضون للفقد» تبدأ بـ 'atrisk' */
@@ -26,7 +27,7 @@ export function useMarkAtRiskFollowedUp(teacherId: string | undefined) {
     mutationFn: (input: { studentId: string; userId: string; reasonsSummary: string }) =>
       markAtRiskFollowedUp(teacherId!, input.studentId, input.userId, input.reasonsSummary),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [ATRISK] })
+      void invalidatePrefixes(queryClient, INVALIDATION_SETS.atrisk)
     },
   })
 }

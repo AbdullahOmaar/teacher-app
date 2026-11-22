@@ -82,7 +82,7 @@ export async function createStudent(teacherId: string, input: StudentInput): Pro
     .insert({ teacher_id: teacherId, ...input })
     .select(STUDENT_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return data
 }
 
@@ -98,7 +98,7 @@ export async function updateStudent(
     .eq('id', studentId)
     .select(STUDENT_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return data
 }
 
@@ -114,7 +114,7 @@ export async function setStudentPaused(
     .update({ paused })
     .eq('teacher_id', teacherId)
     .eq('id', studentId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   // سجل النشاط: الإيقاف هو «أرشفة» الطالب في هذا النظام (انظر قسم الحذف/
   // الأرشفة الآمنة أسفل) وإلغاؤه إلغاء أرشفة.
   void logActivity(teacherId, {
@@ -139,7 +139,7 @@ export async function upsertEnrollment(
     )
     .select(ENROLLMENT_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return data
 }
 

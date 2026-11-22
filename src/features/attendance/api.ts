@@ -1,4 +1,5 @@
 import { t } from '../../i18n'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import { db } from '../../lib/supabase'
 import { waLink } from '../../lib/format'
 import type { AttendanceRow, AttendanceStatus, StudentRow, Tables } from '../../types/database'
@@ -251,7 +252,7 @@ export async function saveAttendance(
       .eq('teacher_id', teacherId)
       .eq('session_id', sessionId)
       .eq('student_id', studentId)
-    if (error) throw error
+    if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
     // سجل النشاط: لمسة حضور فردية — تُجمَّع مع لمسات نفس الحصة (انظر
     // logAttendanceTouch) فلا يغرق السجل بصف لكل طالب.
     logAttendanceTouch(teacherId, sessionId, studentId)
@@ -270,7 +271,7 @@ export async function saveAttendance(
       },
       { onConflict: 'session_id,student_id' },
     )
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   logAttendanceTouch(teacherId, sessionId, studentId)
 }
 
@@ -331,7 +332,7 @@ export async function saveManyAttendance(
   const { error } = await db()
     .from('attendance')
     .upsert(rows, { onConflict: 'session_id,student_id' })
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   logBatchSaved(teacherId, sessionId, rows, rows.length)
 }
 
@@ -353,7 +354,7 @@ export async function saveAttendanceBatch(
     const { error } = await db()
       .from('attendance')
       .upsert(rows, { onConflict: 'session_id,student_id' })
-    if (error) throw error
+    if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   }
   const deletionIds = entries.filter((e) => isEmptyValue(e.value)).map((e) => e.studentId)
   if (deletionIds.length > 0) {
@@ -363,7 +364,7 @@ export async function saveAttendanceBatch(
       .eq('teacher_id', teacherId)
       .eq('session_id', sessionId)
       .in('student_id', deletionIds)
-    if (error) throw error
+    if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   }
   logBatchSaved(teacherId, sessionId, rows, entries.length)
 }
@@ -395,7 +396,7 @@ export async function markStudentLeft(
     .eq('session_id', sessionId)
     .eq('student_id', studentId)
     .is('left_at', null)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
 }
 
 /** التراجع عن انصراف مسجل (تنبيه المغادرة المولّد يبقى — انظر 0012) */
@@ -410,7 +411,7 @@ export async function clearStudentLeft(
     .eq('teacher_id', teacherId)
     .eq('session_id', sessionId)
     .eq('student_id', studentId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
 }
 
 export interface ArrivalWaContext {

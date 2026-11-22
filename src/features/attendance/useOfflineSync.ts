@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ANALYTICS } from '../analytics/hooks'
-import { ATRISK } from '../atrisk/hooks'
-import { HOME } from '../home/hooks'
-import { INV } from '../invoices/hooks'
 import { t } from '../../i18n'
-import { invalidatePrefixes } from '../../lib/invalidate'
-import { SCHED } from '../schedule/hooks'
-import { ATT } from './hooks'
+import { INVALIDATION_SETS, invalidatePrefixes } from '../../lib/invalidate'
 import { saveAttendance, saveAttendanceBatch } from './api'
 import {
   groupItemsBySession,
@@ -214,9 +208,9 @@ export function useOfflineSync(teacherId: string | undefined): OfflineSyncState 
   })
 
   const invalidate = useCallback(() => {
-    // نفس مجموعة إبطال الحضور المركزية (hooks.ts) — مرة لكل دفعة حصة
-    // مُزامَنة لا لكل طالب (PAT-1 + 3A-296)
-    invalidatePrefixes(qc, [ATT, HOME, SCHED, ATRISK, ANALYTICS, INV])
+    // نفس مجموعة إبطال الحضور المركزية (INVALIDATION_SETS.attendance) —
+    // مرة لكل دفعة حصة مُزامَنة لا لكل طالب (PAT-1 + 3A-296)
+    void invalidatePrefixes(qc, INVALIDATION_SETS.attendance)
   }, [qc])
 
   const syncNow = useCallback(() => {

@@ -22,6 +22,7 @@ export const exams = {
   pageNoTimer: 'بلا مؤقّت',
   pageAnsweredProgress: 'أجبت {answered} من {total}',
   pageAutoSubmitFailed: 'انتهى الوقت وحصلت مشكلة في تسليم إجاباتك — إجاباتك محفوظة على الجهاز ده. انزل لآخر الصفحة واضغط «تسليم الامتحان» عشان تحاول تاني.',
+  pageRetrySubmit: 'إعادة التسليم الآن',
   pageResumedNote: 'دي نفس محاولتك اللي بدأتها قبل كده — كمّل من مكان ما وقفت، والوقت ماشي من وقت البدء الأول.',
   pageQuestionPoints: '({points} درجة)',
   pageSubmitting: 'بنسلّم…',

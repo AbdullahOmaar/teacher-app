@@ -184,6 +184,8 @@ function OnlineExamSettings({
     (!startsAt || !endsAt || endsAt > startsAt)
 
   // إعادة جلب المحاولات دورياً خفيفاً أثناء فتح الشاشة (نتائج حية تقريباً)
+  // (3A-377) refetch مقصود لاستعلام واحد: إبطال بادئة 'exams' كل 30 ثانية
+  // كان سيعيد جلب تفاصيل الامتحان والتوكنات أيضاً بلا فائدة.
   useEffect(() => {
     const t = setInterval(() => void attemptsQ.refetch(), 30_000)
     return () => clearInterval(t)
@@ -419,6 +421,8 @@ function OnlineExamSettings({
             {t('exams.panelAttemptsTitle', { count: attempts.length })}
             {submitted.length > 0 ? t('exams.panelAttemptsSubmittedSuffix', { count: submitted.length }) : ''}
           </span>
+          {/* (3A-377) تحديث يدوي لاستعلام المحاولات وحده — إبطال 'exams'
+              كان سيعيد جلب تفاصيل الامتحان والتوكنات أيضاً. */}
           <Button
             variant="ghost"
             className="min-h-[48px] text-[13.5px] px-3"

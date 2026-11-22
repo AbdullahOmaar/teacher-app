@@ -112,7 +112,7 @@ export async function createOnlineExam(
     })
     .select(EXAM_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return toExam(data)
 }
 
@@ -135,7 +135,7 @@ export async function updateOnlineExam(
     .eq('id', examId)
     .select(EXAM_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return toExam(data)
 }
 
@@ -223,7 +223,7 @@ export async function revokeExamToken(teacherId: string, tokenId: string): Promi
     .eq('teacher_id', teacherId)
     .eq('id', tokenId)
     .is('revoked_at', null)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
 }
 
 /** حالة رابط للعرض: ملغي صراحة، أو منتهٍ بمرور وقته، أو نشط */

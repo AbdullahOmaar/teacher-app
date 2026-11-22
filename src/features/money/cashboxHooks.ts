@@ -38,6 +38,8 @@ export function useDailyClosings(teacherId: string | undefined, enabled: boolean
 /**
  * حفظ الإغلاق لا يغيّر أي رقم مالي قائم (لا دفعات ولا مصروفات)، فيكفي
  * إبطال كاش الإغلاق اليومي وحده — ملخصات الفلوس والرئيسية لا تتأثر.
+ * إبطال دقيق بالمفتاح الفرعي [money, cashbox] مقصود (3A-377): إبطال
+ * بادئة 'money' كلها كان سيعيد جلب الربح والمصروفات والقوالب بلا داعٍ.
  */
 export function useUpsertDailyClosing(teacherId: string) {
   const qc = useQueryClient()

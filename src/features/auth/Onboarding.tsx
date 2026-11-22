@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, GraduationCap } from 'lucide-react'
@@ -36,7 +37,7 @@ export function Onboarding() {
     setBusy(true)
     try {
       await ensureTeacherProfile(user.id, displayName, phone || null)
-      await qc.invalidateQueries({ queryKey: ['current-teacher'] })
+      await invalidatePrefixes(qc, ['current-teacher'])
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.profileCreateFailed'))
     } finally {

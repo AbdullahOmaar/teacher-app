@@ -1,9 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import type { AssessmentInput, AssessmentRow, QuestionInput } from '../../types/database'
-import { HOME } from '../home/hooks'
-import { SG } from '../students/hooks'
-import { ANALYTICS } from '../analytics/hooks'
-import { invalidatePrefixes } from '../../lib/invalidate'
+import { INVALIDATION_SETS, useInvalidatePrefixes } from '../../lib/invalidate'
 import {
   addQuestion,
   createAssessment,
@@ -69,12 +66,11 @@ export function useStudentScores(teacherId: string | undefined, studentId: strin
 /**
  * أي حفظ في الدرجات يبطل كاش الدرجات والرئيسية وملف الطالب معاً:
  * الرئيسية تحسب تنبيهات grade من scores/assessments (عقدها القائم)،
- * وتبويب درجات الطالب في ملفه يقرأ من scores فعلياً.
+ * وتبويب درجات الطالب في ملفه يقرأ من scores فعلياً — المجموعة
+ * الكاملة في INVALIDATION_SETS.grades (lib/invalidate.ts).
  */
 function useInvalidateGrades() {
-  const qc = useQueryClient()
-  // الدرجات تغذي التحليلات أيضاً (متوسطات/توزيعات) — PAT-1
-  return () => invalidatePrefixes(qc, [GRADES, HOME, SG, ANALYTICS])
+  return useInvalidatePrefixes(INVALIDATION_SETS.grades)
 }
 
 export function useCreateAssessment(teacherId: string) {

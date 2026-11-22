@@ -1,5 +1,6 @@
 import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import { formatMoney, waLink } from '../../lib/format'
 import {
   fetchGuardianContacts,
@@ -474,7 +475,7 @@ export async function markAtRiskFollowedUp(
       followed_by: userId,
       note: reasonsSummary || null,
     })
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
 }
 
 /**

@@ -1,4 +1,5 @@
 import { t } from '../../i18n'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import { db } from '../../lib/supabase'
 import type { PaymentProofRow } from '../../types/database'
 import { todayStr } from '../home/api'
@@ -91,7 +92,7 @@ async function claimProof(
     .eq('status', 'pending')
     .is('reviewed_at', null)
     .select('id')
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return (data ?? []).length > 0
 }
 
@@ -144,7 +145,7 @@ export async function approveProof(
       .eq('id', proof.id)
       .eq('status', 'pending')
       .select('id')
-    if (error) throw error
+    if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
     if ((data ?? []).length === 0) throw new Error(ALREADY_PROCESSED)
 
     // سجل النشاط: اعتماد الإثبات (الدفعة الناتجة سجّلت حدثها من createPayment)
@@ -204,7 +205,7 @@ export async function rejectProof(
     .eq('status', 'pending')
     .is('reviewed_at', null)
     .select('id')
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   if ((data ?? []).length === 0) throw new Error(ALREADY_PROCESSED)
   // سجل النشاط: رفض الإثبات بسبب اختياري يظهر في التفاصيل
   void logActivity(teacherId, {

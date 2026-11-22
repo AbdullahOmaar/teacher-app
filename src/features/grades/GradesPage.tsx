@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -88,8 +89,7 @@ export function GradesPage() {
   return (
     <PullToRefresh
       onRefresh={async () => {
-        await qc.invalidateQueries({ queryKey: [GRADES] })
-        await qc.invalidateQueries({ queryKey: [SG] })
+        await invalidatePrefixes(qc, [GRADES, SG])
       }}
     >
     <div>
@@ -115,10 +115,7 @@ export function GradesPage() {
       ) : error ? (
         <ErrorState
           message={error instanceof Error ? error.message : t('common.unknownError')}
-          onRetry={() => {
-            void assessmentsQ.refetch()
-            void groupsQ.refetch()
-          }}
+          onRetry={() => void invalidatePrefixes(qc, [GRADES, SG])}
         />
       ) : filtered.length === 0 ? (
         <Card className="rise-in">

@@ -193,7 +193,7 @@ export async function addHolidayDates(
       dates.map((d) => ({ teacher_id: teacherId, holiday_date: d, name })),
       { onConflict: 'teacher_id,holiday_date', ignoreDuplicates: true },
     )
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   const { error: sessErr } = await db()
     .from('sessions')
     .update({ status: 'cancelled' })
@@ -264,7 +264,7 @@ export async function createExtraSession(
     })
     .select(SESSION_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return data
 }
 
@@ -284,7 +284,7 @@ export async function moveSession(
       .update({ session_date: newDate, start_time: newTime })
       .eq('teacher_id', teacherId)
       .eq('id', session.id)
-    if (error) throw error
+    if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
     return
   }
 
@@ -315,7 +315,7 @@ export async function moveSession(
   if (cancelErr) {
     // تعويض: احذف النسخة المنشأة حتى لا تبقى حصتان نشطتان لنفس الموعد الأصلي
     await db().from('sessions').delete().eq('teacher_id', teacherId).eq('id', newId)
-    throw cancelErr
+    throw friendlyDbError(cancelErr, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   }
 }
 
@@ -330,7 +330,7 @@ export async function setSessionStatus(
     .update({ status })
     .eq('teacher_id', teacherId)
     .eq('id', sessionId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
 }
 
 export { monthEndStr, monthStartStr }

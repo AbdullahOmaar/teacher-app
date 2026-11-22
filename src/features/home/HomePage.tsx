@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { splitArrears } from '../invoices/api'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -335,8 +336,7 @@ export function HomePage() {
       onRefresh={async () => {
         // نفس إبطال زر إعادة المحاولة أعلاه: HOME للصفحة والتنبيهات،
         // وATRISK لبطاقة المعرّضين — مبادئ الصفحة كاملة دفعة واحدة
-        await qc.invalidateQueries({ queryKey: [HOME] })
-        await qc.invalidateQueries({ queryKey: [ATRISK] })
+        await invalidatePrefixes(qc, [HOME, ATRISK])
       }}
     >
     <div>
@@ -398,8 +398,7 @@ export function HomePage() {
             // إبطال بالمبادئ يعيد جلب كل استعلامات الصفحة النشطة دفعة
             // واحدة (كانت قائمة يدوية بخمسة استعلامات تنقصها البطاقات
             // الأحدث — PAT-1)؛ التنبيهات تحت HOME والمعرّضون تحت ATRISK
-            void qc.invalidateQueries({ queryKey: [HOME] })
-            void qc.invalidateQueries({ queryKey: [ATRISK] })
+            void invalidatePrefixes(qc, [HOME, ATRISK])
           }}
         />
       ) : (
@@ -671,6 +670,7 @@ export function HomePage() {
                 progressReady={Boolean(countsQ.data) && !marksQ.isPending}
                 progressError={countsQ.isError || marksQ.isError}
                 onRetry={() => {
+                  // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال 'home' كان سيعيد جلب كل بطاقات الرئيسية الأخرى أيضاً.
                   void countsQ.refetch()
                   void marksQ.refetch()
                 }}

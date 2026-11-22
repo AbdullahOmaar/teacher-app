@@ -3,6 +3,7 @@ import type { StudentInput, StudentRow } from '../../../types/database'
 import { createStudent, upsertEnrollment } from '../api'
 import type { ClassifiedRow } from './logic'
 import { t } from '../../../i18n'
+import { friendlyDbError } from '../../../lib/supabaseErrors'
 
 /**
  * حفظ الاستيراد من الملف — يعيد استخدام مسارات وحدة الطلاب حرفياً:
@@ -43,7 +44,7 @@ async function createStudentWithCode(
     .insert({ teacher_id: teacherId, public_code: code, ...input })
     .select(STUDENT_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return data
 }
 

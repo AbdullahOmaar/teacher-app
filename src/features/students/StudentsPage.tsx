@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
@@ -161,7 +162,7 @@ export function StudentsPage() {
       : (filtered[0]?.id ?? null)
 
   return (
-    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [SG] })}>
+    <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [SG])}>
     <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-5 lg:items-start">
       <div className="min-w-0">
       {/* شريط الأدوات الموحّد (W3 — R-10): بحث + رقائق حالة + تصفية
@@ -204,6 +205,7 @@ export function StudentsPage() {
         <ErrorState
           message={error instanceof Error ? error.message : t('common.unknownError')}
           onRetry={() => {
+            // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال 'sg' كان سيعيد جلب الأرصدة السليمة أيضاً.
             void studentsQ.refetch()
             void enrollmentsQ.refetch()
             void groupsQ.refetch()

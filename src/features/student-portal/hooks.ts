@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import type { StudentRow } from '../../types/database'
+import { INVALIDATION_SETS, useInvalidatePrefixes } from '../../lib/invalidate'
 import {
   createStudentPortalLink,
   fetchStudentPortalOverview,
@@ -22,10 +23,7 @@ export function useStudentPortalTokens(
 }
 
 function useInvalidateStudentPortal() {
-  const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [STUDENT_PORTAL] })
-  }
+  return useInvalidatePrefixes(INVALIDATION_SETS.studentPortal)
 }
 
 /**

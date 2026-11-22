@@ -160,7 +160,7 @@ export async function createExpense(
     .insert({ teacher_id: teacherId, ...input })
     .select(EXPENSE_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return toExpense(data)
 }
 
@@ -177,7 +177,7 @@ export async function updateExpense(
     .eq('id', expenseId)
     .select(EXPENSE_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return toExpense(data)
 }
 
@@ -232,7 +232,7 @@ export async function createRecurringExpense(
     .insert({ teacher_id: teacherId, ...input })
     .select(RECURRING_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return toRecurring(data)
 }
 
@@ -249,7 +249,7 @@ export async function updateRecurringExpense(
     .eq('id', recurringId)
     .select(RECURRING_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return toRecurring(data)
 }
 

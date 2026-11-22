@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
@@ -200,7 +201,7 @@ export function MoneyPage() {
   const defaultExpenseDate = isCurrentMonth ? todayStr() : selectedMonth
 
   return (
-    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [MONEY] })}>
+    <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [MONEY])}>
     <div>
       {/* شريط الشهور الموحّد (W3 — R-10): رقائق آخر 6 شهور بدل زرّي
           السابق/التالي — اختيار شهر أقدم من خارج الستة يبقى ظاهراً
@@ -242,6 +243,7 @@ export function MoneyPage() {
         <ErrorState
           message={error instanceof Error ? error.message : t('common.unknownError')}
           onRetry={() => {
+            // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال 'money' كان سيعيد جلب نسبة السنتر وقسم الإغلاق اليومي أيضاً.
             void profitQ.refetch()
             void expensesQ.refetch()
             void recurringQ.refetch()

@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import type { ExtraSessionInput, GroupRow, HolidayRow, SessionRow } from '../../types/database'
-import { HOME } from '../home/hooks'
+import { INVALIDATION_SETS, useInvalidatePrefixes } from '../../lib/invalidate'
 import {
   addHolidayDates,
   createExtraSession,
@@ -61,13 +61,13 @@ export function useHolidays(teacherId: string | undefined) {
   })
 }
 
-/** أي تعديل في الجدول يبطل كاش الجدول والرئيسية معاً (تقرأ نفس الجدول) */
+/**
+ * أي تعديل في الجدول يبطل كاش الجدول والرئيسية معاً (تقرأ نفس الجدول)،
+ * والحضور أيضاً: قوائم حضور اليوم تُشتق من sessions مباشرة فنقل حصة
+ * أو إلغاؤها يغيّرها (3A-377). المجموعة في INVALIDATION_SETS.schedule.
+ */
 function useInvalidateSchedule() {
-  const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [SCHED] })
-    void qc.invalidateQueries({ queryKey: [HOME] })
-  }
+  return useInvalidatePrefixes(INVALIDATION_SETS.schedule)
 }
 
 export function useAddHolidays(teacherId: string) {

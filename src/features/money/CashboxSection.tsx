@@ -174,6 +174,7 @@ export function CashboxSection({ teacherId }: { teacherId: string }) {
         <ErrorState
           message={error instanceof Error ? error.message : t('common.unknownError')}
           onRetry={() => {
+            // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال 'money' كان سيعيد جلب الربح والمصروفات والقوالب في الصفحة الأم أيضاً.
             void summaryQ.refetch()
             void closingQ.refetch()
             void closingsQ.refetch()

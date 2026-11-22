@@ -1,4 +1,6 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { CalendarCheck2, Check, Star } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -7,7 +9,7 @@ import { formatTime12 } from '../../lib/format'
 import type { EnrollmentRow, GroupRow } from '../../types/database'
 import { formatDateLabel } from '../schedule/api'
 import { STATUS_BADGE_CLASS, STATUS_LABELS, isAttended } from './api'
-import { useStudentAttendance, useStudentAttendanceStats } from './hooks'
+import { ATT, useStudentAttendance, useStudentAttendanceStats } from './hooks'
 import { t } from '../../i18n'
 
 /**
@@ -27,6 +29,7 @@ export function StudentAttendanceTab({
   enrollments: EnrollmentRow[]
   groupById: Map<string, GroupRow>
 }) {
+  const qc = useQueryClient()
   const recordsQ = useStudentAttendance(teacherId, studentId)
   const statsQ = useStudentAttendanceStats(teacherId, studentId)
 
@@ -59,10 +62,7 @@ export function StudentAttendanceTab({
     return (
       <ErrorState
         message={error instanceof Error ? error.message : t('common.unknownError')}
-        onRetry={() => {
-          void recordsQ.refetch()
-          void statsQ.refetch()
-        }}
+        onRetry={() => void invalidatePrefixes(qc, [ATT])}
       />
     )
 

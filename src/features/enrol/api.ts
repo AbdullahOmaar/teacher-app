@@ -1,5 +1,6 @@
 import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import type { EnrolmentLinkRow } from '../../types/database'
 import { generateRawToken, sha256Hex } from '../portal/api'
@@ -65,7 +66,7 @@ export async function generateEnrolmentLink(teacherId: string): Promise<string> 
       },
       { onConflict: 'teacher_id' },
     )
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return buildEnrolLink(window.location.origin, rawToken)
 }
 
@@ -75,7 +76,7 @@ export async function setEnrolmentEnabled(teacherId: string, enabled: boolean): 
     .from('enrolment_links')
     .update({ enabled, updated_at: new Date().toISOString() })
     .eq('teacher_id', teacherId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
 }
 
 /** رسالة مشاركة الرابط على واتساب (اختيار الرقم من واتساب نفسه) */

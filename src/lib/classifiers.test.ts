@@ -43,6 +43,34 @@ describe('friendlyDbError', () => {
   })
 })
 
+describe('friendlyDbError — رسالة 23503 عند الحفظ (3A-377 — PAT-2)', () => {
+  it('23503 مع fkMessage مخصصة ترجع الرسالة المخصصة لا رسالة الحذف', () => {
+    const err = friendlyDbError(
+      { code: '23503', message: 'violates foreign key' },
+      'fallback',
+      'custom fk',
+    )
+    expect(err.message).toBe('custom fk')
+  })
+  it('23503 بلا fkMessage ترجع رسالة الحذف كما قبل', () => {
+    const err = friendlyDbError({ code: '23503', message: 'fk fails' }, 'x')
+    expect(err.message).toContain('الأرشفة')
+  })
+  it('23503 من نص رسالة Error بلا كود تحترم fkMessage أيضاً', () => {
+    const err = friendlyDbError(
+      new Error('insert violates foreign key constraint'),
+      'fallback',
+      'custom fk',
+    )
+    expect(err.message).toBe('custom fk')
+  })
+  it('أخطاء غير 23503 تمرّ كما هي حتى مع fkMessage', () => {
+    const original = new Error('boom')
+    expect(friendlyDbError(original, 'fallback', 'custom fk')).toBe(original)
+    expect(friendlyDbError('nope', 'fallback', 'custom fk').message).toBe('fallback')
+  })
+})
+
 describe('examErrorInfo', () => {
   it('حد المعدل الجديد (SEC-2) له رسالة ودية', () => {
     expect(examErrorInfo(new Error('too many attempts')).title).toContain('محاولات كتير')

@@ -1,5 +1,6 @@
 import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import {
   BRAND_BUCKET,
   BRAND_LOGO_MAX_BYTES,
@@ -47,7 +48,7 @@ export async function uploadBrandLogo(teacherId: string, file: File): Promise<st
       { teacher_id: teacherId, brand_logo_path: path },
       { onConflict: 'teacher_id' },
     )
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
 
   if (oldPath && oldPath !== path) {
     // تنظيف الملف القديم best-effort — فشله لا يلغي نجاح الاستبدال
@@ -75,7 +76,7 @@ export async function removeBrandLogo(teacherId: string): Promise<void> {
       { teacher_id: teacherId, brand_logo_path: null },
       { onConflict: 'teacher_id' },
     )
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   if (path) {
     await supa.storage.from(BRAND_BUCKET).remove([path]).then(
       () => {},

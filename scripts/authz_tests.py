@@ -160,7 +160,7 @@ def main():
 
     pw_other = secrets.token_urlsafe(18)
     pw_asst = secrets.token_urlsafe(18)
-    other_uid = asst_uid = None
+    other_uid = asst_uid = self_uid = None
     try:
         # ---------- fixtures ----------
         demo_jwt, demo_uid = sign_in(url, anon, DEMO_EMAIL, DEMO_PASSWORD)
@@ -315,6 +315,46 @@ def main():
               s == 200 and len(b) == admin_invoices,
               f"got {s} admin={admin_invoices}")
 
+        # ---------- SEC-L10 (0033 — teachers_self_insert) ----------
+        print("SEC-L10 (teachers_self_insert):")
+        # (1) الاستيلاء مرفوض: id = uid مستخدم آخر موجود (المساعد) مع
+        # owner = نفسي — السياسة ترفض لأن الـ id مستخدم قائم وليس لي.
+        s, b = rest(url, anon, "POST", "/rest/v1/teachers",
+                    jwt=other_jwt,
+                    body={"id": asst_uid, "owner_user_id": other_uid,
+                          "display_name": "authz squat"})
+        check("squatted teacher id (another user's uid) is rejected",
+              s == 403, f"got {s} {str(b)[:120]}")
+        # (2) الإدراج الذاتي يعمل: مستخدم ثالث يُدرج صفه بـ id = uid نفسه.
+        pw_self = secrets.token_urlsafe(18)
+        self_uid = create_user_sql(ref, "authz-self@teacher-app.test", pw_self)
+        self_jwt, _ = sign_in(url, anon, "authz-self@teacher-app.test", pw_self)
+        s, b = rest(url, anon, "POST", "/rest/v1/teachers",
+                    jwt=self_jwt,
+                    body={"id": self_uid, "owner_user_id": self_uid,
+                          "display_name": "authz self"})
+        check("self-id insert still works", s in (200, 201),
+              f"got {s} {str(b)[:120]}")
+        self_rows = sql(
+            ref, f"select count(*) as c from teachers where owner_user_id = '{self_uid}'")
+        check("self row is actually stored",
+              self_rows and int(self_rows[0]["c"]) == 1, f"got {self_rows}")
+        # (3) شكل createCentre يعمل: إدراج بلا id يولّد uuid عشوائياً
+        # (لو كانت السياسة id = auth.uid() حرفياً لرفضت هذا).
+        s, b = rest(url, anon, "POST", "/rest/v1/teachers",
+                    jwt=self_jwt,
+                    body={"owner_user_id": self_uid,
+                          "display_name": "authz centre"})
+        check("centre insert without id still works", s in (200, 201),
+              f"got {s} {str(b)[:120]}")
+        centre_rows = sql(
+            ref, f"select count(*) as c from teachers where owner_user_id = '{self_uid}'")
+        check("centre row is actually stored",
+              centre_rows and int(centre_rows[0]["c"]) == 2, f"got {centre_rows}")
+        # تنظيف الصف الإضافي فوراً؛ صف الذات نفسه يزيله التنظيف النهائي.
+        sql(ref, "delete from teachers where owner_user_id = "
+                 f"'{self_uid}' and id <> '{self_uid}'")
+
         # ---------- WHATSAPP CONFIG (0026 — النموذج الاختياري per-teacher) ----------
         print("WHATSAPP CONFIG:")
         # توكن اختبار وهمي يُولّد لكل تشغيل ولا يُطبع أبداً — الغرض إثبات
@@ -409,7 +449,7 @@ def main():
                      f"where teacher_id = '{demo_teacher}'")
     finally:
         # ---------- cleanup ----------
-        ids = [u for u in (other_uid, asst_uid) if u]
+        ids = [u for u in (other_uid, asst_uid, self_uid) if u]
         if ids:
             in_list = ",".join(f"'{u}'" for u in ids)
             sql(ref, f"delete from teacher_members where user_id in ({in_list})")

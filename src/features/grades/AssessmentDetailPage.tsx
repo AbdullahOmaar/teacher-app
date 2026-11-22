@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -136,7 +137,10 @@ export function AssessmentDetailPage() {
     return (
       <ErrorState
         message={assessmentQ.error instanceof Error ? assessmentQ.error.message : t('common.unknownError')}
-        onRetry={() => void assessmentQ.refetch()}
+        onRetry={() => {
+          // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال 'grades' كان سيعيد جلب الأسئلة والدرجات السليمة أيضاً.
+          void assessmentQ.refetch()
+        }}
       />
     )
   }
@@ -265,9 +269,7 @@ export function AssessmentDetailPage() {
   return (
     <PullToRefresh
       onRefresh={async () => {
-        await qc.invalidateQueries({ queryKey: [GRADES] })
-        await qc.invalidateQueries({ queryKey: [ATT] })
-        await qc.invalidateQueries({ queryKey: [SG] })
+        await invalidatePrefixes(qc, [GRADES, ATT, SG])
       }}
     >
     <div>
@@ -402,6 +404,7 @@ export function AssessmentDetailPage() {
               : t('common.unknownError')
           }
           onRetry={() => {
+            // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال ['sg', 'grades'] كان سيعيد جلب المجموعات والأسئلة وتفاصيل التقييم السليمة أيضاً.
             void rosterQ.refetch()
             void scoresQ.refetch()
           }}

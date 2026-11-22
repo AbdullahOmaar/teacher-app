@@ -1,10 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ANALYTICS } from '../analytics/hooks'
-import { ATRISK } from '../atrisk/hooks'
-import { HOME } from '../home/hooks'
-import { INV } from '../invoices/hooks'
-import { invalidatePrefixes } from '../../lib/invalidate'
-import { SCHED } from '../schedule/hooks'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { INVALIDATION_SETS, useInvalidatePrefixes } from '../../lib/invalidate'
 import {
   clearStudentLeft,
   fetchGuardianContacts,
@@ -97,13 +92,11 @@ export function useStudentAttendanceStats(
 /**
  * أي حفظ حضور يبطل كاش الحضور والرئيسية والجدول معاً:
  * الرئيسية تحسب منه تقدّم تحضير حصص اليوم ونسبة حضور الشهر والتنبيهات،
- * والجدول يشارك نفس جداول الحصص.
+ * والجدول يشارك نفس جداول الحصص — المجموعة الكاملة في
+ * INVALIDATION_SETS.attendance (lib/invalidate.ts).
  */
 function useInvalidateAttendance() {
-  const qc = useQueryClient()
-  // الحضور يغذي: الرئيسية (تقدّم اليوم/نسبة الشهر/التنبيهات)، الجدول،
-  // المعرّضين (سلسلة الغياب)، التحليلات، وتسويات الفواتير (PAT-1)
-  return () => invalidatePrefixes(qc, [ATT, HOME, SCHED, ATRISK, ANALYTICS, INV])
+  return useInvalidatePrefixes(INVALIDATION_SETS.attendance)
 }
 
 /**

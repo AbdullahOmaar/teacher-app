@@ -53,7 +53,7 @@ export async function createGroup(teacherId: string, input: GroupInput): Promise
     .insert({ teacher_id: teacherId, ...input })
     .select(GROUP_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return data
 }
 
@@ -69,7 +69,7 @@ export async function updateGroup(
     .eq('id', groupId)
     .select(GROUP_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return data
 }
 
@@ -117,7 +117,7 @@ export async function addWaitlistEntry(
     .insert({ teacher_id: teacherId, group_id: groupId, ...input })
     .select(WAITLIST_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return toWaitlistRow(data)
 }
 
@@ -245,7 +245,7 @@ export async function setGroupArchived(
     .update({ archived_at: archived ? new Date().toISOString() : null })
     .eq('teacher_id', teacherId)
     .eq('id', groupId)
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   void logActivity(teacherId, {
     event_type: archived ? 'group_archived' : 'group_unarchived',
     entity_type: 'group',

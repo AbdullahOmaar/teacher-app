@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -316,7 +317,7 @@ export function HomeworkPage() {
     return (
       <ErrorState
         message={groupsQ.error instanceof Error ? groupsQ.error.message : t('common.unknownError')}
-        onRetry={() => void groupsQ.refetch()}
+        onRetry={() => void invalidatePrefixes(qc, [SG])}
       />
     )
   if (groups.length === 0)
@@ -472,9 +473,7 @@ export function HomeworkPage() {
   return (
     <PullToRefresh
       onRefresh={async () => {
-        await qc.invalidateQueries({ queryKey: [ATT] })
-        await qc.invalidateQueries({ queryKey: [SCHED] })
-        await qc.invalidateQueries({ queryKey: [SG] })
+        await invalidatePrefixes(qc, [ATT, SCHED, SG])
       }}
     >
     <div>
@@ -523,7 +522,10 @@ export function HomeworkPage() {
       ) : pickerError ? (
         <ErrorState
           message={pickerError instanceof Error ? pickerError.message : t('common.unknownError')}
-          onRetry={() => void sessionsQ.refetch()}
+          onRetry={() => {
+            // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال 'schedule' كان سيعيد جلب استعلام التوليد (RPC) أيضاً.
+            void sessionsQ.refetch()
+          }}
         />
       ) : sessions.length === 0 ? (
         <Card>
@@ -693,6 +695,7 @@ export function HomeworkPage() {
                   : t('common.unknownError')
               }
               onRetry={() => {
+                // PAT-1 (3A-377): إعادة محاولة موجّهة للاستعلامات الفاشلة نفسها — إبطال 'attendance' كان سيعيد جلب الجلسة أيضاً.
                 void rosterQ.refetch()
                 void attQ.refetch()
               }}

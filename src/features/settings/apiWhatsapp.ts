@@ -1,5 +1,6 @@
 import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import type { TeacherWhatsappConfigRow } from '../../types/database'
 
 // ===========================================================================
@@ -65,7 +66,7 @@ export async function upsertWhatsappConfig(
     )
     .select(WHATSAPP_CONFIG_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   return data
 }
 

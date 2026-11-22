@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { PaymentMethod, StudentRow } from '../../types/database'
+import { INVALIDATION_SETS, useInvalidatePrefixes } from '../../lib/invalidate'
 import {
   createPortalLink,
   fetchPortalNotifications,
@@ -32,10 +33,7 @@ export function useTeacherPortalTokens(teacherId: string | undefined) {
 }
 
 function useInvalidatePortal() {
-  const qc = useQueryClient()
-  return () => {
-    void qc.invalidateQueries({ queryKey: [PORTAL] })
-  }
+  return useInvalidatePrefixes(INVALIDATION_SETS.portal)
 }
 
 /**
@@ -96,7 +94,9 @@ export function usePortalNotifications(studentId: string | null, rawToken: strin
   })
 }
 
-/** تعليم تنبيهات البوابة كمقروءة — يبطل قائمة التنبيهات بعد النجاح */
+/** تعليم تنبيهات البوابة كمقروءة — يبطل قائمة التنبيهات بعد النجاح.
+ * إبطال دقيق بمفتاح واحد مقصود (3A-377): إبطال بادئة 'portal' كلها
+ * كان سيعيد جلب النظرة العامة والإثباتات بلا داعٍ في صفحة عامة. */
 export function useMarkPortalNotificationsRead(studentId: string | null, rawToken: string | null) {
   const qc = useQueryClient()
   return useMutation({
@@ -107,7 +107,8 @@ export function useMarkPortalNotificationsRead(studentId: string | null, rawToke
   })
 }
 
-/** إرسال إثبات دفع من البوابة — يبطل قائمة إثباتات البوابة بعد النجاح */
+/** إرسال إثبات دفع من البوابة — يبطل قائمة إثباتات البوابة بعد النجاح.
+ * إبطال دقيق بمفتاح واحد مقصود (3A-377) — نفس سبب السطر أعلاه. */
 export function useSubmitPortalProof(studentId: string | null, rawToken: string | null) {
   const qc = useQueryClient()
   return useMutation({

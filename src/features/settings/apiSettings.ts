@@ -1,5 +1,6 @@
 import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
+import { friendlyDbError } from '../../lib/supabaseErrors'
 import { isValidAccent } from '../../lib/brand'
 import type { TeacherSettingsRow } from '../../types/database'
 import type { ThemeMode } from '../../hooks/useTheme'
@@ -128,7 +129,7 @@ export async function updateTeacherSettings(
     )
     .select(SETTINGS_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   const row = data
   return { ...row, center_share_percent: Number(row.center_share_percent) || 0 }
 }
@@ -158,7 +159,7 @@ export async function updatePushDigestSettings(
     )
     .select(SETTINGS_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   const row = data
   return { ...row, center_share_percent: Number(row.center_share_percent) || 0 }
 }
@@ -178,7 +179,7 @@ export async function updateMascotVisibility(
     .upsert({ teacher_id: teacherId, show_mascot: showMascot }, { onConflict: 'teacher_id' })
     .select(SETTINGS_COLS)
     .single()
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
   const row = data
   return { ...row, center_share_percent: Number(row.center_share_percent) || 0 }
 }
@@ -195,5 +196,5 @@ export async function touchLastExportAt(teacherId: string): Promise<void> {
       { teacher_id: teacherId, last_export_at: new Date().toISOString() },
       { onConflict: 'teacher_id' },
     )
-  if (error) throw error
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
 }

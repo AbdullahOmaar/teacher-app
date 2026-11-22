@@ -187,7 +187,11 @@ export async function fetchPushStatus<N extends PushRpcName>(
 ): Promise<boolean> {
   const { data, error } = await db().rpc(rpc, params)
   if (error) throw new Error(mapError(error))
-  return Boolean((data as unknown as { subscribed?: boolean })?.subscribed)
+  // تضييق تشغيلي بلا صبّ: RPC يرجع Json؛ الاشتراك موجود فقط حين
+  // يكون كائناً فيه subscribed === true حرفياً (3A-377 — د)
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) return false
+  const rec: Record<string, unknown> = data
+  return rec.subscribed === true
 }
 
 /** تسجيل/إيقاف اشتراك Push عبر RPC البوابة — أي خطأ يُترجم بمترجم البوابة */

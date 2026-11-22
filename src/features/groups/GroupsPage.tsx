@@ -1,3 +1,4 @@
+import { invalidatePrefixes } from '../../lib/invalidate'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -43,10 +44,7 @@ export function GroupsPage() {
     return (
       <ErrorState
         message={error instanceof Error ? error.message : t('common.unknownError')}
-        onRetry={() => {
-          void groupsQ.refetch()
-          void enrollmentsQ.refetch()
-        }}
+        onRetry={() => void invalidatePrefixes(qc, [SG])}
       />
     )
 
@@ -58,7 +56,7 @@ export function GroupsPage() {
   const hasArchived = allGroups.some((g) => g.archived_at != null)
 
   return (
-    <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: [SG] })}>
+    <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [SG])}>
     <div>
       {allGroups.length > 0 && (
         <ChipRow>
