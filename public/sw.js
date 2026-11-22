@@ -25,7 +25,7 @@
  *    للمستخدم في أول تحديث صفحة وهو متصل.
  */
 
-const CACHE_NAME = 'teacher-app-shell-v1'
+const CACHE_NAME = 'teacher-app-shell-v2'
 
 /** قشرة التطبيق المُخزّنة عند التثبيت — أصول ثابتة فقط، بلا أي بيانات */
 const SHELL_URLS = [
@@ -41,6 +41,9 @@ const SHELL_URLS = [
   '/icon-192.png',
   '/icon-512.png',
   '/icon-maskable-512.png',
+  // أيقونة الإشعار الصغيرة (Badge): سيلويت دُفّي أبيض على شفاف —
+  // أندرويد يرسم الـbadge بقناة الألفا فقط (3A-330)
+  '/badge-96.png',
 ]
 
 self.addEventListener('install', (event) => {
@@ -142,7 +145,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body: typeof data.body === 'string' ? data.body : '',
     icon: typeof data.icon === 'string' && data.icon ? data.icon : '/icon-192.png',
-    badge: '/icon-192.png',
+    badge: '/badge-96.png',
     tag: typeof data.tag === 'string' && data.tag ? data.tag : undefined,
     dir: 'rtl',
     lang: 'ar',
