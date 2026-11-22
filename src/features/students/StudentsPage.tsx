@@ -4,8 +4,7 @@ import { t } from '../../i18n'
 import { Link, useSearchParams } from 'react-router-dom'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Card } from '../../components/ui/Card'
-import { Check, Upload, Users, X } from 'lucide-react'
-import { Button } from '../../components/ui/Button'
+import { Check, Users, X } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
 import {
@@ -50,7 +49,8 @@ export function StudentsPage() {
   // Sheet «تصفية» النمط الموحّد (W3): فلتر المجموعة المتقدم كان صف رقائق
   // ثانياً مكدّساً فوق المحتوى — انتقل هنا، والمفعّل منه يظهر رقاقة إزالة
   const [filterOpen, setFilterOpen] = useState(false)
-  // استيراد الملفات: يُفتح من زر الشاشة أو من رابط شاشة التصدير (?import=1)
+  // استيراد الملفات: يُفتح من الرابط العميق (?import=1) — صف «المزيد»
+  // أو رابط شاشة التصدير (و-8: لا زر أعلى القائمة بعد الآن)
   const [importOpen, setImportOpen] = useState(() => searchParams.get('import') === '1')
   // اختيار List-Detail عند ≥1024px — تحت هذا العرض يبقى التنقل لصفحة التفاصيل
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -195,15 +195,9 @@ export function StudentsPage() {
         resultCount={loading ? undefined : filtered.length}
       />
 
-      <Button
-        variant="soft"
-        full
-        className="mb-3"
-        onClick={() => setImportOpen(true)}
-      >
-        <Upload size={20} /> {t('students.importAction')}
-      </Button>
-
+      {/* زر الاستيراد كان هنا أعلى القائمة (يدفعها 64px كل زيارة) —
+          انتقل لصف في قائمة «المزيد» برابط عميق /students?import=1 (و-8)،
+          ونفس الرابط من شاشة التصدير ما زال يعمل */}
       {loading ? (
         <ListLoadingState label={t('students.loading')} />
       ) : error ? (

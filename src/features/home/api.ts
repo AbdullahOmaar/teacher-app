@@ -1,4 +1,5 @@
 import { t } from '../../i18n'
+import { attendanceRatePct } from '../../lib/format'
 import { db } from '../../lib/supabase'
 import type { InvoiceBalanceRow, SessionRow } from '../../types/database'
 
@@ -145,7 +146,9 @@ export async function fetchMonthlyAttendance(
     marked += 1
     if (row.status === 'p' || row.status === 'l' || row.status === 'm') attended += 1
   }
-  return { marked, attended, rate: marked ? Math.round((attended / marked) * 100) : null }
+  // النسبة بالعُشر الموحّد (PAT-4ب) — كانت عدداً صحيحاً هنا وعُشراً في
+  // التحليلات لنفس البسط/المقام
+  return { marked, attended, rate: attendanceRatePct(attended, marked) }
 }
 
 /**

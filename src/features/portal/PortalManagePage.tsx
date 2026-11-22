@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Card } from '../../components/ui/Card'
+import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Link2, Users } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -20,6 +21,7 @@ import { PortalLinkSheet } from './PortalLinkSheet'
 export function PortalManagePage() {
   const teacher = useCurrentTeacher()
   const [selected, setSelected] = useState<StudentRow | null>(null)
+  const [search, setSearch] = useState('')
 
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
   const studentsQ = useStudents(teacherId)
@@ -35,14 +37,30 @@ export function PortalManagePage() {
     return map
   }, [tokensQ.data])
 
+  const students = useMemo(
+    () => (studentsQ.data ?? []).filter((s) => !s.paused),
+    [studentsQ.data],
+  )
+
+  // بحث فوري (و-7أ): الصفحة كانت بلا أي حقل بحث رغم عشرات الطلاب —
+  // التصفية بنفس حقول قائمة الطلاب (اسم/كود/موبايل الطالب وولي أمره)
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return students
+    return students.filter((s) =>
+      [s.name, s.public_code, s.phone ?? '', s.guardian_phone ?? '', s.grade ?? '']
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
+    )
+  }, [students, search])
+
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status === 'signed-out') return <SignInRequired />
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
   if (studentsQ.isPending || tokensQ.isPending) return <LoadingState label={t('portal.manageLoading')} />
   const error = studentsQ.error ?? tokensQ.error
   if (error) return <ErrorState message={error instanceof Error ? error.message : t('common.unknownError')} />
-
-  const students = (studentsQ.data ?? []).filter((s) => !s.paused)
 
   return (
     <div>
@@ -53,10 +71,25 @@ export function PortalManagePage() {
         </p>
       </Card>
 
+      {students.length > 0 && (
+        <PageToolBar
+          search={{
+            value: search,
+            onChange: setSearch,
+            placeholder: t('portal.manageSearchPlaceholder'),
+          }}
+          resultCount={filtered.length}
+        />
+      )}
+
       {students.length === 0 ? (
         <EmptyState icon={Users} title={t('portal.manageEmptyTitle')} hint={t('portal.manageEmptyHint')} />
+      ) : filtered.length === 0 ? (
+        <Card>
+          <EmptyState icon={Users} title={t('portal.manageNoMatchTitle')} hint={t('portal.manageNoMatchHint')} />
+        </Card>
       ) : (
-        students.map((s) => {
+        filtered.map((s) => {
           const expiresAt = activeByStudent.get(s.id)
           return (
             <Card key={s.id}>

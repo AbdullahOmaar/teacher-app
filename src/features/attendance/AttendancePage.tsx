@@ -688,8 +688,12 @@ export function AttendancePage() {
                             >
                               {st.name}
                             </Link>
+                            {/* كود الطالب لا يظهر في صفوف الحضور (و-5 —
+                                اتساقاً مع قرار الجولة الأولى في قائمة الطلاب؛
+                                يبقى في ملف الطالب وكارته). سطر الشارات يُركَّب
+                                فقط عند وجود شارة حتى لا يبقى سطر فارغ */}
+                            {(v.homework_done || qItem) && (
                             <div className="text-muted text-[13.5px] leading-[1.5] flex items-center gap-1.5">
-                              <span dir="ltr">{st.public_code}</span>
                               {v.homework_done && (
                                 <span className="inline-flex items-center gap-1 text-ok-text font-semibold">
                                   <Check size={14} />
@@ -709,6 +713,7 @@ export function AttendancePage() {
                                 </span>
                               )}
                             </div>
+                            )}
                           </div>
                           <button
                             type="button"

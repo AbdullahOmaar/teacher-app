@@ -13,6 +13,9 @@ export const invoices = {
   ownerOnlyBody:
     'حساب المساعد لا يملك صلاحية مالية — الفواتير والدفعات محجوبة في قاعدة البيانات نفسها (RLS) وليس في الواجهة فقط.',
   searchPlaceholder: 'ابحث باسم الطالب أو باسم الشهر (نوفمبر)…',
+  pagePrev: 'السابق',
+  pageNext: 'التالي',
+  pageOf: 'صفحة {page} من {pages}',
   loading: 'بنحمّل الفواتير…',
   overdueTitle: 'متأخرات مستحقة',
   countTotal: '{count} طالب · إجمالي {total}',

@@ -1,4 +1,5 @@
 import { t } from '../../i18n'
+import { attendanceRatePct } from '../../lib/format'
 import { db } from '../../lib/supabase'
 import { monthStartStr, todayStr } from '../home/api'
 import { fetchMonthlyProfit } from '../money/api'
@@ -325,7 +326,7 @@ export async function fetchAnalytics(
     return {
       month,
       collected,
-      attendanceRate: marked > 0 ? Math.round((attended / marked) * 1000) / 10 : null,
+      attendanceRate: attendanceRatePct(attended, marked),
       attended,
       marked,
       overdue: overdueByMonth.get(month) ?? 0,
@@ -360,8 +361,7 @@ export async function fetchAnalytics(
   return {
     months: monthRows,
     totalCollected,
-    avgAttendance:
-      totalMarked > 0 ? Math.round((totalAttended / totalMarked) * 1000) / 10 : null,
+    avgAttendance: attendanceRatePct(totalAttended, totalMarked),
     currentOverdue,
     activeStudents,
     hasAnyData,

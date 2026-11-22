@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  attendanceRatePct,
   daysLabel,
   formatClock12,
   formatMoney,
@@ -9,6 +10,22 @@ import {
   timeToMin,
   waLink,
 } from './format'
+
+describe('attendanceRatePct — نسبة الحضور الموحّدة (PAT-4ب)', () => {
+  it('عُشر واحد دائماً لنفس البسط/المقام', () => {
+    expect(attendanceRatePct(7, 8)).toBe(87.5)
+    expect(attendanceRatePct(1, 3)).toBe(33.3)
+    expect(attendanceRatePct(2, 3)).toBe(66.7)
+    expect(attendanceRatePct(200, 226)).toBe(88.5)
+  })
+  it('الطرفان: الكل ولا أحد', () => {
+    expect(attendanceRatePct(10, 10)).toBe(100)
+    expect(attendanceRatePct(0, 10)).toBe(0)
+  })
+  it('null عند غياب أي تعليم', () => {
+    expect(attendanceRatePct(0, 0)).toBeNull()
+  })
+})
 
 describe('formatMoney', () => {
   it('يفصّل الآلاف ويلحق «ج»', () => {

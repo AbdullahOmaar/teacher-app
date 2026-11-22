@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { Card } from '../../components/ui/Card'
-import { AlertTriangle, Check, DatabaseBackup, Download, Lock, Upload } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronUp, DatabaseBackup, Download, Lock, Upload } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, TextArea } from '../../components/ui/form'
 import { LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
@@ -50,6 +50,7 @@ export function BackupPage() {
   const [confirming, setConfirming] = useState(false)
   const [report, setReport] = useState<ImportReport | null>(null)
   const [downloadMsg, setDownloadMsg] = useState<string | null>(null)
+  const [showTables, setShowTables] = useState(false)
   const [nowMs] = useState(() => Date.now())
 
   if (teacher.status === 'loading') return <LoadingState />
@@ -136,7 +137,36 @@ export function BackupPage() {
       <Card>
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><Download size={22} className="text-primary" /> {t('settings.backupCreateTitle')}</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
-          {t('settings.backupContents', { tables: BACKUP_TABLES.map((tok) => tok.label).join(t('settings.joinSeparator')) })}
+          {t('settings.backupContentsIntro')}
+        </p>
+        {/* قائمة الجداول مطوية خلف قسم قابل للطي (و-10) بدل فقرة
+            جدار-نص بأسماء 26 جدولاً في سطر الكلام */}
+        <button
+          type="button"
+          onClick={() => setShowTables((v) => !v)}
+          aria-expanded={showTables}
+          className="w-full flex items-center gap-2 bg-soft border border-border rounded-xl px-3 min-h-[44px] cursor-pointer text-text mb-3"
+        >
+          <span className="font-semibold text-[13.5px] flex-1 text-start">
+            {t('settings.backupTablesToggle', { count: BACKUP_TABLES.length })}
+          </span>
+          {showTables ? (
+            <ChevronUp size={18} className="text-muted shrink-0" />
+          ) : (
+            <ChevronDown size={18} className="text-muted shrink-0" />
+          )}
+        </button>
+        {showTables && (
+          <div className="text-[13.5px] mb-3">
+            {BACKUP_TABLES.map((tok) => (
+              <div key={tok.key} className="py-1 border-b border-border last:border-b-0">
+                {tok.label}
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="text-muted text-[13.5px] mt-0 mb-3">
+          {t('settings.backupExclusions')}
         </p>
         <p className="text-muted text-[13.5px] mt-0 mb-3">
           {t('settings.backupProofsNote')}

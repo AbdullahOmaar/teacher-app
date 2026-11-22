@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
   absenceStreakOf,
+  atRiskWaUrl,
   compareAtRisk,
   hiddenByFollowup,
   monthsSpanWord,
   overdueDerivationOf,
   sessionsWord,
+  type AtRiskReason,
+  type AtRiskStudent,
   type SessionMarkInput,
 } from './api'
+import type { RosterStudent } from '../attendance/api'
 
 const T = (day: number) => new Date(2026, 10, day, 16, 0).getTime()
 const marks = (list: (string | null)[]): SessionMarkInput[] =>
@@ -107,5 +111,73 @@ describe('صيغ الجمع العربية للخطر', () => {
     expect(monthsSpanWord(2)).toBe('شهرين')
     expect(monthsSpanWord(3)).toBe('3 شهور')
     expect(monthsSpanWord(12)).toBe('12 شهراً')
+  })
+})
+
+describe('atRiskWaUrl — رابط متابعة واتساب (PAT-4أ)', () => {
+  const student: RosterStudent = {
+    id: 's1',
+    name: 'أحمد سمير',
+    public_code: 'ST-1',
+    phone: '01001234567',
+    guardian_name: 'محمد سمير',
+    guardian_phone: '01112223334',
+  }
+  const item = (reasons: AtRiskReason[]): AtRiskStudent => ({
+    student,
+    reasons,
+    absenceStreak: 0,
+    overdueAmount: 0,
+    contact: undefined,
+  })
+  const absence: AtRiskReason = {
+    kind: 'absence',
+    text: '',
+    streak: 4,
+    groupName: 'السبت',
+    eventAt: 0,
+  }
+  const overdue: AtRiskReason = {
+    kind: 'overdue',
+    text: '',
+    monthsSpan: 2,
+    amount: 500,
+    eventAt: 0,
+  }
+  const textOf = (url: string | null): string =>
+    decodeURIComponent((url ?? '').split('?text=')[1] ?? '')
+
+  it('سبب الغياب: تحية باسم السنتر + سطر الغياب + ختام', () => {
+    const url = atRiskWaUrl(item([absence]), 'سنتر النور')
+    expect(url?.startsWith('https://wa.me/201112223334?text=')).toBe(true)
+    expect(textOf(url)).toBe(
+      [
+        'أهلاً محمد سمير، معاكم سنتر النور.',
+        'بنطمن على أحمد سمير: غاب عن 4 حصص متتالية في مجموعة السبت، وحابين نتأكد إن مفيش مشكلة وإننا نقدر نساعد بأي شكل.',
+        'شكراً لمتابعتكم، ويسعدنا دايماً تواصلكم معانا.',
+      ].join('\n'),
+    )
+  })
+  it('سبب المتأخرات: سطر الامتداد والمبلغ المنسّق', () => {
+    expect(textOf(atRiskWaUrl(item([overdue]), 'سنتر النور'))).toContain(
+      'بنذكّركم إن على أحمد سمير اشتراكاً متأخراً (شهرين) بمبلغ 500 ج — شاكرين تعاونكم في السداد في أقرب وقت ممكن.',
+    )
+  })
+  it('السببان معاً: سطران بالترتيب', () => {
+    const lines = textOf(atRiskWaUrl(item([absence, overdue]), 'سنتر النور')).split('\n')
+    expect(lines).toHaveLength(4)
+    expect(lines[1]).toContain('غاب عن')
+    expect(lines[2]).toContain('اشتراكاً متأخراً')
+  })
+  it('بلا اسم سنتر: البديل «السنتر»', () => {
+    expect(textOf(atRiskWaUrl(item([absence]), null))).toContain('معاكم السنتر.')
+    expect(textOf(atRiskWaUrl(item([absence]), '  '))).toContain('معاكم السنتر.')
+  })
+  it('null عند غياب أي رقم صالح', () => {
+    const noPhones: AtRiskStudent = {
+      ...item([absence]),
+      student: { ...student, guardian_phone: null, phone: null },
+    }
+    expect(atRiskWaUrl(noPhones, 'سنتر النور')).toBeNull()
   })
 })

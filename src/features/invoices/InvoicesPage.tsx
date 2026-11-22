@@ -7,7 +7,7 @@ import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
-import { AlertTriangle, Lock, ReceiptText } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, Lock, ReceiptText } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
 import { Chip } from '../../components/ui/form'
@@ -29,6 +29,9 @@ import { IssueInvoicesSheet } from './sheets'
 import { ProofsReviewSection } from '../payment-proofs/components'
 
 type FilterKey = 'all' | 'due' | 'partial' | 'paid'
+
+/** حجم صفحة قائمة الفواتير (و-7ب) — ترقيم عميل فوق القائمة المفلترة */
+const PAGE_SIZE = 25
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: t('invoices.filterAll') },
@@ -114,6 +117,12 @@ export function InvoicesPage() {
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
 
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  // أي تغيير بحث/فلتر يبدأ من الصفحة الأولى (و-7ب)
+  const onSearchChange = (v: string) => {
+    setSearch(v)
+    setPage(0)
+  }
   // اختيار المستخدم الصريح يتغلب؛ وإلا ?filter=due من الرئيسية يفتح «مستحقة»
   const [filterChoice, setFilter] = useState<FilterKey | null>(null)
   const filter: FilterKey =
@@ -169,17 +178,27 @@ export function InvoicesPage() {
     }
   }, [invoices, currentMonth])
 
+  // ترقيم الصفحات (و-7ب): 25/صفحة فوق القائمة المفلترة كاملة — الصفحة
+  // تُقصّ دائماً داخل النطاق إن انكمشت النتائج تحتها (بيانات تغيّرت)
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, pageCount - 1)
+  const pageItems = useMemo(
+    () => filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE),
+    [filtered, currentPage],
+  )
+
   // تجميع العرض بالشهر (W3 — R-11): الفواتير مرتبة بالفترة تنازلياً
-  // أصلاً، فالتجميع المتتالي يحافظ على الترتيب ويضيف عنوان شهر لاصقاً
+  // أصلاً، فالتجميع المتتالي يحافظ على الترتيب ويضيف عنوان شهر لاصقاً —
+  // يعمل على عناصر الصفحة الحالية فقط (و-7ب)
   const invoiceSections = useMemo(() => {
     const sections: { period: string; items: InvoiceListItem[] }[] = []
-    for (const inv of filtered) {
+    for (const inv of pageItems) {
       const last = sections[sections.length - 1]
       if (last && last.period === inv.period_month) last.items.push(inv)
       else sections.push({ period: inv.period_month, items: [inv] })
     }
     return sections
-  }, [filtered])
+  }, [pageItems])
 
   if (teacher.status === 'loading') return <LoadingState />
   if (teacher.status === 'signed-out') return <SignInRequired />
@@ -214,11 +233,18 @@ export function InvoicesPage() {
         bleed={false}
         search={{
           value: search,
-          onChange: setSearch,
+          onChange: onSearchChange,
           placeholder: t('invoices.searchPlaceholder'),
         }}
         chips={FILTERS.map((f) => (
-          <Chip key={f.key} active={filter === f.key} onClick={() => setFilter(f.key)}>
+          <Chip
+            key={f.key}
+            active={filter === f.key}
+            onClick={() => {
+              setFilter(f.key)
+              setPage(0)
+            }}
+          >
             {f.label}
           </Chip>
         ))}
@@ -369,6 +395,35 @@ export function InvoicesPage() {
                   </Card>
                 </div>
               ))}
+              {pageCount > 1 && (
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <Button
+                    variant="soft"
+                    disabled={currentPage === 0}
+                    onClick={() => {
+                      setPage(currentPage - 1)
+                      window.scrollTo({ top: 0 })
+                    }}
+                  >
+                    <ChevronRight size={18} />
+                    {t('invoices.pagePrev')}
+                  </Button>
+                  <span className="text-muted text-[13px] font-semibold tabular-nums">
+                    {t('invoices.pageOf', { page: currentPage + 1, pages: pageCount })}
+                  </span>
+                  <Button
+                    variant="soft"
+                    disabled={currentPage >= pageCount - 1}
+                    onClick={() => {
+                      setPage(currentPage + 1)
+                      window.scrollTo({ top: 0 })
+                    }}
+                  >
+                    {t('invoices.pageNext')}
+                    <ChevronLeft size={18} />
+                  </Button>
+                </div>
+              )}
               {/* حشوة تمرير سفلية: آخر فاتورة تمرّ بالكامل فوق الـ FAB
                   العائم فلا يحجب الزر صفها ولا شارة حالتها */}
               <div aria-hidden="true" className="h-[76px]" />

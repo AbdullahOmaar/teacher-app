@@ -127,8 +127,22 @@ function ChartFrame({ children }: { children: React.ReactNode }) {
 
 const moneyTick = (v: number) => v.toLocaleString('en-US')
 
-/** التحصيل الشهري — أعمدة بلون الهوية الأساسي */
-export function CollectedChart({ months }: { months: AnalyticsMonth[] }) {
+/**
+ * أعمدة مالية شهرية مشتركة (COD-5): التحصيل والمتأخرات كانا مكوّنين
+ * متطابقين إلا في dataKey واسم السلسلة واللون — مكوّن واحد بوسائط،
+ * فأي ضبط بصري/سلوكي يقع في مكان واحد.
+ */
+function MoneyBarChart({
+  months,
+  dataKey,
+  name,
+  colorOf,
+}: {
+  months: AnalyticsMonth[]
+  dataKey: 'collected' | 'overdue'
+  name: string
+  colorOf: (c: ChartColors) => string
+}) {
   const c = useChartColors()
   return (
     <ChartFrame>
@@ -140,9 +154,21 @@ export function CollectedChart({ months }: { months: AnalyticsMonth[] }) {
           cursor={{ fill: c.border, opacity: 0.35 }}
           content={<ChartTooltip format={(v) => formatMoney(v)} colors={c} />}
         />
-        <Bar dataKey="collected" name={t('analytics.chartCollectedName')} fill={c.primary} radius={[6, 6, 0, 0]} maxBarSize={44} />
+        <Bar dataKey={dataKey} name={name} fill={colorOf(c)} radius={[6, 6, 0, 0]} maxBarSize={44} />
       </BarChart>
     </ChartFrame>
+  )
+}
+
+/** التحصيل الشهري — أعمدة بلون الهوية الأساسي */
+export function CollectedChart({ months }: { months: AnalyticsMonth[] }) {
+  return (
+    <MoneyBarChart
+      months={months}
+      dataKey="collected"
+      name={t('analytics.chartCollectedName')}
+      colorOf={(c) => c.primary}
+    />
   )
 }
 
@@ -173,20 +199,13 @@ export function AttendanceChart({ months }: { months: AnalyticsMonth[] }) {
 
 /** المتأخرات الحالية موزعة على أشهر الاستحقاق — أعمدة بلون الخطر */
 export function OverdueChart({ months }: { months: AnalyticsMonth[] }) {
-  const c = useChartColors()
   return (
-    <ChartFrame>
-      <BarChart data={toPoints(months)} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <CartesianGrid stroke={c.border} strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="label" tick={{ ...AXIS_TICK, fill: c.muted }} axisLine={{ stroke: c.border }} tickLine={false} />
-        <YAxis tick={{ ...AXIS_TICK, fill: c.muted }} axisLine={false} tickLine={false} tickFormatter={moneyTick} width={52} />
-        <Tooltip
-          cursor={{ fill: c.border, opacity: 0.35 }}
-          content={<ChartTooltip format={(v) => formatMoney(v)} colors={c} />}
-        />
-        <Bar dataKey="overdue" name={t('analytics.chartOverdueName')} fill={c.bad} radius={[6, 6, 0, 0]} maxBarSize={44} />
-      </BarChart>
-    </ChartFrame>
+    <MoneyBarChart
+      months={months}
+      dataKey="overdue"
+      name={t('analytics.chartOverdueName')}
+      colorOf={(c) => c.bad}
+    />
   )
 }
 

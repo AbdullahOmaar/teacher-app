@@ -100,6 +100,16 @@ export function waLink(phone: string | null | undefined): string | null {
 }
 
 /**
+ * نسبة الحضور الموحّدة في كل الواجهات (PAT-4ب): عُشر واحد دائماً —
+ * الرئيسية كانت تقرّب لعدد صحيح والتحليلات لعُشر لنفس البسط/المقام
+ * (attended/marked) فاختلف الرقم المعروض لنفس البيانات. null عند
+ * غياب أي تعليم (marked = 0) بدل قسمة على صفر.
+ */
+export function attendanceRatePct(attended: number, marked: number): number | null {
+  return marked > 0 ? Math.round((attended / marked) * 1000) / 10 : null
+}
+
+/**
  * تاريخ+وقت بصيغة عربية متوسطة (COD-3: كانت 3 نسخ محلية). عند قيمة
  * غير صالحة يُعاد البديل — افتراضياً أول 10 أحرف من النص كما هو.
  */

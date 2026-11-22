@@ -86,10 +86,9 @@ export function AtRiskPage() {
               <div className="flex items-center gap-2.5 mb-2">
                 <Avatar name={item.student.name} />
                 <div className="min-w-0">
+                  {/* كود الطالب لا يظهر هنا (و-5 — اتساقاً مع قائمة
+                      الطلاب وصفوف الحضور؛ يبقى في ملف الطالب وكارته) */}
                   <div className="font-bold text-[15px] leading-[1.6]">{item.student.name}</div>
-                  <div className="text-muted text-[12px]" dir="ltr">
-                    {item.student.public_code}
-                  </div>
                 </div>
               </div>
 
