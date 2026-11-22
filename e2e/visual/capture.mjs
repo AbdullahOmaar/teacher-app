@@ -169,8 +169,17 @@ function withTimeout(promise, ms, label) {
 async function settle(page) {
   await page.waitForNetworkIdle({ idleTime: 500, timeout: 15_000 }).catch(() => {});
   await withTimeout(
-    page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 4000))])),
-    8_000,
+    page.evaluate(async () => {
+      // جاهزية الخطوط العامة + تحميل كل وجه معلن فعلياً: وجه عريض يصل
+      // متأخراً كان يبدّل رسم عناوين/نصوص بين تشغيلتين (ضجيج أشباح
+      // بكسلي قيس في اختبار 3A-326 الذاتي)
+      await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 4000))]);
+      await Promise.race([
+        Promise.all([...document.fonts].map((f) => f.loaded.catch(() => {}))),
+        new Promise((r) => setTimeout(r, 4000)),
+      ]);
+    }),
+    10_000,
     'fonts',
   ).catch(() => {});
   let last = -1;
@@ -194,7 +203,30 @@ async function settle(page) {
     'autoscroll',
   ).catch(() => {});
   await page.waitForNetworkIdle({ idleTime: 400, timeout: 8_000 }).catch(() => {});
-  await sleep(700);
+  // ثبات هندسي أخير: رسوم بيانية SVG تتحرك بـ JS (لا يطالها سحق CSS)
+  // فتُقاس بصمة (أطوال HTML + ارتفاع الصفحة + سمات d لمسارات SVG)
+  // حتى تتطابق عيّنتان متتاليتان — ذيل الأنيميشن ينتهي قبل اللقطة
+  await withTimeout(
+    page.evaluate(async () => {
+      const snap = () => {
+        let d = '';
+        document.querySelectorAll('svg path').forEach((p) => {
+          d += p.getAttribute('d') || '';
+        });
+        return `${document.body.innerHTML.length}|${document.body.scrollHeight}|${d.length}|${d.slice(0, 64)}|${d.slice(-64)}`;
+      };
+      let prev = snap();
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 700));
+        const cur = snap();
+        if (cur === prev) break;
+        prev = cur;
+      }
+    }),
+    12_000,
+    'geometry-stability',
+  ).catch(() => {});
+  await sleep(400);
 }
 
 async function shoot(page, file) {
