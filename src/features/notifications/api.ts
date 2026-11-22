@@ -193,12 +193,17 @@ export async function fetchAlerts(
   today: string,
   isOwner: boolean,
 ): Promise<AppAlert[]> {
-  const alerts: AppAlert[] = []
   const supa = db()
 
-  // أسماء المجموعات — لتفاصيل الفواتير المستحقة ودرجات التقييمات
-  const groupNameById = new Map<string, string>()
-  {
+  // موازاة (3A-349/D5): كانت الدالة سلسلة تسلسلية من ~18 نداءً فتتأخر شارة
+  // الجرس عن استقرار الرئيسية. الآن كل قسم دالة مستقلة تُطلَق بالتوازي
+  // وتُجمَع النتائج بالترتيب القانوني (att ← absence ← prepaid ← fin ←
+  // grade ← proof ← backup) — إعادة جدولة نداءات فقط: نفس الاشتقاق
+  // والنصوص والترتيب داخل كل قسم، وأي فشل يرفض الكل كما كان.
+  // استعلام أسماء المجموعات يبدأ فوراً كوعد مستقل لا ينتظره إلا قسما
+  // fin/grade عند الحاجة داخلياً.
+  const groupNamePromise: Promise<Map<string, string>> = (async () => {
+    const groupNameById = new Map<string, string>()
     const { data, error } = await supa
       .from('groups')
       .select('id, name')
@@ -207,43 +212,51 @@ export async function fetchAlerts(
     for (const g of (data ?? []) as { id: string; name: string }[]) {
       groupNameById.set(g.id, g.name)
     }
-  }
+    return groupNameById
+  })()
 
   // att: حصص اليوم المجدولة فيها طلاب بلا حالة حضور مسجلة (§5.7)
-  const todaySessions = (await fetchSessionsInRange(teacherId, today, today)).filter(
-    (s) => s.status === 'scheduled',
-  )
-  if (todaySessions.length > 0) {
-    const counts = await fetchActiveCountsByGroup(
-      teacherId,
-      todaySessions.map((s) => s.group_id),
+  async function attSection(): Promise<AppAlert[]> {
+    const section: AppAlert[] = []
+    const todaySessions = (await fetchSessionsInRange(teacherId, today, today)).filter(
+      (s) => s.status === 'scheduled',
     )
-    const marks = await fetchAttendanceForSessions(
-      teacherId,
-      todaySessions.map((s) => s.id),
-    )
-    const markedBySession = new Map<string, number>()
-    for (const m of marks) {
-      if (m.status != null) markedBySession.set(m.session_id, (markedBySession.get(m.session_id) ?? 0) + 1)
-    }
-    for (const s of todaySessions) {
-      const total = counts.get(s.group_id) ?? 0
-      const unmarked = total - (markedBySession.get(s.id) ?? 0)
-      if (total > 0 && unmarked > 0) {
-        alerts.push({
-          kind: 'att',
-          text: t('notifications.alert.attText', { group: s.group_name, count: unmarked }),
-          to: `/attendance?session=${s.id}`,
-          groupName: s.group_name,
-          detail: t('notifications.alert.attDetail', { time: shortTime(s.start_time), minutes: s.duration_minutes }),
-        })
+    if (todaySessions.length > 0) {
+      const [counts, marks] = await Promise.all([
+        fetchActiveCountsByGroup(
+          teacherId,
+          todaySessions.map((s) => s.group_id),
+        ),
+        fetchAttendanceForSessions(
+          teacherId,
+          todaySessions.map((s) => s.id),
+        ),
+      ])
+      const markedBySession = new Map<string, number>()
+      for (const m of marks) {
+        if (m.status != null) markedBySession.set(m.session_id, (markedBySession.get(m.session_id) ?? 0) + 1)
+      }
+      for (const s of todaySessions) {
+        const total = counts.get(s.group_id) ?? 0
+        const unmarked = total - (markedBySession.get(s.id) ?? 0)
+        if (total > 0 && unmarked > 0) {
+          section.push({
+            kind: 'att',
+            text: t('notifications.alert.attText', { group: s.group_name, count: unmarked }),
+            to: `/attendance?session=${s.id}`,
+            groupName: s.group_name,
+            detail: t('notifications.alert.attDetail', { time: shortTime(s.start_time), minutes: s.duration_minutes }),
+          })
+        }
       }
     }
+    return section
   }
 
   // absence: غياب متكرر — ≥ ABSENCE_THRESHOLD غيابات (a) في آخر
   // ABSENCE_WINDOW_DAYS يوماً لطالب نشط (خطة Phase 1 خطوة 8)
-  {
+  async function absenceSection(): Promise<AppAlert[]> {
+    const section: AppAlert[] = []
     const from = addDaysStr(today, -(ABSENCE_WINDOW_DAYS - 1))
     const { data, error } = await supa
       .from('attendance')
@@ -262,13 +275,15 @@ export async function fetchAlerts(
       .sort((a, b) => b[1] - a[1])
       .map(([id]) => id)
     if (repeatIds.length > 0) {
-      const students = await fetchContactStudents(teacherId, repeatIds)
-      const contacts = await fetchGuardianContacts(teacherId, repeatIds)
+      const [students, contacts] = await Promise.all([
+        fetchContactStudents(teacherId, repeatIds),
+        fetchGuardianContacts(teacherId, repeatIds),
+      ])
       for (const id of repeatIds) {
         const st = students.get(id)
         if (!st || st.paused) continue
         const n = counts.get(id) ?? 0
-        alerts.push({
+        section.push({
           kind: 'absence',
           text: t('notifications.alert.absenceText', { name: st.name, count: n, days: ABSENCE_WINDOW_DAYS }),
           to: `/students/${id}`,
@@ -281,10 +296,12 @@ export async function fetchAlerts(
         })
       }
     }
+    return section
   }
 
   // prepaid: عدّاد الباقة في المرجع §5.7 — العرض مجمّع منذ W4 (R-7)
-  {
+  async function prepaidSection(): Promise<AppAlert[]> {
+    const section: AppAlert[] = []
     const { data: enr, error } = await supa
       .from('enrollments')
       .select(
@@ -341,7 +358,7 @@ export async function fetchAlerts(
           guardian_phone: r.students?.guardian_phone ?? null,
         }
         if (zone === 'urgent') {
-          alerts.push({
+          section.push({
             kind: 'prepaid',
             text: t('notifications.alert.prepaidDepleted', { group: groupName, name: st.name }),
             to: `/students/${r.student_id}`,
@@ -371,7 +388,7 @@ export async function fetchAlerts(
         entry.members.sort(
           (a, b) => a.left - b.left || a.student_name.localeCompare(b.student_name, 'ar'),
         )
-        alerts.push({
+        section.push({
           kind: 'prepaid',
           text: t('notifications.alert.prepaidSummary', { count: entry.members.length, group: entry.groupName }),
           to: `/students?group=${groupId}`,
@@ -381,11 +398,14 @@ export async function fetchAlerts(
         })
       }
     }
+    return section
   }
 
   // fin (مالك فقط): طالب نشط رصيده > 0 — تنبيه لكل طالب (§5.7)،
   // مع فواتيره المستحقة من invoice_balances وتذكير دفع واتساب
-  if (isOwner) {
+  async function finSection(): Promise<AppAlert[]> {
+    const section: AppAlert[] = []
+    if (!isOwner) return section
     const { data: bals, error } = await supa
       .from('student_balances')
       .select('student_id, balance')
@@ -395,15 +415,20 @@ export async function fetchAlerts(
     const balRows = (bals ?? []) as unknown as { student_id: string; balance: number | string }[]
     if (balRows.length > 0) {
       const studentIds = balRows.map((b) => b.student_id)
-      const students = await fetchContactStudents(teacherId, studentIds)
-      const contacts = await fetchGuardianContacts(teacherId, studentIds)
-
-      const { data: invData, error: invErr } = await supa
-        .from('invoice_balances')
-        .select('invoice_id, student_id, group_id, period_month, total, paid, balance')
-        .eq('teacher_id', teacherId)
-        .gt('balance', 0)
-      if (invErr) throw invErr
+      const [students, contacts, invData, groupNameById] = await Promise.all([
+        fetchContactStudents(teacherId, studentIds),
+        fetchGuardianContacts(teacherId, studentIds),
+        (async () => {
+          const { data, error: invErr } = await supa
+            .from('invoice_balances')
+            .select('invoice_id, student_id, group_id, period_month, total, paid, balance')
+            .eq('teacher_id', teacherId)
+            .gt('balance', 0)
+          if (invErr) throw invErr
+          return data
+        })(),
+        groupNamePromise,
+      ])
       const invoicesByStudent = new Map<string, AlertInvoiceRef[]>()
       for (const row of (invData ?? []) as unknown as {
         invoice_id: string
@@ -434,7 +459,7 @@ export async function fetchAlerts(
         if (!st || st.paused) continue
         const balance = Number(b.balance) || 0
         const invoices = invoicesByStudent.get(b.student_id) ?? []
-        alerts.push({
+        section.push({
           kind: 'fin',
           text: t('notifications.alert.finText', { name: st.name, amount: formatMoney(balance) }),
           to: `/students/${b.student_id}`,
@@ -451,11 +476,13 @@ export async function fetchAlerts(
         })
       }
     }
+    return section
   }
 
   // grade: تقييم فيه درجات أقل من 50% — مجمّع لكل تقييم (§5.7)،
   // مع تفاصيل كل طالب منخفض ودرجته ورابط إرسالها (§5.6)
-  {
+  async function gradeSection(): Promise<AppAlert[]> {
+    const section: AppAlert[] = []
     const { data, error } = await supa
       .from('scores')
       .select('student_id, score, assessments!inner(id, title, max_score, group_id)')
@@ -484,9 +511,12 @@ export async function fetchAlerts(
       }
     }
     if (byAssessment.size > 0) {
+      const groupNameById = await groupNamePromise
       const lowIds = [...new Set([...byAssessment.values()].flatMap((v) => v.lows.map((l) => l.student_id)))]
-      const students = await fetchContactStudents(teacherId, lowIds)
-      const contacts = await fetchGuardianContacts(teacherId, lowIds)
+      const [students, contacts] = await Promise.all([
+        fetchContactStudents(teacherId, lowIds),
+        fetchGuardianContacts(teacherId, lowIds),
+      ])
       for (const [id, v] of byAssessment) {
         const lowStudents: AlertLowStudent[] = v.lows.map((l) => {
           const st = students.get(l.student_id)
@@ -507,7 +537,7 @@ export async function fetchAlerts(
             waUrl: scoreWaUrl(roster, contacts.get(l.student_id), { title: v.title, max_score: v.max }, l.score),
           }
         })
-        alerts.push({
+        section.push({
           kind: 'grade',
           text: t('notifications.alert.gradeText', { count: v.lows.length, title: v.title }),
           to: `/assessments/${id}`,
@@ -522,13 +552,16 @@ export async function fetchAlerts(
         })
       }
     }
+    return section
   }
 
   // proof (مالك فقط — Phase 2 خطوة 7): إثباتات دفع رفعها أولياء الأمور
   // من البوابة ومكتملة الرفع، لسه بلا مراجعة. تنبيه مجمّع واحد بعدّادها
   // (لا تنبيه لكل إثبات) ووجهته قسم المراجعة في شاشة الفواتير، فيغذّي
   // شارة التنبيهات من نفس المصدر الواحد بلا عدّاد موازٍ.
-  if (isOwner) {
+  async function proofSection(): Promise<AppAlert[]> {
+    const section: AppAlert[] = []
+    if (!isOwner) return section
     const { count, error } = await supa
       .from('payment_proofs')
       .select('id', { count: 'exact', head: true })
@@ -537,17 +570,20 @@ export async function fetchAlerts(
       .not('uploaded_at', 'is', null)
     if (error) throw error
     if ((count ?? 0) > 0) {
-      alerts.push({
+      section.push({
         kind: 'proof',
         text: t('notifications.alert.proofText', { count: count ?? 0 }),
         to: '/invoices',
         detail: t('notifications.alert.proofDetail'),
       })
     }
+    return section
   }
 
   // backup (مالك فقط): لا تصدير أبداً أو مرّت ≥ 30 يوماً على آخر تصدير (§5.7)
-  if (isOwner) {
+  async function backupSection(): Promise<AppAlert[]> {
+    const section: AppAlert[] = []
+    if (!isOwner) return section
     const { data, error } = await supa
       .from('teacher_settings')
       .select('last_export_at')
@@ -558,11 +594,21 @@ export async function fetchAlerts(
     const due = !last || Date.now() - new Date(last).getTime() >= 30 * 24 * 60 * 60 * 1000
     if (due) {
       // silent (R-8): معلومة P3 لا ترفع شارة الجرس
-      alerts.push({ kind: 'backup', text: t('notifications.alert.backupText'), to: '/backup', silent: true })
+      section.push({ kind: 'backup', text: t('notifications.alert.backupText'), to: '/backup', silent: true })
     }
+    return section
   }
 
-  return alerts
+  const [att, absence, prepaid, fin, grade, proof, backup] = await Promise.all([
+    attSection(),
+    absenceSection(),
+    prepaidSection(),
+    finSection(),
+    gradeSection(),
+    proofSection(),
+    backupSection(),
+  ])
+  return [...att, ...absence, ...prepaid, ...fin, ...grade, ...proof, ...backup]
 }
 
 /** قائمة المتأخرات كنص قابل للنسخ (§3.13 ‏copy-overdue) — من تنبيهات fin نفسها */
