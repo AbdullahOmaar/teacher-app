@@ -7,7 +7,7 @@ import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
-import { AlertTriangle, ChevronLeft, ChevronRight, Lock, ReceiptText } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Lock, ReceiptText } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
 import { Chip } from '../../components/ui/form'
@@ -265,7 +265,7 @@ export function InvoicesPage() {
       ) : (
         <>
           {overdue.count > 0 && (
-            <Card className="border-warn/50 bg-warn/5">
+            <Card className="rise-in border-warn/50 bg-warn/5">
               {/* على الموبايل: النص فوق وزرّان بعرض كامل تحت بعضهما في صف —
                   الصف الأفقي القديم كان يضغط النص لعرض كلمة ويطرد زر «نسخ»
                   خارج حدود البطاقة عند 360px */}
@@ -277,11 +277,13 @@ export function InvoicesPage() {
                   </div>
                 </div>
                 <div className="flex gap-2 min-[560px]:shrink-0">
-                  <Button variant="soft" className="flex-1 min-[560px]:flex-none" onClick={() => setShowOverdue((v) => !v)}>
+                  <Button variant="soft" size="sm" className="flex-1 min-[560px]:flex-none" onClick={() => setShowOverdue((v) => !v)}>
+                    {showOverdue ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     {showOverdue ? t('invoices.hideList') : t('invoices.showList')}
                   </Button>
                   <Button
                     variant="ghost"
+                    size="sm"
                     className="flex-1 min-[560px]:flex-none"
                     onClick={() => {
                       const text = overdue.rows
@@ -293,6 +295,7 @@ export function InvoicesPage() {
                         .catch(() => toast(t('common.copyUnavailable')))
                     }}
                   >
+                    <Copy size={16} />
                     {t('invoices.copyOverdue')}
                   </Button>
                 </div>
@@ -322,7 +325,7 @@ export function InvoicesPage() {
           )}
 
           {overdue.count === 0 && currentDue.count > 0 && (
-            <Card>
+            <Card className="rise-in">
               {/* مستحقات الشهر الحالي فقط: بطاقة محايدة بلا تلوين إنذاري —
                   الفواتير لسه في شهرها ولم تتجاوز استحقاقها (M4) */}
               <div className="flex flex-col gap-3 min-[560px]:flex-row min-[560px]:items-center min-[560px]:justify-between min-[560px]:gap-2">
@@ -333,7 +336,8 @@ export function InvoicesPage() {
                   </div>
                 </div>
                 <div className="flex gap-2 min-[560px]:shrink-0">
-                  <Button variant="soft" className="flex-1 min-[560px]:flex-none" onClick={() => setShowCurrentDue((v) => !v)}>
+                  <Button variant="soft" size="sm" className="flex-1 min-[560px]:flex-none" onClick={() => setShowCurrentDue((v) => !v)}>
+                    {showCurrentDue ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     {showCurrentDue ? t('invoices.hideList') : t('invoices.showList')}
                   </Button>
                 </div>
@@ -358,7 +362,7 @@ export function InvoicesPage() {
           )}
 
           {filtered.length === 0 ? (
-            <Card>
+            <Card className="rise-in">
               <EmptyState
                 mascot
                 icon={ReceiptText}
@@ -370,7 +374,7 @@ export function InvoicesPage() {
                 }
                 action={
                   invoices.length === 0
-                    ? { label: t('invoices.issueAction'), onClick: () => setIssueOpen(true) }
+                    ? { label: t('invoices.issueAction'), onClick: () => setIssueOpen(true), icon: ReceiptText }
                     : undefined
                 }
               />
@@ -382,7 +386,7 @@ export function InvoicesPage() {
                   <StickyGroupHeader bleed={false} top={GROUP_HEADER_TOP_WITH_SEARCH}>
                     {periodLabel(section.period)} · {section.items.length} فاتورة
                   </StickyGroupHeader>
-                  <Card className="p-0 overflow-hidden">
+                  <Card className="rise-in p-0 overflow-hidden" style={{ animationDelay: '60ms' }}>
                     {section.items.map((inv, i) => (
                       <InvoiceCard
                         key={inv.invoice_id}
