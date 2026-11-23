@@ -356,7 +356,8 @@ export async function fetchAlerts(
             studentId: r.student_id,
             studentName: st.name,
             groupName,
-            detail: t('notifications.alert.studentLine', { name: st.name }),
+            // لا detail هنا (3A-384 — ٥-ح): سطر «الطالب: {name}» كان
+            // يكرر الاسم الموجود أصلاً في نص التنبيه نفسه
             waUrl: waUrlFor(st, contacts.get(r.student_id), (g) =>
               t('notifications.alert.prepaidDepletedWa', { guardian: g, name: st.name, group: groupName }),
             ),

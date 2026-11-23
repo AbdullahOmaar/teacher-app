@@ -16,8 +16,7 @@ export const notifications = {
     absenceDetail: 'غياب متكرر — يستحق متابعة مع ولي الأمر',
     absenceWa:
       'أهلاً {guardian}، نلاحظ تكرار غياب الطالب {name} — تغيّب {count} مرات خلال آخر {days} يوم. نرجو المتابعة معنا، وشكراً لكم.',
-    prepaidDepleted: '({group}): باقة {name} نفدت',
-    studentLine: 'الطالب: {name}',
+    prepaidDepleted: '{group} — باقة {name} نفدت',
     prepaidDepletedWa:
       'أهلاً {guardian}، نذكّركم إن باقة الطالب {name} في مجموعة {group} خلصت، ونحتاج تجديدها قبل الحصة الجاية بإذن الله.',
     prepaidLowWa:
@@ -42,7 +41,6 @@ export const notifications = {
     waReminder: 'تذكير واتساب',
     sendGrade: 'إرسال الدرجة',
     noGuardianPhone: 'لا رقم ولي أمر',
-    tapToGo: 'اضغط للانتقال ›',
     hideDetails: 'إخفاء التفاصيل',
     showInvoices: 'عرض الفواتير المستحقة ({count})',
     showStudents: 'عرض الطلاب ({count})',

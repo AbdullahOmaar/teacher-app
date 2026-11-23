@@ -58,9 +58,9 @@ function WaButton({ url, label = t('notifications.page.waDefault') }: { url: str
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="shrink-0 inline-flex items-center justify-center gap-1.5 text-[13.5px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-3 min-h-[48px] no-underline"
+      className="shrink-0 inline-flex items-center justify-center gap-1 text-[12.5px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2.5 min-h-[36px] no-underline"
     >
-      <MessageCircle size={20} />
+      <MessageCircle size={16} />
       {label}
     </a>
   )
@@ -68,8 +68,8 @@ function WaButton({ url, label = t('notifications.page.waDefault') }: { url: str
 
 /**
  * صف تنبيه واحد: النص والوجهة من عقد getAlerts نفسه (§5.7)، والضغط على
- * جسم الصف ينتقل للوجهة («اضغط للانتقال» §3.13). الإجراءات الإضافية:
- * زر واتساب برسالة نوع التنبيه لولي الأمر (حيث ينطبق)، وتفاصيل قابلة
+ * جسم الصف ينتقل للوجهة. الإجراءات الإضافية في عمود الطرف: زر واتساب
+ * صغير برسالة نوع التنبيه لولي الأمر (حيث ينطبق)، وتفاصيل قابلة
  * للفتح: فواتير الطالب المستحقة (fin) أو الطلاب المنخفضون (grade).
  */
 function AlertRow({ alert, index = 0 }: { alert: AppAlert; index?: number }) {
@@ -81,30 +81,39 @@ function AlertRow({ alert, index = 0 }: { alert: AppAlert; index?: number }) {
 
   return (
     <Card className="mb-2 rise-in" style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}>
+      {/* (3A-384 — قاعدة المالك ٦-٧): الأزرار الصغيرة تدخل في سطر
+          المحتوى نفسه — زر الواتساب (صغُر جداً) وزر فتح التفاصيل في
+          عمود الطرف المقابل للنص، وسطر «اضغط للانتقال» أُزيل (جسم
+          البطاقة كله رابط أصلاً) */}
       <div className="flex items-start gap-2">
         <Link to={alert.to} className="flex-1 min-w-0 no-underline text-text">
           <div className="font-semibold text-[16px] leading-[1.7]">{alert.text}</div>
           {alert.detail && <div className="text-muted text-[13.5px] mt-0.5">{alert.detail}</div>}
-          <div className="text-primary text-[13.5px] font-semibold mt-1">{t('notifications.page.tapToGo')}</div>
         </Link>
-        {alert.waUrl && <WaButton url={alert.waUrl} label={t('notifications.page.waReminder')} />}
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          {alert.waUrl && <WaButton url={alert.waUrl} label={t('notifications.page.waReminder')} />}
+          {expandable && (
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+              className="inline-flex items-center gap-1 text-[12.5px] font-bold text-primary bg-soft border border-primary/20 rounded-full px-2.5 min-h-[36px] cursor-pointer"
+            >
+              {open
+                ? t('notifications.page.hideDetails')
+                : hasInvoices
+                  ? t('notifications.page.showInvoices', { count: alert.invoices!.length })
+                  : hasPrepaid
+                    ? t('notifications.page.showStudents', { count: alert.prepaidMembers!.length })
+                    : t('notifications.page.showStudents', { count: alert.lowStudents!.length })}
+              {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            </button>
+          )}
+        </div>
       </div>
 
       {expandable && (
         <>
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="mt-2 inline-flex items-center text-[13.5px] font-bold text-primary bg-soft border border-primary/20 rounded-full px-3 min-h-[48px] cursor-pointer"
-          >
-            {open
-              ? t('notifications.page.hideDetails')
-              : hasInvoices
-                ? t('notifications.page.showInvoices', { count: alert.invoices!.length })
-                : hasPrepaid
-                  ? t('notifications.page.showStudents', { count: alert.prepaidMembers!.length })
-                  : t('notifications.page.showStudents', { count: alert.lowStudents!.length })}
-          </button>
           {open && hasInvoices && (
             <div className="mt-2 border-t border-border pt-1">
               {alert.invoices!.map((inv) => (
