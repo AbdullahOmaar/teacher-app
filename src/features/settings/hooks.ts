@@ -8,9 +8,12 @@ import {
   buildCsvFile,
   downloadTextFile,
   fetchWhatsappConfig,
+  fetchWhatsappMessageLog,
+  fetchWhatsappTemplates,
   importBackup,
   quickImportStudents,
   removeBrandLogo,
+  sendWhatsappMessage,
   sendWhatsappTest,
   setWhatsappToken,
   touchLastExportAt,
@@ -19,11 +22,14 @@ import {
   updateTeacherSettings,
   uploadBrandLogo,
   upsertWhatsappConfig,
+  upsertWhatsappTemplate,
   type BackupFile,
   type CsvKind,
   type TeacherSettingsInput,
   type WhatsappConfigInput,
+  type WhatsappTemplateInput,
 } from './api'
+import type { WhatsappMessageKind } from './whatsappTemplates'
 import { confirmPhoneLink, requestPhoneLink } from '../auth/api'
 
 /** كل مفاتيح وحدة الإعدادات/التصدير تبدأ بـ 'settings' */
@@ -131,6 +137,48 @@ export function useSendWhatsappTest(teacherId: string) {
     mutationFn: () => sendWhatsappTest(teacherId),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: [SETTINGS, 'whatsapp-config', teacherId] })
+    },
+  })
+}
+
+/** سجل قوالب رسائل أولياء الأمور (0045) — قسم «واتساب» فقط */
+export function useWhatsappTemplates(teacherId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: [SETTINGS, 'whatsapp-templates', teacherId],
+    enabled: Boolean(teacherId) && enabled,
+    queryFn: () => fetchWhatsappTemplates(teacherId!),
+  })
+}
+
+/** حفظ حالة قالب نوع واحد — يحدّث كاش السجل بالصف الجديد */
+export function useUpsertWhatsappTemplate(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { kind: WhatsappMessageKind; data: WhatsappTemplateInput }) =>
+      upsertWhatsappTemplate(teacherId, input.kind, input.data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [SETTINGS, 'whatsapp-templates', teacherId] })
+    },
+  })
+}
+
+/** أحدث رسائل واتساب (سجل 0045 — قراءة للمالك فقط) */
+export function useWhatsappMessageLog(teacherId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: [SETTINGS, 'whatsapp-message-log', teacherId],
+    enabled: Boolean(teacherId) && enabled,
+    queryFn: () => fetchWhatsappMessageLog(teacherId!),
+  })
+}
+
+/** إرسال رسالة تجريبية (قالب Utility) — بعده نبطّل سجل الرسائل */
+export function useSendWhatsappMessage(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { kind: WhatsappMessageKind; toPhone: string; params: string[] }) =>
+      sendWhatsappMessage(teacherId, input.kind, input.toPhone, input.params),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [SETTINGS, 'whatsapp-message-log', teacherId] })
     },
   })
 }

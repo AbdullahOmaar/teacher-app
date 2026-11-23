@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check, CheckCircle2, MessageCircle, Save } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { Field, FormError, TextInput } from '../../components/ui/form'
+import { Field, FormError, Select, TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/useAuth'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { normalizeEgyptianPhone } from '../../lib/phone'
@@ -10,12 +10,47 @@ import { formatDateTimeAr } from '../../lib/format'
 import {
   useConfirmPhoneLink,
   useRequestPhoneLink,
+  useSendWhatsappMessage,
   useSendWhatsappTest,
   useSetWhatsappToken,
   useUpsertWhatsappConfig,
+  useUpsertWhatsappTemplate,
   useWhatsappConfig,
+  useWhatsappMessageLog,
+  useWhatsappTemplates,
 } from './hooks'
+import {
+  MESSAGE_STATUS_KEYS,
+  OPT_IN_PIECE_KEYS,
+  TEMPLATE_STATUS_KEYS,
+  WHATSAPP_TEMPLATE_CATALOG,
+  isWhatsappMessageKind,
+  isWhatsappMessageStatus,
+  isWhatsappTemplateStatus,
+  missingOptInPieces,
+  templateDef,
+  type WhatsappMessageKind,
+  type WhatsappMessageStatus,
+  type WhatsappTemplateStatus,
+} from './whatsappTemplates'
 import { t } from '../../i18n'
+
+interface TemplateForm {
+  name: string
+  lang: string
+  status: WhatsappTemplateStatus
+}
+
+/** إخفاء رقم المستلم في سجل الرسائل (نفس قاعدة دوال Edge: آخر رقمين) */
+function maskPhoneDisplay(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length <= 2) return '**'
+  return '*'.repeat(digits.length - 2) + digits.slice(-2)
+}
+
+function logStatusOf(status: string): WhatsappMessageStatus {
+  return isWhatsappMessageStatus(status) ? status : 'queued'
+}
 
 /**
  * بطاقة «واتساب» في الإعدادات (3A-300 — النموذج الاختياري per-teacher،
@@ -45,6 +80,10 @@ export function WhatsAppSettingsCard() {
   const sendTest = useSendWhatsappTest(teacherId)
   const requestLink = useRequestPhoneLink()
   const confirmLink = useConfirmPhoneLink()
+  const templatesQ = useWhatsappTemplates(teacherId || undefined, isOwner && Boolean(teacherId))
+  const upsertTemplate = useUpsertWhatsappTemplate(teacherId)
+  const messageLogQ = useWhatsappMessageLog(teacherId || undefined, isOwner && Boolean(teacherId))
+  const sendMessage = useSendWhatsappMessage(teacherId)
 
   // حقول النموذج — تُملأ من الصف المحفوظ مرة عند وصوله (أو عند تبديل السنتر)
   const [enabled, setEnabled] = useState(false)
@@ -66,7 +105,17 @@ export function WhatsAppSettingsCard() {
   const [linkStep, setLinkStep] = useState<'phone' | 'code'>('phone')
   const [linkE164, setLinkE164] = useState('')
 
+  // قوالب الرسائل (0045): تعديلات محلية فوق قيم السجل المحفوظة —
+  // القيم الفعالة تُشتق وقت العرض (لا مزامنة حالة داخل effect)،
+  // والتعديلات مربوطة بمعرّف السنتر حتى لا تتسرب بين السناتر
+  const [templateEdits, setTemplateEdits] = useState<{
+    forTeacher: string
+    map: Partial<Record<WhatsappMessageKind, Partial<TemplateForm>>>
+  }>({ forTeacher: '', map: {} })
+  const [testKind, setTestKind] = useState<WhatsappMessageKind>('arrival_notice')
+
   const config = configQ.data ?? null
+  const teacherPhone = teacher.status === 'ready' ? (teacher.teacher?.phone ?? '') : ''
 
   useEffect(() => {
     if (!configQ.data || hydratedFor === teacherId) return
@@ -78,10 +127,29 @@ export function WhatsAppSettingsCard() {
     setHydratedFor(teacherId)
   }, [configQ.data, hydratedFor, teacherId])
 
+  const savedTemplateForm = (
+    def: (typeof WHATSAPP_TEMPLATE_CATALOG)[number],
+  ): TemplateForm => {
+    const row = templatesQ.data?.find((r) => r.kind === def.kind)
+    return {
+      name: row?.template_name || def.defaultName,
+      lang: row?.language || 'ar',
+      status: row && isWhatsappTemplateStatus(row.status) ? row.status : 'unknown',
+    }
+  }
+  const templateFormFor = (
+    def: (typeof WHATSAPP_TEMPLATE_CATALOG)[number],
+  ): TemplateForm => ({
+    ...savedTemplateForm(def),
+    ...(templateEdits.forTeacher === teacherId ? (templateEdits.map[def.kind] ?? {}) : {}),
+  })
+
   if (!isOwner || !teacherId) return null
 
   const tokenSaved = Boolean(config?.token_updated_at)
   const configComplete = Boolean(config?.enabled && config?.phone_number_id && tokenSaved)
+  // قطع التفعيل الناقصة من حالة النموذج الحالية (بوابة opt-in الصريحة)
+  const missingPieces = missingOptInPieces({ phoneNumberId, tokenSaved })
   const statusText = !config
     ? t('settings.waStatusNotConfigured')
     : configComplete
@@ -92,6 +160,20 @@ export function WhatsAppSettingsCard() {
     setMsg(null)
     setFormError(null)
     try {
+      if (enabled && missingPieces.length > 0) {
+        // تفعيل بلا تهيئة مكتملة: تُحفَظ الحقول وحدها ويبقى التفعيل
+        // مطفأً مع شرح الناقص — لا حالة «مفعّل» كاذبة تُحفَظ صامتاً
+        await upsert.mutateAsync({
+          enabled: false,
+          phone_number_id: phoneNumberId,
+          waba_id: wabaId,
+          template_name: templateName,
+          template_language: templateLang,
+        })
+        setEnabled(false)
+        setMsg(t('settings.waEnableNotSaved'))
+        return
+      }
       await upsert.mutateAsync({
         enabled,
         phone_number_id: phoneNumberId,
@@ -142,6 +224,55 @@ export function WhatsAppSettingsCard() {
       setMsg(t('settings.waTestSentMsg'))
     } catch (err) {
       setFormError(err instanceof Error ? err.message : t('settings.waTestFailed'))
+    }
+  }
+
+  const setTemplateForm = (kind: WhatsappMessageKind, patch: Partial<TemplateForm>) => {
+    setTemplateEdits((prev) => {
+      const base = prev.forTeacher === teacherId ? prev.map : {}
+      return {
+        forTeacher: teacherId,
+        map: { ...base, [kind]: { ...(base[kind] ?? {}), ...patch } },
+      }
+    })
+  }
+
+  const handleSaveTemplates = async () => {
+    setMsg(null)
+    setFormError(null)
+    try {
+      // حفظ الأنواع المعدّلة فقط — الأنواع البكر لا تُنشئ صفوفاً عبثاً
+      for (const def of WHATSAPP_TEMPLATE_CATALOG) {
+        const form = templateFormFor(def)
+        const saved = savedTemplateForm(def)
+        if (form.name === saved.name && form.lang === saved.lang && form.status === saved.status) {
+          continue
+        }
+        await upsertTemplate.mutateAsync({
+          kind: def.kind,
+          data: { template_name: form.name, language: form.lang, status: form.status },
+        })
+      }
+      setTemplateEdits({ forTeacher: teacherId, map: {} })
+      setMsg(t('settings.waMsgSavedMsg'))
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : t('settings.waSaveFailed'))
+    }
+  }
+
+  const handleSendMessageTest = async () => {
+    setMsg(null)
+    setFormError(null)
+    const def = templateDef(testKind)
+    try {
+      await sendMessage.mutateAsync({
+        kind: testKind,
+        toPhone: teacherPhone,
+        params: def.paramSampleKeys.map((k) => t(k)),
+      })
+      setMsg(t('settings.waMsgTestSentMsg'))
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : t('settings.waMsgTestFailed'))
     }
   }
 
@@ -251,6 +382,16 @@ export function WhatsAppSettingsCard() {
               <span className="text-[14.5px] font-semibold">{t('settings.waEnabledLabel')}</span>
             </label>
             <p className="text-muted text-[12.5px] mt-0 mb-0">{t('settings.waEnabledHint')}</p>
+            {enabled && missingPieces.length > 0 && (
+              <div className="text-[13px] bg-soft rounded-xl px-3 py-2">
+                <p className="mt-0 mb-1 font-semibold">{t('settings.waEnableMissingTitle')}</p>
+                <ul className="list-disc ps-5 mt-0 mb-0">
+                  {missingPieces.map((piece) => (
+                    <li key={piece}>{t(OPT_IN_PIECE_KEYS[piece])}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
           <Button onClick={handleSave} disabled={upsert.isPending} className="mb-5">
             <Save size={18} />
@@ -366,6 +507,136 @@ export function WhatsAppSettingsCard() {
               {!configComplete && (
                 <p className="text-muted text-[12.5px] mt-2 mb-0">{t('settings.waLinkNeedsConfig')}</p>
               )}
+            </>
+          )}
+
+          {/* ٦) إشعارات أولياء الأمور — قوالب Utility + سجل الرسائل (0045) */}
+          <h3 className="type-section mt-6 mb-2 text-[15px]">{t('settings.waMsgTitle')}</h3>
+          <p className="text-muted text-[13px] mt-0 mb-2">{t('settings.waMsgIntro')}</p>
+          <p className="text-muted text-[12.5px] mt-0 mb-3">{t('settings.waMsgVarsNote')}</p>
+          {templatesQ.isLoading ? (
+            <p className="text-muted text-[13.5px] mb-0">{t('settings.waLoading')}</p>
+          ) : (
+            <>
+              <div className="grid gap-3 mb-3">
+                {WHATSAPP_TEMPLATE_CATALOG.map((def) => {
+                  const form = templateFormFor(def)
+                  return (
+                    <div key={def.kind} className="border border-border rounded-xl p-3">
+                      <p className="mt-0 mb-1 font-semibold text-[14px]">{t(def.labelKey)}</p>
+                      <p className="text-[13px] bg-soft rounded-lg px-2 py-1.5 mt-0 mb-2">
+                        {t(def.bodyKey)}
+                      </p>
+                      <p className="text-muted text-[12px] mt-0 mb-2">
+                        {def.paramLabelKeys.map((k, i) => `${i + 1}- ${t(k)}`).join(' · ')}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <Field label={t('settings.waMsgNameLabel')}>
+                          <TextInput
+                            dir="ltr"
+                            value={form.name}
+                            onChange={(e) => setTemplateForm(def.kind, { name: e.target.value })}
+                            autoComplete="off"
+                          />
+                        </Field>
+                        <Field label={t('settings.waMsgLangLabel')}>
+                          <TextInput
+                            dir="ltr"
+                            value={form.lang}
+                            onChange={(e) => setTemplateForm(def.kind, { lang: e.target.value })}
+                            autoComplete="off"
+                          />
+                        </Field>
+                      </div>
+                      <Field label={t('settings.waMsgStatusLabel')}>
+                        <Select
+                          value={form.status}
+                          onChange={(e) => {
+                            if (isWhatsappTemplateStatus(e.target.value)) {
+                              setTemplateForm(def.kind, { status: e.target.value })
+                            }
+                          }}
+                        >
+                          {(Object.keys(TEMPLATE_STATUS_KEYS) as WhatsappTemplateStatus[]).map(
+                            (s) => (
+                              <option key={s} value={s}>
+                                {t(TEMPLATE_STATUS_KEYS[s])}
+                              </option>
+                            ),
+                          )}
+                        </Select>
+                      </Field>
+                    </div>
+                  )
+                })}
+              </div>
+              <Button
+                variant="soft"
+                onClick={handleSaveTemplates}
+                disabled={upsertTemplate.isPending}
+                className="mb-5"
+              >
+                {upsertTemplate.isPending ? t('settings.waMsgSaving') : t('settings.waMsgSave')}
+              </Button>
+
+              <div className="flex flex-wrap items-end gap-2 mb-5">
+                <div className="grow min-w-[180px]">
+                  <Field label={t('settings.waMsgTestKindLabel')}>
+                    <Select
+                      value={testKind}
+                      onChange={(e) => {
+                        if (isWhatsappMessageKind(e.target.value)) setTestKind(e.target.value)
+                      }}
+                    >
+                      {WHATSAPP_TEMPLATE_CATALOG.map((def) => (
+                        <option key={def.kind} value={def.kind}>
+                          {t(def.labelKey)}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+                <Button
+                  variant="soft"
+                  onClick={handleSendMessageTest}
+                  disabled={
+                    !configComplete ||
+                    !teacherPhone ||
+                    templateFormFor(templateDef(testKind)).status !== 'ready' ||
+                    sendMessage.isPending
+                  }
+                >
+                  {sendMessage.isPending ? t('settings.waMsgTestSending') : t('settings.waMsgTestSend')}
+                </Button>
+              </div>
+
+              <h3 className="type-section mt-0 mb-2 text-[15px]">{t('settings.waLogTitle')}</h3>
+              {messageLogQ.data && messageLogQ.data.length === 0 && (
+                <p className="text-muted text-[13px] mt-0 mb-0">{t('settings.waLogEmpty')}</p>
+              )}
+              <div className="grid gap-2">
+                {messageLogQ.data?.map((row) => (
+                  <div key={row.id} className="text-[13px] bg-soft rounded-xl px-3 py-2">
+                    <span className="font-semibold">
+                      {isWhatsappMessageKind(row.kind)
+                        ? t(templateDef(row.kind).labelKey)
+                        : row.template_name}
+                    </span>
+                    {' — '}
+                    <span dir="ltr">{maskPhoneDisplay(row.recipient_phone)}</span>
+                    {' — '}
+                    <span>{t(MESSAGE_STATUS_KEYS[logStatusOf(row.status)])}</span>
+                    {' — '}
+                    <span className="text-muted">{formatDateTimeAr(row.created_at)}</span>
+                    {row.status === 'failed' && (row.error_message || row.error_code) && (
+                      <p className="text-muted text-[12.5px] mt-1 mb-0">
+                        {t('settings.waLogErrorLabel')}:{' '}
+                        <span dir="ltr">{row.error_message ?? row.error_code}</span>
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </>
           )}
         </>

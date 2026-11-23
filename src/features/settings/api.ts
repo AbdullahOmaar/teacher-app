@@ -50,8 +50,13 @@ export {
 } from './apiBackup'
 export {
   fetchWhatsappConfig,
+  fetchWhatsappMessageLog,
+  fetchWhatsappTemplates,
+  sendWhatsappMessage,
   sendWhatsappTest,
   setWhatsappToken,
   upsertWhatsappConfig,
+  upsertWhatsappTemplate,
   type WhatsappConfigInput,
+  type WhatsappTemplateInput,
 } from './apiWhatsapp'

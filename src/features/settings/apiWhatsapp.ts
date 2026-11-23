@@ -1,7 +1,12 @@
 import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
 import { friendlyDbError } from '../../lib/supabaseErrors'
-import type { TeacherWhatsappConfigRow } from '../../types/database'
+import type {
+  TeacherWhatsappConfigRow,
+  TeacherWhatsappTemplateRow,
+  WhatsappMessageLogRow,
+} from '../../types/database'
+import type { WhatsappMessageKind, WhatsappTemplateStatus } from './whatsappTemplates'
 
 // ===========================================================================
 // إعدادات واتساب الاختيارية لكل سنتر (الدفعة #7 / 3A-360 — COD-2:
@@ -51,6 +56,18 @@ export async function upsertWhatsappConfig(
   if (!templateName) throw new Error(t('settings.waTemplateNameEmpty'))
   const templateLang = input.template_language.trim()
   if (!templateLang) throw new Error(t('settings.waTemplateLangEmpty'))
+  if (input.enabled) {
+    // بوابة opt-in صريحة (قرار المالك 2026-11-23): التفعيل لا يُحفَظ
+    // صامتاً بلا تهيئة مكتملة — معرّف الرقم + توكن محفوظ شرط، وإلا
+    // رفض واضح هنا أيضاً (دفاع في العمق فوق فحص البطاقة التفصيلي).
+    if (!input.phone_number_id.trim()) throw new Error(t('settings.waEnableBlocked'))
+    const { data: existing } = await db()
+      .from('teacher_whatsapp_config')
+      .select('token_updated_at')
+      .eq('teacher_id', teacherId)
+      .maybeSingle()
+    if (!existing?.token_updated_at) throw new Error(t('settings.waEnableBlocked'))
+  }
   const { data, error } = await db()
     .from('teacher_whatsapp_config')
     .upsert(
@@ -111,4 +128,106 @@ export async function sendWhatsappTest(teacherId: string): Promise<void> {
   if (status === 429) throw new Error(t('settings.waTestRateLimited'))
   if (status === 403) throw new Error(t('settings.waTestNotOwner'))
   throw new Error(t('settings.waTestFailed'))
+}
+
+// ---------------------------------------------------------------------------
+// قوالب رسائل أولياء الأمور وسجل الإرسال (migration ‏0045 — مسار
+// الإرسال الكامل في الكود). القوالب تُنشأ عند Meta؛ هنا سجل أسمائها
+// وحالاتها عند المدرس فقط. سجل الرسائل قراءة فقط من العميل — كتابته
+// لدالتي Edge بالـ service role حصراً (إرسال + Webhook التسليم).
+// ---------------------------------------------------------------------------
+
+const WHATSAPP_TEMPLATES_COLS =
+  'teacher_id, kind, template_name, language, status, created_at, updated_at'
+
+const WHATSAPP_LOG_COLS =
+  'id, teacher_id, kind, template_name, recipient_phone, status, meta_message_id, error_code, error_message, created_at, updated_at'
+
+/** سجل قوالب السنتر (صف لكل نوع أُدخل — الغائب يعني «غير محدّد») */
+export async function fetchWhatsappTemplates(
+  teacherId: string,
+): Promise<TeacherWhatsappTemplateRow[]> {
+  const { data, error } = await db()
+    .from('teacher_whatsapp_templates')
+    .select(WHATSAPP_TEMPLATES_COLS)
+    .eq('teacher_id', teacherId)
+  if (error) throw error
+  return data ?? []
+}
+
+export interface WhatsappTemplateInput {
+  template_name: string
+  language: string
+  status: WhatsappTemplateStatus
+}
+
+/** حفظ اسم/لغة/حالة قالب نوع واحد (upsert بسياسة المالك) */
+export async function upsertWhatsappTemplate(
+  teacherId: string,
+  kind: WhatsappMessageKind,
+  input: WhatsappTemplateInput,
+): Promise<TeacherWhatsappTemplateRow> {
+  const { data, error } = await db()
+    .from('teacher_whatsapp_templates')
+    .upsert(
+      {
+        teacher_id: teacherId,
+        kind,
+        template_name: input.template_name.trim(),
+        language: input.language.trim() || 'ar',
+        status: input.status,
+      },
+      { onConflict: 'teacher_id,kind' },
+    )
+    .select(WHATSAPP_TEMPLATES_COLS)
+    .single()
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+  return data
+}
+
+/** أحدث رسائل واتساب للسنتر (الأحدث أولاً) */
+export async function fetchWhatsappMessageLog(
+  teacherId: string,
+  limit = 10,
+): Promise<WhatsappMessageLogRow[]> {
+  const { data, error } = await db()
+    .from('whatsapp_message_log')
+    .select(WHATSAPP_LOG_COLS)
+    .eq('teacher_id', teacherId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data ?? []
+}
+
+/**
+ * إرسال رسالة قالب Utility عبر دالة send-whatsapp-message (نفس نمط
+ * ترجمة أخطاء sendWhatsappTest: 503 منصة/422 إعداد أو قالب/403 ملكية/
+ * 502 ‏Graph). جسم خطأ الدالة يُقرأ لتمييز «القالب غير جاهز» برمزه.
+ */
+export async function sendWhatsappMessage(
+  teacherId: string,
+  kind: WhatsappMessageKind,
+  toPhone: string,
+  params: string[],
+): Promise<void> {
+  const { error } = await db().functions.invoke('send-whatsapp-message', {
+    body: { teacher_id: teacherId, kind, to: toPhone, params },
+  })
+  if (!error) return
+  const invokeErr = error as FunctionInvokeError
+  let status = 0
+  let responseBody = ''
+  if (invokeErr.context) {
+    status = invokeErr.context.status
+    // استهلاك جسم الرد يمنع تسريب اتصال معلّق في بعض المتصفحات
+    responseBody = await invokeErr.context.text().catch(() => '')
+  }
+  if (status === 503) throw new Error(t('settings.waMsgTestPlatformDisabled'))
+  if (status === 422 && responseBody.includes('template_not_ready')) {
+    throw new Error(t('settings.waMsgTestTemplateNotReady'))
+  }
+  if (status === 422) throw new Error(t('settings.waMsgTestIncomplete'))
+  if (status === 403) throw new Error(t('settings.waTestNotOwner'))
+  throw new Error(t('settings.waMsgTestFailed'))
 }
