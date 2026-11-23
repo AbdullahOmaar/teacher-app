@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../../i18n'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Card } from '../../components/ui/Card'
-import { Building2, Lock, Pin, Plus, Wallet } from 'lucide-react'
+import { Building2, Lock, Pencil, Pin, Plus, Trash2, Wallet } from 'lucide-react'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -347,39 +347,48 @@ export function MoneyPage() {
                 </StickyGroupHeader>
                 {g.items.map((exp) => (
                   <Card key={exp.id} className="rise-in" style={{ animationDelay: '90ms' }}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="font-bold text-[15px]">{exp.category}</div>
-                    <div className="text-muted text-[13.5px] mt-0.5">
-                      {formatDateLabel(exp.expense_date)}
-                      {exp.note ? ` · ${exp.note}` : ''}
-                    </div>
+                {/* بطاقة مصروف مضغوطة (3A-384 — ملاحظات المالك ٥-ز/٦-٢):
+                    تاريخ اليوم في رأس المجموعة اللاصق فلا يتكرر داخل
+                    البطاقة، والتعديل/الحذف أيقونتان صغيرتان في الطرف
+                    بدل صفّ زرّين بعرض البطاقة */}
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-[15px] truncate" title={exp.category}>{exp.category}</div>
+                    {exp.note && (
+                      <div className="text-muted text-[13.5px] mt-0.5 text-balance">
+                        {exp.note}
+                      </div>
+                    )}
                   </div>
                   <b className="text-bad-text text-[15px] shrink-0" dir="ltr">
                     {formatMoney(exp.amount)}
                   </b>
-                </div>
-                <div className="flex gap-2 mt-2">
-                  <Button
-                    variant="soft"
-                    className="flex-1 min-h-[48px] text-[13.5px]"
-                    onClick={() => setExpenseSheet({ mode: 'edit', expense: exp })}
-                  >
-                    {t('money.edit')}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="flex-1 min-h-[48px] text-[13.5px] text-bad-text border-bad/40"
-                    disabled={delExpense.isPending}
-                    onClick={() =>
-                      delExpense.mutate(exp.id, {
-                        onSuccess: () => toast(t('money.expenseDeletedToast')),
-                        onError: () => toast(t('money.deleteErrorToast')),
-                      })
-                    }
-                  >
-                    {t('money.delete')}
-                  </Button>
+                  <div className="flex shrink-0 -mt-1.5 -me-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setExpenseSheet({ mode: 'edit', expense: exp })}
+                      aria-label={t('money.edit')}
+                      title={t('money.edit')}
+                      className="w-10 h-10 flex items-center justify-center bg-transparent border-0 cursor-pointer text-primary"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={delExpense.isPending}
+                      onClick={() =>
+                        delExpense.mutate(exp.id, {
+                          onSuccess: () => toast(t('money.expenseDeletedToast')),
+                          onError: () => toast(t('money.deleteErrorToast')),
+                        })
+                      }
+                      aria-label={t('money.delete')}
+                      title={t('money.delete')}
+                      className="w-10 h-10 flex items-center justify-center bg-transparent border-0 cursor-pointer text-bad-text disabled:opacity-40"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
                   </Card>
                 ))}
@@ -405,38 +414,44 @@ export function MoneyPage() {
           ) : (
             templates.map((tpl, i) => (
               <Card key={tpl.id} className="rise-in" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="font-bold text-[15px]">{tpl.category}</div>
-                    <div className="text-muted text-[13.5px] mt-0.5">
+                {/* نفس نمط بطاقة المصروف (3A-384): أيقونتا تعديل/حذف
+                    صغيرتان في الطرف بدل صفّ أزرار بعرض البطاقة */}
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-[15px] truncate" title={tpl.category}>{tpl.category}</div>
+                    <div className="text-muted text-[13.5px] mt-0.5 text-balance">
                       {t('money.monthly')}{tpl.note ? ` · ${tpl.note}` : ''}
                     </div>
                   </div>
                   <b className="text-[15px] shrink-0" dir="ltr">
                     {formatMoney(tpl.amount)}
                   </b>
-                </div>
-                <div className="flex gap-2 mt-2">
-                  <Button
-                    variant="soft"
-                    className="flex-1 min-h-[48px] text-[13.5px]"
-                    onClick={() => setRecurringSheet({ mode: 'edit', template: tpl })}
-                  >
-                    {t('money.edit')}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="flex-1 min-h-[48px] text-[13.5px] text-bad-text border-bad/40"
-                    disabled={delRecurring.isPending}
-                    onClick={() =>
-                      delRecurring.mutate(tpl.id, {
-                        onSuccess: () => toast(t('money.templateDeletedToast')),
-                        onError: () => toast(t('money.deleteErrorToast')),
-                      })
-                    }
-                  >
-                    {t('money.deleteTemplate')}
-                  </Button>
+                  <div className="flex shrink-0 -mt-1.5 -me-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setRecurringSheet({ mode: 'edit', template: tpl })}
+                      aria-label={t('money.edit')}
+                      title={t('money.edit')}
+                      className="w-10 h-10 flex items-center justify-center bg-transparent border-0 cursor-pointer text-primary"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={delRecurring.isPending}
+                      onClick={() =>
+                        delRecurring.mutate(tpl.id, {
+                          onSuccess: () => toast(t('money.templateDeletedToast')),
+                          onError: () => toast(t('money.deleteErrorToast')),
+                        })
+                      }
+                      aria-label={t('money.deleteTemplate')}
+                      title={t('money.deleteTemplate')}
+                      className="w-10 h-10 flex items-center justify-center bg-transparent border-0 cursor-pointer text-bad-text disabled:opacity-40"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               </Card>
             ))
