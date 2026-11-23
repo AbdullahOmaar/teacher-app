@@ -93,7 +93,9 @@ function HwToggle({
       disabled={disabled}
       onClick={onToggle}
       title={done ? t('homework.toggleTitleDone') : t('homework.toggleTitleNotDone')}
-      className={`shrink-0 min-h-[48px] px-3.5 rounded-full border text-[13.5px] font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+      /* (3A-651 — ملاحظة المالك ٥): chip صغير بسيط (36px) بدل البيضاوي
+         العملاق 48px الذي هيمن على كل صف في لقطة «سلّم الواجب» */
+      className={`shrink-0 min-h-[36px] px-3 rounded-full border text-[13.5px] font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
         done
           ? 'bg-ok-soft text-ok-text border-ok/40'
           : 'bg-card text-muted border-border hover:bg-soft'
@@ -385,27 +387,31 @@ export function HomeworkPage() {
           i > 0 ? 'border-t border-border' : ''
         } ${active ? 'bg-soft' : 'bg-card hover:bg-soft'}`}
       >
-        <span className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-[15px]">
+        {/* (3A-651 — نمط الصف المنظّم): ترويسة بلا flex-wrap — شارة
+            النسبة كانت تسقط لسطر ثانٍ وحدها عند اجتماع تاريخ طويل مع
+            شارة نوع (لقطة المالك: صف «إضافية»). الآن خانة ختامية ثابتة:
+            التاريخ وشارات النوع لا تنضغط، والشارة في طرفها دائمًا */}
+        <span className="flex items-center gap-2">
+          <span className="font-semibold text-[15px] whitespace-nowrap">
             {formatDateLabel(s.session_date)}
           </span>
           {s.session_date > today && (
-            <span className="text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5">
+            <span className="shrink-0 whitespace-nowrap text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5">
               {t('homework.upcomingBadge')}
             </span>
           )}
           {s.kind === 'extra' && (
-            <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">{t('homework.kindExtra')}</span>
+            <span className="shrink-0 whitespace-nowrap text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">{t('homework.kindExtra')}</span>
           )}
           {s.kind === 'moved' && (
-            <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">{t('homework.kindMoved')}</span>
+            <span className="shrink-0 whitespace-nowrap text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">{t('homework.kindMoved')}</span>
           )}
           {s.status === 'cancelled' && (
-            <span className="text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">{t('homework.kindCancelled')}</span>
+            <span className="shrink-0 whitespace-nowrap text-[12px] font-bold bg-muted/15 text-muted border border-border rounded-full px-2 py-0.5">{t('homework.kindCancelled')}</span>
           )}
           {sum && sum.rate != null && (
             <span
-              className={`ms-auto text-[12px] font-bold rounded-full px-2 py-0.5 border ${
+              className={`ms-auto shrink-0 whitespace-nowrap text-[12px] font-bold rounded-full px-2 py-0.5 border ${
                 sum.rate >= 80
                   ? 'bg-ok-soft text-ok-text border-ok/30'
                   : 'bg-warn-soft text-warn-text border-warn/40'
