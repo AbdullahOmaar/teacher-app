@@ -13,6 +13,7 @@
 
 التشغيل: npm run test:authz
 """
+import base64
 import hashlib
 import json
 import os
@@ -20,6 +21,8 @@ import re
 import secrets
 import subprocess
 import sys
+import tempfile
+import uuid
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HELPER = os.path.expanduser(
@@ -101,6 +104,51 @@ def rest(url, anon, method, path, jwt=None, body=None, expect_json=True):
         return status, json.loads(raw)
     except json.JSONDecodeError:
         return status, {"raw": raw[:200]}
+
+
+def storage_upload(url, anon, path, content_type, data):
+    """رفع Storage خام عبر curl (لبايتات غير JSON) — يرجع (status, body)."""
+    fd, tmp = tempfile.mkstemp()
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+        args = [
+            "curl", "-sS", "--retry", "3", "--retry-all-errors", "--max-time", "60",
+            "-X", "POST",
+            "-H", f"apikey: {anon}",
+            "-H", f"Authorization: Bearer {anon}",
+            "-H", f"Content-Type: {content_type}",
+            "--data-binary", f"@{tmp}",
+            "-w", "\n%{http_code}",
+            f"{url}/storage/v1/object/payment-proofs/{path}",
+        ]
+        out = subprocess.run(args, capture_output=True, text=True, timeout=120)
+        if out.returncode != 0:
+            raise RuntimeError(f"curl failed: {out.stderr.strip()[:200]}")
+        raw, _, code = out.stdout.rpartition("\n")
+        return int(code), raw[:300]
+    finally:
+        os.unlink(tmp)
+
+
+def storage_delete(url, anon, jwt, path):
+    """حذف كائن Storage عبر API (الحذف المباشر من storage.objects محظور
+    بخادم Supabase نفسه — storage.protect_delete)."""
+    args = [
+        "curl", "-sS", "--retry", "3", "--retry-all-errors", "--max-time", "60",
+        "-X", "DELETE",
+        "-H", f"apikey: {anon}",
+        "-H", f"Authorization: Bearer {jwt}",
+        "-H", "Content-Type: application/json",
+        "-d", json.dumps({"prefixes": [path]}),
+        "-w", "\n%{http_code}",
+        f"{url}/storage/v1/object/payment-proofs",
+    ]
+    out = subprocess.run(args, capture_output=True, text=True, timeout=120)
+    if out.returncode != 0:
+        raise RuntimeError(f"curl failed: {out.stderr.strip()[:200]}")
+    _, _, code = out.stdout.rpartition("\n")
+    return int(code)
 
 
 def sign_in(url, anon, email, password):
@@ -671,6 +719,57 @@ def main():
                             f"where teacher_id = '{demo_teacher}'")
             check("portal account fixtures cleaned",
                   left and int(left[0]["c"]) == 0, f"got {left}")
+
+        # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
+        # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
+        # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد
+        # يُرفضان، ورفع صالح صغير ينجح (ضابط)، ثم تنظيف كامل.
+        print("SEC-L3 STORAGE:")
+        proof_id = str(uuid.uuid4())
+        proof_path = f"{demo_teacher}/{proof_id}.png"
+        try:
+            link_row = sql(
+                ref,
+                "select gs.guardian_id, gs.student_id from "
+                "guardian_students gs join students st "
+                "on st.id = gs.student_id "
+                f"where st.teacher_id = '{demo_teacher}' limit 1",
+            )[0]
+            proof_student = link_row["student_id"]
+            sql(
+                ref,
+                "insert into payment_proofs (id, teacher_id, guardian_id, "
+                "student_id, amount, method, storage_path, status) values "
+                f"('{proof_id}', '{demo_teacher}', "
+                f"'{link_row['guardian_id']}', '{proof_student}', 100, "
+                f"'instapay', '{proof_path}', 'pending')",
+            )
+            s, b = storage_upload(url, anon, proof_path, "text/plain",
+                                  b"not an image at all")
+            check("SEC-L3 wrong mime type rejected server-side",
+                  s == 400, f"got {s} {b[:120]}")
+            s, b = storage_upload(url, anon, proof_path, "image/png",
+                                  b"\x89PNG\r\n\x1a\n" + b"\0" * (5 * 1024 * 1024))
+            check("SEC-L3 oversize rejected server-side",
+                  s == 400, f"got {s} {b[:120]}")
+            tiny_png = base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
+                "+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+            s, b = storage_upload(url, anon, proof_path, "image/png", tiny_png)
+            check("SEC-L3 valid tiny png upload succeeds (control)",
+                  s == 200, f"got {s} {b[:120]}")
+        finally:
+            storage_delete(url, anon, demo_jwt, proof_path)
+            sql(ref, f"delete from payment_proofs where id = '{proof_id}'")
+            left = sql(ref, "select count(*) as c from payment_proofs "
+                            f"where id = '{proof_id}'")
+            left_obj = sql(ref, "select count(*) as c from storage.objects "
+                                "where bucket_id = 'payment-proofs' "
+                                f"and name = '{proof_path}'")
+            check("SEC-L3 fixtures cleaned",
+                  left and int(left[0]["c"]) == 0
+                  and left_obj and int(left_obj[0]["c"]) == 0,
+                  f"got rows={left} objects={left_obj}")
     finally:
         # ---------- cleanup ----------
         ids = [u for u in (other_uid, asst_uid, self_uid) if u]
