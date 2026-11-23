@@ -751,20 +751,14 @@ export function AttendancePage() {
                             </div>
                             )}
                           </div>
-                          <button
-                            type="button"
-                            disabled={cancelled}
-                            onClick={() => changeValue(st.id, { starred: !v.starred })}
-                            className="shrink-0 w-12 h-12 flex items-center justify-center bg-transparent border-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                            title={v.starred ? t('attendance.starUnmarkTitle') : t('attendance.starMark')}
-                            aria-label={v.starred ? t('attendance.starUnmarkAria') : t('attendance.starMark')}
-                          >
-                            <Star
-                              size={24}
-                              className={v.starred ? 'text-accent' : 'text-muted'}
-                              fill={v.starred ? 'currentColor' : 'none'}
-                            />
-                          </button>
+                          {/* (3A-651 — ملاحظة المالك ٩ بنصها: «خلي النجمه هي
+                              الي علي الشمال ويمكنها زرار تسجيل خروج ومتعملش
+                              المسافه الكبيرة دي»): عنقود الحافة اليسرى —
+                              الانصراف أولًا في DOM ثم النجمة، ففي RTL تظهر
+                              النجمة أقصى اليسار وزر الانصراف ملاصقًا لها
+                              على يمينها مباشرة، والزرّان صغيران (36px)
+                              بلا فجوة بينهما بدل صندوقي 48px متباعدين */}
+                          <div className="flex items-center shrink-0 -ms-1.5">
                           {/* تسجيل الانصراف: أيقونة صغيرة بجانب النجمة
                               (3A-384 — ملاحظة المالك ٢-ج) بدل زر عريض
                               تحت الصف. الضبط يولّد تنبيه «غادر» في بوابة
@@ -776,24 +770,39 @@ export function AttendancePage() {
                                 type="button"
                                 disabled={cancelled || clearLeftMut.isPending}
                                 onClick={() => toggleLeft(st.id)}
-                                className="shrink-0 w-12 h-12 flex items-center justify-center bg-transparent border-0 cursor-pointer text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="shrink-0 w-9 h-9 flex items-center justify-center bg-transparent border-0 cursor-pointer text-primary disabled:opacity-40 disabled:cursor-not-allowed"
                                 title={t('attendance.undo')}
                                 aria-label={t('attendance.undo')}
                               >
-                                <Undo2 size={22} />
+                                <Undo2 size={20} />
                               </button>
                             ) : (
                               <button
                                 type="button"
                                 disabled={cancelled || !online || markLeftMut.isPending}
                                 onClick={() => toggleLeft(st.id)}
-                                className="shrink-0 w-12 h-12 flex items-center justify-center bg-transparent border-0 cursor-pointer text-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="shrink-0 w-9 h-9 flex items-center justify-center bg-transparent border-0 cursor-pointer text-muted disabled:opacity-40 disabled:cursor-not-allowed"
                                 title={t('attendance.markLeft')}
                                 aria-label={t('attendance.markLeft')}
                               >
-                                <LogOut size={22} />
+                                <LogOut size={20} />
                               </button>
                             ))}
+                          <button
+                            type="button"
+                            disabled={cancelled}
+                            onClick={() => changeValue(st.id, { starred: !v.starred })}
+                            className="shrink-0 w-9 h-9 flex items-center justify-center bg-transparent border-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={v.starred ? t('attendance.starUnmarkTitle') : t('attendance.starMark')}
+                            aria-label={v.starred ? t('attendance.starUnmarkAria') : t('attendance.starMark')}
+                          >
+                            <Star
+                              size={22}
+                              className={v.starred ? 'text-accent' : 'text-muted'}
+                              fill={v.starred ? 'currentColor' : 'none'}
+                            />
+                          </button>
+                          </div>
                         </div>
                         <div className="flex gap-1 mt-1.5 min-[480px]:mt-0 min-[480px]:flex-1" role="radiogroup" aria-label={t('attendance.statusAria', { name: st.name })}>
                           {ATTENDANCE_STATUSES.map(({ code, label }) => {
@@ -806,7 +815,7 @@ export function AttendancePage() {
                                 aria-checked={active}
                                 disabled={cancelled}
                                 onClick={() => changeValue(st.id, { status: code })}
-                                className={`flex-1 min-h-[48px] rounded-xl text-[13.5px] font-bold border cursor-pointer disabled:cursor-not-allowed whitespace-nowrap ${
+                                className={`flex-1 min-h-[40px] rounded-[10px] text-[13.5px] font-bold border cursor-pointer disabled:cursor-not-allowed whitespace-nowrap ${
                                   active
                                     ? STATUS_ACTIVE_CLASS[code]
                                     : 'bg-card text-muted border-border hover:bg-soft'
