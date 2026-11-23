@@ -7,6 +7,3 @@
 src/features/students/import/logic.ts
 # اسم ورقة العمل وأسماء ملفات القالب — تُكتب على القرص حرفياً.
 src/features/students/import/parseFile.ts
-# ملف الماسكوت الموقوف بقرار المالك (2026-11-20): مجمّد كما هو حتى
-# كلمة المالك — لا يُرحَّل ولا يُحذف ولا يُبنى عليه سلوك.
-src/lib/mascot.ts
