@@ -2,8 +2,8 @@
 /**
  * اختبارات E2E دخانية للتدفقات الحرجة (R1 — بند 3A-311).
  *
- * شبكة أمان آلية: ستة تدفقات دخانية (دخول تجريبي، رئيسية+جرس، طلاب،
- * حضور، فواتير، بوابتان) تعمل بـ Puppeteer على بناء معاينة محلي
+ * شبكة أمان آلية: سبعة تدفقات دخانية (دخول تجريبي، رئيسية+جرس، طلاب،
+ * حضور، فواتير، بوابتان، دخول البوابات بالحساب) تعمل بـ Puppeteer على بناء معاينة محلي
  * (vite preview من نفس الكود) ضد Supabase الحي بحساب الديمو العام
  * (بيانات اعتماده عامة عمداً بقرار المالك — لا أسرار أخرى هنا).
  *
@@ -389,6 +389,39 @@ const tests = [
       assert(res2 === 'done', 'تعذّر إكمال تدفق بوابة الطالب');
     },
   },
+  {
+    id: '07-portal-login',
+    title: 'دخول البوابات بالحساب (تعيين كلمة سر + دخول حقيقي) — 3A-385',
+    async run(page, ctx) {
+      await ensureSession(page);
+      assert(shared.studentHref, 'لا طالب معروف من الاختبارات السابقة');
+      // كلمة سر عشوائية لكل تشغيل — لا تُطبع ولا تُحفظ في أي مكان
+      const pw = 'E2e-' + Math.random().toString(36).slice(2, 10) + '9';
+      await page.goto(BASE + shared.studentHref, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
+
+      const guardianUsername = await setPortalAccountPassword(page, 'رابط ولي الأمر', pw);
+      const studentUsername = await setPortalAccountPassword(page, 'رابط بوابة الطالب', pw);
+
+      const anon = await ctx.browser.createBrowserContext();
+      try {
+        const p2 = await anon.newPage();
+        await p2.setViewport({ width: 390, height: 844, hasTouch: true, isMobile: true });
+        if (RELAY) await enableRelay(p2, ctx.relayStats);
+        const w2 = watchPage(p2);
+        await portalLoginVisit(p2, '/portal', guardianUsername, pw, shared.studentName);
+        await portalLoginVisit(p2, '/student-portal', studentUsername, pw, shared.studentName);
+        assert(w2.pageErrors.length === 0, `أخطاء صفحة أثناء دخول البوابات: ${w2.pageErrors[0]}`);
+      } finally {
+        await anon.close().catch(() => {});
+      }
+
+      // التنظيف: إيقاف الحسابين من الشيتين (يبقيان موقوفين بكلمة السر
+      // العشوائية المجهولة بعد التشغيل)
+      await page.goto(BASE + shared.studentHref, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
+      await disablePortalAccount(page, 'رابط ولي الأمر');
+      await disablePortalAccount(page, 'رابط بوابة الطالب');
+    },
+  },
 ];
 
 /**
@@ -472,6 +505,96 @@ async function portalFlow(page, ctx, { tile, generateTexts, linkRe, studentName,
   await page.keyboard.press('Escape');
   await sleep(600);
   return 'done';
+}
+
+/**
+ * تعيين كلمة سر حساب بوابة من شيته (3A-385): يفتح الشيت، يكتب كلمة
+ * السر في حقل «كلمة السر» داخل كتلة «حساب الدخول»، يحفظ، ويقرأ اسم
+ * الدخول المشتق خادمياً كما يُعرض في صندوق «كلمة السر جاهزة».
+ */
+async function setPortalAccountPassword(page, tile, pw) {
+  await clickByText(page, tile);
+  await waitBodyText(page, 'حساب الدخول');
+  // انتظار تركيب حقل كلمة السر فعلياً (كتلة الحساب تظهر بعد تحميل
+  // بيانات الربط/الحسابات — العنوان وحده يظهر قبلها)
+  await page.waitForFunction(
+    () => {
+      const labels = [...document.querySelectorAll('[role="dialog"] label')];
+      const lab = labels.find((l) => (l.textContent || '').includes('كلمة السر'));
+      return Boolean(lab && lab.querySelector('input'));
+    },
+    { timeout: WAIT_TIMEOUT },
+  );
+  // تركيز الحقل ثم الكتابة بلوحة المفاتيح — نقر Puppeteer المباشر
+  // على عقدة قد تُستبدل بإعادة رسم الشيت يفشل بـ «not clickable».
+  const focused = await page.evaluate(() => {
+    const labels = [...document.querySelectorAll('[role="dialog"] label')];
+    const lab = labels.find((l) => (l.textContent || '').includes('كلمة السر'));
+    const inp = lab ? lab.querySelector('input') : null;
+    if (!inp) return false;
+    inp.scrollIntoView({ block: 'center' });
+    inp.focus();
+    return true;
+  });
+  assert(focused, `حقل كلمة السر غير موجود في شيت: ${tile}`);
+  await page.keyboard.type(pw);
+  await clickByText(page, 'تعيين كلمة السر').catch(() =>
+    clickByText(page, 'إعادة تعيين كلمة السر'),
+  );
+  await waitBodyText(page, 'كلمة السر جاهزة');
+  const username = await page.evaluate(() => {
+    const dlg = document.querySelector('[role="dialog"]');
+    const m = (dlg ? dlg.textContent || '' : '').match(/اسم الدخول:\s*([^\s]+)/);
+    return m ? m[1] : null;
+  });
+  assert(username, `اسم الدخول لم يظهر بعد الحفظ في شيت: ${tile}`);
+  await page.keyboard.press('Escape');
+  await sleep(600);
+  return username;
+}
+
+/** زيارة بوابة بلا أي اعتماد ثم الدخول بالحساب والتحقق من فتح العرض */
+async function portalLoginVisit(p2, path, username, pw, studentName) {
+  await p2.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
+  await p2.waitForFunction(
+    () => document.body && document.body.innerText.includes('الدخول بحسابك'),
+    { timeout: WAIT_TIMEOUT },
+  );
+  await p2.type('input[autocomplete="username"]', username);
+  await p2.type('input[autocomplete="current-password"]', pw);
+  await clickByText(p2, 'دخول');
+  await p2.waitForFunction(
+    (name) =>
+      document.body &&
+      document.body.innerText.includes(name) &&
+      document.body.innerText.includes('حسابك'),
+    { timeout: WAIT_TIMEOUT },
+    studentName || '',
+  );
+}
+
+/** إيقاف حساب بوابة من شيته (تنظيف تدفق 07) */
+async function disablePortalAccount(page, tile) {
+  await clickByText(page, tile);
+  await waitBodyText(page, 'حساب الدخول');
+  const clicked = await page.evaluate(() => {
+    const btns = [...document.querySelectorAll('[role="dialog"] button')];
+    const btn = btns.find((b) => b.innerText.includes('إيقاف الحساب'));
+    if (!btn) return false;
+    btn.scrollIntoView({ block: 'center' });
+    btn.click();
+    return true;
+  });
+  if (clicked) {
+    await page
+      .waitForFunction(
+        () => document.body.innerText.includes('الحساب موقوف'),
+        { timeout: 20_000 },
+      )
+      .catch(() => {});
+  }
+  await page.keyboard.press('Escape');
+  await sleep(600);
 }
 
 /* ---------------------------------- التشغيل ---------------------------------- */
