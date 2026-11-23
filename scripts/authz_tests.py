@@ -498,6 +498,94 @@ def main():
             sql(ref, "delete from teacher_whatsapp_config "
                      f"where teacher_id = '{demo_teacher}'")
 
+        # ---------- WHATSAPP MESSAGING (0045 — قوالب Utility + سجل الرسائل) ----------
+        print("WHATSAPP MESSAGING (0045):")
+        try:
+            s, b = rest(url, anon, "POST", "/rest/v1/teacher_whatsapp_templates",
+                        jwt=demo_jwt,
+                        body={"teacher_id": demo_teacher, "kind": "arrival_notice",
+                              "template_name": "arrival_notice", "language": "ar",
+                              "status": "ready"})
+            check("owner creates his whatsapp template row", s in (200, 201),
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/teacher_whatsapp_templates?select=*"
+                        f"&teacher_id=eq.{demo_teacher}",
+                        jwt=demo_jwt)
+            check("owner reads his template rows",
+                  s == 200 and isinstance(b, list) and len(b) == 1,
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/teacher_whatsapp_templates?select=*"
+                        f"&teacher_id=eq.{demo_teacher}",
+                        jwt=other_jwt)
+            check("other teacher reads none of demo's templates",
+                  s == 200 and b == [], f"got {s} {str(b)[:80]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/teacher_whatsapp_templates",
+                        jwt=other_jwt,
+                        body={"teacher_id": demo_teacher, "kind": "absence_notice",
+                              "template_name": "absence_notice", "language": "ar",
+                              "status": "ready"})
+            check("other teacher cannot create a template row for demo",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/teacher_whatsapp_templates?select=*"
+                        f"&teacher_id=eq.{demo_teacher}",
+                        jwt=asst_jwt)
+            check("assistant reads no whatsapp templates (owner-only)",
+                  s == 200 and b == [], f"got {s}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/teacher_whatsapp_templates?select=*")
+            check("anon reads no whatsapp templates", s == 200 and b == [],
+                  f"got {s}")
+            # سجل الرسائل: الكتابة service-role فقط — حتى المالك لا يُدخل
+            s, b = rest(url, anon, "POST", "/rest/v1/whatsapp_message_log",
+                        jwt=demo_jwt,
+                        body={"teacher_id": demo_teacher, "kind": "arrival_notice",
+                              "template_name": "arrival_notice",
+                              "recipient_phone": "201012345678", "status": "sent"})
+            check("even the owner cannot insert a message log row (service-role writes only)",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            sql(ref, "insert into whatsapp_message_log "
+                     "(teacher_id, kind, template_name, recipient_phone, status, meta_message_id) "
+                     f"values ('{demo_teacher}', 'arrival_notice', 'arrival_notice', "
+                     "'201012345678', 'sent', 'wamid.authz')")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/whatsapp_message_log?select=*"
+                        f"&teacher_id=eq.{demo_teacher}",
+                        jwt=demo_jwt)
+            check("owner reads his message log rows",
+                  s == 200 and isinstance(b, list) and len(b) == 1,
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/whatsapp_message_log?select=*"
+                        f"&teacher_id=eq.{demo_teacher}",
+                        jwt=other_jwt)
+            check("other teacher reads none of demo's message log",
+                  s == 200 and b == [], f"got {s} {str(b)[:80]}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/whatsapp_message_log?select=*"
+                        f"&teacher_id=eq.{demo_teacher}",
+                        jwt=asst_jwt)
+            check("assistant reads no message log (owner-only)",
+                  s == 200 and b == [], f"got {s}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/whatsapp_message_log?select=*")
+            check("anon reads no message log", s == 200 and b == [],
+                  f"got {s}")
+            rest(url, anon, "PATCH",
+                 f"/rest/v1/whatsapp_message_log?teacher_id=eq.{demo_teacher}",
+                 jwt=demo_jwt, body={"status": "read"})
+            still = sql(ref, "select status from whatsapp_message_log "
+                             f"where teacher_id = '{demo_teacher}'")
+            check("owner cannot update message log rows (webhook-only writes)",
+                  still and still[0]["status"] == "sent", f"got {still}")
+        finally:
+            sql(ref, "delete from teacher_whatsapp_templates "
+                     f"where teacher_id = '{demo_teacher}'")
+            sql(ref, "delete from whatsapp_message_log "
+                     f"where teacher_id = '{demo_teacher}'")
+
         # ---------- PORTAL ACCOUNTS (3A-385 — هجرات 0040/0041/0042) ----------
         print("PORTAL ACCOUNTS (3A-385):")
         pw_guardian = secrets.token_urlsafe(12)
