@@ -18,7 +18,6 @@ import {
   CheckCheck,
   ChevronDown,
   Clock,
-  CloudOff,
   Copy,
   LogIn,
   LogOut,
@@ -272,10 +271,6 @@ export function AttendancePage() {
   }
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
   const anyNotPresent = roster.some((s) => valueOf(s.id).status !== 'p')
-  // مؤشر الحفظ: المزامنة جارية فعلياً أو توجد عناصر معلّقة لهذه الحصة
-  const saving =
-    sync.syncing ||
-    (selected ? itemsForSession(sync.items, teacherId ?? '', selected.id).length > 0 : false)
 
   const applyOverride = (entries: { studentId: string; value: AttendanceValue }[]) => {
     if (!selected) return
@@ -560,43 +555,27 @@ export function AttendancePage() {
                   <span className="text-[13.5px] font-extrabold">
                     {t('attendance.markedCount', { done: rowsReady ? `${done}/${total}` : '…' })}
                   </span>
-                  {/* شارة حالة الحفظ انتقلت هنا من صفّ التاريخ (3A-324):
-                      كانت تزاحمه فتُبتر السنة — ومكانها الطبيعي بجانب
-                      عدّاد التقدّم الذي تصف حالته */}
-                  <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
-                    {saving ? (
-                      t('attendance.saving')
-                    ) : !online ? (
-                      <>
-                        <CloudOff size={14} className="text-warn-text" />
-                        {t('attendance.offlineSaving')}
-                      </>
-                    ) : sync.pendingCount > 0 ? (
-                      <>
-                        <Clock size={14} className="text-warn-text" />
-                        {t('attendance.pendingCount', { count: sync.pendingCount })}
-                      </>
-                    ) : (
-                      <>
-                        <Check size={14} className="text-ok-text" />
-                        {t('attendance.saveInstant')}
-                      </>
-                    )}
-                  </span>
+                  {/* شارة حالة الحفظ أُزيلت من هنا (3A-384 — ملاحظة
+                      المالك ٢-و: لا كلام تقنياً عن الحفظ/المزامنة أمام
+                      المستخدم؛ الحفظ الصامت هو الافتراضي، والفشل وحده
+                      يظهر في شريط المزامنة) */}
                 </div>
-                <div className="flex gap-2 mt-3 flex-wrap">
+                {/* إلغاء/نقل الحصة: زرّان صغيران جنباً إلى جنب
+                    (3A-384 — قاعدة المالك ٦: لا زر وحيداً على سطر
+                    كامل، والأزرار الصغيرة متجاورة) */}
+                <div className="flex gap-2 mt-3">
                   <Button
+                    size="sm"
                     variant={cancelled ? 'primary' : 'ghost'}
                     onClick={toggleSessionStatus}
                     disabled={statusMut.isPending}
-                    className="min-h-[48px] text-[13.5px] px-3"
                   >
-                    {cancelled ? (<><Undo2 size={18} /> {t('attendance.restoreSession')}</>) : (<><CalendarX2 size={18} /> {t('attendance.cancelSession')}</>)}
+                    {cancelled ? (<><Undo2 size={16} /> {t('attendance.restoreSession')}</>) : (<><CalendarX2 size={16} /> {t('attendance.cancelSession')}</>)}
                   </Button>
                   <Link to="/schedule" className="no-underline">
-                    <Button variant="ghost" className="min-h-[48px] text-[13.5px] px-3">
-                      <ArrowLeftRight size={18} />
-                      {t('attendance.moveFromSchedule')}
+                    <Button size="sm" variant="ghost">
+                      <ArrowLeftRight size={16} />
+                      {t('attendance.moveSession')}
                     </Button>
                   </Link>
                 </div>
@@ -605,6 +584,21 @@ export function AttendancePage() {
           </>
         )}
       </Card>
+
+      {/* تحميل المنتقي: مؤشر دُفّي الموحّد من أول لحظة (3A-384 —
+          ملاحظة المالك ١: اللودر كان يظهر متأخراً جداً لأن سلسلة
+          مجموعات ← توليد ← حصص اليوم كانت تترك الصفحة بلا أي مؤشر
+          حتى تُختار الحصة وتُجلب قائمتها) */}
+      {pickerPending && (
+        <>
+          <PageLoadingOverlay />
+          <div className="mt-3">
+            <Skeleton className="h-[72px] mb-3" />
+            <Skeleton className="h-[72px] mb-3" />
+            <Skeleton className="h-[72px]" />
+          </div>
+        </>
+      )}
 
       {selected && (
         <>
@@ -713,20 +707,33 @@ export function AttendancePage() {
                           <div className="flex-1 min-w-0">
                             <Link
                               to={`/students/${st.id}`}
-                              className="block font-semibold text-[15px] leading-[1.6] text-text no-underline line-clamp-2"
+                              className="block font-semibold text-[15px] leading-[1.6] text-text no-underline truncate"
                             >
                               {st.name}
                             </Link>
                             {/* كود الطالب لا يظهر في صفوف الحضور (و-5 —
                                 اتساقاً مع قرار الجولة الأولى في قائمة الطلاب؛
                                 يبقى في ملف الطالب وكارته). سطر الشارات يُركَّب
-                                فقط عند وجود شارة حتى لا يبقى سطر فارغ */}
-                            {(v.homework_done || qItem) && (
-                            <div className="text-muted text-[13.5px] leading-[1.5] flex items-center gap-1.5">
+                                فقط عند وجود شارة حتى لا يبقى سطر فارغ.
+                                (3A-384: شارة الانصراف وتلميح الأوفلاين انضما
+                                لهذا السطر — الزر نفسه صار أيقونة بجانب النجمة) */}
+                            {(v.homework_done || qItem || leftMap.has(st.id) || (isAttended(v.status) && !online)) && (
+                            <div className="text-muted text-[13.5px] leading-[1.5] flex items-center gap-1.5 flex-wrap">
                               {v.homework_done && (
                                 <span className="inline-flex items-center gap-1 text-ok-text font-semibold">
                                   <Check size={14} />
                                   {t('attendance.homeworkDone')}
+                                </span>
+                              )}
+                              {leftMap.get(st.id) && (
+                                <span className="inline-flex items-center gap-1 text-primary font-semibold">
+                                  <LogOut size={14} />
+                                  {t('attendance.leftAt', { time: formatClock12(new Date(leftMap.get(st.id)!)) })}
+                                </span>
+                              )}
+                              {isAttended(v.status) && !leftMap.has(st.id) && !online && (
+                                <span className="text-[12px]">
+                                  {t('attendance.leftNeedsOnline')}
                                 </span>
                               )}
                               {qItem && !qItem.failed && (
@@ -758,6 +765,35 @@ export function AttendancePage() {
                               fill={v.starred ? 'currentColor' : 'none'}
                             />
                           </button>
+                          {/* تسجيل الانصراف: أيقونة صغيرة بجانب النجمة
+                              (3A-384 — ملاحظة المالك ٢-ج) بدل زر عريض
+                              تحت الصف. الضبط يولّد تنبيه «غادر» في بوابة
+                              ولي الأمر (0012) — أونلاين فقط بوعي، لا يدخل
+                              قائمة مزامنة الأوفلاين */}
+                          {isAttended(v.status) &&
+                            (leftMap.has(st.id) ? (
+                              <button
+                                type="button"
+                                disabled={cancelled || clearLeftMut.isPending}
+                                onClick={() => toggleLeft(st.id)}
+                                className="shrink-0 w-12 h-12 flex items-center justify-center bg-transparent border-0 cursor-pointer text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                                title={t('attendance.undo')}
+                                aria-label={t('attendance.undo')}
+                              >
+                                <Undo2 size={22} />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={cancelled || !online || markLeftMut.isPending}
+                                onClick={() => toggleLeft(st.id)}
+                                className="shrink-0 w-12 h-12 flex items-center justify-center bg-transparent border-0 cursor-pointer text-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                                title={t('attendance.markLeft')}
+                                aria-label={t('attendance.markLeft')}
+                              >
+                                <LogOut size={22} />
+                              </button>
+                            ))}
                         </div>
                         <div className="flex gap-1 mt-1.5 min-[480px]:mt-0 min-[480px]:flex-1" role="radiogroup" aria-label={t('attendance.statusAria', { name: st.name })}>
                           {ATTENDANCE_STATUSES.map(({ code, label }) => {
@@ -795,51 +831,9 @@ export function AttendancePage() {
                             {t('attendance.noGuardianPhone')}
                           </div>
                         ))}
-                      {/* الانصراف الصريح (0012): ضبط left_at يولّد تنبيه
-                          «غادر» في بوابة ولي الأمر. أونلاين فقط بوعي —
-                          لا يدخل قائمة مزامنة الأوفلاين. */}
-                      {isAttended(v.status) &&
-                        (() => {
-                          const leftAt = leftMap.get(st.id)
-                          return (
-                            <div className="mt-2 flex items-center gap-2 flex-wrap">
-                              {leftAt ? (
-                                <>
-                                  <span className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-primary">
-                                    <LogOut size={16} />
-                                    {t('attendance.leftAt', { time: formatClock12(new Date(leftAt)) })}
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    className="min-h-[48px] text-[13.5px] px-3"
-                                    disabled={cancelled || clearLeftMut.isPending}
-                                    onClick={() => toggleLeft(st.id)}
-                                  >
-                                    <Undo2 size={16} />
-                                    {t('attendance.undo')}
-                                  </Button>
-                                </>
-                              ) : (
-                                <>
-                                  <Button
-                                    variant="soft"
-                                    className="min-h-[48px] text-[13.5px] px-3"
-                                    disabled={cancelled || !online || markLeftMut.isPending}
-                                    onClick={() => toggleLeft(st.id)}
-                                  >
-                                    <LogOut size={18} />
-                                    {t('attendance.markLeft')}
-                                  </Button>
-                                  {!online && (
-                                    <span className="text-muted text-[12px]">
-                                      {t('attendance.leftNeedsOnline')}
-                                    </span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          )
-                        })()}
+                      {/* الانصراف صار أيقونة بجانب النجمة في ترويسة
+                          الصف (3A-384) وحالته في سطر الشارات — لا كتلة
+                          أزرار تحت الصف بعد الآن */}
                     </div>
                   )
                 })}
@@ -909,42 +903,43 @@ export function AttendancePage() {
                     {waRows.map((r, i) => (
                       <div
                         key={r.student.id}
-                        className={`py-2.5 ${i > 0 ? 'border-t border-border' : ''}`}
+                        className={`py-2.5 flex items-center gap-2 ${i > 0 ? 'border-t border-border' : ''}`}
                       >
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-[15px]">{r.student.name}</span>
-                          <span className="text-muted text-[13.5px]">
+                        {/* بطاقة تفاعلية (3A-384 — ملاحظة المالك ٢-ز):
+                            اسم الطالب وتحته اسم ولي الأمر، وأزرار
+                            الإرسال في الطرف المقابل لهما */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-[15px] truncate">{r.student.name}</div>
+                          <div className="text-muted text-[13.5px] truncate">
                             {t('attendance.guardianLabel', { name: r.guardianName })}
-                          </span>
+                          </div>
+                          {!r.arrivalUrl && r.arrivalText && (
+                            <div className="text-muted text-[12px]">
+                              {t('attendance.noPhoneArrived')}
+                            </div>
+                          )}
+                          {!r.departureUrl && r.departureText && (
+                            <div className="text-muted text-[12px]">
+                              {t('attendance.noPhoneLeft')}
+                            </div>
+                          )}
                         </div>
-                        <div className="flex gap-2 mt-1.5 flex-wrap">
-                          {r.arrivalUrl ? (
+                        <div className="flex gap-1.5 shrink-0">
+                          {r.arrivalUrl && (
                             <a href={r.arrivalUrl} target="_blank" rel="noreferrer" className="no-underline">
-                              <Button variant="soft" className="min-h-[48px] text-[13.5px] px-3">
-                                <LogIn size={18} />
+                              <Button variant="soft" size="sm">
+                                <LogIn size={16} />
                                 {t('attendance.sendArrived')}
                               </Button>
                             </a>
-                          ) : (
-                            r.arrivalText && (
-                              <span className="text-muted text-[12px] self-center">
-                                {t('attendance.noPhoneArrived')}
-                              </span>
-                            )
                           )}
-                          {r.departureUrl ? (
+                          {r.departureUrl && (
                             <a href={r.departureUrl} target="_blank" rel="noreferrer" className="no-underline">
-                              <Button variant="soft" className="min-h-[48px] text-[13.5px] px-3">
-                                <LogOut size={18} />
+                              <Button variant="soft" size="sm">
+                                <LogOut size={16} />
                                 {t('attendance.sendLeft')}
                               </Button>
                             </a>
-                          ) : (
-                            r.departureText && (
-                              <span className="text-muted text-[12px] self-center">
-                                {t('attendance.noPhoneLeft')}
-                              </span>
-                            )
                           )}
                         </div>
                       </div>
@@ -956,42 +951,68 @@ export function AttendancePage() {
               {/* شريط ملخص لاصق: عدّادات حية لكل حالة + «الكل حاضر» —
                   يطفو فوق الشريط السفلي أثناء تمرير القائمة ويتحدث مع كل تعديل */}
               <div ref={setBarEl} className="sticky bottom-[calc(84px+env(safe-area-inset-bottom,0px))] z-10 mt-1">
-                <div className="bg-card border border-border shadow-raised rounded-2xl px-3 py-2 flex items-center gap-x-3 gap-y-1 flex-wrap">
-                  {ATTENDANCE_STATUSES.map(({ code, label }) => (
-                    <span key={code} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: STATUS_FILL[code] }}
-                        aria-hidden="true"
-                      />
-                      {label} {statusCounts[code]}
+                <div className="bg-card border border-border shadow-raised rounded-2xl px-3 py-2">
+                  <div className="flex items-center gap-x-3 gap-y-1 flex-wrap">
+                    {ATTENDANCE_STATUSES.map(({ code, label }) => (
+                      <span key={code} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: STATUS_FILL[code] }}
+                          aria-hidden="true"
+                        />
+                        {label} {statusCounts[code]}
+                      </span>
+                    ))}
+                    <span className="text-[13.5px] font-semibold text-muted">
+                      {statusCounts.none > 0
+                        ? t('attendance.remainingNoStatus', { count: statusCounts.none })
+                        : t('attendance.allMarked')}
                     </span>
-                  ))}
-                  <span className="text-[13.5px] font-semibold text-muted">
-                    {statusCounts.none > 0
-                      ? t('attendance.remainingNoStatus', { count: statusCounts.none })
-                      : t('attendance.allMarked')}
-                  </span>
+                  </div>
+                  {/* مسح QR + الكل حاضر: زرّان صغيران متجاوران في صف
+                      مستقل (3A-384 — ملاحظات المالك ٢-هـ و٦): كانا
+                      يزاحمان العدّادات فينكسر الشريط. و«الكل حاضر»
+                      نفسه يتغيّر شكله بعد تطبيقه (أخضر مُطبَّق +
+                      علامتا صح) ويبقى ظاهراً معطّلاً بدل أن يختفي */}
                   {!cancelled && (
-                    <Button
-                      variant="soft"
-                      className="ms-auto min-h-[48px] text-[13.5px] px-3"
-                      onClick={() => setScanOpen(true)}
-                    >
-                      <ScanQrCode size={18} />
-                      {t('attendance.scanQr')}
-                    </Button>
-                  )}
-                  {!cancelled && anyNotPresent && (
-                    <Button
-                      variant="soft"
-                      className="min-h-[48px] text-[13.5px] px-3"
-                      onClick={markAllPresent}
-                      disabled={sync.syncing}
-                    >
-                      <CheckCheck size={18} />
-                      {t('attendance.markAllPresent')}
-                    </Button>
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        variant="soft"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setScanOpen(true)}
+                      >
+                        <ScanQrCode size={16} />
+                        {t('attendance.scanQr')}
+                      </Button>
+                      {anyNotPresent ? (
+                        <Button
+                          variant="soft"
+                          size="sm"
+                          className="flex-1"
+                          onClick={markAllPresent}
+                          disabled={sync.syncing}
+                        >
+                          <CheckCheck size={16} />
+                          {t('attendance.markAllPresent')}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="soft"
+                          size="sm"
+                          className="flex-1 border border-ok/40"
+                          style={{
+                            backgroundColor: 'var(--ok-soft)',
+                            color: 'var(--ok-text)',
+                          }}
+                          disabled
+                          aria-label={t('attendance.markAllPresent')}
+                        >
+                          <CheckCheck size={16} />
+                          {t('attendance.markAllPresent')}
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

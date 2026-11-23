@@ -12,10 +12,6 @@ export const attendance = {
   leftError: 'حصلت مشكلة في تسجيل الانصراف — حاول تاني',
   datePickerAria: 'تاريخ الحصة — اضغط لتغيير التاريخ',
   pickSessionDate: 'اختر تاريخ الحصة',
-  saving: 'بنحفظ…',
-  offlineSaving: 'غير متصل — الحفظ على الجهاز',
-  pendingCount: '{count} قيد الانتظار',
-  saveInstant: 'الحفظ فوري',
   paramSessionMissing:
     'الحصة المطلوبة من الرابط غير موجودة — اختر حصة من حصص اليوم المختار.',
   noGroupsTitle: 'لا توجد مجموعات بعد — فلا حصص تُولّد',
@@ -32,7 +28,7 @@ export const attendance = {
   markedCount: '{done} محضّر',
   restoreSession: 'استرجاع الحصة',
   cancelSession: 'إلغاء الحصة',
-  moveFromSchedule: 'نقل الحصة من الجدول',
+  moveSession: 'نقل الحصة',
   cancelledBanner:
     'الحصة دي ملغاة — الحضور مقفول ومش هيتسجل لها أي حالة. استرجع الحصة الأول لو عايز تحضّرها.',
   invoicesNotice:
@@ -119,12 +115,6 @@ export const attendance = {
   syncFailed:
     '{count} تغيير حضور فشل حفظه نهائياً في الخادم (مش مشكلة نت) ومحتاج مراجعة.',
   syncFailedPending: ' ولسه فيه {count} قيد الانتظار.',
-  syncingNow: 'جارٍ المزامنة دلوقتي…',
-  syncPending:
-    '{count} تغيير حضور قيد الانتظار — هيتزامن تلقائياً، أو زامنه بنفسك.',
-  syncNow: 'مزامنة الآن',
-  syncing: 'جارٍ المزامنة…',
-  syncDone: 'تمت المزامنة — {synced} تغيير وصل الخادم.',
   /** تسميات حالات الحضور الأربع لطبقة البيانات (أكواد DB ‏p/a/l/m تبقى مفاتيح) */
   statusPresent: 'حاضر',
   statusAbsent: 'غائب',
