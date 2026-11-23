@@ -427,10 +427,15 @@ export function ExamPage() {
         {submitMut.isError && (
           <FormError message={examErrorInfo(submitMut.error).hint} />
         )}
-        <Button full disabled={submitMut.isPending} onClick={() => doSubmit(false)}>
-          <Send size={20} />
-          {submitMut.isPending ? t('exams.pageSubmitting') : t('exams.pageSubmitExam')}
-        </Button>
+        {/* عند فشل التسليم التلقائي تحمل اللافتة العلوية زر إعادة التسليم
+            وحده — إبقاء زر التسليم هنا أيضاً كان ازدواجاً تجميلياً لنفس
+            الإجراء (ملاحظة مراجعة #11، 3A-377) */}
+        {!autoSubmitFailed && (
+          <Button full disabled={submitMut.isPending} onClick={() => doSubmit(false)}>
+            <Send size={20} />
+            {submitMut.isPending ? t('exams.pageSubmitting') : t('exams.pageSubmitExam')}
+          </Button>
+        )}
         <p className="text-center text-muted text-[12px] mt-3 mb-0">
           {t('exams.pageSubmitFooter')}
         </p>
