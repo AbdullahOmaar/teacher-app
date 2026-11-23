@@ -13,8 +13,10 @@
 
 التشغيل: npm run test:authz
 """
+import hashlib
 import json
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -447,6 +449,228 @@ def main():
                 pass
             sql(ref, "delete from teacher_whatsapp_config "
                      f"where teacher_id = '{demo_teacher}'")
+
+        # ---------- PORTAL ACCOUNTS (3A-385 — هجرات 0040/0041/0042) ----------
+        print("PORTAL ACCOUNTS (3A-385):")
+        pw_guardian = secrets.token_urlsafe(12)
+        pw_student = secrets.token_urlsafe(12)
+        pw_claimed = secrets.token_urlsafe(12)
+        link_raw = "authz-link-" + secrets.token_urlsafe(24)
+        link_hash = hashlib.sha256(link_raw.encode()).hexdigest()
+        try:
+            link_row = sql(
+                ref,
+                "select gs.guardian_id, gs.student_id, g.phone from "
+                "guardian_students gs join guardians g on g.id = gs.guardian_id "
+                f"where gs.teacher_id = '{demo_teacher}' limit 1",
+            )[0]
+            guardian_id = link_row["guardian_id"]
+            linked_student = link_row["student_id"]
+            guardian_phone = link_row["phone"]
+            expected_username = re.sub(r"\D", "", guardian_phone)
+            if expected_username.startswith("0020"):
+                expected_username = "0" + expected_username[4:]
+            elif expected_username.startswith("20") and len(expected_username) == 12:
+                expected_username = "0" + expected_username[2:]
+            unlinked_student = sql(
+                ref,
+                f"select id from students where teacher_id = '{demo_teacher}' "
+                f"and id not in (select student_id from guardian_students "
+                f"where guardian_id = '{guardian_id}') limit 1",
+            )[0]["id"]
+            student_code = sql(
+                ref, f"select public_code from students where id = '{linked_student}'"
+            )[0]["public_code"]
+
+            # عزل الجدولين: لا قراءة إلا للمالك عبر RLS
+            s, b = rest(url, anon, "GET", "/rest/v1/portal_accounts?select=id")
+            check("anon reads no portal accounts", s == 200 and b == [], f"got {s}")
+            s, b = rest(url, anon, "GET", "/rest/v1/portal_sessions?select=id")
+            check("anon reads no portal sessions", s == 200 and b == [], f"got {s}")
+            s, b = rest(url, anon, "GET", "/rest/v1/portal_accounts?select=id",
+                        jwt=other_jwt)
+            check("other teacher reads no portal accounts", s == 200 and b == [],
+                  f"got {s}")
+            s, b = rest(url, anon, "GET", "/rest/v1/portal_accounts?select=id",
+                        jwt=asst_jwt)
+            check("assistant reads no portal accounts (owner-only)",
+                  s == 200 and b == [], f"got {s}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_account_upsert",
+                        body={"p_teacher_id": demo_teacher, "p_role": "student",
+                              "p_target_id": linked_student, "p_password": "x" * 8})
+            check("anon cannot execute portal_account_upsert",
+                  s in (401, 403, 404), f"got {s}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_norm_phone",
+                        body={"p_phone": "01000000000"})
+            check("anon cannot execute the internal phone normalizer",
+                  s in (401, 403, 404), f"got {s}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_account_upsert",
+                        jwt=other_jwt,
+                        body={"p_teacher_id": demo_teacher, "p_role": "student",
+                              "p_target_id": linked_student, "p_password": "x" * 8})
+            check("other teacher cannot upsert an account for demo (RPC guard)",
+                  s >= 400 and "authoriz" in json.dumps(b).lower(), f"got {s}")
+
+            # إنشاء الحسابين بيد المالك — اسم الدخول يُشتق خادمياً
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_account_upsert",
+                        jwt=demo_jwt,
+                        body={"p_teacher_id": demo_teacher, "p_role": "guardian",
+                              "p_target_id": guardian_id, "p_password": pw_guardian})
+            guardian_account = b.get("account_id") if isinstance(b, dict) else None
+            check("owner upserts a guardian account with server-derived username",
+                  s == 200 and isinstance(b, dict)
+                  and b.get("username") == expected_username,
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_account_upsert",
+                        jwt=demo_jwt,
+                        body={"p_teacher_id": demo_teacher, "p_role": "student",
+                              "p_target_id": linked_student, "p_password": pw_student})
+            check("owner upserts a student account (username = public code)",
+                  s == 200 and isinstance(b, dict)
+                  and b.get("username") == student_code.upper(),
+                  f"got {s} {str(b)[:120]}")
+
+            # الدخول: خطأ عام للفشل، وجلسة عاملة للنجاح
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_login",
+                        body={"p_username": guardian_phone,
+                              "p_password": "definitely-wrong"})
+            # فشل الاعتماد يعود داخل النطاق {error} (0043) حتى يصمد
+            # تحديث عدّاد المحاولات — لا جلسة ولا كشف إضافي.
+            check("login with a wrong password is rejected generically",
+                  s == 200 and isinstance(b, dict)
+                  and b.get("error") == "invalid credentials"
+                  and not b.get("session_token"),
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_login",
+                        body={"p_username": guardian_phone, "p_password": pw_guardian})
+            g_session = b.get("session_token") if isinstance(b, dict) else None
+            check("guardian login returns a session for his linked students",
+                  s == 200 and bool(g_session) and isinstance(b, dict)
+                  and any(st.get("id") == linked_student
+                          for st in b.get("students", [])),
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_overview_by_token",
+                        body={"p_token": g_session, "p_student_id": linked_student})
+            check("guardian session opens the overview (unified validator)",
+                  s == 200 and isinstance(b, dict) and "sections" in b,
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_overview_by_token",
+                        body={"p_token": g_session, "p_student_id": unlinked_student})
+            check("guardian session is rejected for an unlinked student",
+                  s >= 400 and "authoriz" in json.dumps(b).lower(), f"got {s}")
+
+            # التوافق الخلفي: رابط قديم يعمل، والـ claim يبني كلمة سر فوقه
+            sql(
+                ref,
+                "insert into guardian_access_tokens (teacher_id, guardian_id, "
+                "student_id, token_hash, expires_at) values "
+                f"('{demo_teacher}', '{guardian_id}', '{linked_student}', "
+                f"'{link_hash}', now() + interval '30 days')",
+            )
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_overview_by_token",
+                        body={"p_token": link_raw, "p_student_id": linked_student})
+            check("a pre-existing link token still works (backward compat)",
+                  s == 200 and isinstance(b, dict) and "student" in b, f"got {s}")
+            s, b = rest(url, anon, "POST",
+                        "/rest/v1/rpc/portal_account_claim_guardian",
+                        body={"p_token": link_raw, "p_student_id": linked_student,
+                              "p_password": pw_claimed})
+            check("guardian claims a password from inside the portal via his link",
+                  s == 200 and isinstance(b, dict)
+                  and b.get("username") == expected_username,
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_login",
+                        body={"p_username": guardian_phone, "p_password": pw_claimed})
+            g_session2 = b.get("session_token") if isinstance(b, dict) else None
+            check("login works with the claimed password",
+                  s == 200 and bool(g_session2), f"got {s}")
+
+            # إخفاء قسم المال: الرصيد لا يصل أصلاً (0038)
+            rest(url, anon, "PATCH",
+                 f"/rest/v1/teacher_settings?teacher_id=eq.{demo_teacher}",
+                 jwt=demo_jwt, body={"portal_guardian_show_money": False})
+            try:
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/portal_overview_by_token",
+                            body={"p_token": link_raw,
+                                  "p_student_id": linked_student})
+                check("hidden money section: balance never leaves the server",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("balance") is None
+                      and b.get("sections", {}).get("money") is False,
+                      f"got {s} {str(b)[:160]}")
+            finally:
+                rest(url, anon, "PATCH",
+                     f"/rest/v1/teacher_settings?teacher_id=eq.{demo_teacher}",
+                     jwt=demo_jwt, body={"portal_guardian_show_money": True})
+
+            # دخول الطالب بكوده (أحرف صغيرة تُطبَّع) وجلسة تعمل ثم تُبطَل بالخروج
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_login",
+                        body={"p_username": student_code.lower(),
+                              "p_password": pw_student})
+            s_session = b.get("session_token") if isinstance(b, dict) else None
+            check("student login by public code (case-insensitive) works",
+                  s == 200 and bool(s_session), f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST",
+                        "/rest/v1/rpc/student_portal_overview_by_token",
+                        body={"p_token": s_session})
+            check("student session opens the student overview",
+                  s == 200 and isinstance(b, dict) and "sections" in b, f"got {s}")
+            rest(url, anon, "POST", "/rest/v1/rpc/portal_logout",
+                 body={"p_session_token": s_session})
+            s, b = rest(url, anon, "POST",
+                        "/rest/v1/rpc/student_portal_overview_by_token",
+                        body={"p_token": s_session})
+            check("logout revokes the session immediately",
+                  s >= 400, f"got {s}")
+
+            # القفل بعد 8 محاولات فاشلة على حساب طالب آخر
+            rest(url, anon, "POST", "/rest/v1/rpc/portal_account_upsert",
+                 jwt=demo_jwt,
+                 body={"p_teacher_id": demo_teacher, "p_role": "student",
+                       "p_target_id": unlinked_student, "p_password": pw_student})
+            unlinked_code = sql(
+                ref, f"select public_code from students where id = '{unlinked_student}'"
+            )[0]["public_code"]
+            for _ in range(8):
+                rest(url, anon, "POST", "/rest/v1/rpc/portal_login",
+                     body={"p_username": unlinked_code, "p_password": "nope-nope"})
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_login",
+                        body={"p_username": unlinked_code, "p_password": pw_student})
+            check("account locks after 8 failed attempts (correct pw still rejected)",
+                  s == 200 and isinstance(b, dict)
+                  and b.get("error") == "invalid credentials"
+                  and not b.get("session_token"),
+                  f"got {s} {str(b)[:120]}")
+
+            # تعطيل الحساب يوقف الدخول والجلسات الحية فوراً
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_account_set_active",
+                        jwt=demo_jwt,
+                        body={"p_account_id": guardian_account, "p_active": False})
+            check("owner can disable a portal account", s == 200, f"got {s}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_login",
+                        body={"p_username": guardian_phone, "p_password": pw_claimed})
+            check("disabled account cannot log in",
+                  s == 200 and isinstance(b, dict)
+                  and b.get("error") == "invalid credentials"
+                  and not b.get("session_token"),
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_overview_by_token",
+                        body={"p_token": g_session2, "p_student_id": linked_student})
+            check("disabling kills the account's live sessions",
+                  s >= 400, f"got {s}")
+        finally:
+            sql(ref, "delete from portal_accounts "
+                     f"where teacher_id = '{demo_teacher}'")
+            sql(ref, "delete from guardian_access_tokens "
+                     f"where token_hash = '{link_hash}'")
+            rest(url, anon, "PATCH",
+                 f"/rest/v1/teacher_settings?teacher_id=eq.{demo_teacher}",
+                 jwt=demo_jwt, body={"portal_guardian_show_money": True})
+            left = sql(ref, "select count(*) as c from portal_accounts "
+                            f"where teacher_id = '{demo_teacher}'")
+            check("portal account fixtures cleaned",
+                  left and int(left[0]["c"]) == 0, f"got {left}")
     finally:
         # ---------- cleanup ----------
         ids = [u for u in (other_uid, asst_uid, self_uid) if u]

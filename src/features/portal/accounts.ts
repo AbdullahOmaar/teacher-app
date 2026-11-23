@@ -84,7 +84,14 @@ export async function portalLogin(username: string, password: string): Promise<P
     p_password: password,
   })
   if (error) throw error
-  return data as unknown as PortalLoginResult
+  // فشل الاعتماد يعود داخل النطاق {error} لا كاستثناء (0043 — حتى
+  // يصمد تحديث عدّاد المحاولات)؛ نحوّله هنا لاستثناء بنفس الرسالة
+  // العامة حتى تتعامل الواجهة مع كل الفشل بشكل واحد.
+  const res = data as unknown as PortalLoginResult & { error?: string }
+  if (res && typeof res === 'object' && typeof res.error === 'string') {
+    throw new Error(res.error)
+  }
+  return res
 }
 
 /** طلاب جلسة قائمة — لإعادة فتح البوابة على جهاز سجّل دخوله من قبل */
