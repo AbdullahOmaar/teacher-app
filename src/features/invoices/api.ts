@@ -615,7 +615,15 @@ export async function generateInvoices(
         })),
       )
       const { error } = await supa.from('invoice_lines').insert(allLines)
-      if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+      if (error) {
+        const friendly = friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+        // ملاحظة مراجعة #11 (3A-377): friendlyDbError يبني Error جديداً
+        // فيسقط كود بوستجرس الأصلي، والملتقط الخارجي يفرّع على 23505
+        // (سباق القيد الفريد) للهبوط للمسار الفردي — أعد ربط الكود
+        // بالخطأ الودّي حتى يبقى التفريع صحيحاً لخطأ البنود أيضاً.
+        ;(friendly as { code?: string }).code = (error as { code?: string }).code
+        throw friendly
+      }
     }
     try {
       const { data: inserted, error: bulkErr } = await supa
