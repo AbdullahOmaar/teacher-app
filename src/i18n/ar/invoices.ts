@@ -4,9 +4,9 @@ export const invoices = {
   filterDue: 'مستحقة',
   filterPartial: 'جزئية',
   filterPaid: 'مسددة',
-  badgePaid: 'مسدد',
   badgePartial: 'جزئي — باقي {amount}',
-  badgeDue: 'باقي {amount}',
+  /** توست نسخ قائمة المتأخرات (كان متسرباً في common — PAT-9) */
+  copiedOverdueList: 'اتنسخت قائمة المتأخرات',
   rowTotal: 'الإجمالي {amount}',
   rowPaidPart: 'مدفوع {amount}',
   ownerOnlyTitle: 'الفواتير والمالية للمالك فقط',

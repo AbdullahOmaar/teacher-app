@@ -2,7 +2,6 @@
 export const students = {
   statusAll: 'النشطين',
   statusLate: 'عليه متأخرات',
-  statusOk: 'مسدد',
   statusPaused: 'موقوف / أرشيف',
   noGroup: 'بلا مجموعة',
   searchPlaceholder: 'ابحث بالاسم أو الكود أو الموبايل…',
@@ -14,8 +13,6 @@ export const students = {
   emptyNoMatchHint: 'جرّب تغيير البحث أو الفلاتر',
   addStudent: 'إضافة طالب',
   badgePaused: 'موقوف',
-  badgePaid: 'مسدد',
-  badgeDue: 'باقي {amount}',
   badgeNoInvoices: 'لا فواتير بعد',
   sectionHeader: '{title} · {count} طالب',
   /** فاصل أسماء المجموعات في سطر الطالب الثانوي */

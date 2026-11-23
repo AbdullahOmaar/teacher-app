@@ -63,7 +63,7 @@ function detailsText(row: ActivityLogRow): string | null {
   const skipped = num(d.skipped)
   if (skipped != null && skipped > 0) parts.push(t('activity.detail.skipped', { count: skipped }))
   const studentCount = num(d.student_count)
-  if (studentCount != null) parts.push(t('activity.detail.students', { count: studentCount }))
+  if (studentCount != null) parts.push(t('common.studentsCount', { count: studentCount }))
   const present = num(d.present_count)
   if (present != null) parts.push(t('activity.detail.present', { count: present }))
   const absent = num(d.absent_count)

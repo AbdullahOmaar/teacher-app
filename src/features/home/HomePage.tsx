@@ -304,7 +304,7 @@ export function HomePage() {
         { to: '/students', icon: Plus, label: t('home.quick.newStudent') },
         { to: '/groups', icon: Users, label: t('home.quick.groups') },
         { to: '/attendance', icon: ClipboardCheck, label: t('home.quick.attendance') },
-        { to: '/invoices', icon: ReceiptText, label: t('home.quick.invoices') },
+        { to: '/invoices', icon: ReceiptText, label: t('common.invoices') },
       ]
 
   const primaryPending =
@@ -482,7 +482,7 @@ export function HomePage() {
                   {countsQ.data && (
                     <>
                       <MetaSep />
-                      <span>{t('home.hero.students', { count: countsQ.data.get(hero.group_id) ?? 0 })}</span>
+                      <span>{t('common.studentsCount', { count: countsQ.data.get(hero.group_id) ?? 0 })}</span>
                     </>
                   )}
                 </div>

@@ -1,7 +1,6 @@
 /** نصوص المعرّضين للفقد: البطاقة وأسباب الخطورة وصيغ جمعها */
 export const atrisk = {
   cardTitle: 'معرّضون للفقد',
-  cardCount: '{count} طالب',
   cardHint: 'تابعهم بدري — طالب بيكمل معاك أرخص بكتير من طالب جديد.',
   reasonAbsence: 'غائب {sessions} متتالية',
   reasonOverdue: 'متأخر {span} — {amount}',

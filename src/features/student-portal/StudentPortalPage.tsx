@@ -526,7 +526,7 @@ export function StudentPortalPage() {
                   </span>
                 ) : (
                   <span className="text-[12px] font-bold border rounded-full px-2.5 py-1 bg-bad/10 text-bad-text border-bad/30">
-                    {t('studentPortal.pageInvoiceDue', { amount: formatMoney(inv.balance) })}
+                    {t('common.remaining', { amount: formatMoney(inv.balance) })}
                   </span>
                 )}
               </div>

@@ -31,7 +31,7 @@ type StatusFilter = 'all' | 'late' | 'ok' | 'paused'
 const STATUS_CHIPS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: t('students.statusAll') },
   { key: 'late', label: t('students.statusLate') },
-  { key: 'ok', label: t('students.statusOk') },
+  { key: 'ok', label: t('common.paid') },
   { key: 'paused', label: t('students.statusPaused') },
 ]
 
@@ -181,7 +181,7 @@ export function StudentsPage() {
                 active
                 onClick={() => setSearchParams({}, { replace: true })}
               >
-                {groupNameById.get(groupFilter) ?? t('common.groupFallback')} <X size={14} />
+                {groupNameById.get(groupFilter) ?? t('groups.groupFallback')} <X size={14} />
               </Chip>
             )}
             {STATUS_CHIPS.map((c) => (
@@ -289,11 +289,11 @@ export function StudentsPage() {
                     !isAssistant && balancesQ.data ? (
                       balance > 0 ? (
                         <span className="shrink-0 type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-                          {t('students.badgeDue', { amount: formatMoney(balance) })}
+                          {t('common.remaining', { amount: formatMoney(balance) })}
                         </span>
                       ) : hasInvoices ? (
                         <span className="shrink-0 type-badge bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-                          {t('students.badgePaid')}
+                          {t('common.paid')}
                         </span>
                       ) : (
                         <span className="shrink-0 type-badge bg-soft text-muted border border-border rounded-full px-2 py-0.5">

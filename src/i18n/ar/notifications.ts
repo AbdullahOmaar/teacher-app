@@ -61,6 +61,5 @@ export const notifications = {
     copiedGenericReminder: 'اتنسخ التذكير العام',
     prepaidMemberLeft: 'متبقي {left} من {prepaid} حصة',
     gradeMemberScore: '{score} من {max} ({pct}%)',
-    invoiceBalance: 'باقي {amount}',
   },
 } as const

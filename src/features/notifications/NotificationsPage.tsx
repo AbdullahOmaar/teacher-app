@@ -126,7 +126,7 @@ function AlertRow({ alert, index = 0 }: { alert: AppAlert; index?: number }) {
                     {inv.group_name} · {periodLabel(inv.period_month)}
                   </span>
                   <span className="text-[13.5px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 shrink-0">
-                    {t('notifications.page.invoiceBalance', { amount: formatMoney(inv.balance) })}
+                    {t('common.remaining', { amount: formatMoney(inv.balance) })}
                   </span>
                 </Link>
               ))}
@@ -447,7 +447,7 @@ export function NotificationsPage() {
                 {t('notifications.page.overdueActionsBody', { count: finCount })}
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Button variant="soft" onClick={() => copy(overdueText, t('common.copiedOverdueList'))}>
+                <Button variant="soft" onClick={() => copy(overdueText, t('invoices.copiedOverdueList'))}>
                   <Copy size={18} />
                   {t('notifications.page.copyOverdueList')}
                 </Button>

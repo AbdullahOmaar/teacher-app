@@ -11,7 +11,6 @@ export const shell = {
     att: 'الحضور',
     students: 'الطلاب',
     student: 'ملف الطالب',
-    invoices: 'الفواتير',
     invoice: 'الفاتورة',
     more: 'المزيد',
     schedule: 'الجدول والتقويم',
@@ -32,7 +31,6 @@ export const shell = {
   nav: {
     home: 'الرئيسية',
     students: 'الطلاب',
-    invoices: 'الفواتير',
     more: 'المزيد',
   },
 } as const

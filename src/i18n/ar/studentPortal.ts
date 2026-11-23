@@ -63,7 +63,6 @@ export const studentPortal = {
   pageInvoicesEmpty: 'لسه مفيش فواتير صادرة باسمك.',
   pageInvoiceLine: 'الإجمالي {total} · اتدفع {paid}',
   pageInvoicePaid: 'خالصة',
-  pageInvoiceDue: 'باقي {amount}',
   pageRecentPaymentsTitle: 'آخر دفعاتي',
   pagePaymentReceiptLine: '{date} · إيصال',
   pageReversalBadge: 'دفعة عكسية',

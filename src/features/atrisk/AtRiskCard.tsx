@@ -44,7 +44,7 @@ export function AtRiskCard() {
             {t('atrisk.cardTitle')}
           </span>
           <span className="shrink-0 text-[13px] font-extrabold bg-warn/15 text-warn-text rounded-full px-2.5 py-0.5">
-            {t('atrisk.cardCount', { count: items.length })}
+            {t('common.studentsCount', { count: items.length })}
           </span>
         </div>
         {items.slice(0, 2).map((item) => (

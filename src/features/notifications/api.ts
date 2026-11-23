@@ -339,7 +339,7 @@ export async function fetchAlerts(
         const left = prepaidLeft(r.prepaid_sessions, used.get(`${r.student_id}|${r.group_id}`) ?? 0)
         const zone = prepaidZone(left, r.prepaid_sessions)
         if (!zone) continue
-        const groupName = r.groups?.name ?? t('common.groupFallback')
+        const groupName = r.groups?.name ?? t('groups.groupFallback')
         const st: ContactStudent = {
           id: r.student_id,
           name: r.students?.name ?? '—',

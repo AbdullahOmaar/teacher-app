@@ -32,7 +32,6 @@ export const activity = {
     period: 'فترة: {period}',
     created: 'أُنشئت {count} فاتورة',
     skipped: 'اتخطّت {count} (موجودة)',
-    students: '{count} طالب',
     present: 'حاضر/متأخر/تعويضية: {count}',
     absent: 'غائب: {count}',
     closingDay: 'يوم: {date}',

@@ -40,7 +40,7 @@ export type CsvKind = 'students' | 'invoices' | 'payments' | 'attendance' | 'sco
 
 export const CSV_KINDS: { kind: CsvKind; label: string; hint: string }[] = [
   { kind: 'students', label: t('settings.settingsApiCsvStudentsLabel'), hint: t('settings.settingsApiCsvStudentsHint') },
-  { kind: 'invoices', label: t('settings.settingsApiCsvInvoicesLabel'), hint: t('settings.settingsApiCsvInvoicesHint') },
+  { kind: 'invoices', label: t('common.invoices'), hint: t('settings.settingsApiCsvInvoicesHint') },
   { kind: 'payments', label: t('settings.settingsApiCsvPaymentsLabel'), hint: t('settings.settingsApiCsvPaymentsHint') },
   { kind: 'attendance', label: t('settings.settingsApiCsvAttendanceLabel'), hint: t('settings.settingsApiCsvAttendanceHint') },
   { kind: 'scores', label: t('settings.settingsApiCsvScoresLabel'), hint: t('settings.settingsApiCsvScoresHint') },

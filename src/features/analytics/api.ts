@@ -346,11 +346,11 @@ export async function fetchAnalytics(
   const insights = buildInsights({
     months: monthRows,
     overdueByGroup: [...overdueByGroupId.entries()].map(([id, amount]) => ({
-      name: groupNames.get(id) ?? t('common.groupFallback'),
+      name: groupNames.get(id) ?? t('groups.groupFallback'),
       amount,
     })),
     absenceByGroup: [...attendance.absenceByGroup.entries()].map(([id, absences]) => ({
-      name: groupNames.get(id) ?? t('common.groupFallback'),
+      name: groupNames.get(id) ?? t('groups.groupFallback'),
       absences,
     })),
     absenceByStudent: [...attendance.absenceByStudent.entries()].map(([id, absences]) => ({

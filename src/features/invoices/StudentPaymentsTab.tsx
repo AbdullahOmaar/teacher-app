@@ -106,7 +106,7 @@ export function StudentPaymentsTab({
                   </div>
                   {state === 'paid' ? (
                     <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-                      {t('invoices.badgePaid')}
+                      {t('common.paid')}
                     </span>
                   ) : state === 'partial' ? (
                     <span className="shrink-0 text-[12px] font-bold bg-primary/10 text-primary border border-primary/30 rounded-full px-2 py-0.5">
@@ -114,7 +114,7 @@ export function StudentPaymentsTab({
                     </span>
                   ) : (
                     <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-                      {t('invoices.badgeDue', { amount: formatMoney(inv.balance) })}
+                      {t('common.remaining', { amount: formatMoney(inv.balance) })}
                     </span>
                   )}
                 </div>

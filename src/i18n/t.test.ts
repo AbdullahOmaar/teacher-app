@@ -7,7 +7,7 @@ describe('t — قاموس i18n المنزلي (W7 — R-4/R-5)', () => {
     expect(t('common.retry')).toBe('إعادة المحاولة')
     expect(t('common.loading')).toBe('بنحمّل…')
     expect(t('shell.title.money')).toBe('المصروفات والأرباح')
-    expect(t('shell.nav.invoices')).toBe('الفواتير')
+    expect(t('common.invoices')).toBe('الفواتير')
   })
   it('استيفاء {name} من الوسائط', () => {
     expect(t('common.resultsCount', { count: 0 })).toBe('0 نتيجة')

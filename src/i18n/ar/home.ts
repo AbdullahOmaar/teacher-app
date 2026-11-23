@@ -12,7 +12,6 @@ export const home = {
     groups: 'المجموعات',
     attendance: 'الحضور',
     schedule: 'الجدول',
-    invoices: 'الفواتير',
   },
   startHere: {
     title: 'ابدأ هنا — 3 خطوات وتشتغل',
@@ -28,7 +27,6 @@ export const home = {
     tomorrow: 'غداً',
     atTime: 'الساعة {time}',
     minutes: '{minutes} دقيقة',
-    students: '{count} طالب',
     recordAttendance: 'سجّل الحضور',
     thanksToday: 'شكراً على تعبك اليوم',
     enjoyDay: 'استمتع بيومك',

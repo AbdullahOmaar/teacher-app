@@ -47,7 +47,7 @@ function stateBadge(inv: InvoiceListItem) {
   if (state === 'paid')
     return (
       <span className="shrink-0 type-badge bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-        {t('invoices.badgePaid')}
+        {t('common.paid')}
       </span>
     )
   if (state === 'partial')
@@ -58,7 +58,7 @@ function stateBadge(inv: InvoiceListItem) {
     )
   return (
     <span className="shrink-0 type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-      {t('invoices.badgeDue', { amount: formatMoney(inv.balance) })}
+      {t('common.remaining', { amount: formatMoney(inv.balance) })}
     </span>
   )
 }
@@ -287,7 +287,7 @@ export function InvoicesPage() {
                         .join('\n')
                       void navigator.clipboard
                         ?.writeText(text)
-                        .then(() => toast(t('common.copiedOverdueList')))
+                        .then(() => toast(t('invoices.copiedOverdueList')))
                         .catch(() => toast(t('common.copyUnavailable')))
                     }}
                   >

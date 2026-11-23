@@ -31,7 +31,7 @@ const TITLES: Record<string, string> = {
   att: t('shell.title.att'),
   students: t('shell.title.students'),
   student: t('shell.title.student'),
-  invoices: t('shell.title.invoices'),
+  invoices: t('common.invoices'),
   invoice: t('shell.title.invoice'),
   more: t('shell.title.more'),
   schedule: t('shell.title.schedule'),
@@ -55,7 +55,7 @@ type TabKey = 'home' | 'students' | 'invoices' | 'more'
 const TABS: { key: TabKey; path: string; icon: LucideIcon; label: string }[] = [
   { key: 'home', path: '/', icon: Home, label: t('shell.nav.home') },
   { key: 'students', path: '/students', icon: Users, label: t('shell.nav.students') },
-  { key: 'invoices', path: '/invoices', icon: ReceiptText, label: t('shell.nav.invoices') },
+  { key: 'invoices', path: '/invoices', icon: ReceiptText, label: t('common.invoices') },
   { key: 'more', path: '/more', icon: LayoutGrid, label: t('shell.nav.more') },
 ]
 

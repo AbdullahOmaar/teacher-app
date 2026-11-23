@@ -181,7 +181,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
           {!isAssistant &&
             (balance > 0 ? (
               <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-                {t('students.badgeDue', { amount: formatMoney(balance) })}
+                {t('common.remaining', { amount: formatMoney(balance) })}
               </span>
             ) : balancesQ.data && !hasInvoices ? (
               <span className="shrink-0 text-[12px] font-bold bg-soft text-muted border border-border rounded-full px-2 py-0.5">
@@ -189,7 +189,7 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
               </span>
             ) : (
               <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-                {t('students.badgePaid')}
+                {t('common.paid')}
               </span>
             ))}
         </div>

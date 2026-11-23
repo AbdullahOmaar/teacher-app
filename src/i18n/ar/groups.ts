@@ -136,4 +136,6 @@ export const groups = {
     many: 'المجموعة كمّلت {count} حصة',
     other: 'المجموعة كمّلت {count} حصة',
   },
+  /** اسم بديل عند غياب اسم مجموعة مرتبطة (كان متسرباً في common — PAT-9) */
+  groupFallback: 'مجموعة',
 } as const
