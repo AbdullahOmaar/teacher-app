@@ -5,6 +5,7 @@ import { waLink } from '../../lib/format'
 import type { AttendanceRow, AttendanceStatus, StudentRow, Tables } from '../../types/database'
 import { fetchSessionsInRange, monthStartStr, type SessionWithGroup } from '../home/api'
 import { logActivity, logAttendanceTouch } from '../activity/api'
+import { isNetworkFailure } from './offlineQueue'
 
 export { fetchSessionsInRange, monthStartStr }
 export type { SessionWithGroup }
@@ -239,6 +240,21 @@ export async function fetchSessionAttendance(
   return data ?? []
 }
 
+/**
+ * رمي خطأ حفظٍ تستهلكه مزامنة الأوفلاين (saveAttendance/saveAttendanceBatch):
+ * أخطاء النقل تمرّ كما هي بلا تحويل — مصنّف isNetworkFailure في
+ * offlineQueue يعتمد على شكل الخطأ الأصلي من supabase-js (كائن عادي
+ * بلا code ورسالته رسالة المتصفح)، وتجريده برسالة friendlyDbError
+ * العامة يجعل المزامنة تعلّم عناصر فشلٍ شبكي «فاشلة نهائياً» فلا
+ * تُعاد محاولتها أبداً (حاجب-1 في المراجعة اللاحقة للنشر — 3A-377).
+ * أخطاء القاعدة وحدها تُترجم للرسالة الودّية. أي دالة حفظ تُستهلك
+ * من المزامنة مستقبلاً يجب أن تمرّ أخطاؤها من هنا.
+ */
+function throwSaveError(error: unknown): never {
+  if (isNetworkFailure(error)) throw error
+  throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+}
+
 export async function saveAttendance(
   teacherId: string,
   sessionId: string,
@@ -252,7 +268,7 @@ export async function saveAttendance(
       .eq('teacher_id', teacherId)
       .eq('session_id', sessionId)
       .eq('student_id', studentId)
-    if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+    if (error) throwSaveError(error)
     // سجل النشاط: لمسة حضور فردية — تُجمَّع مع لمسات نفس الحصة (انظر
     // logAttendanceTouch) فلا يغرق السجل بصف لكل طالب.
     logAttendanceTouch(teacherId, sessionId, studentId)
@@ -271,7 +287,7 @@ export async function saveAttendance(
       },
       { onConflict: 'session_id,student_id' },
     )
-  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+  if (error) throwSaveError(error)
   logAttendanceTouch(teacherId, sessionId, studentId)
 }
 
@@ -354,7 +370,7 @@ export async function saveAttendanceBatch(
     const { error } = await db()
       .from('attendance')
       .upsert(rows, { onConflict: 'session_id,student_id' })
-    if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+    if (error) throwSaveError(error)
   }
   const deletionIds = entries.filter((e) => isEmptyValue(e.value)).map((e) => e.studentId)
   if (deletionIds.length > 0) {
@@ -364,7 +380,7 @@ export async function saveAttendanceBatch(
       .eq('teacher_id', teacherId)
       .eq('session_id', sessionId)
       .in('student_id', deletionIds)
-    if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+    if (error) throwSaveError(error)
   }
   logBatchSaved(teacherId, sessionId, rows, entries.length)
 }
