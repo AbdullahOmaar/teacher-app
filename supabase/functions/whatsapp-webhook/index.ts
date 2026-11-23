@@ -7,7 +7,9 @@
 // (X-Hub-Signature-256 بسرّ التطبيق) + سرّ تحقق الاشتراك، وكلاهما
 // من أسرار المنصة (أسماء فقط): WHATSAPP_APP_SECRET ‏،
 // WHATSAPP_WEBHOOK_VERIFY_TOKEN — غير مضبوطين الآن فالدالة خاملة.
-// التحديثات بعميل service role على whatsapp_message_log (0045).
+// التحديثات بعميل إدارة (المفتاح السري الجديد من SUPABASE_SECRET_KEYS
+// المحقونة — مدخل default، وبرجوع للقديم حتى يُعطَّل) على
+// whatsapp_message_log (0045). ترحيل المفاتيح 3A-695 — نمط نونو.
 // ============================================================================
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
@@ -17,10 +19,30 @@ import {
   type WhatsappWebhookEnv,
 } from './core.ts'
 
+// مفاتيح المشروع السرية الجديدة (sb_secret_*) — تحقنها المنصة JSON
+// بأسمائها في SUPABASE_SECRET_KEYS. مفتاح الإدارة هو 'default'،
+// وبغيابه نرجع للمفتاح القديم المحقون (صالح حتى تعطيل القديم).
+function secretKeys(): Record<string, string> {
+  try {
+    const raw = Deno.env.get('SUPABASE_SECRET_KEYS')
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const out: Record<string, string> = {}
+    for (const [name, value] of Object.entries(parsed)) {
+      if (typeof value === 'string' && value) out[name] = value
+    }
+    return out
+  } catch {
+    return {} // بيئة بلا مفاتيح جديدة — يبقى الرجوع للقديم وحده
+  }
+}
+const SERVICE_KEY = secretKeys()['default'] ??
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+
 function serviceClient(): SupabaseClient {
   return createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    SERVICE_KEY,
     { auth: { persistSession: false, autoRefreshToken: false } },
   )
 }

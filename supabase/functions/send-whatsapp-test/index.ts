@@ -7,12 +7,15 @@
 //
 // verify_jwt مفعّل على مستوى المنصة لهذه الدالة (عكس دالة الـ Hook):
 // المستدعي مستخدم حقيقي بـ JWT من التطبيق، والمنصة تتحقق منه قبل
-// التنفيذ، ثم يتحقق الكود من ملكية السنتر بعميل service role.
+// التنفيذ، ثم يتحقق الكود من ملكية السنتر بعميل إدارة.
 //
 // الأسرار (أسماء فقط): WHATSAPP_OTP_ENABLED (Kill switch المنصة)،
-// SUPABASE_URL ‏، SUPABASE_ANON_KEY ‏، SUPABASE_SERVICE_ROLE_KEY
-// (تلقائية من المنصة). توكن المدرس لا يمر هنا كنص إلا لحظة الإرسال
-// من Vault عبر RPC داخلية بالـ service role.
+// SUPABASE_URL ‏، ومفاتيح المنصة المحقونة الجديدة:
+// SUPABASE_PUBLISHABLE_KEYS لعميل التحقق من المستخدم
+// وSUPABASE_SECRET_KEYS لعميل الإدارة (مدخل default في كليهما —
+// وبرجوع للمحفوظين القدماء حتى يُعطَّلا). ترحيل المفاتيح 3A-695 —
+// نمط نونو المثبت. توكن المدرس لا يمر هنا كنص إلا لحظة الإرسال
+// من Vault عبر RPC داخلية بعميل الإدارة.
 // ============================================================================
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
@@ -22,10 +25,33 @@ import {
   type WhatsappTestEnv,
 } from './core.ts'
 
+// مفاتيح المشروع الجديدة — تحقنها المنصة JSON بأسمائها في
+// SUPABASE_SECRET_KEYS (السرية) وSUPABASE_PUBLISHABLE_KEYS (القابلة
+// للنشر). مفتاح كل نوع هو 'default'، وبغيابه نرجع للمحفوظ القديم
+// المقابل (صالح حتى تعطيل القديم).
+function injectedKeys(envName: string): Record<string, string> {
+  try {
+    const raw = Deno.env.get(envName)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const out: Record<string, string> = {}
+    for (const [name, value] of Object.entries(parsed)) {
+      if (typeof value === 'string' && value) out[name] = value
+    }
+    return out
+  } catch {
+    return {} // بيئة بلا مفاتيح جديدة — يبقى الرجوع للقديم وحده
+  }
+}
+const SERVICE_KEY = injectedKeys('SUPABASE_SECRET_KEYS')['default'] ??
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+const PUBLISHABLE_KEY = injectedKeys('SUPABASE_PUBLISHABLE_KEYS')['default'] ??
+  Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+
 function serviceClient(): SupabaseClient {
   return createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    SERVICE_KEY,
     { auth: { persistSession: false, autoRefreshToken: false } },
   )
 }
@@ -36,7 +62,7 @@ const deps: WhatsappTestDeps = {
     if (!authHeader) return null
     const anon = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      PUBLISHABLE_KEY,
       {
         global: { headers: { Authorization: authHeader } },
         auth: { persistSession: false, autoRefreshToken: false },

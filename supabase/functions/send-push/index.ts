@@ -18,8 +18,10 @@
 //   ويسجّل كل نتيجة في push_delivery_log، ويحدّث عدّادات الاشتراك.
 // • الاشتراك الميت (خدمة الـ Push ترد 404/410) يُعطَّل فوراً
 //   (is_active=false + disabled_reason) ولا يُحذف — يبقى أثره وسجلّه.
-// • يعمل بالـ service role (أسرار المنصة التلقائية SUPABASE_URL /
-//   SUPABASE_SERVICE_ROLE_KEY) فيتجاوز RLS بتصميمه كقناة داخلية.
+// • يعمل بمفتاح الإدارة السري الجديد (SUPABASE_SECRET_KEYS المحقونة
+//   من المنصة — مدخل default)، وبرجوع للمحفوظ القديم
+//   SUPABASE_SERVICE_ROLE_KEY حتى يُعطَّل، فيتجاوز RLS بتصميمه
+//   كقناة داخلية (ترحيل المفاتيح 3A-695 — نمط نونو المثبت).
 // ============================================================================
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -29,6 +31,26 @@ const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
 const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:admin@example.com";
 const PUSH_INTERNAL_SECRET = Deno.env.get("PUSH_INTERNAL_SECRET") ?? "";
+
+// مفاتيح المشروع السرية الجديدة (sb_secret_*) — تحقنها المنصة JSON
+// بأسمائها في SUPABASE_SECRET_KEYS. مفتاح الإدارة هو "default"،
+// وبغيابه نرجع للمفتاح القديم المحقون (صالح حتى تعطيل القديم).
+function secretKeys(): Record<string, string> {
+  try {
+    const raw = Deno.env.get("SUPABASE_SECRET_KEYS");
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const [name, value] of Object.entries(parsed)) {
+      if (typeof value === "string" && value) out[name] = value;
+    }
+    return out;
+  } catch {
+    return {}; // بيئة بلا مفاتيح جديدة — يبقى الرجوع للقديم وحده
+  }
+}
+const SERVICE_KEY = secretKeys()["default"] ??
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
@@ -116,7 +138,7 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    SERVICE_KEY,
   );
 
   let query = supabase

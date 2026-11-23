@@ -19,7 +19,9 @@
 //
 // الأسرار (Supabase project secrets — أسماء فقط، القيم لا تُكتب هنا):
 // SEND_SMS_HOOK_SECRET ‏، WHATSAPP_OTP_ENABLED (Kill switch المنصة)،
-// SUPABASE_URL ‏، SUPABASE_SERVICE_ROLE_KEY (تلقائية من المنصة).
+// SUPABASE_URL ‏، ومفتاح الإدارة السري الجديد من SUPABASE_SECRET_KEYS
+// المحقونة من المنصة (مدخل default — وبرجوع للمحفوظ القديم
+// SUPABASE_SERVICE_ROLE_KEY حتى يُعطَّل). ترحيل المفاتيح 3A-695.
 // ============================================================================
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -50,11 +52,31 @@ interface ChannelRow {
   access_token: string
 }
 
+// مفاتيح المشروع السرية الجديدة (sb_secret_*) — تحقنها المنصة JSON
+// بأسمائها في SUPABASE_SECRET_KEYS. مفتاح الإدارة هو 'default'،
+// وبغيابه نرجع للمفتاح القديم المحقون (صالح حتى تعطيل القديم).
+function secretKeys(): Record<string, string> {
+  try {
+    const raw = Deno.env.get('SUPABASE_SECRET_KEYS')
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const out: Record<string, string> = {}
+    for (const [name, value] of Object.entries(parsed)) {
+      if (typeof value === 'string' && value) out[name] = value
+    }
+    return out
+  } catch {
+    return {} // بيئة بلا مفاتيح جديدة — يبقى الرجوع للقديم وحده
+  }
+}
+const SERVICE_KEY = secretKeys()['default'] ??
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+
 /** مُحلِّل القناة الإنتاجي: RPC داخلية واحدة بالـ service role */
 const resolveChannel: ResolveChannelFn = async (userId: string) => {
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    SERVICE_KEY,
     { auth: { persistSession: false, autoRefreshToken: false } },
   )
   const { data, error } = await supabase.rpc('resolve_whatsapp_channel_internal', {
