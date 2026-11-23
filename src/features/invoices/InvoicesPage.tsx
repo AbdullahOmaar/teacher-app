@@ -94,19 +94,21 @@ export function InvoiceCard({
         titleClassName="font-semibold text-[15px] leading-[1.6] truncate"
         secondary={
           <>
-            <span className="block truncate">{inv.group_name}</span>
-            <span className="block">
-              <span className="whitespace-nowrap">{periodLabel(inv.period_month)}</span>
-              {' · '}
-              <span className="whitespace-nowrap">
-                {t('invoices.rowTotal', { amount: formatMoney(inv.total) })}
-              </span>
+            {/* (3A-651 — نمط الصف المنظّم): كل سطر ثانوي وحدة ذرية
+                truncate واحدة — الصيغة القديمة كانت مقاطع whitespace-nowrap
+                منفصلة داخل سطر يلتف، فكانت المقاطع تنزل أسطرًا متبعثرة
+                وتترك نقاط «·» يتيمة على أسطر وحدها عند 360px (لقطة
+                المالك). الآن: سطر ١ المجموعة · الشهر، سطر ٢ الإجمالي ·
+                المدفوع — كلٌّ يُختصر كوحدة ولا ينكسر من الداخل أبدًا */}
+            <span className="block truncate">
+              {inv.group_name} {'·'} {periodLabel(inv.period_month)}
+            </span>
+            <span className="block truncate">
+              {t('invoices.rowTotal', { amount: formatMoney(inv.total) })}
               {inv.paid > 0 && (
                 <>
                   {' · '}
-                  <span className="whitespace-nowrap">
-                    {t('invoices.rowPaidPart', { amount: formatMoney(inv.paid) })}
-                  </span>
+                  {t('invoices.rowPaidPart', { amount: formatMoney(inv.paid) })}
                 </>
               )}
             </span>
