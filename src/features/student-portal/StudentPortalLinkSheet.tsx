@@ -15,6 +15,8 @@ import {
   useRevokeStudentPortalToken,
   useStudentPortalTokens,
 } from './hooks'
+import { usePortalAccessSettings, useUpdatePortalAccessSettings } from '../portal/hooks'
+import { LinkDurationField, PortalAccountBlock } from '../portal/accessUi'
 import { t } from '../../i18n'
 import { TokenRow } from '../portal/TokenRow'
 
@@ -46,13 +48,19 @@ export function StudentPortalLinkSheet({
   const tokensQ = useStudentPortalTokens(teacherId, student.id)
   const createLink = useCreateStudentPortalLink(teacherId)
   const revokeToken = useRevokeStudentPortalToken(teacherId)
+  const settingsQ = usePortalAccessSettings(teacherId)
+  const updateSettings = useUpdatePortalAccessSettings(teacherId)
   const toast = useToast()
   const [freshLink, setFreshLink] = useState<string | null>(null)
+  const [freshDays, setFreshDays] = useState(STUDENT_PORTAL_TOKEN_TTL_DAYS)
+  const [ttlChoice, setTtlChoice] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
 
   const tokens = tokensQ.data ?? []
   const hasActive = tokens.some((t) => studentTokenStatus(t) === 'active')
-  const waUrl = freshLink ? studentPortalLinkWaUrl(student, freshLink, STUDENT_PORTAL_TOKEN_TTL_DAYS) : null
+  // مدة الرابط: اختيار الشيت الحالي، وإلا افتراضي المدرس المحفوظ (3A-385)
+  const ttlDays = ttlChoice ?? settingsQ.data?.ttlDays ?? STUDENT_PORTAL_TOKEN_TTL_DAYS
+  const waUrl = freshLink ? studentPortalLinkWaUrl(student, freshLink, freshDays) : null
 
   const copyLink = async () => {
     if (!freshLink) return
@@ -68,8 +76,10 @@ export function StudentPortalLinkSheet({
   return (
     <Sheet open title={t('studentPortal.linkSheetTitle', { name: student.name })} onClose={onClose}>
       <p className="text-muted text-[13.5px] mt-0">
-        {t('studentPortal.linkIntro', { days: STUDENT_PORTAL_TOKEN_TTL_DAYS })}
+        {t('studentPortal.linkIntro', { days: ttlDays })}
       </p>
+
+      <LinkDurationField value={ttlDays} onChange={setTtlChoice} />
 
       {freshLink && (
         <div className="rounded-xl border border-ok/40 bg-ok/5 p-3 mb-3">
@@ -114,8 +124,15 @@ export function StudentPortalLinkSheet({
         disabled={createLink.isPending}
         onClick={() => {
           setCopied(false)
-          createLink.mutate({ student, ttlDays: STUDENT_PORTAL_TOKEN_TTL_DAYS }, {
-            onSuccess: (res) => setFreshLink(res.link),
+          createLink.mutate({ student, ttlDays }, {
+            onSuccess: (res) => {
+              setFreshLink(res.link)
+              setFreshDays(ttlDays)
+              // اختيار المدة يُحفظ افتراضياً للروابط الجاية (3A-385)
+              if (settingsQ.data && settingsQ.data.ttlDays !== ttlDays) {
+                updateSettings.mutate({ ...settingsQ.data, ttlDays })
+              }
+            },
           })
         }}
       >
@@ -176,6 +193,15 @@ export function StudentPortalLinkSheet({
           )
         })
       )}
+
+      <PortalAccountBlock
+        teacherId={teacherId}
+        role="student"
+        targetId={student.id}
+        usernameHint={student.public_code}
+        phone={student.phone ?? student.guardian_phone ?? null}
+        portalPath="/student-portal"
+      />
     </Sheet>
   )
 }

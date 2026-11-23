@@ -4,18 +4,109 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { PageToolBar } from '../../components/ui/PageToolBar'
-import { Link2, Users } from 'lucide-react'
+import { Eye, Link2, Users } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
+import { useToast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import type { StudentRow } from '../../types/database'
 import { tokenStatus } from './api'
+import type { PortalAccessSettings } from './accounts'
+import type { GuardianSectionKey, StudentSectionKey } from './tokenLifecycle'
 import { formatDateLabel } from '../schedule/api'
-import { PORTAL, useTeacherPortalTokens } from './hooks'
+import {
+  PORTAL,
+  usePortalAccessSettings,
+  useTeacherPortalTokens,
+  useUpdatePortalAccessSettings,
+} from './hooks'
 import { SG, useStudents } from '../students/hooks'
 import { PortalLinkSheet } from './PortalLinkSheet'
+import { LinkDurationField } from './accessUi'
+
+const GUARDIAN_TOGGLES: { key: GuardianSectionKey; label: string }[] = [
+  { key: 'attendance', label: t('portal.secGuardianAttendance') },
+  { key: 'scores', label: t('portal.secGuardianScores') },
+  { key: 'notes', label: t('portal.secGuardianNotes') },
+  { key: 'money', label: t('portal.secGuardianMoney') },
+  { key: 'groups', label: t('portal.secGuardianGroups') },
+]
+
+const STUDENT_TOGGLES: { key: StudentSectionKey; label: string }[] = [
+  { key: 'schedule', label: t('portal.secStudentSchedule') },
+  { key: 'homework', label: t('portal.secStudentHomework') },
+  { key: 'grades', label: t('portal.secStudentGrades') },
+  { key: 'money', label: t('portal.secStudentMoney') },
+]
+
+/**
+ * بطاقة إعدادات دخول البوابات (3A-385): مدة الرابط الافتراضية + أقسام
+ * كل بوابة الظاهرة — الحفظ فوري عند كل تغيير (نمط بطاقات الإعدادات)،
+ * والفرض خادمي: القسم المخفي لا تصل بياناته للبوابة أصلاً (0038/0039).
+ */
+function PortalAccessSettingsCard({ teacherId }: { teacherId: string }) {
+  const settingsQ = usePortalAccessSettings(teacherId)
+  const update = useUpdatePortalAccessSettings(teacherId)
+  const toast = useToast()
+  const settings = settingsQ.data
+
+  const save = (next: PortalAccessSettings) =>
+    update.mutate(next, {
+      onSuccess: () => toast(t('portal.accessSavedToast')),
+      onError: () => toast(t('portal.accessSaveErrorToast'), 'error'),
+    })
+
+  return (
+    <Card className="rise-in" style={{ animationDelay: '25ms' }}>
+      <h3 className="type-section mt-0 mb-2 flex items-center gap-2">
+        <Eye size={22} className="text-primary" />
+        {t('portal.accessSettingsTitle')}
+      </h3>
+      {settingsQ.isPending || !settings ? (
+        <p className="text-muted text-[13.5px] mb-0">{t('portal.accessSettingsLoading')}</p>
+      ) : (
+        <>
+          <LinkDurationField
+            value={settings.ttlDays}
+            onChange={(days) => save({ ...settings, ttlDays: days })}
+          />
+          <div className="text-[13.5px] font-bold mt-2 mb-1">{t('portal.accessGuardianSectionsTitle')}</div>
+          {GUARDIAN_TOGGLES.map((row) => (
+            <label key={row.key} className="flex items-center justify-between gap-3 py-1.5 cursor-pointer">
+              <span className="text-[14px] font-semibold">{row.label}</span>
+              <input
+                type="checkbox"
+                className="h-6 w-6 shrink-0 accent-primary"
+                checked={settings.guardian[row.key]}
+                disabled={update.isPending}
+                onChange={(e) =>
+                  save({ ...settings, guardian: { ...settings.guardian, [row.key]: e.target.checked } })
+                }
+              />
+            </label>
+          ))}
+          <div className="text-[13.5px] font-bold mt-3 mb-1">{t('portal.accessStudentSectionsTitle')}</div>
+          {STUDENT_TOGGLES.map((row) => (
+            <label key={row.key} className="flex items-center justify-between gap-3 py-1.5 cursor-pointer">
+              <span className="text-[14px] font-semibold">{row.label}</span>
+              <input
+                type="checkbox"
+                className="h-6 w-6 shrink-0 accent-primary"
+                checked={settings.student[row.key]}
+                disabled={update.isPending}
+                onChange={(e) =>
+                  save({ ...settings, student: { ...settings.student, [row.key]: e.target.checked } })
+                }
+              />
+            </label>
+          ))}
+        </>
+      )}
+    </Card>
+  )
+}
 
 /**
  * إدارة بوابة ولي الأمر (جهة المدرس، داخل التطبيق): قائمة الطلاب
@@ -82,6 +173,8 @@ export function PortalManagePage() {
           {t('portal.manageIntroShort')}
         </p>
       </Card>
+
+      <PortalAccessSettingsCard teacherId={teacher.teacherId} />
 
       {students.length > 0 && (
         <PageToolBar
