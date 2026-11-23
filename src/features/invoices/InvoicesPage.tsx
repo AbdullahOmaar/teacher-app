@@ -77,7 +77,7 @@ export function InvoiceCard({
   return (
     <Link
       to={`/invoices/${inv.invoice_id}`}
-      className="block no-underline text-text"
+      className="block no-underline text-text active:bg-soft"
       onClick={(e) => {
         // عند ≥1024px الاختيار يعرض التفاصيل في اللوحة الجانبية بلا تنقل
         if (onDesktopSelect && window.matchMedia('(min-width: 1024px)').matches) {
@@ -91,15 +91,34 @@ export function InvoiceCard({
         className={selected ? 'lg:bg-soft' : ''}
         leading={<Avatar name={inv.student_name} />}
         title={inv.student_name}
+        titleClassName="font-semibold text-[15px] leading-[1.6] truncate"
         secondary={
           <>
-            {inv.group_name} · {periodLabel(inv.period_month)} (
-            <span dir="ltr">{periodYm(inv.period_month)}</span>) ·{' '}
-            {t('invoices.rowTotal', { amount: formatMoney(inv.total) })}
-            {inv.paid > 0 ? ` · ${t('invoices.rowPaidPart', { amount: formatMoney(inv.paid) })}` : ''}
+            <span className="block truncate">{inv.group_name}</span>
+            <span className="block">
+              <span className="whitespace-nowrap">{periodLabel(inv.period_month)}</span>
+              {' · '}
+              <span className="whitespace-nowrap">
+                {t('invoices.rowTotal', { amount: formatMoney(inv.total) })}
+              </span>
+              {inv.paid > 0 && (
+                <>
+                  {' · '}
+                  <span className="whitespace-nowrap">
+                    {t('invoices.rowPaidPart', { amount: formatMoney(inv.paid) })}
+                  </span>
+                </>
+              )}
+            </span>
           </>
         }
-        trailing={stateBadge(inv)}
+        secondaryClassName="text-muted text-[13.5px] leading-[1.6]"
+        trailing={
+          <span className="flex items-center gap-1 shrink-0">
+            {stateBadge(inv)}
+            <ChevronLeft size={18} className="text-muted" aria-hidden="true" />
+          </span>
+        }
       />
     </Link>
   )
