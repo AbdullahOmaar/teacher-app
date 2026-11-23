@@ -78,6 +78,12 @@ export type TeacherSettingsRow = Tables<'teacher_settings'>
  */
 export type TeacherWhatsappConfigRow = Omit<Tables<'teacher_whatsapp_config'>, 'token_vault_secret_id'>
 
+/** سجل قوالب Utility لواتساب لكل سنتر (migration ‏0045 — 3A-300) */
+export type TeacherWhatsappTemplateRow = Tables<'teacher_whatsapp_templates'>
+
+/** سجل إرسال/تسليم رسائل واتساب (migration ‏0045 — كتابته service-role فقط) */
+export type WhatsappMessageLogRow = Tables<'whatsapp_message_log'>
+
 /** سجل ملخص Push اليومي (migration ‏0015) */
 export type PushDigestLogRow = Tables<'push_digest_log'>
 

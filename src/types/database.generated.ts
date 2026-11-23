@@ -2167,6 +2167,44 @@ export type Database = {
           },
         ]
       }
+      teacher_whatsapp_templates: {
+        Row: {
+          teacher_id: string
+          kind: string
+          template_name: string
+          language: string
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          teacher_id: string
+          kind: string
+          template_name?: string
+          language?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          teacher_id?: string
+          kind?: string
+          template_name?: string
+          language?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_whatsapp_templates_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teachers: {
         Row: {
           id: string
@@ -2201,6 +2239,56 @@ export type Database = {
             columns: ["owner_user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_message_log: {
+        Row: {
+          id: string
+          teacher_id: string
+          kind: string
+          template_name: string
+          recipient_phone: string
+          status: string
+          meta_message_id: string | null
+          error_code: number | null
+          error_message: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          kind: string
+          template_name: string
+          recipient_phone: string
+          status?: string
+          meta_message_id?: string | null
+          error_code?: number | null
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          kind?: string
+          template_name?: string
+          recipient_phone?: string
+          status?: string
+          meta_message_id?: string | null
+          error_code?: number | null
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_message_log_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
             referencedColumns: ["id"]
           },
         ]
