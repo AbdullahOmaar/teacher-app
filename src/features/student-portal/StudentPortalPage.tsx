@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   BookOpenCheck,
   CalendarDays,
@@ -39,7 +40,7 @@ import {
   portalSessionStudents,
 } from '../portal/accounts'
 import { ClaimPasswordCard, PortalLoginForm, SessionAccountCard } from '../portal/accessUi'
-import { useStudentPortalOverview } from './hooks'
+import { STUDENT_PORTAL, useStudentPortalOverview } from './hooks'
 import { t } from '../../i18n'
 
 /**
@@ -172,6 +173,13 @@ export function StudentPortalPage() {
 
   const rawToken = urlToken ?? sessionToken
 
+  // مفتاح كاش العرض بلا الاعتماد فيه — عند تبديل الاعتماد نمسحه حتى
+  // لا يرى طالبٌ عرضَ طالب آخر من نفس المتصفح داخل نافذة الكاش.
+  const qc = useQueryClient()
+  const clearCredentialCache = () => {
+    void qc.removeQueries({ queryKey: [STUDENT_PORTAL, 'overview'] })
+  }
+
   const overviewQ = useStudentPortalOverview(rawToken)
 
   if (!urlToken && !sessionChecked) {
@@ -192,7 +200,10 @@ export function StudentPortalPage() {
             role="student"
             usernameLabel={t('studentPortal.loginUsernameCode')}
             usernamePlaceholder={t('studentPortal.loginUsernamePlaceholder')}
-            onLoggedIn={(res) => setSessionToken(res.session_token)}
+            onLoggedIn={(res) => {
+              clearCredentialCache()
+              setSessionToken(res.session_token)
+            }}
           />
         </Card>
       </StudentPortalShell>
@@ -562,7 +573,10 @@ export function StudentPortalPage() {
             <SessionAccountCard
               role="student"
               sessionToken={sessionToken}
-              onLoggedOut={() => setSessionToken(null)}
+              onLoggedOut={() => {
+                clearCredentialCache()
+                setSessionToken(null)
+              }}
             />
           ) : (
             <ClaimPasswordCard claim={(pw) => portalClaimStudent(rawToken, pw)} />

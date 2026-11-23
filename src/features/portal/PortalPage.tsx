@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Bell,
   CalendarCheck2,
@@ -48,6 +49,7 @@ import {
 } from './accounts'
 import { ClaimPasswordCard, PortalLoginForm, SessionAccountCard } from './accessUi'
 import {
+  PORTAL,
   useMarkPortalNotificationsRead,
   usePortalNotifications,
   usePortalOverview,
@@ -448,6 +450,16 @@ export function PortalPage() {
     (sessionStudents.length === 1 ? sessionStudents[0].id : null)
   const rawToken = urlToken ?? session?.token ?? null
 
+  // مفاتيح كاش البوابة بلا الاعتماد فيها (قاعدة قديمة: الرمز لا يدخل
+  // المفتاح) — عند تبديل الاعتماد (دخول/خروج) نمسحها حتى لا يرى
+  // حسابٌ بياناتِ حساب آخر من نفس المتصفح داخل نافذة الكاش.
+  const qc = useQueryClient()
+  const clearCredentialCaches = () => {
+    void qc.removeQueries({ queryKey: [PORTAL, 'overview'] })
+    void qc.removeQueries({ queryKey: [PORTAL, 'proofs'] })
+    void qc.removeQueries({ queryKey: [PORTAL, 'notifications'] })
+  }
+
   const overviewQ = usePortalOverview(studentId, rawToken)
 
   if (urlToken && !urlStudentId) {
@@ -478,7 +490,10 @@ export function PortalPage() {
             role="guardian"
             usernameLabel={t('portal.loginUsernameGuardian')}
             usernamePlaceholder={t('portal.loginUsernameGuardianPlaceholder')}
-            onLoggedIn={(res) => setSession({ token: res.session_token, info: res })}
+            onLoggedIn={(res) => {
+              clearCredentialCaches()
+              setSession({ token: res.session_token, info: res })
+            }}
           />
         </Card>
       </PortalShell>
@@ -754,6 +769,7 @@ export function PortalPage() {
               role="guardian"
               sessionToken={session.token}
               onLoggedOut={() => {
+                clearCredentialCaches()
                 setSession(null)
                 setPickedStudentId(null)
               }}

@@ -39,11 +39,16 @@ import {
 export function LinkDurationField({
   value,
   onChange,
+  onCommit,
 }: {
   value: number
   onChange: (days: number) => void
+  /** تُستدعى عند تثبيت اختيار (نقرة مقترح أو خروج من حقل المخصص) — لحفظ فوري عند الحاجة */
+  onCommit?: (days: number) => void
 }) {
   const isPreset = (TTL_PRESET_DAYS as readonly number[]).includes(value)
+  const [customMode, setCustomMode] = useState(false)
+  const showCustom = customMode || !isPreset
   return (
     <div className="block mb-3">
       <span className="block text-[13.5px] leading-[1.7] text-muted font-semibold mb-1">
@@ -51,15 +56,23 @@ export function LinkDurationField({
       </span>
       <ChipRow>
         {TTL_PRESET_DAYS.map((d) => (
-          <Chip key={d} active={value === d} onClick={() => onChange(d)}>
+          <Chip
+            key={d}
+            active={!showCustom && value === d}
+            onClick={() => {
+              setCustomMode(false)
+              onChange(d)
+              onCommit?.(d)
+            }}
+          >
             {t('portal.durationDays', { days: d })}
           </Chip>
         ))}
-        <Chip active={!isPreset} onClick={() => onChange(value)}>
+        <Chip active={showCustom} onClick={() => setCustomMode(true)}>
           {t('portal.durationCustomChip')}
         </Chip>
       </ChipRow>
-      {!isPreset && (
+      {showCustom && (
         <div className="mt-2">
           <TextInput
             type="number"
@@ -68,6 +81,7 @@ export function LinkDurationField({
             inputMode="numeric"
             value={value}
             onChange={(e) => onChange(clampTtlDays(e.target.value))}
+            onBlur={() => onCommit?.(value)}
             aria-label={t('portal.durationLabel')}
           />
         </div>

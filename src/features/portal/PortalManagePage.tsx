@@ -51,6 +51,9 @@ function PortalAccessSettingsCard({ teacherId }: { teacherId: string }) {
   const update = useUpdatePortalAccessSettings(teacherId)
   const toast = useToast()
   const settings = settingsQ.data
+  // مسودة مدة محلية: الكتابة في حقل المخصص لا تحفظ عند كل رقم —
+  // الحفظ عند تثبيت الاختيار فقط (onCommit)
+  const [ttlDraft, setTtlDraft] = useState<number | null>(null)
 
   const save = (next: PortalAccessSettings) =>
     update.mutate(next, {
@@ -69,8 +72,12 @@ function PortalAccessSettingsCard({ teacherId }: { teacherId: string }) {
       ) : (
         <>
           <LinkDurationField
-            value={settings.ttlDays}
-            onChange={(days) => save({ ...settings, ttlDays: days })}
+            value={ttlDraft ?? settings.ttlDays}
+            onChange={setTtlDraft}
+            onCommit={(days) => {
+              setTtlDraft(null)
+              save({ ...settings, ttlDays: days })
+            }}
           />
           <div className="text-[13.5px] font-bold mt-2 mb-1">{t('portal.accessGuardianSectionsTitle')}</div>
           {GUARDIAN_TOGGLES.map((row) => (
