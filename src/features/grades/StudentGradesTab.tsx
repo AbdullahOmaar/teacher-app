@@ -119,8 +119,12 @@ export function StudentGradesTab({
           >
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <div className="font-bold text-[16px]">{r.title}</div>
-                <div className="text-muted text-[13.5px]">
+                {/* (3A-651 — نمط الصف المنظّم): العنوان سطر واحد بنقاط
+                    حذف (قاعدة المالك للصفوف) والسطر الداعم سطر واحد
+                    يُختصر كوحدة — كانا يلتفان في ٥ أسطر بنقاط «·» يتيمة
+                    في لقطة ملف الطالب */}
+                <div className="font-bold text-[16px] truncate">{r.title}</div>
+                <div className="text-muted text-[13.5px] truncate">
                   {ASSESSMENT_TYPE_LABELS[r.type]} · {r.group_name} ·{' '}
                   {formatDateLabel(r.assess_date)}
                   {r.source === 'online_exam' && (

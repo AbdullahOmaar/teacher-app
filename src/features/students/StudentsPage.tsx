@@ -269,7 +269,10 @@ export function StudentsPage() {
                     <>
                       {s.name}
                       {s.paused && (
-                        <span className="ms-2 type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-0.5 align-middle">
+                        /* (3A-651): نفس تشريح شارة «خصم» — inline-flex
+                           بدل span inline حتى لا تنكسر الكبسولة داخل سطر
+                           الاسم */
+                        <span className="ms-2 inline-flex items-center whitespace-nowrap leading-none type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-1 align-middle">
                           {t('students.badgePaused')}
                         </span>
                       )}

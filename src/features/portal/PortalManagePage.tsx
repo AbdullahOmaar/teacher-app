@@ -208,7 +208,7 @@ export function PortalManagePage() {
               {/* «إدارة الرابط»: زر صغير في طرف البطاقة بجانب بيانات
                   الطالب (3A-384 — قاعدة المالك ٦-١) بدل زر وحيد على
                   سطر كامل تحتها */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-[15px] truncate">{s.name}</div>
                   <div className="text-muted text-[13.5px] mt-0.5">
@@ -223,22 +223,26 @@ export function PortalManagePage() {
                       t('portal.manageNoGuardian')
                     )}
                   </div>
-                  <div className="mt-1.5">
-                    {expiresAt ? (
-                      <span className="text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-                        {t('portal.manageActiveUntil', { date: formatDateLabel(expiresAt.slice(0, 10)) })}
-                      </span>
-                    ) : (
-                      <span className="text-[12px] font-bold bg-soft text-muted border border-border rounded-full px-2 py-0.5">
-                        {t('portal.manageNoLink')}
-                      </span>
-                    )}
-                  </div>
                 </div>
                 <Button variant="soft" size="sm" className="shrink-0" onClick={() => setSelected(s)}>
                   <Link2 size={16} />
                   {t('portal.manageLinkAction')}
                 </Button>
+              </div>
+              {/* (3A-651 — نمط الصف المنظّم): شارة الحالة على سطرها الخاص
+                  بعرض البطاقة الكامل — كانت داخل عمود النص بجانب الزر
+                  فالتفّت على سطرين وانكسرت («2026» وحدها على سطر في لقطة
+                  المالك). الآن inline-flex + nowrap فلا تلتف أبدًا */}
+              <div className="mt-1.5">
+                {expiresAt ? (
+                  <span className="inline-flex items-center whitespace-nowrap text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
+                    {t('portal.manageActiveUntil', { date: formatDateLabel(expiresAt.slice(0, 10)) })}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center whitespace-nowrap text-[12px] font-bold bg-soft text-muted border border-border rounded-full px-2 py-0.5">
+                    {t('portal.manageNoLink')}
+                  </span>
+                )}
               </div>
             </Card>
           )
