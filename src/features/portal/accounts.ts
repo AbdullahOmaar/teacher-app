@@ -28,7 +28,7 @@ import type { TeacherSettingsRow } from '../../types/database'
 
 export type PortalAccountRole = 'guardian' | 'student'
 
-export interface PortalSessionStudent {
+interface PortalSessionStudent {
   id: string
   name: string
   code: string

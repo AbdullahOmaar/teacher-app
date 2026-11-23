@@ -137,7 +137,7 @@ export function normalizePortalBrand(raw: RawPortalBrand | null | undefined): No
 // جهة المدرس — إنشاء/جلب/إلغاء
 // ---------------------------------------------------------------------------
 
-export interface CreateTokenLinkDeps {
+interface CreateTokenLinkDeps {
   /** مولّد الرمز الخام وهاشّه — محقونتان من portal/api.ts (مصدرهما الأصلي) */
   generateRawToken: () => string
   sha256Hex: (text: string) => Promise<string>
@@ -281,7 +281,7 @@ export function buildAttMeta(labels: AttMetaLabels): Record<string, { label: str
 // بوابة فتبقى في مكانها.
 // ---------------------------------------------------------------------------
 
-export interface PortalGroupLike {
+interface PortalGroupLike {
   name: string
   days: number[]
   start_time: string

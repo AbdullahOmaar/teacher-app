@@ -7,11 +7,6 @@
  * وتنسيق تاريخ ar-EG بأرقام لاتينية (u-nu-latn) للاستخدامات الجديدة،
  * وأي توحيد شامل للأرقام قرار مرحلة مستقل لا تغيير صامت هنا.
  */
-const dateFmt = new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-})
 
 const pluralRules = new Intl.PluralRules('ar-EG')
 
@@ -20,7 +15,3 @@ export function pluralCategory(count: number): Intl.LDMLPluralRule {
   return pluralRules.select(count)
 }
 
-/** تاريخ طويل عربي بأرقام لاتينية (مثال: «21 نوفمبر 2026») */
-export function fmtDateLong(date: Date): string {
-  return dateFmt.format(date)
-}

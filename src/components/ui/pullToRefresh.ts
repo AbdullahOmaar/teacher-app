@@ -18,16 +18,16 @@
 // ===========================================================================
 
 /** مسافة التردد قبل قفل الاتجاه (px) — اللمسات العادية لا تتجاوزها */
-export const PTR_SLOP_PX = 10
+const PTR_SLOP_PX = 10
 /** عتبة السحب البصري للإطلاق (px) */
 export const PTR_THRESHOLD_PX = 64
 /** سقف السحب البصري (px) */
 export const PTR_MAX_PULL_PX = 92
 /** معامل المقاومة: البصري = الخام × هذا المعامل */
-export const PTR_RESISTANCE = 0.5
+const PTR_RESISTANCE = 0.5
 
-export type PtrPhase = 'idle' | 'tracking' | 'refreshing'
-export type PtrDirection = 'none' | 'vertical' | 'horizontal'
+type PtrPhase = 'idle' | 'tracking' | 'refreshing'
+type PtrDirection = 'none' | 'vertical' | 'horizontal'
 
 export interface PtrState {
   phase: PtrPhase

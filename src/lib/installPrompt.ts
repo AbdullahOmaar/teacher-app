@@ -8,7 +8,7 @@ import { useSyncExternalStore } from 'react'
  * التثبيت يبدأ فقط بضغطة صريحة من الإعدادات.
  */
 
-export interface BeforeInstallPromptEvent extends Event {
+interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
@@ -42,7 +42,7 @@ function subscribe(onChange: () => void): () => void {
   }
 }
 
-export interface InstallState {
+interface InstallState {
   /** حدث تثبيت جاهز للاستدعاء (Chrome/Edge/Android) */
   canPrompt: boolean
   /** التطبيق يعمل مثبّتاً أصلاً أو ثُبّت في هذه الجلسة */

@@ -5,7 +5,6 @@ import { logActivity } from '../activity/api'
 import type {
   EnrollmentInput,
   EnrollmentRow,
-  GroupRow,
   StudentInput,
   StudentRow,
 } from '../../types/database'
@@ -152,10 +151,6 @@ export async function deleteEnrollment(teacherId: string, enrollmentId: string):
   if (error) throw friendlyDbError(error, t('common.deleteError'))
 }
 
-/** خريطة سريعة: group_id → صف المجموعة */
-export function indexGroups(groups: GroupRow[]): Map<string, GroupRow> {
-  return new Map(groups.map((g) => [g.id, g]))
-}
 
 // ---------------------------------------------------------------------------
 // حذف / أرشفة آمنة (Phase 2 — خطوة 10)

@@ -303,7 +303,7 @@ export interface ExamStartResult {
   presentation: ExamPresentationQuestion[]
 }
 
-export interface ExamReviewItem {
+interface ExamReviewItem {
   question_id: string
   chosen: string | null
   correct_answer: string | null

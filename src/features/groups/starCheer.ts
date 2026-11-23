@@ -14,7 +14,7 @@
 // هو الخبر، ولا فيض احتفالات متتالية عند أول فتح لمجموعة كبيرة.
 // ===========================================================================
 
-export type MilestoneKind = 'students' | 'sessions'
+type MilestoneKind = 'students' | 'sessions'
 
 export interface GroupMilestone {
   id: string
@@ -23,7 +23,7 @@ export interface GroupMilestone {
 }
 
 /** المحطات المعرفة — ترتيب تصاعدي داخل كل نوع */
-export const GROUP_MILESTONES: readonly GroupMilestone[] = [
+const GROUP_MILESTONES: readonly GroupMilestone[] = [
   { id: 'students-10', kind: 'students', threshold: 10 },
   { id: 'students-25', kind: 'students', threshold: 25 },
   { id: 'students-50', kind: 'students', threshold: 50 },

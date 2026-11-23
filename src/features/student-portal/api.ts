@@ -152,7 +152,7 @@ export interface StudentPortalBrand {
   show_mascot: boolean
 }
 
-export interface StudentPortalGroup {
+interface StudentPortalGroup {
   name: string
   days: number[]
   start_time: string
@@ -160,7 +160,7 @@ export interface StudentPortalGroup {
   links: string[]
 }
 
-export interface StudentPortalSession {
+interface StudentPortalSession {
   date: string
   start_time: string
   duration_minutes: number
@@ -169,14 +169,14 @@ export interface StudentPortalSession {
   room: string | null
 }
 
-export interface StudentPortalHomework {
+interface StudentPortalHomework {
   date: string
   group_name: string
   status: string // 'p' | 'a' | 'l' | 'm'
   homework_done: boolean
 }
 
-export interface StudentPortalGrade {
+interface StudentPortalGrade {
   title: string
   type: AssessmentType
   date: string
@@ -186,7 +186,7 @@ export interface StudentPortalGrade {
   source: ScoreSource
 }
 
-export interface StudentPortalExamResult {
+interface StudentPortalExamResult {
   title: string
   attempt_no: number
   score: number
@@ -196,7 +196,7 @@ export interface StudentPortalExamResult {
   score_posted: boolean
 }
 
-export interface StudentPortalInvoice {
+interface StudentPortalInvoice {
   period_month: string
   group_name: string
   total: number
@@ -205,7 +205,7 @@ export interface StudentPortalInvoice {
   is_paid: boolean
 }
 
-export interface StudentPortalPayment {
+interface StudentPortalPayment {
   amount: number
   method: PaymentMethod
   paid_on: string
@@ -213,7 +213,7 @@ export interface StudentPortalPayment {
 }
 
 /** أقسام بوابة الطالب الظاهرة بقرار المدرس (3A-385) — false = مخفي ولا تصل بياناته أصلاً */
-export type StudentPortalSections = Record<StudentSectionKey, boolean>
+type StudentPortalSections = Record<StudentSectionKey, boolean>
 
 /** عرض بوابة الطالب كما يعيده student_portal_build_overview حرفياً — حقول محدودة بالتصميم */
 export interface StudentPortalOverview {

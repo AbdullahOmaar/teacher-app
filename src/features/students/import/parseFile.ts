@@ -32,8 +32,8 @@ export interface ParsedFile {
 }
 
 /** حدود حماية: ملف ≤ 5MB و≤ 1000 صف بيانات — فوق ذلك رسالة واضحة */
-export const MAX_FILE_BYTES = 5 * 1024 * 1024
-export const MAX_DATA_ROWS = 1000
+const MAX_FILE_BYTES = 5 * 1024 * 1024
+const MAX_DATA_ROWS = 1000
 
 /** خلية تاريخ من Excel → نص تاريخ ISO ‏(yyyy-mm-dd) بدل كائن Date */
 function normalizeCell(v: unknown): unknown {

@@ -13,7 +13,6 @@ import {
   startExamAttempt,
   submitExamAttempt,
   updateOnlineExam,
-  type ExamStartResult,
 } from './api'
 
 /** كل مفاتيح وحدة الامتحانات الإلكترونية تبدأ بـ 'exams' */
@@ -134,4 +133,3 @@ export function useSubmitExamAttempt(rawToken: string | null) {
   })
 }
 
-export type { ExamStartResult }

@@ -68,8 +68,8 @@ function rawDb(): SupabaseClient {
 // يتجاهل القسمين الجديدين في ملف جديد — توافق في الاتجاهين بلا كسر.
 // ===========================================================================
 
-export const BACKUP_FORMAT = 'teacher-app-backup'
-export const BACKUP_VERSION = 1
+const BACKUP_FORMAT = 'teacher-app-backup'
+const BACKUP_VERSION = 1
 
 export interface BackupTableSpec {
   key: string
@@ -162,7 +162,7 @@ export interface BackupFile {
 }
 
 /** تجميع النسخة الكاملة لنطاق المدرس الحالي من قاعدة البيانات */
-export async function fetchBackup(teacherId: string): Promise<BackupFile> {
+async function fetchBackup(teacherId: string): Promise<BackupFile> {
   const supa = rawDb()
   const data: BackupFile['data'] = { teacher_settings: null }
 
@@ -342,7 +342,7 @@ export function parseBackupJson(text: string): BackupValidation {
 //   payments.reverses_payment_id) يُصلَحان في مرور ثانٍ بعد إدراج الكل.
 // ---------------------------------------------------------------------------
 
-export interface TableImportResult {
+interface TableImportResult {
   key: string
   label: string
   imported: number

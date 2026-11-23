@@ -7,7 +7,7 @@ import { fetchSessionsInRange, monthStartStr, type SessionWithGroup } from '../h
 import { logActivity, logAttendanceTouch } from '../activity/api'
 import { isNetworkFailure } from './offlineQueue'
 
-export { fetchSessionsInRange, monthStartStr }
+export { fetchSessionsInRange }
 export type { SessionWithGroup }
 
 // ---------------------------------------------------------------------------
@@ -337,20 +337,6 @@ function logBatchSaved(
   })
 }
 
-/** حفظ جماعي (حاضر للكل): upsert واحد لكل الطلاب ذوي القيم غير الفارغة */
-export async function saveManyAttendance(
-  teacherId: string,
-  sessionId: string,
-  entries: { studentId: string; value: AttendanceValue }[],
-): Promise<void> {
-  const rows = buildUpsertRows(teacherId, sessionId, entries)
-  if (rows.length === 0) return
-  const { error } = await db()
-    .from('attendance')
-    .upsert(rows, { onConflict: 'session_id,student_id' })
-  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
-  logBatchSaved(teacherId, sessionId, rows, rows.length)
-}
 
 /**
  * حفظ دفعة مزامنة كاملة لحصة (أداء 3A-296): كل تغييرات الحصة المعلّقة في

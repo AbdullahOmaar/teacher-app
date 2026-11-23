@@ -44,9 +44,9 @@ import { monthStartStr } from '../home/api'
 // ---------------------------------------------------------------------------
 
 /** عتبة الغياب المتتالي (حصص) */
-export const ABSENCE_STREAK_THRESHOLD = 3
+const ABSENCE_STREAK_THRESHOLD = 3
 /** عتبة امتداد المتأخرات (شهور شاملة الطرفين من أقدم شهر متأخر) */
-export const OVERDUE_SPAN_THRESHOLD = 2
+const OVERDUE_SPAN_THRESHOLD = 2
 
 export type AtRiskReason =
   | {

@@ -154,7 +154,7 @@ export function logAttendanceTouch(teacherId: string, sessionId: string, student
 // المالك يرى الكل، والمساعد يرى صفوفه فقط مهما طلبت الواجهة.
 // ---------------------------------------------------------------------------
 
-export const ACTIVITY_PAGE_SIZE = 200
+const ACTIVITY_PAGE_SIZE = 200
 
 export interface ActivityFilters {
   eventType?: ActivityEventType | null

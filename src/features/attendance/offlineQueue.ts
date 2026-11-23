@@ -43,7 +43,7 @@ export interface QueuedAttendanceItem {
   failed: boolean
 }
 
-export const MAX_SYNC_ATTEMPTS = 3
+const MAX_SYNC_ATTEMPTS = 3
 
 const STORAGE_KEY = 'teacher-app-attendance-queue-v1'
 const CHANGE_EVENT = 'teacher-attendance-queue-changed'
@@ -62,7 +62,7 @@ function sameValue(a: AttendanceValue, b: AttendanceValue): boolean {
  * مستخدم جديد. قيمة مطابقة تماماً لما هو معلّق أصلاً ⇒ نفس المصفوفة
  * (لا كتابة تخزين زائدة).
  */
-export function enqueueItem(
+function enqueueItem(
   items: QueuedAttendanceItem[],
   input: {
     teacherId: string

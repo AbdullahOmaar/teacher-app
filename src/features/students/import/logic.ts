@@ -107,7 +107,7 @@ const HEADER_ALIASES: Record<ImportField, string[]> = {
 }
 
 /** تطبيع ترويسة للمقارنة: قصّ، مسافات موحدة، لاتيني صغير، إزالة # و* وعلامات ترقيم طرفية */
-export function normalizeHeader(raw: unknown): string {
+function normalizeHeader(raw: unknown): string {
   return String(raw ?? '')
     .trim()
     .toLowerCase()
@@ -142,7 +142,7 @@ export function autoMapHeaders(headers: unknown[]): (ImportField | null)[] {
  * بلا صفره). يُستخدم للمقارنة وللتخزين معاً حتى تكون الأرقام المستوردة
  * بنفس صيغة المدخلة يدوياً.
  */
-export function normalizePhone(raw: unknown): string {
+function normalizePhone(raw: unknown): string {
   let d = String(raw ?? '').replace(/\D/g, '')
   if (d.startsWith('0020')) d = '0' + d.slice(4)
   else if (d.startsWith('20') && d.length === 12) d = '0' + d.slice(2)
@@ -151,7 +151,7 @@ export function normalizePhone(raw: unknown): string {
 }
 
 /** تطبيع كود طالب للمقارنة */
-export function normalizeCode(raw: unknown): string {
+function normalizeCode(raw: unknown): string {
   return String(raw ?? '')
     .trim()
     .replace(/^#+/, '')
@@ -217,7 +217,7 @@ export function rowsToStudents(
   return out
 }
 
-export type RowStatus = 'ready' | 'duplicate' | 'error'
+type RowStatus = 'ready' | 'duplicate' | 'error'
 
 export interface ClassifiedRow {
   row: ParsedStudentRow
@@ -229,7 +229,7 @@ export interface ClassifiedRow {
 }
 
 /** الحد الأدنى/الأقصى المقبول لأرقام هاتف موجودة في الصف */
-export function isPlausiblePhone(normalized: string): boolean {
+function isPlausiblePhone(normalized: string): boolean {
   return normalized.length >= 7 && normalized.length <= 15
 }
 

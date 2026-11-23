@@ -58,7 +58,7 @@ import { periodLabel } from '../schedule/api'
 
 export type AlertKind = 'att' | 'absence' | 'prepaid' | 'fin' | 'proof' | 'grade' | 'backup'
 
-export interface AlertInvoiceRef {
+interface AlertInvoiceRef {
   invoice_id: string
   period_month: string
   group_name: string
@@ -67,7 +67,7 @@ export interface AlertInvoiceRef {
   balance: number
 }
 
-export interface AlertLowStudent {
+interface AlertLowStudent {
   student_id: string
   student_name: string
   score: number
@@ -100,7 +100,7 @@ export interface AppAlert {
   silent?: boolean
 }
 
-export interface AlertPrepaidMember {
+interface AlertPrepaidMember {
   student_id: string
   student_name: string
   /** الحصص المتبقية في الباقة */
@@ -124,8 +124,8 @@ export const SECTION_META: Record<AlertKind, { title: string }> = {
 }
 
 /** عتبة الغياب المتكرر: غيابات (a) خلال نافذة الأيام دي — انظر الترويسة */
-export const ABSENCE_WINDOW_DAYS = 30
-export const ABSENCE_THRESHOLD = 3
+const ABSENCE_WINDOW_DAYS = 30
+const ABSENCE_THRESHOLD = 3
 
 /**
  * باقي باقة طالب (§5.7): prepaid_sessions − مرات الحضور الفعلي (p/l/m)،

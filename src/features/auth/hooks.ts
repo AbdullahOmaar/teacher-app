@@ -3,7 +3,6 @@ import { INVALIDATION_SETS, invalidatePrefixes, useInvalidatePrefixes } from '..
 import {
   cancelTeamInvite,
   createCentre,
-  fetchMyMemberships,
   fetchTeamMembers,
   inviteAssistant,
   inviteAssistantByEmail,
@@ -14,13 +13,6 @@ import {
 
 export const TEAM_KEY = 'team'
 
-export function useMyMemberships(userId: string | undefined) {
-  return useQuery({
-    queryKey: [TEAM_KEY, 'my-memberships', userId],
-    enabled: Boolean(userId),
-    queryFn: () => fetchMyMemberships(userId!),
-  })
-}
 
 export function useTeamMembers(teacherId: string | undefined, enabled: boolean) {
   return useQuery({

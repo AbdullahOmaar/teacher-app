@@ -1,7 +1,7 @@
 import { ar } from './ar'
 
 /** صيغ الجمع الست لفئات CLDR العربية (zero/one/two/few/many/other) */
-export interface PluralForms {
+interface PluralForms {
   zero?: string
   one?: string
   two?: string
@@ -13,7 +13,7 @@ export interface PluralForms {
 /** قيمة رسالة: نص مباشر أو صيغ جمع تُختار بـ Intl.PluralRules */
 export type Msg = string | PluralForms
 
-export type Dict = typeof ar
+type Dict = typeof ar
 
 /** كل مسارات المفاتيح المنقّطة في القاموس (مشتقة من بنيته فعلياً) */
 export type I18nKey = DotPaths<Dict>

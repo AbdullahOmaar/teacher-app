@@ -96,7 +96,7 @@ export interface EnrolBrand {
   accent: string | null
 }
 
-export interface EnrolGroupOption {
+interface EnrolGroupOption {
   id: string
   name: string
   days: number[]

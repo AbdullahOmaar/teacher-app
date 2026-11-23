@@ -9,7 +9,7 @@ import {
 } from './cashboxApi'
 
 /** مفاتيح الإغلاق اليومي تحت مفتاح وحدة الفلوس: [MONEY, 'cashbox', ...] */
-export const CASHBOX = 'cashbox'
+const CASHBOX = 'cashbox'
 
 export function useDaySummary(teacherId: string | undefined, date: string, enabled: boolean) {
   return useQuery({

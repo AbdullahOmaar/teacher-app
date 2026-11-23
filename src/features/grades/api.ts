@@ -15,14 +15,12 @@ import type {
 } from '../../types/database'
 import { todayStr } from '../home/api'
 import {
-  fetchGuardianContacts,
-  fetchSessionRoster,
   resolveGuardian,
   type GuardianContact,
   type RosterStudent,
 } from '../attendance/api'
 
-export { fetchSessionRoster, fetchGuardianContacts, resolveGuardian, todayStr }
+export { todayStr }
 export type { RosterStudent, GuardianContact }
 
 // ---------------------------------------------------------------------------
@@ -45,10 +43,6 @@ export const QUESTION_TYPES: { code: QuestionType; label: string }[] = [
   { code: 'essay', label: t('grades.questionEssay') },
 ]
 
-export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
-  mcq: t('grades.questionMcq'),
-  essay: t('grades.questionEssay'),
-}
 
 /** حروف اختيارات الـ MCQ في ورقة الامتحان (المرجع §4 مودال examSheet) */
 export const OPTION_LETTERS = [

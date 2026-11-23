@@ -38,7 +38,7 @@ import {
  * للمستخدم) ونكمل بقية العناصر — عنصر فاسد لا يحجز القائمة كلها.
  */
 
-export interface SyncRunResult {
+interface SyncRunResult {
   synced: number
   failedNow: number
   /** توقفنا مبكراً لفشل شبكي — بقيت عناصر تنتظر الاتصال */
@@ -142,7 +142,7 @@ async function runSync(
 }
 
 /** تشغيل المزامنة لمدرس — يعيد نفس الوعد الجاري إن كانت هناك مزامنة تعمل */
-export function syncAttendanceQueue(
+function syncAttendanceQueue(
   teacherId: string,
   onItemSynced: () => void = () => {},
 ): Promise<SyncRunResult> {

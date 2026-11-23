@@ -133,7 +133,7 @@ export function portalLinkWaUrl(
  * (guardian_phone ثم phone — وبلا أي رقم لا يمكن إنشاء ولي أمر
  * لأن guardians.phone أساس الربط في المخطط).
  */
-export async function ensureGuardianAndLink(
+async function ensureGuardianAndLink(
   teacherId: string,
   student: StudentRow,
 ): Promise<GuardianRow> {
@@ -248,7 +248,7 @@ export function tokenStatus(t: GuardianAccessTokenRow): 'active' | 'expired' | '
 // جهة البوابة العامة (بلا جلسة — anon key + RPC مقيدة الحقول فقط)
 // ---------------------------------------------------------------------------
 
-export interface PortalGroup {
+interface PortalGroup {
   name: string
   days: number[]
   start_time: string
@@ -256,19 +256,19 @@ export interface PortalGroup {
   links: string[]
 }
 
-export interface PortalScore {
+interface PortalScore {
   title: string
   date: string
   score: number
   max_score: number
 }
 
-export interface PortalNote {
+interface PortalNote {
   date: string
   text: string
 }
 
-export interface PortalAttendance {
+interface PortalAttendance {
   date: string
   group_name: string
   status: string // 'p' | 'a' | 'l' | 'm' — من attendance_status في المخطط
@@ -291,7 +291,7 @@ export interface PortalBrand {
 }
 
 /** أقسام بوابة ولي الأمر الظاهرة بقرار المدرس (3A-385) — false = مخفي ولا تصل بياناته أصلاً */
-export type PortalSections = Record<GuardianSectionKey, boolean>
+type PortalSections = Record<GuardianSectionKey, boolean>
 
 /** عرض البوابة كما يعيده portal_build_overview حرفياً — حقول محدودة بالتصميم */
 export interface PortalOverview {
@@ -384,10 +384,10 @@ export const PROOF_METHODS: { code: PaymentMethod; label: string }[] = [
   { code: 'bank_transfer', label: t('portal.apiProofMethodBank') },
 ]
 
-export const PROOF_BUCKET = 'payment-proofs'
+const PROOF_BUCKET = 'payment-proofs'
 
 /** حد حجم الصورة على الخادم (bucket) — العميل يضغط قبل الرفع لاحترام الحد */
-export const PROOF_MAX_BYTES = 5 * 1024 * 1024
+const PROOF_MAX_BYTES = 5 * 1024 * 1024
 
 export interface PortalProof {
   id: string
@@ -422,7 +422,7 @@ function proofErrorMessage(error: unknown): string {
   return t('portal.apiProofErrorGeneric')
 }
 
-export interface PreparedProofImage {
+interface PreparedProofImage {
   blob: Blob
   ext: 'jpg' | 'png' | 'webp'
   contentType: string
@@ -440,7 +440,7 @@ const PROOF_MIME_EXT: Record<string, 'jpg' | 'png' | 'webp'> = {
  * (لقطات التحويل نصية فتتحمل JPEG جيداً) حتى تحترم حد الـ bucket ‏5MB.
  * فشل الضغط يرجع للأصل إن كان داخل الحد، وإلا خطأ واضح.
  */
-export async function prepareProofImage(file: File): Promise<PreparedProofImage> {
+async function prepareProofImage(file: File): Promise<PreparedProofImage> {
   const ext = PROOF_MIME_EXT[file.type]
   if (!ext) throw new Error(t('portal.apiProofErrorInvalidFileType'))
   if (file.size <= 2 * 1024 * 1024) {

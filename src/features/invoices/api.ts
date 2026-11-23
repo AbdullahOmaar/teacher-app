@@ -102,13 +102,13 @@ export function splitArrears(rows: InvoiceBalanceRow[], monthStart: string): Arr
   return { unpaidCount, arrearsTotal, dueThisMonthCount, dueThisMonthTotal, overdueCount, overdueTotal }
 }
 
-export interface UnpaidStudentRow {
+interface UnpaidStudentRow {
   studentId: string
   name: string
   total: number
 }
 
-export interface UnpaidStudentSummary {
+interface UnpaidStudentSummary {
   rows: UnpaidStudentRow[]
   total: number
   count: number

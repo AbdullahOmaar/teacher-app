@@ -198,7 +198,7 @@ export async function updatePassword(newPassword: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export const DEMO_EMAIL = 'demo@teacher-app.com'
-export const DEMO_PASSWORD = 'Demo123456'
+const DEMO_PASSWORD = 'Demo123456'
 
 export async function signInDemo(): Promise<void> {
   await signInWithEmail(DEMO_EMAIL, DEMO_PASSWORD)
@@ -227,7 +227,7 @@ export function toMemberRow(r: Tables<'teacher_members'>): TeacherMemberRow {
   return { ...r, permissions: r.permissions as Record<string, unknown> }
 }
 
-export async function fetchOwnTeacher(userId: string): Promise<TeacherRow | null> {
+async function fetchOwnTeacher(userId: string): Promise<TeacherRow | null> {
   const { data, error } = await db()
     .from('teachers')
     .select(TEACHER_COLS)
@@ -356,16 +356,6 @@ export const PERMISSION_LABELS: Record<string, string> = {
   can_view_money: t('auth.authPermMoney'),
 }
 
-/** عضويات المستخدم الحالي عند مدرسين آخرين (يراها بسياسة members_self_select) */
-export async function fetchMyMemberships(userId: string): Promise<TeacherMemberRow[]> {
-  const { data, error } = await db()
-    .from('teacher_members')
-    .select(MEMBER_COLS)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true })
-  if (error) throw error
-  return (data ?? []).map(toMemberRow)
-}
 
 /** أعضاء فريق مدرس (يديرهم المالك بسياسة members_owner_all) */
 export async function fetchTeamMembers(teacherId: string): Promise<TeacherMemberRow[]> {

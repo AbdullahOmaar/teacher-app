@@ -41,7 +41,7 @@ export function findStudentByCode(
  * تتكرر التغذية الراجعة/الاهتزاز لنفس الطالب. أكواد مختلفة لا تُكبح أبداً
  * (مسح متتابع سريع عند الباب).
  */
-export const SCAN_COOLDOWN_MS = 3000
+const SCAN_COOLDOWN_MS = 3000
 
 export function shouldAcceptScan(
   last: { code: string; at: number } | null,

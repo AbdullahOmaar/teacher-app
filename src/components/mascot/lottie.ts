@@ -17,12 +17,12 @@ export interface LottieKeyframe {
   o?: { x: number[]; y: number[] }
 }
 
-export interface LottieAnimatedProperty {
+interface LottieAnimatedProperty {
   a: 0 | 1
   k: number[] | LottieKeyframe[]
 }
 
-export interface LottieTransform {
+interface LottieTransform {
   o: LottieAnimatedProperty
   r: LottieAnimatedProperty
   p: LottieAnimatedProperty
@@ -30,7 +30,7 @@ export interface LottieTransform {
   s: LottieAnimatedProperty
 }
 
-export interface LottieImageAsset {
+interface LottieImageAsset {
   id: string
   w: number
   h: number

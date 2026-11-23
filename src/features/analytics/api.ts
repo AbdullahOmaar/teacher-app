@@ -148,7 +148,7 @@ async function fetchAllPages<T>(
 }
 
 /** قائمة شهور المدى من الأقدم للأحدث، منتهية بشهر اليوم */
-export function rangeMonths(range: AnalyticsRange): string[] {
+function rangeMonths(range: AnalyticsRange): string[] {
   const anchor = monthStartStr(todayStr())
   const [y, m] = anchor.split('-').map(Number)
   const out: string[] = []
