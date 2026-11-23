@@ -26,7 +26,7 @@ export function AccountSection({
         {t('settings.accountIdLabel')}
       </div>
       <div className="flex items-center gap-2 mb-1">
-        <code className="flex-1 text-[12px] bg-soft rounded-xl px-2 py-2 overflow-hidden text-ellipsis whitespace-nowrap" dir="ltr">
+        <code className="flex-1 min-w-0 text-[12px] bg-soft rounded-xl px-2 py-2 break-all leading-relaxed" dir="ltr">
           {ownId}
         </code>
         <Button variant="soft" onClick={copyMyId} className="min-h-[48px] px-3 text-[13.5px]">
