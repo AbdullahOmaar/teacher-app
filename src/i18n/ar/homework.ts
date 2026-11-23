@@ -16,9 +16,6 @@ export const homework = {
   sessionTime: 'الساعة {time}',
   sessionSubmittedSuffix: ' · سلّم {submitted} من {attended} حاضرين',
   sessionNoAttendeesSuffix: ' · لسه مفيش حاضرين مسجلين',
-  pageTitle: 'متابعة الواجبات',
-  pageHint:
-    'مين سلّم ومين لسه في كل حصة — نفس علامة الواجب اللي في شاشة الحضور، وأي تبديل هنا بيتحفظ فيها وينعكس هناك فوراً.',
   sessionsOf: 'حصص {name}',
   noSessionsTitle: 'لا توجد حصص للمجموعة دي لسه',
   noSessionsHint:
@@ -31,8 +28,6 @@ export const homework = {
   futureOverflow:
     'بنعرض أقرب {limit} حصة قادمة — اللي بعدها هيتولّد ويظهر مع دخول شهوره في نافذة الجدول.',
   sessionMeta: '{date} · الساعة {time} · {minutes} دقيقة',
-  saving: 'بنحفظ…',
-  saveInstant: 'الحفظ فوري',
   attendedLabel: 'حاضرون',
   deliveryRate: 'نسبة التسليم {rate}%',
   openAttendance: 'فتح الحضور',
@@ -48,7 +43,7 @@ export const homework = {
   pendingSection: 'لم يسلّم بعد ({count})',
   othersSection: 'خارج المتابعة ({count})',
   othersHint:
-    'الواجب بيُتابَع للحاضرين أساساً — دول مش محسوبين في عدّادات الحصة. علامة تسليمهم (لو اتبدّلت) محفوظة في حضورهم، ولو اتسجّل حضورهم هيتحسبوا في القائمتين تلقائياً.',
+    'الواجب بيُتابَع للحاضرين أساساً — دول مش محسوبين في عدّادات الحصة.',
   absentBadge: 'غائب',
   noAttendanceStatus: 'بلا حالة حضور',
 } as const

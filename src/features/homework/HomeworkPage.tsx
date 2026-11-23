@@ -139,8 +139,9 @@ function HomeworkStudentSection({
               key={st.id}
               first={i === 0}
               leading={<Avatar name={st.name} />}
+              titleClassName="font-semibold text-[15px] leading-[1.6] truncate"
               title={
-                <Link to={`/students/${st.id}`} className="text-text no-underline">
+                <Link to={`/students/${st.id}`} className="block truncate text-text no-underline">
                   {st.name}
                 </Link>
               }
@@ -380,7 +381,7 @@ export function HomeworkPage() {
         type="button"
         onClick={() => setPickedSessionId(s.id)}
         aria-pressed={active}
-        className={`w-full text-start px-4 py-3 min-h-[64px] cursor-pointer border-0 ${
+        className={`w-full text-start px-4 py-2 min-h-[56px] cursor-pointer border-0 ${
           i > 0 ? 'border-t border-border' : ''
         } ${active ? 'bg-soft' : 'bg-card hover:bg-soft'}`}
       >
@@ -425,14 +426,9 @@ export function HomeworkPage() {
               : t('homework.sessionNoAttendeesSuffix')
             : ''}
         </span>
-        {sum && sum.attended > 0 && (
-          <span className="block h-1.5 rounded-full bg-border/60 overflow-hidden mt-2">
-            <span
-              className={`block h-full rounded-full ${sum.rate === 100 ? 'bg-ok' : 'bg-primary'}`}
-              style={{ width: `${sum.rate}%` }}
-            />
-          </span>
-        )}
+        {/* شريط تقدم لكل صف أُزيل (3A-384 — تبسيط جذري): شارة النسبة
+            في ترويسة الصف تحمل المعلومة نفسها، والشريط كان يطيل كل
+            صف ~١٠px في قائمة من ١٢ حصة */}
       </button>
     )
   }
@@ -449,22 +445,21 @@ export function HomeworkPage() {
     (shownSessions.length > 0 && (marksQ.isPending || rosterQ.isPending))
   const pickerError = genQ.error ?? sessionsQ.error
 
-  // سكيليتون المنتقي (3A-325): صفوف بارتفاع الصف الحقيقي (~92px: عنوان
-  // + سطر وقت/ملخص + شريط تقدم) داخل كارت واحد لكل قسم ظاهر، وبعدد
-  // يقارب المعروض فعلياً متى عُرفت الحصص (وإلا ٣ صفوف افتراضية) —
-  // فالمحتوى الكامل يظهر دفعة واحدة بلا قفزات حجم.
+  // سكيليتون المنتقي (3A-325، وطوله حدّثته 3A-384 مع ضغط الصفوف):
+  // صفوف بارتفاع الصف الحقيقي (~56px: عنوان + سطر وقت/ملخص) داخل كارت
+  // واحد لكل قسم ظاهر، وبعدد يقارب المعروض فعلياً متى عُرفت الحصص
+  // (وإلا ٣ صفوف افتراضية) — فالمحتوى الكامل يظهر دفعة واحدة بلا قفزات.
   const pickerSkeletonCard = (count: number, key: string) => (
     <Card key={key} className="p-0 overflow-hidden mb-4">
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className={`h-[92px] px-4 py-3 flex flex-col justify-center gap-2 ${
+          className={`h-[56px] px-4 py-2 flex flex-col justify-center gap-2 ${
             i > 0 ? 'border-t border-border' : ''
           }`}
         >
           <Skeleton className="h-[18px] w-2/5 rounded-full" />
           <Skeleton className="h-[14px] w-3/5 rounded-full" />
-          <Skeleton className="h-[6px] w-full rounded-full" />
         </div>
       ))}
     </Card>
@@ -479,20 +474,9 @@ export function HomeworkPage() {
     <div>
       {/* شريط حالة مزامنة الحضور/الواجب — يظهر فقط عند وجود معلّق/فشل */}
       <SyncStatusBar online={online} sync={sync} />
-      <Card className="rise-in">
-        <div className="flex items-start gap-3">
-          <span className="w-11 h-11 rounded-xl bg-soft text-primary flex items-center justify-center shrink-0">
-            <BookOpenCheck size={24} />
-          </span>
-          <div className="min-w-0">
-            <div className="font-extrabold text-[16px]">{t('homework.pageTitle')}</div>
-            <p className="text-muted text-[13.5px] mt-0.5 mb-0 leading-[1.7]">
-              {t('homework.pageHint')}
-            </p>
-          </div>
-        </div>
-      </Card>
-
+      {/* بطاقة التعريف أُزيلت (3A-384 — ملاحظة المالك ٣: الصفحة طويلة
+          جداً والشروح الطويلة تُختصر): عنوان الصفحة في شريط التطبيق
+          أصلاً، والشاشة تبدأ مباشرة باختيار المجموعة والحصة */}
       {/* اختيار المجموعة */}
       <ChipRow>
         {groups.map((g) => (
@@ -605,16 +589,8 @@ export function HomeworkPage() {
                   })}
                 </div>
               </div>
-              <span className="shrink-0 type-badge text-muted inline-flex items-center gap-1">
-                {sync.syncing ? (
-                  t('homework.saving')
-                ) : (
-                  <>
-                    <Check size={14} className="text-ok-text" />
-                    {t('homework.saveInstant')}
-                  </>
-                )}
-              </span>
+              {/* شارة حالة الحفظ أُزيلت (3A-384 — ملاحظة المالك ٢-و
+                  تُقاس على كل الشاشات: لا كلام عن الحفظ/المزامنة) */}
             </div>
             {detailSummary &&
               (!rowsReady ? (
@@ -672,8 +648,8 @@ export function HomeworkPage() {
               ))}
             <div className="flex gap-2 mt-3 flex-wrap">
               <Link to={`/attendance?session=${selected.id}`} className="no-underline">
-                <Button variant="soft">
-                  <ClipboardList size={20} />
+                <Button variant="soft" size="sm">
+                  <ClipboardList size={16} />
                   {t('homework.openAttendance')}
                 </Button>
               </Link>
@@ -774,8 +750,9 @@ export function HomeworkPage() {
                           first={i === 0}
                           className="opacity-80"
                           leading={<Avatar name={st.name} />}
+                          titleClassName="font-semibold text-[15px] leading-[1.6] truncate"
                           title={
-                            <Link to={`/students/${st.id}`} className="text-text no-underline">
+                            <Link to={`/students/${st.id}`} className="block truncate text-text no-underline">
                               {st.name}
                             </Link>
                           }
