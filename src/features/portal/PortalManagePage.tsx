@@ -12,6 +12,7 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { t } from '../../i18n'
 import type { StudentRow } from '../../types/database'
 import { tokenStatus } from './api'
+import { formatDateLabel } from '../schedule/api'
 import { PORTAL, useTeacherPortalTokens } from './hooks'
 import { SG, useStudents } from '../students/hooks'
 import { PortalLinkSheet } from './PortalLinkSheet'
@@ -74,9 +75,11 @@ export function PortalManagePage() {
     >
     <div>
       <Card className="rise-in" style={{ animationDelay: '0ms' }}>
+        {/* مقدمة مختصرة بسطر واحد (3A-384 — ٥-ي): الشرح الطويل
+            بمدة الصلاحية الثابتة أُزيل؛ مدة الرابط نفسها يعيد
+            تصميمها بند 3A-385 المستقل */}
         <p className="text-[13.5px] mb-0 leading-relaxed">
-          {t('portal.manageIntroPre')}{' '}
-          <b>{t('portal.manageIntroDays')}</b> {t('portal.manageIntroPost')}
+          {t('portal.manageIntroShort')}
         </p>
       </Card>
 
@@ -102,8 +105,11 @@ export function PortalManagePage() {
           const expiresAt = activeByStudent.get(s.id)
           return (
             <Card key={s.id} className="rise-in" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
+              {/* «إدارة الرابط»: زر صغير في طرف البطاقة بجانب بيانات
+                  الطالب (3A-384 — قاعدة المالك ٦-١) بدل زر وحيد على
+                  سطر كامل تحتها */}
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
                   <div className="font-bold text-[15px] truncate">{s.name}</div>
                   <div className="text-muted text-[13.5px] mt-0.5">
                     {t('portal.manageCodeLabel')} <span dir="ltr">{s.public_code}</span>
@@ -117,20 +123,20 @@ export function PortalManagePage() {
                       t('portal.manageNoGuardian')
                     )}
                   </div>
+                  <div className="mt-1.5">
+                    {expiresAt ? (
+                      <span className="text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
+                        {t('portal.manageActiveUntil', { date: formatDateLabel(expiresAt.slice(0, 10)) })}
+                      </span>
+                    ) : (
+                      <span className="text-[12px] font-bold bg-soft text-muted border border-border rounded-full px-2 py-0.5">
+                        {t('portal.manageNoLink')}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                {expiresAt ? (
-                  <span className="shrink-0 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-                    {t('portal.manageActiveUntil', { date: expiresAt.slice(0, 10) })}
-                  </span>
-                ) : (
-                  <span className="shrink-0 text-[12px] font-bold bg-soft text-muted border border-border rounded-full px-2 py-0.5">
-                    {t('portal.manageNoLink')}
-                  </span>
-                )}
-              </div>
-              <div className="mt-2.5">
-                <Button variant="soft" onClick={() => setSelected(s)}>
-                  <Link2 size={20} />
+                <Button variant="soft" size="sm" className="shrink-0" onClick={() => setSelected(s)}>
+                  <Link2 size={16} />
                   {t('portal.manageLinkAction')}
                 </Button>
               </div>
