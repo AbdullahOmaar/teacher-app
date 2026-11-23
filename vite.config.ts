@@ -1,7 +1,38 @@
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import { readFileSync } from 'node:fs'
+
+/*
+ * نزع woff من البناء (COD-9 — 3A-383): ‏@fontsource يعلن لكل وزن
+ * src بصيغتين (woff2 ثم woff تراثي) فيصدر Vite الملفين معاً؛ لا
+ * متصفح حديث (منذ ~2017، وChrome/Android WebView ضمناً) يطلب woff
+ * أبداً لأن woff2 أولاً في القائمة ومدعوم عنده — فالملفات الـ woff
+ * وزن dist ميت (~275KB). الإضافة تحذف أصول .woff من الحزمة وتنزع
+ * مرجعها من CSS المبني حتى لا يبقى مرجع معلّق، والتصيير حرفياً
+ * بلا تغيير لأي متصفح مستهدف.
+ */
+function stripWoff(): Plugin {
+  return {
+    name: 'strip-woff',
+    generateBundle(_options, bundle) {
+      for (const [fileName, item] of Object.entries(bundle)) {
+        if (fileName.endsWith('.woff')) {
+          delete bundle[fileName]
+        } else if (
+          fileName.endsWith('.css') &&
+          item.type === 'asset' &&
+          typeof item.source === 'string'
+        ) {
+          item.source = item.source.replace(
+            /,url\([^)]*?woff[^)]*?\)\s*format\(["']woff["']\)/g,
+            '',
+          )
+        }
+      }
+    },
+  }
+}
 
 /*
  * مصدر الإصدار الواحد (3A-312 — بند ٥): رقم إصدار التطبيق المعروض في
@@ -15,7 +46,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkgVersion),
   },
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), stripWoff()],
   build: {
     rolldownOptions: {
       output: {
