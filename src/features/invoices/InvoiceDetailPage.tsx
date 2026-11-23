@@ -153,12 +153,18 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
                   <div className="text-[15px] font-semibold">
                     {l.description}
                     {l.line_type === 'discount' && (
-                      <span className="ms-2 text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-0.5 align-middle">
+                      /* (3A-651 — ملاحظة المالك ١٠ «كلمة خصم بايظه»): الشارة
+                         كانت span inline عاديًا داخل سطر النص — حشوة الـ
+                         inline لا تبني صندوقًا سليمًا فبدت الكلمة مقصوصة/
+                         مكسورة داخل كبسولة رفيعة. التشريح السليم: inline-flex
+                         + items-center + leading-none + nowrap + حشوة
+                         عمودية حقيقية — نفس إصلاح شارة التسوية بجانبها */
+                      <span className="ms-2 inline-flex items-center whitespace-nowrap leading-none text-[12px] font-bold bg-ok/10 text-ok-text border border-ok/30 rounded-full px-2 py-1 align-middle">
                         {t('invoices.detailLineDiscount')}
                       </span>
                     )}
                     {l.line_type === 'adjustment' && (
-                      <span className="ms-2 text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-0.5 align-middle">
+                      <span className="ms-2 inline-flex items-center whitespace-nowrap leading-none text-[12px] font-bold bg-soft text-primary border border-primary/30 rounded-full px-2 py-1 align-middle">
                         {t('invoices.detailLineAdjustment')}
                       </span>
                     )}
@@ -193,46 +199,50 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId?: string } = {}) {
         </div>
 
         {/* إجراءات الترويسة: شبكة خلايا متساوية (نقطة ٢) — كل خلية
-            بنفس العرض والارتفاع 48px مهما تغيّر عدد الإجراءات الظاهرة
-            (٢–٤)، بدل التفاف بعرض المحتوى. وعند عدد فردي يمتد الأخير
-            على العرض الكامل (3A-324) فلا تبقى خلية نصفية وحيدة.
+            بنفس العرض مهما تغيّر عدد الإجراءات الظاهرة (٢–٤)، بدل
+            التفاف بعرض المحتوى. وعند عدد فردي يمتد الأخير على العرض
+            الكامل (3A-324) فلا تبقى خلية نصفية وحيدة.
             الألوان الدلالية كما هي (تسجيل دفعة يبقى الأساسي) والسلوك
-            لم يتغير */}
+            لم يتغير. (3A-651 — ملاحظة المالك ٥ «الزراير بسيطه»): الحجم
+            صار sm (36px) بدل كتل md الضخمة (48px) التي ملأت الشاشة
+            في لقطته — أزرار صغيرة بسيطة بأيقونة أولًا */}
         <div className="grid grid-cols-2 gap-2 mt-3">
           <Link
             to={`/students/${invoice.student_id}`}
             className={`flex no-underline ${lastAction === 'file' ? orphanSpan : ''}`}
           >
-            <Button variant="soft" full className="flex-1">
-              <UserRound size={20} />
+            <Button variant="soft" size="sm" full className="flex-1">
+              <UserRound size={16} />
               {t('invoices.detailStudentFile')}
             </Button>
           </Link>
           {invoice.balance > 0 && (
-            <Button full onClick={() => setPayOpen(true)} className={lastAction === 'pay' ? orphanSpan : undefined}>
-              <Banknote size={20} />
+            <Button full size="sm" onClick={() => setPayOpen(true)} className={lastAction === 'pay' ? orphanSpan : undefined}>
+              <Banknote size={16} />
               {t('invoices.recordPayment')}
             </Button>
           )}
           {latestPayment && (
             <Button
               variant="ghost"
+              size="sm"
               full
               onClick={() => setReceipt({ payment: latestPayment })}
               className={lastAction === 'receipt' ? orphanSpan : undefined}
             >
-              <ReceiptText size={20} />
+              <ReceiptText size={16} />
               {t('invoices.receiptWord')}
             </Button>
           )}
           {isAttendedGroup && (
             <Button
               variant="ghost"
+              size="sm"
               full
               onClick={() => setAdjustOpen(true)}
               className={lastAction === 'adjust' ? orphanSpan : undefined}
             >
-              <CalendarCog size={20} />
+              <CalendarCog size={16} />
               {t('invoices.detailAdjustAttendance')}
             </Button>
           )}
