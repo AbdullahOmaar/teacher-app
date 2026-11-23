@@ -7,7 +7,7 @@ import { t } from '../../i18n'
 import { Card } from '../../components/ui/Card'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { Button } from '../../components/ui/Button'
-import { Archive, ArchiveRestore, BookOpenCheck, Link2, MapPin, Pencil, Trash2, TriangleAlert, UserPlus, Users } from 'lucide-react'
+import { Archive, ArchiveRestore, BookOpenCheck, Check, Link2, Loader2, MapPin, Pencil, Trash2, TriangleAlert, UserPlus, Users } from 'lucide-react'
 import { DangerConfirmSheet } from '../../components/ui/DangerConfirmSheet'
 import { useToast } from '../../components/ui/toast'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -187,10 +187,17 @@ export function GroupDetailPage() {
               </span>
             )}
           </div>
-          <Button variant="ghost" onClick={() => setEditOpen(true)}>
+          {/* تعديل المجموعة: أيقونة صغيرة في الطرف العلوي
+              (3A-384 — قاعدة المالك ٦-٤) بدل زر نصي عريض */}
+          <button
+            type="button"
+            onClick={() => setEditOpen(true)}
+            aria-label={t('groups.edit')}
+            title={t('groups.edit')}
+            className="shrink-0 w-11 h-11 -mt-1.5 -me-1.5 flex items-center justify-center bg-transparent border-0 cursor-pointer text-primary"
+          >
             <Pencil size={20} />
-            {t('groups.edit')}
-          </Button>
+          </button>
         </div>
         {isArchived && (
           <p className="text-muted text-[13.5px] mt-1 mb-0">
@@ -232,25 +239,29 @@ export function GroupDetailPage() {
             })}
           </div>
         )}
-        <div className="flex flex-wrap items-stretch gap-2 mt-3">
-          <Link to={`/students?group=${group.id}`} className="no-underline flex flex-1 min-w-[150px]">
-            <Button variant="soft" full className="h-full">
+        {/* إجراءات المجموعة: ثلاثة أزرار صغيرة جنباً إلى جنب في صف
+            واحد (3A-384 — قاعدة المالك ٦-٥)؛ كان «الواجبات» وحده
+            على سطر كامل تحت زرّين */}
+        <div className="flex gap-2 mt-3">
+          <Link to={`/students?group=${group.id}`} className="no-underline flex-1">
+            <Button variant="soft" size="sm" full>
+              <Users size={16} />
               {t('groups.viewInStudents')}
             </Button>
           </Link>
           {!isArchived && (
-            <Button className="flex-1 min-w-[150px]" onClick={() => setEnrollOpen(true)}>
-              <UserPlus size={18} />
+            <Button size="sm" className="flex-1" onClick={() => setEnrollOpen(true)}>
+              <UserPlus size={16} />
               {t('groups.addStudentBtn')}
             </Button>
           )}
+          <Link to={`/homework?group=${group.id}`} className="no-underline flex-1">
+            <Button variant="soft" size="sm" full>
+              <BookOpenCheck size={16} />
+              {t('groups.homeworkBtn')}
+            </Button>
+          </Link>
         </div>
-        <Link to={`/homework?group=${group.id}`} className="no-underline block mt-2">
-          <Button variant="soft" full>
-            <BookOpenCheck size={20} />
-            {t('groups.homeworkBtn')}
-          </Button>
-        </Link>
       </Card>
 
       <h3 className="type-section mt-5 mb-2">{t('groups.rosterTitle', { count: roster.length })}</h3>
@@ -277,13 +288,21 @@ export function GroupDetailPage() {
                   </>
                 }
                 secondary={
-                  <>
-                    {t('groups.detailActualPrice', { price: formatMoney(r.price_override ?? group.price) })}
-                    {r.price_override != null ? t('groups.detailSpecialPrice') : ''}
-                    {r.prepaid_sessions != null
-                      ? t('groups.detailPrepaid', { count: r.prepaid_sessions })
-                      : ''}
-                  </>
+                  /* مقاطع ذرّية لا تنكسر (3A-384 — ٥-و: «حصة» كانت
+                     يتيمة على سطر): كل مقطع nowrap ويلتف كوحدة */
+                  <span className="flex flex-wrap gap-x-1">
+                    <span className="whitespace-nowrap">
+                      {t('groups.detailActualPrice', { price: formatMoney(r.price_override ?? group.price) })}
+                    </span>
+                    {r.price_override != null && (
+                      <span className="whitespace-nowrap">{t('groups.detailSpecialPrice')}</span>
+                    )}
+                    {r.prepaid_sessions != null && (
+                      <span className="whitespace-nowrap">
+                        {t('groups.detailPrepaid', { count: r.prepaid_sessions })}
+                      </span>
+                    )}
+                  </span>
                 }
               />
             </Link>
@@ -301,7 +320,7 @@ export function GroupDetailPage() {
           waitlist.map((w) => (
             <div key={w.id} className="py-2 border-b border-border last:border-0">
               <div className="flex justify-between gap-2">
-                <div>
+                <div className="flex-1 min-w-0">
                   <div className="font-semibold text-[15px] flex items-center gap-2 flex-wrap">
                     {w.name}
                     {w.source === 'booking_page' && (
@@ -316,30 +335,41 @@ export function GroupDetailPage() {
                     )}
                   </div>
                   {w.note && <div className="text-muted text-[13.5px]">{w.note}</div>}
+                  {w.phone && (
+                    <a href={`tel:${w.phone}`} className="text-primary text-[13.5px] font-semibold inline-block mt-0.5" dir="ltr">
+                      {w.phone}
+                    </a>
+                  )}
                 </div>
-                {w.phone && (
-                  <a href={`tel:${w.phone}`} className="text-primary text-[13.5px] font-semibold shrink-0" dir="ltr">
-                    {w.phone}
-                  </a>
-                )}
-              </div>
-              <div className="flex gap-2 mt-2">
-                <Button
-                  variant="soft"
-                  className="min-h-[40px] text-[13.5px] px-3"
-                  onClick={() => void acceptWl(w)}
-                  disabled={wlActionId === w.id}
-                >
-                  {wlActionId === w.id && acceptWaitlist.isPending ? t('groups.wlAccepting') : t('groups.wlAcceptBtn')}
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="min-h-[40px] text-[13.5px] px-3"
-                  onClick={() => void removeWl(w)}
-                  disabled={wlActionId === w.id}
-                >
-                  {t('groups.wlDeleteBtn')}
-                </Button>
+                {/* قبول/حذف طلب الانتظار: أيقونتان صغيرتان في الطرف
+                    العلوي (3A-384 — قاعدة المالك ٦-٣) بدل زرّين نصيين
+                    كان نصهما يلتف سطرين عند 360px */}
+                <div className="flex shrink-0 -mt-1.5 -me-1.5">
+                  <button
+                    type="button"
+                    onClick={() => void acceptWl(w)}
+                    disabled={wlActionId === w.id}
+                    aria-label={t('groups.wlAcceptBtn')}
+                    title={t('groups.wlAcceptBtn')}
+                    className="w-10 h-10 flex items-center justify-center bg-transparent border-0 cursor-pointer text-ok-text disabled:opacity-40"
+                  >
+                    {wlActionId === w.id && acceptWaitlist.isPending ? (
+                      <Loader2 size={19} className="animate-spin" />
+                    ) : (
+                      <Check size={19} />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void removeWl(w)}
+                    disabled={wlActionId === w.id}
+                    aria-label={t('groups.wlDeleteBtn')}
+                    title={t('groups.wlDeleteBtn')}
+                    className="w-10 h-10 flex items-center justify-center bg-transparent border-0 cursor-pointer text-bad-text disabled:opacity-40"
+                  >
+                    <Trash2 size={19} />
+                  </button>
+                </div>
               </div>
             </div>
           ))
