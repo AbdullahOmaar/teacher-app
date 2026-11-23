@@ -133,7 +133,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       {/* مزامنة الحضور أوفلاين تعمل طوال الجلسة (إقلاع + عودة اتصال) */}
       <AttendanceSyncBridge />
       {/* الشريط العلوي — لاصق، أزراره أهداف لمس ≥48px (بحث §5) */}
-      <header className="sticky top-0 z-20 bg-card border-b border-border">
+      <header className="sticky top-0 z-20 bg-card border-b border-border shadow-[0_10px_24px_-18px_rgba(15,23,42,0.45)]">
         <div className={`mx-auto ${containerCls} px-2 flex items-center gap-1`}>
           {!isRoot ? (
             <button
@@ -191,7 +191,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
       {/* شريط الأوفلاين العام (خطة الهوية P-9) — كل الشاشات عدا
           الحضور (شريط مزامنتها الوظيفي يغطيها ودُفّي مدمج فيه) */}
-      {screen !== 'att' && <OfflineStrip containerCls={containerCls} />}
+      {/* شريط الأوفلاين العام يظهر في كل الشاشات بما فيها الحضور
+          (3A-384): شريط حالة المزامنة داخل الحضور صار لحالة الفشل فقط
+          تنفيذاً لطلب المالك إخفاء كلام الحفظ/المزامنة، فلا ازدواج.
+          وفي الحضور هو essential: مؤشر الأوفلاين الوحيد هناك، فيظهر
+          ولو أُوقف دُفّي (بأيقونة بديلة — شرط المراجعة B2) */}
+      <OfflineStrip containerCls={containerCls} essential={screen === 'att'} />
 
       {/* المحتوى — حاوية 640px وحشوة سفلية تترك مكاناً للشريط السفلي (64px + safe-area) */}
       <main className={`mx-auto ${containerCls} px-4 pt-[14px] pb-[calc(88px+env(safe-area-inset-bottom,0px))]`}>
@@ -216,7 +221,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
       {/* الشريط السفلي — أيقونة + نص دائماً، pill خلف النشط بأيقونة ممتلئة،
           منطقة لمس 64px مع safe-area (بحث §5) */}
-      <nav className="fixed bottom-0 inset-x-0 z-20 bg-card border-t border-border pb-[env(safe-area-inset-bottom,0px)]">
+      <nav className="fixed bottom-0 inset-x-0 z-20 bg-card border-t border-border shadow-[0_-10px_24px_-18px_rgba(15,23,42,0.45)] pb-[env(safe-area-inset-bottom,0px)]">
         <div className={`mx-auto ${containerCls} flex`}>
           {TABS.map((item) => {
             const active = tab === item.key

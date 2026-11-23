@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { t } from '../../i18n'
 import { Search, SlidersHorizontal } from 'lucide-react'
 import { TextInput } from './form'
@@ -46,10 +46,17 @@ export function PageToolBar({
   bleed?: boolean
 }) {
   const hasChipsRow = chips != null || onFilter != null
+  // تلاشي حافة بداية صف الرقائق عند التمرير (3A-384 — ملاحظة المالك ٥-أ:
+  // الرقائق تُقصّ عند الحافة): التلاشي القائم (.chip-row-fade) يغطي حافة
+  // الفائض فقط؛ عند تمرير الصف تبقى الرقائق مقصوصة بحدّ حاد عند حافة
+  // البداية. غطاء تدرّجي بلون الشريط يظهر فقط أثناء التمرير فيحوّل
+  // القصّ إلى ذوبان متناسق مع حافة الفائض.
+  const [chipsScrolled, setChipsScrolled] = useState(false)
+  const chipsScrollRef = useRef<HTMLDivElement>(null)
   return (
     <>
       <div
-        className={`sticky top-[49px] z-10 bg-card border-b border-border ${
+        className={`sticky top-[49px] z-10 bg-card border-b border-border shadow-[0_10px_24px_-18px_rgba(15,23,42,0.45)] ${
           resultCount == null ? 'mb-3' : ''
         } ${bleed ? '-mx-4 px-4' : ''}`}
       >
@@ -76,8 +83,26 @@ export function PageToolBar({
           <div className="flex items-center gap-2 h-14">
             {/* pe-10 في صفّ الرقائق: حشوة نهاية تمرير (3A-331) مثل ChipRow — آخر شيب يستقر عند نهاية التمرير ظاهراً كاملاً خارج مدى تلاشي .chip-row-fade (36px) */}
             {chips && (
-              <div className="flex gap-2 overflow-x-auto no-scrollbar chip-row-fade flex-1 min-w-0 items-center py-1 pe-10">
-                {chips}
+              <div className="relative flex-1 min-w-0">
+                <div
+                  ref={chipsScrollRef}
+                  onScroll={(e) =>
+                    setChipsScrolled(Math.abs(e.currentTarget.scrollLeft) > 4)
+                  }
+                  className="flex gap-2 overflow-x-auto no-scrollbar chip-row-fade items-center py-1 pe-10"
+                >
+                  {chips}
+                </div>
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute inset-y-0 start-0 w-7 transition-opacity duration-200 ${
+                    chipsScrolled ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  style={{
+                    background:
+                      'linear-gradient(to left, var(--card) 0%, transparent 100%)',
+                  }}
+                />
               </div>
             )}
             {onFilter && (

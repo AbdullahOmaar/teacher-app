@@ -271,6 +271,21 @@
 }
 .rise-in { animation: rise-in-kf 280ms ease-out both; }
 
+/* دخول الشيتات السفلية (3A-384 — ملاحظة المالك ٢-ب: «كل الشيتات تفتح
+ * بحركة ناعمة زي الآيفون»): صعود من الأسفل بمنحنى iOS القياسي + تلاشي
+ * الخلفية. Keyframes (لا انتقالات) فلا تصطدم بقاعدة الانتقالات العامة
+ * (درس المعايير v1.4)، وقاعدة تقليل الحركة العامة تُسطّحها. */
+@keyframes sheet-in-kf {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.sheet-panel-in { animation: sheet-in-kf 340ms cubic-bezier(0.32, 0.72, 0, 1); }
+@keyframes sheet-overlay-in-kf {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.sheet-overlay-in { animation: sheet-overlay-in-kf 200ms ease-out; }
+
 /* حركة موحدة (بحث §5): انتقالات 150–250ms ease-out للعناصر التفاعلية */
 button,
 a {

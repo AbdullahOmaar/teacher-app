@@ -12,6 +12,8 @@ export function ListRow({
   trailing,
   first = false,
   className = '',
+  titleClassName,
+  secondaryClassName,
 }: {
   leading?: ReactNode
   title: ReactNode
@@ -19,6 +21,12 @@ export function ListRow({
   trailing?: ReactNode
   first?: boolean
   className?: string
+  /** تجاوز تنسيق العنوان لسياقات بعينها (3A-384: قاعدة المالك الصريحة
+   *  «الاسم الطويل يكمل بنقط …» في صفوف الحضور/الواجبات/الفواتير) —
+   *  الافتراضي يبقى الالتفاف الكامل (3A-331 عائلة ب) */
+  titleClassName?: string
+  /** تجاوز تنسيق السطر الثانوي لنفس السياقات */
+  secondaryClassName?: string
 }) {
   return (
     <div className={className}>
@@ -29,12 +37,26 @@ export function ListRow({
           {/* (3A-331 عائلة ب): العنوان يلتف كاملاً بدل truncate — القصّ كان
               يخفي أسماء طلاب عند 360px («منى يوسف بر…»)، والالتفاف يحافظ
               على بنية الصف (القيادي/الذيلي ثابتان والبطاقة تتمدد رأسياً) */}
-          <div className="font-semibold text-[15px] leading-[1.6] break-words">{title}</div>
+          <div
+            className={
+              titleClassName ??
+              'font-semibold text-[15px] leading-[1.6] break-words'
+            }
+          >
+            {title}
+          </div>
           {secondary != null && (
             /* (3A-331 عائلة ب): الثانوي يلتف كاملاً بلا line-clamp — التثبيت
                بسطرين كان يقصّ سطر بيانات الفاتورة/الطالب منتصف السنة
                («نوفمبر 026…») عند 360–390px؛ الالتفاف الكامل يعرضه كله */
-            <div className="text-muted text-[13.5px] leading-[1.7] break-words">{secondary}</div>
+            <div
+              className={
+                secondaryClassName ??
+                'text-muted text-[13.5px] leading-[1.7] break-words'
+              }
+            >
+              {secondary}
+            </div>
           )}
         </div>
         {trailing}

@@ -63,12 +63,12 @@ export function Sheet({ open, title, onClose, children, footer }: SheetProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.5)]"
+      className="sheet-overlay-in fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.5)]"
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="bg-elevated w-full max-w-[640px] max-h-[90vh] overflow-y-auto rounded-t-[24px] p-4 shadow-raised"
+        className="sheet-panel-in bg-elevated w-full max-w-[640px] max-h-[90vh] overflow-y-auto rounded-t-[24px] p-4 shadow-raised"
         style={{
           transform: dragY ? `translateY(${dragY}px)` : undefined,
           transition: isDragging ? 'none' : 'transform 200ms ease-out',
