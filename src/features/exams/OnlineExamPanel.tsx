@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
+  CalendarClock,
   Check,
   Copy,
   Globe,
@@ -7,6 +8,7 @@ import {
   Link2Off,
   MonitorSmartphone,
   Trash2,
+  X,
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -20,6 +22,8 @@ import type {
   OnlineExamStatus,
 } from '../../types/database'
 import { fmtScore } from '../grades/api'
+import { formatDateLabel } from '../schedule/api'
+import { formatTime12 } from '../../lib/format'
 import { ONLINE_EXAM_STATUS_LABELS, examTokenStatus } from './api'
 import {
   useCreateExamLink,
@@ -46,6 +50,110 @@ function fromLocalInput(v: string): string | null {
   if (!v) return null
   const d = new Date(v)
   return Number.isNaN(d.getTime()) ? null : d.toISOString()
+}
+
+/**
+ * هل يدعم المتصفح فتح منتقي التاريخ برمجياً (showPicker)؟ يُحسب مرة
+ * واحدة: عند غيابه يرسم DateTimeField الحقل الأصلي المرئي كما كان قبل
+ * 3A-384 — فلا بيئة تفقد القدرة على الضبط أبداً (شرط مراجعة B1).
+ */
+const SHOW_PICKER_SUPPORTED =
+  typeof HTMLInputElement !== 'undefined' &&
+  'showPicker' in HTMLInputElement.prototype
+
+/**
+ * حقل تاريخ+وقت بعرض عربي (3A-384 — ملاحظة المالك ٥-ط: الحقل الأصلي
+ * كان يعرض «11/21/2026,» بصيغة المتصفح الأجنبية): زر يعرض القيمة
+ * منسّقة عربياً (نفس نمط منتقي تاريخ الحضور) وحقل datetime-local
+ * مخفي بصرياً يُفتح بـ showPicker — حالة القيمة وسلسلتها لم تتغيرا.
+ * الحقلان اختياريان، فعند وجود قيمة يظهر زر مسح صغير يعيدها فارغة
+ * (منتقي datetime-local الأصلي لا زر مسح فيه — شرط مراجعة B1)،
+ * وعند غياب showPicker يبقى الحقل الأصلي المرئي قابلاً للتحرير.
+ */
+function DateTimeField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const openPicker = () => {
+    const el = inputRef.current as
+      | (HTMLInputElement & { showPicker?: () => void })
+      | null
+    if (!el) return
+    if (typeof el.showPicker === 'function') {
+      try {
+        el.showPicker()
+        return
+      } catch {
+        /* تابع للبديل */
+      }
+    }
+    el.focus()
+    el.click()
+  }
+  if (!SHOW_PICKER_SUPPORTED) {
+    return (
+      <Field label={label}>
+        <TextInput
+          type="datetime-local"
+          dir="ltr"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </Field>
+    )
+  }
+  const [datePart, timePart] = value ? value.split('T') : ['', '']
+  return (
+    <Field label={label}>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={openPicker}
+          aria-label={label}
+          className={`w-full flex items-center gap-2 border border-border rounded-xl px-3 min-h-[52px] bg-card text-text cursor-pointer ${
+            value ? 'pe-11' : ''
+          }`}
+        >
+          <CalendarClock size={19} className="text-primary shrink-0" />
+          <span
+            className={`flex-1 text-start font-semibold text-[14px] ${
+              value ? '' : 'text-muted'
+            }`}
+          >
+            {value
+              ? `${formatDateLabel(datePart)} · ${formatTime12(timePart || '00:00')}`
+              : t('exams.panelDateTimePlaceholder')}
+          </span>
+        </button>
+        <input
+          ref={inputRef}
+          type="datetime-local"
+          value={value}
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 w-full opacity-0 pointer-events-none"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            aria-label={t('exams.panelClearDateTime')}
+            title={t('exams.panelClearDateTime')}
+            className="absolute end-1.5 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center bg-transparent border-0 cursor-pointer text-muted"
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
+    </Field>
+  )
 }
 
 const ATTEMPT_STATUS_LABELS: Record<string, string> = {
@@ -205,11 +313,11 @@ function OnlineExamSettings({
 
   return (
     <Card>
-      <div className="font-bold text-[16px] flex items-center gap-2 mb-1">
+      <div className="font-bold text-[16px] flex flex-wrap items-center gap-2 mb-1">
         <MonitorSmartphone size={22} className="text-primary" />
         {t('exams.panelSettingsTitle')}
         <span
-          className={`text-[12px] font-bold rounded-full px-2.5 py-1 ${
+          className={`whitespace-nowrap shrink-0 text-[12px] font-bold rounded-full px-2.5 py-1 ${
             status === 'published'
               ? 'bg-ok-soft text-ok-text border border-ok/30'
               : status === 'closed'
@@ -267,22 +375,16 @@ function OnlineExamSettings({
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label={t('exams.panelStartsAtLabel')}>
-          <TextInput
-            type="datetime-local"
-            dir="ltr"
-            value={startsAt}
-            onChange={(e) => setStartsAt(e.target.value)}
-          />
-        </Field>
-        <Field label={t('exams.panelEndsAtLabel')}>
-          <TextInput
-            type="datetime-local"
-            dir="ltr"
-            value={endsAt}
-            onChange={(e) => setEndsAt(e.target.value)}
-          />
-        </Field>
+        <DateTimeField
+          label={t('exams.panelStartsAtLabel')}
+          value={startsAt}
+          onChange={setStartsAt}
+        />
+        <DateTimeField
+          label={t('exams.panelEndsAtLabel')}
+          value={endsAt}
+          onChange={setEndsAt}
+        />
       </div>
       <div className="flex gap-4 flex-wrap mb-3">
         <label className="flex items-center gap-2 text-[14px] font-semibold cursor-pointer min-h-[48px]">
