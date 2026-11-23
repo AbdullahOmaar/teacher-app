@@ -150,8 +150,34 @@ async function clickByText(page, text, { timeout = WAIT_TIMEOUT, selector = 'but
   const el = handle.asElement();
   assert(el, `لم يُعثر على عنصر قابل للنقر يحتوي: ${text}`);
   await el.scrollIntoView().catch(() => {});
+  await waitElementStable(page, el);
   await el.click();
   return el;
+}
+
+/**
+ * انتظار استقرار موضع العنصر قبل النقر: حركات الدخول (شيتات 3A-384
+ * تنزلق 340ms) تجعل نقطة النقر متحركة فيفشل نقر Puppeteer الآلي
+ * («not clickable») وإن كان العنصر سليماً للمستخدم البشري. ننتظر
+ * ثبات المستطيل عبر قياسين متتاليين (بسقف ~ثانيتين ثم نتابع).
+ */
+async function waitElementStable(page, el) {
+  await page
+    .evaluate(async (target) => {
+      let prev = target.getBoundingClientRect();
+      for (let i = 0; i < 40; i++) {
+        await new Promise((r) => setTimeout(r, 50));
+        const cur = target.getBoundingClientRect();
+        if (
+          Math.abs(cur.top - prev.top) < 0.5 &&
+          Math.abs(cur.left - prev.left) < 0.5 &&
+          cur.width > 0
+        )
+          return;
+        prev = cur;
+      }
+    }, el)
+    .catch(() => {});
 }
 
 async function waitPathname(page, expected, timeout = WAIT_TIMEOUT) {
@@ -392,6 +418,7 @@ async function portalFlow(page, ctx, { tile, generateTexts, linkRe, studentName,
     if (allowDisabled) return 'disabled';
     throw new Error(`زر توليد الرابط معطّل في: ${tile}`);
   }
+  await waitElementStable(page, genBtn);
   await genBtn.click();
   // الرابط الجديد يظهر نصاً داخل الشيت
   const marker = linkRe.source.includes('student-portal') ? '/student-portal?' : '/portal?';
