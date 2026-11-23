@@ -2,15 +2,18 @@ import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
 import { waLink } from '../../lib/format'
 import {
+  GUARDIAN_SECTION_KEYS,
   buildAttMeta,
   callPushRpc,
   createTokenLink,
   fetchPushStatus,
   fetchTokenRows,
   normalizeOverviewHead,
+  normalizeSections,
   num,
   revokeTokenRow,
   tokenStatusOf,
+  type GuardianSectionKey,
   type RawPortalBrand,
 } from './tokenLifecycle'
 import type {
@@ -106,6 +109,7 @@ export function effectiveGuardianFromStudent(student: Pick<StudentRow, 'name' | 
 export function portalLinkWaUrl(
   student: Pick<StudentRow, 'name' | 'guardian_name' | 'guardian_phone' | 'phone'>,
   link: string,
+  days: number,
 ): string | null {
   const { name: guardianName, phone } = effectiveGuardianFromStudent(student)
   const base = waLink(phone)
@@ -114,7 +118,7 @@ export function portalLinkWaUrl(
     guardian: guardianName,
     name: student.name,
     link,
-    days: PORTAL_TOKEN_TTL_DAYS,
+    days,
   })
   return `${base}?text=${encodeURIComponent(msg)}`
 }
@@ -193,15 +197,17 @@ export interface CreatedPortalLink {
 export async function createPortalLink(
   teacherId: string,
   student: StudentRow,
+  ttlDays: number,
 ): Promise<CreatedPortalLink> {
   const guardian = await ensureGuardianAndLink(teacherId, student)
-  // دورة الحياة المشتركة (COD-3): رمز خام ← هاش ← انتهاء 30 يوماً ←
-  // إبطال السابق ← إدراج — والفروق المحفوظة حرفياً هنا هي حلّ ولي
-  // الأمر + guardian_id وباني رابط بوابة ولي الأمر.
+  // دورة الحياة المشتركة (COD-3): رمز خام ← هاش ← انتهاء بمدة المدرس
+  // (3A-385) ← إبطال السابق ← إدراج — والفروق المحفوظة حرفياً هنا هي
+  // حلّ ولي الأمر + guardian_id وباني رابط بوابة ولي الأمر.
   const { link, expiresAt } = await createTokenLink({
     table: 'guardian_access_tokens',
     teacherId,
     studentId: student.id,
+    ttlDays,
     extraInsert: { guardian_id: guardian.id },
     buildLink: (rawToken) => buildPortalLink(window.location.origin, student.id, rawToken),
     generateRawToken,
@@ -284,10 +290,14 @@ export interface PortalBrand {
   show_mascot: boolean
 }
 
+/** أقسام بوابة ولي الأمر الظاهرة بقرار المدرس (3A-385) — false = مخفي ولا تصل بياناته أصلاً */
+export type PortalSections = Record<GuardianSectionKey, boolean>
+
 /** عرض البوابة كما يعيده portal_build_overview حرفياً — حقول محدودة بالتصميم */
 export interface PortalOverview {
   student: { name: string; code: string; grade: string | null }
   brand: PortalBrand
+  sections: PortalSections
   attendance_rate: number | null
   balance: number
   groups: PortalGroup[]
@@ -309,11 +319,13 @@ export async function fetchPortalOverview(
   if (!data) throw new Error('invalid or expired token')
   const raw = data as unknown as PortalOverview & {
     brand?: RawPortalBrand | null
+    sections?: unknown
   }
   return {
     // رأس العرض المشترك (طالب/هوية/حضور/رصيد/مجموعات) — COD-3:
     // normalizeOverviewHead في tokenLifecycle.
     ...normalizeOverviewHead(raw),
+    sections: normalizeSections(raw.sections, GUARDIAN_SECTION_KEYS),
     latest_scores: (raw.latest_scores ?? []).map((s) => ({
       title: s.title,
       date: s.date,

@@ -34,7 +34,8 @@ function useInvalidateStudentPortal() {
 export function useCreateStudentPortalLink(teacherId: string) {
   const invalidate = useInvalidateStudentPortal()
   return useMutation({
-    mutationFn: (student: StudentRow) => createStudentPortalLink(teacherId, student),
+    mutationFn: (input: { student: StudentRow; ttlDays: number }) =>
+      createStudentPortalLink(teacherId, input.student, input.ttlDays),
     onSuccess: invalidate,
   })
 }

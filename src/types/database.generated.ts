@@ -3,7 +3,7 @@
  *
  * GENERATED — do not edit by hand. Regenerate with:
  *   python3 scripts/gen_db_types.py
- * Source: Supabase project qkwdyqocazwhojpyifbv (public schema), 2026-11-22.
+ * Source: Supabase project qkwdyqocazwhojpyifbv (public schema), .
  * Shape mirrors `supabase gen types typescript` output.
  */
 
@@ -1316,6 +1316,124 @@ export type Database = {
           },
         ]
       }
+      portal_accounts: {
+        Row: {
+          id: string
+          teacher_id: string
+          student_id: string | null
+          guardian_id: string | null
+          role: string
+          username: string
+          password_hash: string
+          is_active: boolean
+          failed_attempts: number
+          locked_until: string | null
+          last_login_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          student_id?: string | null
+          guardian_id?: string | null
+          role: string
+          username: string
+          password_hash: string
+          is_active?: boolean
+          failed_attempts?: number
+          locked_until?: string | null
+          last_login_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          student_id?: string | null
+          guardian_id?: string | null
+          role?: string
+          username?: string
+          password_hash?: string
+          is_active?: boolean
+          failed_attempts?: number
+          locked_until?: string | null
+          last_login_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_accounts_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_accounts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_accounts_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_sessions: {
+        Row: {
+          id: string
+          account_id: string
+          teacher_id: string
+          token_hash: string
+          expires_at: string
+          revoked_at: string | null
+          last_used_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          account_id: string
+          teacher_id: string
+          token_hash: string
+          expires_at: string
+          revoked_at?: string | null
+          last_used_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          account_id?: string
+          teacher_id?: string
+          token_hash?: string
+          expires_at?: string
+          revoked_at?: string | null
+          last_used_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_sessions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "portal_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_sessions_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_delivery_log: {
         Row: {
           id: string
@@ -1922,6 +2040,16 @@ export type Database = {
           push_daily_digest_last_sent_on: string | null
           mascot_accessory: string
           show_mascot: boolean
+          portal_link_ttl_days: number
+          portal_guardian_show_attendance: boolean
+          portal_guardian_show_scores: boolean
+          portal_guardian_show_notes: boolean
+          portal_guardian_show_money: boolean
+          portal_guardian_show_groups: boolean
+          portal_student_show_schedule: boolean
+          portal_student_show_homework: boolean
+          portal_student_show_grades: boolean
+          portal_student_show_money: boolean
         }
         Insert: {
           teacher_id: string
@@ -1940,6 +2068,16 @@ export type Database = {
           push_daily_digest_last_sent_on?: string | null
           mascot_accessory?: string
           show_mascot?: boolean
+          portal_link_ttl_days?: number
+          portal_guardian_show_attendance?: boolean
+          portal_guardian_show_scores?: boolean
+          portal_guardian_show_notes?: boolean
+          portal_guardian_show_money?: boolean
+          portal_guardian_show_groups?: boolean
+          portal_student_show_schedule?: boolean
+          portal_student_show_homework?: boolean
+          portal_student_show_grades?: boolean
+          portal_student_show_money?: boolean
         }
         Update: {
           teacher_id?: string
@@ -1958,6 +2096,16 @@ export type Database = {
           push_daily_digest_last_sent_on?: string | null
           mascot_accessory?: string
           show_mascot?: boolean
+          portal_link_ttl_days?: number
+          portal_guardian_show_attendance?: boolean
+          portal_guardian_show_scores?: boolean
+          portal_guardian_show_notes?: boolean
+          portal_guardian_show_money?: boolean
+          portal_guardian_show_groups?: boolean
+          portal_student_show_schedule?: boolean
+          portal_student_show_homework?: boolean
+          portal_student_show_grades?: boolean
+          portal_student_show_money?: boolean
         }
         Relationships: [
           {
@@ -2238,6 +2386,62 @@ export type Database = {
           }
           Returns: boolean
         }
+      portal_account_apply_password: {
+          Args: {
+            p_teacher_id: string
+            p_role: string
+            p_student_id: string
+            p_guardian_id: string
+            p_username: string
+            p_password: string
+          }
+          Returns: string
+        }
+      portal_account_change_password: {
+          Args: {
+            p_session_token: string
+            p_old_password: string
+            p_new_password: string
+          }
+          Returns: Json
+        }
+      portal_account_claim_guardian: {
+          Args: {
+            p_token: string
+            p_student_id: string
+            p_password: string
+          }
+          Returns: Json
+        }
+      portal_account_claim_student: {
+          Args: {
+            p_token: string
+            p_password: string
+          }
+          Returns: Json
+        }
+      portal_account_revoke_sessions: {
+          Args: {
+            p_account_id: string
+          }
+          Returns: Json
+        }
+      portal_account_set_active: {
+          Args: {
+            p_account_id: string
+            p_active: boolean
+          }
+          Returns: Json
+        }
+      portal_account_upsert: {
+          Args: {
+            p_teacher_id: string
+            p_role: string
+            p_target_id: string
+            p_password: string
+          }
+          Returns: Json
+        }
       portal_build_overview: {
           Args: {
             p_student_id: string
@@ -2283,6 +2487,19 @@ export type Database = {
           }
           Returns: Json
         }
+      portal_login: {
+          Args: {
+            p_username: string
+            p_password: string
+          }
+          Returns: Json
+        }
+      portal_logout: {
+          Args: {
+            p_session_token: string
+          }
+          Returns: Json
+        }
       portal_mark_notifications_read: {
           Args: {
             p_token: string
@@ -2290,6 +2507,12 @@ export type Database = {
             p_ids?: string[]
           }
           Returns: Json
+        }
+      portal_norm_phone: {
+          Args: {
+            p_phone: string
+          }
+          Returns: string
         }
       portal_overview_by_token: {
           Args: {
@@ -2322,6 +2545,18 @@ export type Database = {
             p_token: string
             p_student_id: string
             p_endpoint: string
+          }
+          Returns: Json
+        }
+      portal_resolve_session_account: {
+          Args: {
+            p_session_token: string
+          }
+          Returns: Database["public"]["Tables"]["portal_accounts"]["Row"]
+        }
+      portal_session_students: {
+          Args: {
+            p_session_token: string
           }
           Returns: Json
         }
@@ -2426,6 +2661,12 @@ export type Database = {
             teacher_id: string
             student_id: string
           }[]
+        }
+      teacher_id_claimable: {
+          Args: {
+            p_id: string
+          }
+          Returns: boolean
         }
     }
     Enums: {

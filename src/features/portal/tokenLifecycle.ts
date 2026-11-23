@@ -7,7 +7,7 @@ import type { Database } from '../../types/database'
 // (portal/api.ts) وبوابة الطالب (student-portal/api.ts) — COD-3 / 3A-362.
 //
 // البوابتان تتشاركان الشكل نفسه حرفياً: رمز خام ← هاش SHA-256 ← انتهاء
-// 30 يوماً ← إبطال النشط السابق ← إدراج؛ جلب/إلغاء بنفس الاستعلامات؛
+// بمدة يحددها المدرس (3A-385؛ الافتراضي 30 يوماً) ← إبطال النشط السابق ← إدراج؛ جلب/إلغاء بنفس الاستعلامات؛
 // قراءة بالرمز عبر RPC؛ وPush بنفس الشكل مع اختلاف أسماء الـ RPC فقط.
 // الفروق الحقيقية (اسم الجدول، أعمدة الإدراج الزائدة مثل guardian_id،
 // باني الرابط، أسماء RPC) تُمرَّر هنا كبرمترات — صفر تغيير سلوكي:
@@ -18,8 +18,54 @@ import type { Database } from '../../types/database'
 // الأصلي) وتُمرَّران هنا كدوال محقونة حتى لا تنشأ تبعية دائرية.
 // ===========================================================================
 
-/** صلاحية رابط البوابة بالأيام — قرار المستخدم المعتمد عند الإطلاق (مشترك) */
+/** صلاحية رابط البوابة بالأيام — الافتراضي المعتمد عند الإطلاق (مشترك) */
 export const TOKEN_TTL_DAYS = 30
+
+/** مدد مقترحة جاهزة في واجهة اختيار مدة الرابط (3A-385) */
+export const TTL_PRESET_DAYS = [7, 30, 90, 180, 365] as const
+
+/**
+ * ضبط مدة رابط قادمة من أي مصدر (إعداد محفوظ/اختيار واجهة) لعدد صحيح
+ * بين 1 و365 يوماً — مطابق لفحص قاعدة البيانات في 0037 حرفياً؛ القيم
+ * الفاسدة تسقط للافتراضي 30 بدل كسر توليد الرابط.
+ */
+export function clampTtlDays(v: unknown): number {
+  if (v === null || v === undefined || v === '') return TOKEN_TTL_DAYS
+  const n = Math.floor(Number(v))
+  if (!Number.isFinite(n)) return TOKEN_TTL_DAYS
+  return Math.min(365, Math.max(1, n))
+}
+
+/** لحظة انتهاء رابط يُنشأ الآن بمدة معينة — مصدر الحقيقة الوحيد لحساب expires_at عند التوليد */
+export function tokenExpiresAt(ttlDays: number, nowMs: number = Date.now()): string {
+  return new Date(nowMs + clampTtlDays(ttlDays) * 24 * 60 * 60 * 1000).toISOString()
+}
+
+// ---------------------------------------------------------------------------
+// أقسام البوابتين القابلة للإخفاء بقرار المدرس (3A-385 — هجرة 0037/0038):
+// مفاتيح خريطة sections القادمة داخل حمولة العرض من الخادم.
+// ---------------------------------------------------------------------------
+
+export const GUARDIAN_SECTION_KEYS = ['attendance', 'scores', 'notes', 'money', 'groups'] as const
+export const STUDENT_SECTION_KEYS = ['schedule', 'homework', 'grades', 'money'] as const
+export type GuardianSectionKey = (typeof GUARDIAN_SECTION_KEYS)[number]
+export type StudentSectionKey = (typeof STUDENT_SECTION_KEYS)[number]
+
+/**
+ * تطبيع خريطة أقسام من حمولة RPC: لا يُخفى قسم إلا بقيمة false صريحة —
+ * الغياب (حمولة أقدم من 0038) أو أي قيمة شاذة = القسم ظاهر، وهو
+ * السلوك الحالي حرفياً قبل إعادة التصميم.
+ */
+export function normalizeSections<K extends string>(
+  raw: unknown,
+  keys: readonly K[],
+): Record<K, boolean> {
+  const src =
+    typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {}
+  const out = {} as Record<K, boolean>
+  for (const k of keys) out[k] = src[k] !== false
+  return out
+}
 
 /** جداول التوكنات القابلة للتوحيد هنا — توكنات الامتحانات/التسجيل خارج النطاق */
 export type TokenTable = 'guardian_access_tokens' | 'student_access_tokens'
@@ -101,6 +147,8 @@ export interface CreateTokenLinkInput extends CreateTokenLinkDeps {
   table: TokenTable
   teacherId: string
   studentId: string
+  /** مدة صلاحية الرابط بالأيام يختارها المدرس (3A-385) — غيابها = الافتراضي 30 */
+  ttlDays?: number
   /** أعمدة إدراج إضافية خاصة بالبوابة (مثل guardian_id لبوابة ولي الأمر) */
   extraInsert?: Record<string, string>
   /** باني الرابط العام الخاص بالبوابة — يستلم الرمز الخام ويعيد الرابط الكامل */
@@ -116,7 +164,7 @@ export async function createTokenLink(input: CreateTokenLinkInput): Promise<{ li
   const supa = db()
   const rawToken = input.generateRawToken()
   const tokenHash = await input.sha256Hex(rawToken)
-  const expiresAt = new Date(Date.now() + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  const expiresAt = tokenExpiresAt(input.ttlDays ?? TOKEN_TTL_DAYS)
 
   const { error: revokeErr } = await supa
     .from(input.table)

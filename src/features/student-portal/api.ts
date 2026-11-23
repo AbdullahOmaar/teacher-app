@@ -10,16 +10,19 @@ import type {
 } from '../../types/database'
 import { generateRawToken, sha256Hex } from '../portal/api'
 import {
+  STUDENT_SECTION_KEYS,
   buildAttMeta,
   callPushRpc,
   createTokenLink,
   fetchPushStatus,
   fetchTokenRows,
   normalizeOverviewHead,
+  normalizeSections,
   num,
   revokeTokenRow,
   tokenStatusOf,
   type RawPortalBrand,
+  type StudentSectionKey,
 } from '../portal/tokenLifecycle'
 
 // ===========================================================================
@@ -74,13 +77,16 @@ export interface CreatedStudentPortalLink {
 export async function createStudentPortalLink(
   teacherId: string,
   student: StudentRow,
+  ttlDays: number,
 ): Promise<CreatedStudentPortalLink> {
   // دورة الحياة المشتركة (COD-3) — الفرق المحفوظ حرفياً هنا هو باني
-  // رابط بوابة الطالب (التوكن وحده، بلا guardian_id).
+  // رابط بوابة الطالب (التوكن وحده، بلا guardian_id)، والمدة بيد
+  // المدرس (3A-385).
   const { link, expiresAt } = await createTokenLink({
     table: 'student_access_tokens',
     teacherId,
     studentId: student.id,
+    ttlDays,
     buildLink: (rawToken) => buildStudentPortalLink(window.location.origin, rawToken),
     generateRawToken,
     sha256Hex,
@@ -118,14 +124,14 @@ export function studentTokenStatus(
  * رسالة واتساب إرسال رابط بوابة الطالب — تُرسل لرقم الطالب نفسه إن وُجد،
  * وإلا لرقم ولي أمره (الطالب يوصلها لابنه/بنته)؛ بلا أي رقم ترجع null.
  */
-export function studentPortalLinkWaUrl(student: StudentRow, link: string): string | null {
+export function studentPortalLinkWaUrl(student: StudentRow, link: string, days: number): string | null {
   const phone = student.phone?.trim() || student.guardian_phone?.trim() || null
   const base = waLink(phone)
   if (!base) return null
   const msg = t('studentPortal.apiStudentLinkWa', {
     name: student.name,
     link,
-    days: STUDENT_PORTAL_TOKEN_TTL_DAYS,
+    days,
   })
   return `${base}?text=${encodeURIComponent(msg)}`
 }
@@ -206,10 +212,14 @@ export interface StudentPortalPayment {
   receipt_no: string
 }
 
+/** أقسام بوابة الطالب الظاهرة بقرار المدرس (3A-385) — false = مخفي ولا تصل بياناته أصلاً */
+export type StudentPortalSections = Record<StudentSectionKey, boolean>
+
 /** عرض بوابة الطالب كما يعيده student_portal_build_overview حرفياً — حقول محدودة بالتصميم */
 export interface StudentPortalOverview {
   student: { name: string; code: string; grade: string | null }
   brand: StudentPortalBrand
+  sections: StudentPortalSections
   attendance_rate: number | null
   balance: number
   groups: StudentPortalGroup[]
@@ -233,12 +243,14 @@ export async function fetchStudentPortalOverview(
   if (!data) throw new Error('invalid or expired token')
   const raw = data as unknown as StudentPortalOverview & {
     brand?: RawPortalBrand | null
+    sections?: unknown
     homework_summary?: { marked?: number | string; submitted?: number | string } | null
   }
   return {
     // رأس العرض المشترك (طالب/هوية/حضور/رصيد/مجموعات) — COD-3:
     // normalizeOverviewHead في tokenLifecycle.
     ...normalizeOverviewHead(raw),
+    sections: normalizeSections(raw.sections, STUDENT_SECTION_KEYS),
     upcoming_sessions: (raw.upcoming_sessions ?? []).map((s) => ({
       ...s,
       duration_minutes: Number(s.duration_minutes) || 0,

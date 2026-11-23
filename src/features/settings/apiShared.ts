@@ -6,7 +6,7 @@
 // ===========================================================================
 
 export const SETTINGS_COLS =
-  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, mascot_accessory, show_mascot, last_export_at, created_at, updated_at'
+  'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, mascot_accessory, show_mascot, portal_link_ttl_days, portal_guardian_show_attendance, portal_guardian_show_scores, portal_guardian_show_notes, portal_guardian_show_money, portal_guardian_show_groups, portal_student_show_schedule, portal_student_show_homework, portal_student_show_grades, portal_student_show_money, last_export_at, created_at, updated_at'
 
 export function todayFileStamp(): string {
   const d = new Date()

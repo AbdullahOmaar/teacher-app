@@ -44,7 +44,7 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
   const guardian = effectiveGuardianFromStudent(student)
   const tokens = tokensQ.data ?? []
   const hasActive = tokens.some((t) => tokenStatus(t) === 'active')
-  const waUrl = freshLink ? portalLinkWaUrl(student, freshLink) : null
+  const waUrl = freshLink ? portalLinkWaUrl(student, freshLink, PORTAL_TOKEN_TTL_DAYS) : null
 
   const copyLink = async () => {
     if (!freshLink) return
@@ -110,7 +110,7 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
         disabled={!guardian.phone || createLink.isPending}
         onClick={() => {
           setCopied(false)
-          createLink.mutate(student, {
+          createLink.mutate({ student, ttlDays: PORTAL_TOKEN_TTL_DAYS }, {
             onSuccess: (res) => setFreshLink(res.link),
           })
         }}

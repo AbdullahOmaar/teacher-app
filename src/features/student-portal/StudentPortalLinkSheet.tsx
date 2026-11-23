@@ -52,7 +52,7 @@ export function StudentPortalLinkSheet({
 
   const tokens = tokensQ.data ?? []
   const hasActive = tokens.some((t) => studentTokenStatus(t) === 'active')
-  const waUrl = freshLink ? studentPortalLinkWaUrl(student, freshLink) : null
+  const waUrl = freshLink ? studentPortalLinkWaUrl(student, freshLink, STUDENT_PORTAL_TOKEN_TTL_DAYS) : null
 
   const copyLink = async () => {
     if (!freshLink) return
@@ -114,7 +114,7 @@ export function StudentPortalLinkSheet({
         disabled={createLink.isPending}
         onClick={() => {
           setCopied(false)
-          createLink.mutate(student, {
+          createLink.mutate({ student, ttlDays: STUDENT_PORTAL_TOKEN_TTL_DAYS }, {
             onSuccess: (res) => setFreshLink(res.link),
           })
         }}

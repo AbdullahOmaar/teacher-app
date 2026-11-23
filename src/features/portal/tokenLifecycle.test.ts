@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
+  GUARDIAN_SECTION_KEYS,
+  STUDENT_SECTION_KEYS,
   TOKEN_TTL_DAYS,
+  TTL_PRESET_DAYS,
   buildAttMeta,
+  clampTtlDays,
   normalizeOverviewHead,
   normalizePortalBrand,
+  normalizeSections,
   num,
+  tokenExpiresAt,
   tokenStatusOf,
 } from './tokenLifecycle'
 
@@ -110,5 +116,73 @@ describe('normalizeOverviewHead', () => {
     expect(head.attendance_rate).toBeNull()
     expect(head.balance).toBe(0)
     expect(head.groups).toEqual([])
+  })
+})
+
+describe('clampTtlDays (3A-385)', () => {
+  it('يمرر المدد الصحيحة كما هي ويقرّب الكسور لأسفل', () => {
+    expect(clampTtlDays(7)).toBe(7)
+    expect(clampTtlDays(30)).toBe(30)
+    expect(clampTtlDays(365)).toBe(365)
+    expect(clampTtlDays(45.9)).toBe(45)
+    expect(clampTtlDays('90')).toBe(90)
+  })
+  it('يحبس القيم خارج 1..365 عند الحدين (مطابق لفحص 0037)', () => {
+    expect(clampTtlDays(0)).toBe(1)
+    expect(clampTtlDays(-5)).toBe(1)
+    expect(clampTtlDays(366)).toBe(365)
+    expect(clampTtlDays(10000)).toBe(365)
+  })
+  it('القيم الفاسدة تسقط للافتراضي 30', () => {
+    expect(clampTtlDays('abc')).toBe(30)
+    expect(clampTtlDays(null)).toBe(30)
+    expect(clampTtlDays(undefined)).toBe(30)
+    expect(clampTtlDays(Number.NaN)).toBe(30)
+  })
+  it('المقترحات الجاهزة داخل النطاق وتصاعدية', () => {
+    expect([...TTL_PRESET_DAYS]).toEqual([7, 30, 90, 180, 365])
+    for (const d of TTL_PRESET_DAYS) expect(clampTtlDays(d)).toBe(d)
+  })
+})
+
+describe('tokenExpiresAt (3A-385)', () => {
+  it('يضيف المدة المضبوطة على لحظة الإنشاء', () => {
+    const now = Date.parse('2026-01-01T00:00:00.000Z')
+    expect(tokenExpiresAt(30, now)).toBe('2026-01-31T00:00:00.000Z')
+    expect(tokenExpiresAt(7, now)).toBe('2026-01-08T00:00:00.000Z')
+    expect(tokenExpiresAt(0, now)).toBe('2026-01-02T00:00:00.000Z')
+  })
+})
+
+describe('normalizeSections (3A-385)', () => {
+  it('غياب الخريطة كلها = كل الأقسام ظاهرة (توافق خلفي)', () => {
+    expect(normalizeSections(undefined, GUARDIAN_SECTION_KEYS)).toEqual({
+      attendance: true,
+      scores: true,
+      notes: true,
+      money: true,
+      groups: true,
+    })
+    expect(normalizeSections(null, STUDENT_SECTION_KEYS)).toEqual({
+      schedule: true,
+      homework: true,
+      grades: true,
+      money: true,
+    })
+  })
+  it('false الصريحة وحدها تُخفي — أي قيمة أخرى = ظاهر', () => {
+    const s = normalizeSections(
+      { money: false, scores: 0, notes: 'false', groups: null },
+      GUARDIAN_SECTION_KEYS,
+    )
+    expect(s.money).toBe(false)
+    expect(s.scores).toBe(true)
+    expect(s.notes).toBe(true)
+    expect(s.groups).toBe(true)
+    expect(s.attendance).toBe(true)
+  })
+  it('قيم غير كائن تُهمل بأمان', () => {
+    expect(normalizeSections('money', STUDENT_SECTION_KEYS).money).toBe(true)
+    expect(normalizeSections(42, STUDENT_SECTION_KEYS).grades).toBe(true)
   })
 })
