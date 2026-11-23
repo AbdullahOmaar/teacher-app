@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   BookOpenCheck,
@@ -6,7 +7,6 @@ import {
   Clock,
   GraduationCap,
   Link2,
-  Link2Off,
   NotebookPen,
   ReceiptText,
   Trophy,
@@ -32,6 +32,13 @@ import {
 } from './api'
 import { PortalPushToggle, type PortalPushAdapter } from '../../components/PortalPushToggle'
 import { Mascot } from '../../components/mascot/Mascot'
+import {
+  clearPortalSessionToken,
+  loadPortalSessionToken,
+  portalClaimStudent,
+  portalSessionStudents,
+} from '../portal/accounts'
+import { ClaimPasswordCard, PortalLoginForm, SessionAccountCard } from '../portal/accessUi'
 import { useStudentPortalOverview } from './hooks'
 import { t } from '../../i18n'
 
@@ -132,17 +139,63 @@ function SectionTitle({ icon: Icon, children }: { icon: IconComponent; children:
 
 export function StudentPortalPage() {
   const [searchParams] = useSearchParams()
-  const rawToken = searchParams.get('t') ?? searchParams.get('token')
+  const urlToken = searchParams.get('t') ?? searchParams.get('token')
+
+  // اعتماد الوصول (3A-385): رابط موقّع من الـ URL كما كان دائماً، أو
+  // جلسة حساب محفوظة على هذا المتصفح بعد دخول حقيقي بكود الطالب
+  // وكلمة السر — الخادم يقبل الاثنين بنفس الفحوص (هجرة 0042).
+  const [sessionToken, setSessionToken] = useState<string | null>(null)
+  // توكن الجلسة المحفوظ يُقرأ مرة واحدة عند التحميل (مبادرة كسولة)،
+  // والتحقق منه خادمياً غير متزامن فقط — لا setState متزامناً داخل effect
+  const [savedToken] = useState(() => (urlToken ? null : loadPortalSessionToken('student')))
+  const [sessionChecked, setSessionChecked] = useState(Boolean(urlToken) || savedToken === null)
+
+  useEffect(() => {
+    if (!savedToken) return
+    let alive = true
+    portalSessionStudents(savedToken)
+      .then((info) => {
+        if (!alive) return
+        if (info.role === 'student') setSessionToken(savedToken)
+        else clearPortalSessionToken('student')
+      })
+      .catch(() => {
+        if (alive) clearPortalSessionToken('student')
+      })
+      .finally(() => {
+        if (alive) setSessionChecked(true)
+      })
+    return () => {
+      alive = false
+    }
+  }, [savedToken])
+
+  const rawToken = urlToken ?? sessionToken
 
   const overviewQ = useStudentPortalOverview(rawToken)
 
+  if (!urlToken && !sessionChecked) {
+    return (
+      <StudentPortalShell>
+        <SkeletonCards cards={3} />
+      </StudentPortalShell>
+    )
+  }
+
   if (!rawToken) {
     return (
-      <PortalMessage
-        icon={Link2Off}
-        title={t('studentPortal.pageIncompleteTitle')}
-        hint={t('studentPortal.pageIncompleteHint')}
-      />
+      <StudentPortalShell>
+        <Card>
+          <div className="type-section mb-1">{t('portal.loginTitle')}</div>
+          <p className="text-muted text-[13.5px] mt-0">{t('portal.loginIntro')}</p>
+          <PortalLoginForm
+            role="student"
+            usernameLabel={t('studentPortal.loginUsernameCode')}
+            usernamePlaceholder={t('studentPortal.loginUsernamePlaceholder')}
+            onLoggedIn={(res) => setSessionToken(res.session_token)}
+          />
+        </Card>
+      </StudentPortalShell>
     )
   }
 
@@ -183,9 +236,13 @@ export function StudentPortalPage() {
           {t('studentPortal.pageCodeLabel')} <span dir="ltr">{o.student.code}</span>
           {o.student.grade ? ` · ${o.student.grade}` : ''}
         </div>
-        <div className="grid grid-cols-2 gap-2 mt-3">
-          <div className="rounded-xl border border-border bg-bg p-3 text-center">
-            <div className="text-muted text-[12px] font-semibold mb-0.5">{t('studentPortal.pageAttendanceRateLabel')}</div>
+        {(o.sections.homework || o.sections.money) && (
+          <div
+            className={`grid gap-2 mt-3 ${o.sections.homework && o.sections.money ? 'grid-cols-2' : 'grid-cols-1'}`}
+          >
+            {o.sections.homework && (
+              <div className="rounded-xl border border-border bg-bg p-3 text-center">
+                <div className="text-muted text-[12px] font-semibold mb-0.5">{t('studentPortal.pageAttendanceRateLabel')}</div>
             {rate == null ? (
               <div className="text-[15px] font-bold text-muted">{t('studentPortal.pageNoSessionsYet')}</div>
             ) : (
@@ -195,9 +252,11 @@ export function StudentPortalPage() {
                 {rate}%
               </div>
             )}
-          </div>
-          <div className="rounded-xl border border-border bg-bg p-3 text-center">
-            <div className="text-muted text-[12px] font-semibold mb-0.5">{t('studentPortal.pageBalanceDueLabel')}</div>
+              </div>
+            )}
+            {o.sections.money && (
+              <div className="rounded-xl border border-border bg-bg p-3 text-center">
+                <div className="text-muted text-[12px] font-semibold mb-0.5">{t('studentPortal.pageBalanceDueLabel')}</div>
             {o.balance > 0 ? (
               <div className="text-[20px] font-extrabold text-bad-text">{formatMoney(o.balance)}</div>
             ) : (
@@ -205,19 +264,26 @@ export function StudentPortalPage() {
                 {t('studentPortal.pagePaidLabel')} <Check size={22} />
               </div>
             )}
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </Card>
 
-      {/* إشعارات Push الفورية — اشتراك اختياري من البوابة (Phase 4 خطوة 2) */}
-      <div className="rise-in" style={{ animationDelay: '50ms' }}>
-        <PortalPushToggle adapter={pushAdapter} />
-      </div>
+      {/* إشعارات Push الفورية — اشتراك اختياري من البوابة (Phase 4 خطوة 2)؛
+          محورها الواجبات/الحضور فتختفي مع إخفاء المدرس لقسمها (3A-385) */}
+      {o.sections.homework && (
+        <div className="rise-in" style={{ animationDelay: '50ms' }}>
+          <PortalPushToggle adapter={pushAdapter} />
+        </div>
+      )}
 
-      {/* ١) حصصي القادمة */}
-      <div className="rise-in mt-5" style={{ animationDelay: '90ms' }}>
-      <SectionTitle icon={CalendarDays}>{t('studentPortal.pageUpcomingTitle')}</SectionTitle>
-      {o.upcoming_sessions.length === 0 ? (
+      {/* ١) حصصي القادمة — قسم الجدول (3A-385) */}
+      {o.sections.schedule && (
+        <>
+          <div className="rise-in mt-5" style={{ animationDelay: '90ms' }}>
+            <SectionTitle icon={CalendarDays}>{t('studentPortal.pageUpcomingTitle')}</SectionTitle>
+            {o.upcoming_sessions.length === 0 ? (
         <StudentPortalEmptyNote text={t('studentPortal.pageUpcomingEmpty')} showMascot={o.brand.show_mascot} />
       ) : (
         <Card className="p-0 overflow-hidden">
@@ -282,8 +348,13 @@ export function StudentPortalPage() {
         </>
       )}
 
-      {/* ٢) واجباتي */}
-      <SectionTitle icon={BookOpenCheck}>{t('studentPortal.pageHomeworkTitle')}</SectionTitle>
+        </>
+      )}
+
+      {/* ٢) واجباتي — قسم الواجبات (3A-385) */}
+      {o.sections.homework && (
+        <>
+          <SectionTitle icon={BookOpenCheck}>{t('studentPortal.pageHomeworkTitle')}</SectionTitle>
       {hw.marked > 0 && (
         <Card>
           <div className="flex items-center justify-between gap-2">
@@ -342,8 +413,13 @@ export function StudentPortalPage() {
         </Card>
       )}
 
-      {/* ٣) درجاتي ونتائج امتحاناتي الإلكترونية */}
-      <SectionTitle icon={NotebookPen}>{t('studentPortal.pageGradesTitle')}</SectionTitle>
+        </>
+      )}
+
+      {/* ٣) درجاتي ونتائج امتحاناتي الإلكترونية — قسم الدرجات (3A-385) */}
+      {o.sections.grades && (
+        <>
+          <SectionTitle icon={NotebookPen}>{t('studentPortal.pageGradesTitle')}</SectionTitle>
       {o.grades.length === 0 ? (
         <StudentPortalEmptyNote text={t('studentPortal.pageGradesEmpty')} showMascot={o.brand.show_mascot} />
       ) : (
@@ -408,8 +484,13 @@ export function StudentPortalPage() {
         </>
       )}
 
-      {/* ٤) مدفوعاتي */}
-      <SectionTitle icon={Wallet}>{t('studentPortal.pagePaymentsTitle')}</SectionTitle>
+        </>
+      )}
+
+      {/* ٤) مدفوعاتي — قسم المال (3A-385) */}
+      {o.sections.money && (
+        <>
+          <SectionTitle icon={Wallet}>{t('studentPortal.pagePaymentsTitle')}</SectionTitle>
       {o.invoices.length === 0 ? (
         <StudentPortalEmptyNote text={t('studentPortal.pageInvoicesEmpty')} showMascot={o.brand.show_mascot} />
       ) : (
@@ -470,6 +551,24 @@ export function StudentPortalPage() {
           </Card>
         </>
       )}
+        </>
+      )}
+
+      {/* بطاقة الحساب (3A-385): الواصل برابط يعيّن كلمة سر للدخول
+          الجاي، والداخل بجلسة يدير كلمة سره أو يخرج */}
+      <div className="mt-5">
+        <Card>
+          {sessionToken ? (
+            <SessionAccountCard
+              role="student"
+              sessionToken={sessionToken}
+              onLoggedOut={() => setSessionToken(null)}
+            />
+          ) : (
+            <ClaimPasswordCard claim={(pw) => portalClaimStudent(rawToken, pw)} />
+          )}
+        </Card>
+      </div>
 
       <p className="text-center text-muted text-[12px] mt-5 mb-0">
         {t('studentPortal.pageFooter')}

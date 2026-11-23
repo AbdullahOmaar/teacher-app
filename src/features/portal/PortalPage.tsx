@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
   Bell,
@@ -39,6 +39,14 @@ import { PortalPushToggle, type PortalPushAdapter } from '../../components/Porta
 import { Mascot } from '../../components/mascot/Mascot'
 import { PublicPageShell } from '../../components/PublicPageShell'
 import { t } from '../../i18n'
+import {
+  clearPortalSessionToken,
+  loadPortalSessionToken,
+  portalClaimGuardian,
+  portalSessionStudents,
+  type PortalSessionInfo,
+} from './accounts'
+import { ClaimPasswordCard, PortalLoginForm, SessionAccountCard } from './accessUi'
 import {
   useMarkPortalNotificationsRead,
   usePortalNotifications,
@@ -399,18 +407,109 @@ function NotificationsSection({
 export function PortalPage() {
   const params = useParams()
   const [searchParams] = useSearchParams()
-  const studentId = params.studentId ?? searchParams.get('student')
-  const rawToken = searchParams.get('t') ?? searchParams.get('token')
+  const urlStudentId = params.studentId ?? searchParams.get('student')
+  const urlToken = searchParams.get('t') ?? searchParams.get('token')
+
+  // اعتماد الوصول (3A-385): رابط موقّع من الـ URL كما كان دائماً، أو
+  // جلسة حساب محفوظة على هذا المتصفح بعد دخول حقيقي — الخادم يقبل
+  // الاثنين بنفس فحوص الارتباط والصلاحية (هجرة 0042)، فكل الاستعلامات
+  // أسفله تعمل بأيٍّ منهما دون تمييز.
+  const [session, setSession] = useState<{ token: string; info: PortalSessionInfo } | null>(null)
+  const [pickedStudentId, setPickedStudentId] = useState<string | null>(null)
+  // توكن الجلسة المحفوظ يُقرأ مرة واحدة عند التحميل (مبادرة كسولة)،
+  // والتحقق منه خادمياً غير متزامن فقط — لا setState متزامناً داخل effect
+  const [savedToken] = useState(() => (urlToken ? null : loadPortalSessionToken('guardian')))
+  const [sessionChecked, setSessionChecked] = useState(Boolean(urlToken) || savedToken === null)
+
+  useEffect(() => {
+    if (!savedToken) return
+    let alive = true
+    portalSessionStudents(savedToken)
+      .then((info) => {
+        if (!alive) return
+        if (info.role === 'guardian') setSession({ token: savedToken, info })
+        else clearPortalSessionToken('guardian')
+      })
+      .catch(() => {
+        if (alive) clearPortalSessionToken('guardian')
+      })
+      .finally(() => {
+        if (alive) setSessionChecked(true)
+      })
+    return () => {
+      alive = false
+    }
+  }, [savedToken])
+
+  const sessionStudents = session?.info.students ?? []
+  const studentId =
+    urlStudentId ??
+    pickedStudentId ??
+    (sessionStudents.length === 1 ? sessionStudents[0].id : null)
+  const rawToken = urlToken ?? session?.token ?? null
 
   const overviewQ = usePortalOverview(studentId, rawToken)
 
-  if (!studentId || !rawToken) {
+  if (urlToken && !urlStudentId) {
     return (
       <PortalMessage
         icon={Link2Off}
         title={t('portal.pageIncompleteLinkTitle')}
         hint={t('portal.pageIncompleteLinkHint')}
       />
+    )
+  }
+
+  if (!urlToken && !sessionChecked) {
+    return (
+      <PortalShell>
+        <SkeletonCards cards={3} />
+      </PortalShell>
+    )
+  }
+
+  if (!urlToken && !session) {
+    return (
+      <PortalShell>
+        <Card>
+          <div className="type-section mb-1">{t('portal.loginTitle')}</div>
+          <p className="text-muted text-[13.5px] mt-0">{t('portal.loginIntro')}</p>
+          <PortalLoginForm
+            role="guardian"
+            usernameLabel={t('portal.loginUsernameGuardian')}
+            usernamePlaceholder={t('portal.loginUsernameGuardianPlaceholder')}
+            onLoggedIn={(res) => setSession({ token: res.session_token, info: res })}
+          />
+        </Card>
+      </PortalShell>
+    )
+  }
+
+  if (session && sessionStudents.length === 0) {
+    return (
+      <PortalMessage icon={Link2Off} title={t('portal.loginTitle')} hint={t('portal.sessionNoStudents')} />
+    )
+  }
+
+  if (!studentId || !rawToken) {
+    // جلسة ولي أمر له أكثر من ابن بلا اختيار بعد — منتقي الطالب
+    return (
+      <PortalShell>
+        <Card>
+          <div className="type-section mb-2">{t('portal.pickerTitle')}</div>
+          {sessionStudents.map((s) => (
+            <Button
+              key={s.id}
+              full
+              variant="soft"
+              className="mb-2"
+              onClick={() => setPickedStudentId(s.id)}
+            >
+              {s.name}
+            </Button>
+          ))}
+        </Card>
+      </PortalShell>
     )
   }
 
@@ -448,49 +547,79 @@ export function PortalPage() {
           {t('portal.pageCodeLabel')} <span dir="ltr">{o.student.code}</span>
           {o.student.grade ? t('portal.pageGradePart', { grade: o.student.grade }) : ''}
         </div>
-        <div className="grid grid-cols-2 gap-2 mt-3">
-          <div className="rounded-xl border border-border bg-bg p-3 text-center">
-            <div className="text-muted text-[12px] font-semibold mb-0.5">{t('portal.pageAttendanceRateLabel')}</div>
-            {rate == null ? (
-              <div className="text-[15px] font-bold text-muted">{t('portal.pageNoSessionsYet')}</div>
-            ) : (
-              <div className={`text-[20px] font-extrabold ${rate >= 80 ? 'text-ok-text' : 'text-warn-text'}`}>
-                {rate}%
+        {(o.sections.attendance || o.sections.money) && (
+          <div
+            className={`grid gap-2 mt-3 ${o.sections.attendance && o.sections.money ? 'grid-cols-2' : 'grid-cols-1'}`}
+          >
+            {o.sections.attendance && (
+              <div className="rounded-xl border border-border bg-bg p-3 text-center">
+                <div className="text-muted text-[12px] font-semibold mb-0.5">{t('portal.pageAttendanceRateLabel')}</div>
+                {rate == null ? (
+                  <div className="text-[15px] font-bold text-muted">{t('portal.pageNoSessionsYet')}</div>
+                ) : (
+                  <div className={`text-[20px] font-extrabold ${rate >= 80 ? 'text-ok-text' : 'text-warn-text'}`}>
+                    {rate}%
+                  </div>
+                )}
+              </div>
+            )}
+            {o.sections.money && (
+              <div className="rounded-xl border border-border bg-bg p-3 text-center">
+                <div className="text-muted text-[12px] font-semibold mb-0.5">{t('portal.pageBalanceLabel')}</div>
+                {o.balance > 0 ? (
+                  <div className="text-[20px] font-extrabold text-bad-text">{formatMoney(o.balance)}</div>
+                ) : (
+                  <div className="text-[20px] font-extrabold text-ok-text flex items-center justify-center gap-1.5">{t('portal.pagePaid')} <Check size={22} /></div>
+                )}
               </div>
             )}
           </div>
-          <div className="rounded-xl border border-border bg-bg p-3 text-center">
-            <div className="text-muted text-[12px] font-semibold mb-0.5">{t('portal.pageBalanceLabel')}</div>
-            {o.balance > 0 ? (
-              <div className="text-[20px] font-extrabold text-bad-text">{formatMoney(o.balance)}</div>
-            ) : (
-              <div className="text-[20px] font-extrabold text-ok-text flex items-center justify-center gap-1.5">{t('portal.pagePaid')} <Check size={22} /></div>
-            )}
-          </div>
-        </div>
-        {o.balance > 0 && (
+        )}
+        {o.sections.money && o.balance > 0 && (
           <p className="text-muted text-[12px] mt-2 mb-0">
             {t('portal.pageBalanceNote')}
           </p>
         )}
       </Card>
 
-      {/* إشعارات Push الفورية — اشتراك اختياري من البوابة (Phase 4 خطوة 2) */}
-      <div className="rise-in" style={{ animationDelay: '50ms' }}>
-        <PortalPushToggle adapter={pushAdapter} />
-      </div>
+      {/* تبديل بين الأبناء لولي أمر دخل بحسابه (3A-385) */}
+      {session && sessionStudents.length > 1 && (
+        <div className="mt-3">
+          <ChipRow>
+            {sessionStudents.map((s) => (
+              <Chip key={s.id} active={s.id === studentId} onClick={() => setPickedStudentId(s.id)}>
+                {s.name}
+              </Chip>
+            ))}
+          </ChipRow>
+        </div>
+      )}
+
+      {/* إشعارات Push الفورية — اشتراك اختياري من البوابة (Phase 4 خطوة 2)؛
+          محورها الحضور فتختفي مع إخفاء المدرس لقسم الحضور (3A-385) */}
+      {o.sections.attendance && (
+        <div className="rise-in" style={{ animationDelay: '50ms' }}>
+          <PortalPushToggle adapter={pushAdapter} />
+        </div>
+      )}
 
       {/* تنبيهات الوصول والمغادرة — صندوق ولي الأمر (خطوة 6، Phase 3) */}
-      <div className="rise-in mt-5" style={{ animationDelay: '90ms' }}>
-        <NotificationsSection studentId={studentId} rawToken={rawToken} />
-      </div>
+      {o.sections.attendance && (
+        <div className="rise-in mt-5" style={{ animationDelay: '90ms' }}>
+          <NotificationsSection studentId={studentId} rawToken={rawToken} />
+        </div>
+      )}
 
       {/* إثبات دفع — رفع لقطة تحويل ومراجعة المدرس (خطوة 7) */}
-      <PaymentProofSection studentId={studentId} rawToken={rawToken} balance={o.balance} />
+      {o.sections.money && (
+        <PaymentProofSection studentId={studentId} rawToken={rawToken} balance={o.balance} />
+      )}
 
-      {/* مواعيد الحصص */}
-      <SectionTitle icon={CalendarDays}>{t('portal.pageScheduleTitle')}</SectionTitle>
-      {o.groups.length === 0 ? (
+      {/* مواعيد الحصص — قسم المجموعات (3A-385) */}
+      {o.sections.groups && (
+        <>
+          <SectionTitle icon={CalendarDays}>{t('portal.pageScheduleTitle')}</SectionTitle>
+          {o.groups.length === 0 ? (
         <PortalEmptyNote text={t('portal.pageNotEnrolled')} showMascot={o.brand.show_mascot} />
       ) : (
         o.groups.map((g) => (
@@ -526,10 +655,14 @@ export function PortalPage() {
           </Card>
         ))
       )}
+        </>
+      )}
 
-      {/* آخر الدرجات */}
-      <SectionTitle icon={NotebookPen}>{t('portal.pageScoresTitle')}</SectionTitle>
-      {o.latest_scores.length === 0 ? (
+      {/* آخر الدرجات — قسم الدرجات (3A-385) */}
+      {o.sections.scores && (
+        <>
+          <SectionTitle icon={NotebookPen}>{t('portal.pageScoresTitle')}</SectionTitle>
+          {o.latest_scores.length === 0 ? (
         <PortalEmptyNote text={t('portal.pageNoScores')} showMascot={o.brand.show_mascot} />
       ) : (
         <Card className="p-0 overflow-hidden">
@@ -558,10 +691,12 @@ export function PortalPage() {
             )
           })}
         </Card>
+          )}
+        </>
       )}
 
-      {/* ملاحظات المدرس */}
-      {o.notes.length > 0 && (
+      {/* ملاحظات المدرس — قسم الملاحظات (3A-385) */}
+      {o.sections.notes && o.notes.length > 0 && (
         <>
           <SectionTitle icon={NotebookText}>{t('portal.pageNotesTitle')}</SectionTitle>
           <Card className="p-0 overflow-hidden">
@@ -580,9 +715,11 @@ export function PortalPage() {
         </>
       )}
 
-      {/* سجل الحضور الأخير */}
-      <SectionTitle icon={CalendarCheck2}>{t('portal.pageAttendanceTitle')}</SectionTitle>
-      {o.recent_attendance.length === 0 ? (
+      {/* سجل الحضور الأخير — قسم الحضور (3A-385) */}
+      {o.sections.attendance && (
+        <>
+          <SectionTitle icon={CalendarCheck2}>{t('portal.pageAttendanceTitle')}</SectionTitle>
+          {o.recent_attendance.length === 0 ? (
         <PortalEmptyNote text={t('portal.pageNoAttendance')} showMascot={o.brand.show_mascot} />
       ) : (
         <Card className="p-0 overflow-hidden">
@@ -604,7 +741,30 @@ export function PortalPage() {
             )
           })}
         </Card>
+          )}
+        </>
       )}
+
+      {/* بطاقة الحساب (3A-385): الواصل برابط يعيّن كلمة سر للدخول
+          الجاي، والداخل بجلسة يدير كلمة سره أو يخرج */}
+      <div className="mt-5">
+        <Card>
+          {session ? (
+            <SessionAccountCard
+              role="guardian"
+              sessionToken={session.token}
+              onLoggedOut={() => {
+                setSession(null)
+                setPickedStudentId(null)
+              }}
+            />
+          ) : (
+            <ClaimPasswordCard
+              claim={(pw) => portalClaimGuardian(rawToken, studentId, pw)}
+            />
+          )}
+        </Card>
+      </div>
 
       <p className="text-center text-muted text-[12px] mt-5 mb-0">
         {t('portal.pageFooterNote')}
