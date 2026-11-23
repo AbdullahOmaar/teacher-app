@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from './supabase'
+import { clearUserLocalData } from './logoutCleanup'
 import { AuthContext, type AuthContextValue } from './useAuth'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -41,19 +42,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       configured: isSupabaseConfigured,
       signOut: async () => {
-        // مسح بقايا الجهاز حتى لا يرثها الحساب التالي (SEC-L5): اختيار
-        // مساحة العمل دائماً، ومفتاح طابور الحضور فقط إن كان فارغاً —
-        // عناصر معلّقة غير مُزامَنة بيانات مستخدم لا تُحذف أبداً عند
-        // الخروج (وهي مقيدة بـ teacher_id ولا تُزامَن إلا في جلسته)
+        // مسح بقايا الجهاز حتى لا يرثها الحساب التالي (SEC-L5 — الجرد
+        // الكامل والتصنيف في lib/logoutCleanup): مفاتيح الجلسة وحالة
+        // الواجهة المنسوبة للمدرس النشط تُحذف، وطابور الحضور المعلّق
+        // بيانات مستخدم لا تُحذف أبداً (يُحذف مفتاحه فارغاً فقط)
         try {
-          localStorage.removeItem('teacher-app-active-teacher')
-          const rawQueue = localStorage.getItem('teacher-app-attendance-queue-v1')
-          if (rawQueue) {
-            const parsed: unknown = JSON.parse(rawQueue)
-            if (Array.isArray(parsed) && parsed.length === 0) {
-              localStorage.removeItem('teacher-app-attendance-queue-v1')
-            }
-          }
+          clearUserLocalData(localStorage)
         } catch {
           // تجاهل: تخزين غير متاح
         }
