@@ -11,7 +11,7 @@ import { Chip } from '../../components/ui/form'
 import { LoadingState } from '../../components/ui/states'
 import { useAuth } from '../../lib/useAuth'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
-import { useTheme, type ThemeMode } from '../../hooks/useTheme'
+import { hasExplicitThemeChoice, useTheme, type ThemeMode } from '../../hooks/useTheme'
 import { setActiveTeacherId } from '../../lib/workspace'
 import {
   ASSISTANT_DEFAULT_PERMISSIONS,
@@ -108,16 +108,18 @@ export function SettingsPage() {
   const uploadLogo = useUploadBrandLogo(managedCentreId)
   const removeLogo = useRemoveBrandLogo(managedCentreId)
 
-  // مزامنة الثيم من القاعدة مرة واحدة عند تحميل الإعدادات: عمود
-  // teacher_settings.theme هو المحفوظ حسابياً وخطاف useTheme هو آلية
-  // التطبيق — عند اختلافهما عند الفتح تسود قيمة القاعدة.
+  // مزامنة الثيم من القاعدة مرة واحدة عند تحميل الإعدادات — بشروط
+  // 3A-384 (ملاحظة المالك ٧ «التطبيق بيطلع من الدارك مود لوحده»):
+  // قيمة القاعدة تُعتمد فقط على جهاز بلا اختيار محلي صريح (نقل
+  // الاختيار بين أجهزة المدرس)؛ أي اختيار صريح على هذا الجهاز —
+  // من الشريط العلوي أو من هنا — يسود دائماً ولا يُفرض عليه شيء.
   const themeSyncedRef = useRef(false)
   const dbTheme = settingsQ.data?.theme
   useEffect(() => {
     if (themeSyncedRef.current) return
     if (dbTheme === 'light' || dbTheme === 'dark' || dbTheme === 'auto') {
       themeSyncedRef.current = true
-      if (dbTheme !== theme.mode) theme.setMode(dbTheme)
+      if (!hasExplicitThemeChoice() && dbTheme !== theme.mode) theme.setMode(dbTheme)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dbTheme])

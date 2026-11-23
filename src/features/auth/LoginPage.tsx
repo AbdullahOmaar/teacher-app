@@ -2,11 +2,12 @@ import { invalidatePrefixes } from '../../lib/invalidate'
 import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useLocation } from 'react-router-dom'
-import { FlaskConical, LogIn, Send, UserPlus } from 'lucide-react'
+import { FlaskConical, LogIn, Moon, Send, Sun, UserPlus } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/useAuth'
+import { useTheme } from '../../hooks/useTheme'
 import { Logo } from '../../components/brand/Logo'
 import { useMascotVisible } from '../../components/mascot/useMascotVisible'
 import doffyIcon from '../../assets/mascot/icon.webp'
@@ -58,6 +59,17 @@ export function LoginPage() {
   // الجلسة يحسم القرار مرآة الجهاز المحلية/الافتراضي (نفس نمط سبلاش
   // الإقلاع)، وعند إيقاف الماسكوت يرجع لوجو الكتاب كما كان
   const mascotVisible = useMascotVisible()
+  // زر تبديل المظهر في صفحة الدخول نفسها (3A-384 ملاحظة ٧): كان الثيم
+  // يطبق من التخزين عند التحميل لكن بلا أي وسيلة تبديل قبل الدخول.
+  // الأيقونة تُشتق من وضع المخزن المشترك (لا قراءة DOM أثناء التصيير —
+  // ملاحظة مراجعة 3A-384): الداكن فعليًا = وضع داكن صريح أو تلقائي
+  // مع نظام داكن.
+  const { mode: themeMode, toggle: toggleTheme } = useTheme()
+  const loginIsDark =
+    themeMode === 'dark' ||
+    (themeMode === 'auto' &&
+      typeof window !== 'undefined' &&
+      !!window.matchMedia?.('(prefers-color-scheme: dark)').matches)
 
   if (!loading && session) {
     return <Navigate to={from} replace />
@@ -211,6 +223,14 @@ export function LoginPage() {
 
   return (
     <div className="relative overflow-hidden min-h-screen bg-bg text-text flex items-start justify-center">
+      <button
+        type="button"
+        onClick={toggleTheme}
+        className="absolute top-3 end-3 z-10 w-12 h-12 flex items-center justify-center cursor-pointer bg-transparent border-0 text-text"
+        aria-label={t('shell.toggleTheme')}
+      >
+        {loginIsDark ? <Sun size={24} /> : <Moon size={24} />}
+      </button>
       {/* بصمة الهوية: علامة الشعار مائية كبيرة خفيفة جداً خلف المحتوى */}
       <div
         className="absolute inset-0 flex items-center justify-center pointer-events-none"
