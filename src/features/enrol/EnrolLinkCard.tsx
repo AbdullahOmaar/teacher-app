@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { FormError } from '../../components/ui/form'
 import { useToast } from '../../components/ui/toast'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
+import { copyText } from '../../lib/clipboard'
 import { t } from '../../i18n'
 import { useTeacherSettings } from '../settings/hooks'
 import { enrolShareWaUrl } from './api'
@@ -62,11 +63,10 @@ export function EnrolLinkCard() {
 
   const copyLink = async () => {
     if (!rawLink) return
-    try {
-      await navigator.clipboard.writeText(rawLink)
+    if (await copyText(rawLink)) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch {
+    } else {
       setError(t('enrol.cardCopyError'))
     }
   }

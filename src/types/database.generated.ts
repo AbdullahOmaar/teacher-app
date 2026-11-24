@@ -2344,6 +2344,10 @@ export type Database = {
           Args: Record<PropertyKey, never>
           Returns: Json
         }
+      delete_my_teacher_account: {
+          Args: Record<PropertyKey, never>
+          Returns: Json
+        }
       enrolment_page_by_token: {
           Args: {
             p_token: string

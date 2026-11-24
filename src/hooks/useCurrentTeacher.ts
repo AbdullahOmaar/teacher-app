@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
-import { useActiveTeacherId } from '../lib/workspace'
+import { useActiveTeacherId } from '../lib/activeTeacher'
 import { claimTeacherInvites, toMemberRow } from '../features/auth/api'
 import type { TeacherMemberRow, TeacherRow } from '../types/database'
 
@@ -44,7 +44,7 @@ const claimAttemptedFor = new Set<string>()
  *    قد تكون سنتراً واحداً (الحالة التاريخية) أو عدة سناتر.
  * 2) عضويات teacher_members الفعّالة (مساعد عند مدرسين آخرين).
  *
- * اختيار النشط: معرّف محفوظ في lib/workspace إن كان ما زال صالحاً
+ * اختيار النشط: معرّف محفوظ في lib/activeTeacher إن كان ما زال صالحاً
  * (سنتر يملكه أو عضوية فعّالة)، وإلا سقوط آمن: السنتر الأساسي
  * (id = uid) ثم أقدم سنتر مملوك ثم أول عضوية. مستخدم السنتر الواحد
  * يرى سلوك ما قبل 0016 حرفياً.

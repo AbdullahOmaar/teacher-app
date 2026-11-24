@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { formatDateTimeAr } from '../../lib/format'
+import { copyText } from '../../lib/clipboard'
 import { t } from '../../i18n'
 import { Sheet } from '../../components/ui/Sheet'
 import { useToast } from '../../components/ui/toast'
@@ -63,11 +64,10 @@ export function PortalLinkSheet({ teacherId, student, onClose }: PortalLinkSheet
 
   const copyLink = async () => {
     if (!freshLink) return
-    try {
-      await navigator.clipboard.writeText(freshLink)
+    if (await copyText(freshLink)) {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
-    } catch {
+    } else {
       setCopied(false)
     }
   }

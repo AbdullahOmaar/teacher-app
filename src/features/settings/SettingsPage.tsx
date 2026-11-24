@@ -12,7 +12,8 @@ import { LoadingState } from '../../components/ui/states'
 import { useAuth } from '../../lib/useAuth'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { hasExplicitThemeChoice, useTheme, type ThemeMode } from '../../hooks/useTheme'
-import { setActiveTeacherId } from '../../lib/workspace'
+import { setActiveTeacherId } from '../../lib/activeTeacher'
+import { copyText } from '../../lib/clipboard'
 import {
   ASSISTANT_DEFAULT_PERMISSIONS,
   INVITE_EMAIL_RE,
@@ -35,6 +36,8 @@ import { EnrolLinkCard } from '../enrol/EnrolLinkCard'
 import { PushNotificationsCard } from './PushNotificationsCard'
 import { MascotSettingsCard } from './MascotSettingsCard'
 import { WhatsAppSettingsCard } from './WhatsAppSettingsCard'
+import { DeleteAccountCard } from './DeleteAccountCard'
+import { DEMO_EMAIL } from '../auth/api'
 import { type TeacherSettingsInput } from './api'
 import {
   useRemoveBrandLogo,
@@ -192,11 +195,10 @@ export function SettingsPage() {
   const pendingInvites = teamRows.filter((m) => m.user_id == null && m.status === 'invited')
 
   const copyMyId = async () => {
-    try {
-      await navigator.clipboard.writeText(ownId)
+    if (await copyText(ownId)) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch {
+    } else {
       setCopied(false)
     }
   }
@@ -679,6 +681,10 @@ export function SettingsPage() {
           </span>
         </div>
       </SettingsSection>
+
+      {/* حذف الحساب (فجوة 32 — مهمة Phase 2 رقم 3): مالك فقط، ومخفٍ عن
+          الحساب التجريبي العام (حارس الخادم في 0046 هو الضمان الحقيقي) */}
+      {isOwnerWorkspace && user?.email !== DEMO_EMAIL && <DeleteAccountCard />}
 
       {/* تسجيل الخروج */}
       <Card className="rise-in">
