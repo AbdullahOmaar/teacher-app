@@ -10,7 +10,7 @@ import { t } from '../../i18n'
 const validReport = {
   teacher_id: 't-1',
   deleted_tables: { students: 3, groups: 1 },
-  storage_objects_deleted: 2,
+  storage_objects_orphaned: 2,
 }
 
 const fakeDeps = (over: Partial<DeleteAccountDeps> = {}): DeleteAccountDeps & {
@@ -47,7 +47,7 @@ describe('parseDeleteReport — شكل تقرير الحذف من RPC', () => {
     expect(parseDeleteReport(null)).toBeNull()
     expect(parseDeleteReport([])).toBeNull()
     expect(parseDeleteReport({ ...validReport, teacher_id: '' })).toBeNull()
-    expect(parseDeleteReport({ ...validReport, storage_objects_deleted: '2' })).toBeNull()
+    expect(parseDeleteReport({ ...validReport, storage_objects_orphaned: '2' })).toBeNull()
     expect(parseDeleteReport({ ...validReport, deleted_tables: null })).toBeNull()
     expect(parseDeleteReport({
       ...validReport,

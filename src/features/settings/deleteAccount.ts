@@ -20,7 +20,7 @@ import { signInWithEmail } from '../auth/api'
 export interface DeleteAccountReport {
   teacher_id: string
   deleted_tables: Record<string, number>
-  storage_objects_deleted: number
+  storage_objects_orphaned: number
 }
 
 /** تحقق صارم من شكل تقرير الحذف المُرجع من RPC (Json غير مُدقَّق نوعياً). */
@@ -28,7 +28,7 @@ export function parseDeleteReport(data: unknown): DeleteAccountReport | null {
   if (typeof data !== 'object' || data === null) return null
   const d = data as Record<string, unknown>
   if (typeof d.teacher_id !== 'string' || d.teacher_id === '') return null
-  if (typeof d.storage_objects_deleted !== 'number') return null
+  if (typeof d.storage_objects_orphaned !== 'number') return null
   if (typeof d.deleted_tables !== 'object' || d.deleted_tables === null) return null
   const tables: Record<string, number> = {}
   for (const [k, v] of Object.entries(d.deleted_tables as Record<string, unknown>)) {
@@ -38,7 +38,7 @@ export function parseDeleteReport(data: unknown): DeleteAccountReport | null {
   return {
     teacher_id: d.teacher_id,
     deleted_tables: tables,
-    storage_objects_deleted: d.storage_objects_deleted,
+    storage_objects_orphaned: d.storage_objects_orphaned,
   }
 }
 
