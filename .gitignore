@@ -40,3 +40,6 @@ e2e/artifacts/
 # كأدوات CI أو تُحفظ في مجلد أدلة الهدف لا في الشجرة
 e2e/visual/reports/
 e2e/visual/.tmp-capture-*/
+
+# Python bytecode (scripts are run, not shipped)
+__pycache__/
