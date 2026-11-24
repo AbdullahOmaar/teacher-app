@@ -67,10 +67,34 @@ function WaButton({ url, label = t('notifications.page.waDefault') }: { url: str
 }
 
 /**
+ * باقي نص التنبيه بعد فصل اسم الطالب عنه (3A-697): القوالب الفردية في
+ * api.ts تُدخل الاسم مرة واحدة داخل النص المركّب (أوله في الغياب
+ * والمتأخرات: «{name} غاب…»/«{name} عليه…»، ووسطه في الباقات:
+ * «{group} — باقة {name} نفدت»)، فيُحذف الاسم هنا عرضياً فقط ليظهر
+ * سطراً مستقلاً لا ينكسر أبداً، ويبقى الباقي سطراً مستقلاً أسفله —
+ * فلا يتشابك المبلغ مع التفاف الاسم. النص المركّب نفسه (عقد
+ * الرئيسية/الشارة) لا يتغير، ولا تُعاد حساب أي قيمة.
+ */
+function alertRestText(alert: AppAlert): string | null {
+  const name = alert.studentName
+  if (!name) return null
+  const idx = alert.text.indexOf(name)
+  if (idx < 0) return null
+  const rest = (alert.text.slice(0, idx) + alert.text.slice(idx + name.length))
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^—\s*/, '')
+    .trim()
+  return rest || null
+}
+
+/**
  * صف تنبيه واحد: النص والوجهة من عقد getAlerts نفسه (§5.7)، والضغط على
- * جسم الصف ينتقل للوجهة. الإجراءات الإضافية في عمود الطرف: زر واتساب
- * صغير برسالة نوع التنبيه لولي الأمر (حيث ينطبق)، وتفاصيل قابلة
- * للفتح: فواتير الطالب المستحقة (fin) أو الطلاب المنخفضون (grade).
+ * الاسم/التفاصيل ينتقل للوجهة. التشريح موحّد في كل الأقسام (3A-697 —
+ * بنص المالك): سطر أول فيه الاسم وفي آخر السطر زر الواتساب، وكل
+ * معلومة أخرى في سطر لوحدها أسفله، والأزرار صغيرة (36px) جنب بعضها.
+ * التفاصيل القابلة للفتح: فواتير الطالب المستحقة (fin) أو الطلاب
+ * المنخفضون (grade) أو أعضاء الباقات (prepaid).
  */
 function AlertRow({ alert, index = 0 }: { alert: AppAlert; index?: number }) {
   const [open, setOpen] = useState(false)
@@ -78,26 +102,58 @@ function AlertRow({ alert, index = 0 }: { alert: AppAlert; index?: number }) {
   const hasLows = alert.kind === 'grade' && (alert.lowStudents?.length ?? 0) > 0
   const hasPrepaid = alert.kind === 'prepaid' && (alert.prepaidMembers?.length ?? 0) > 0
   const expandable = hasInvoices || hasLows || hasPrepaid
+  const restText = alertRestText(alert)
+  const hasName = restText !== null
 
   return (
     <Card className="mb-2 rise-in" style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}>
-      {/* (3A-384 — قاعدة المالك ٦-٧): الأزرار الصغيرة تدخل في سطر
-          المحتوى نفسه — زر الواتساب (صغُر جداً) وزر فتح التفاصيل في
-          عمود الطرف المقابل للنص، وسطر «اضغط للانتقال» أُزيل (جسم
-          البطاقة كله رابط أصلاً) */}
+      {/* كتلة الرأس الثابتة (3A-697 — قاعدة ثبات التخطيط): لا تتغير
+          أبداً بالفتح؛ الفتح يُلحق منطقة التفاصيل أسفلها فقط فلا
+          يتحرك أي عنصر من مكانه ولا يختلف شكل الكارد قبل الفتح وبعده */}
       <div className="flex items-start gap-2">
         <Link to={alert.to} className="flex-1 min-w-0 no-underline text-text">
-          <div className="font-semibold text-[16px] leading-[1.7]">{alert.text}</div>
-          {alert.detail && <div className="text-muted text-[13.5px] mt-0.5">{alert.detail}</div>}
+          {/* السطر الأول: الاسم سليماً في سطر واحد (ellipsis عند
+              الحاجة) — أو نص التنبيه كاملاً للتنبيهات المجمّعة بلا
+              طالب مفرد (حضور/درجات/إثباتات/نسخ احتياطي) */}
+          <div
+            className={
+              hasName
+                ? 'font-semibold text-[16px] truncate'
+                : 'font-semibold text-[16px] leading-[1.7]'
+            }
+          >
+            {hasName ? alert.studentName : alert.text}
+          </div>
+          {/* كل معلومة أخرى سطر مستقل: عدد الغيابات، أو المبلغ
+              المستحق عنصراً قائماً بذاته لا يتشابك مع الاسم */}
+          {restText && (
+            <div className="font-semibold text-[14.5px] leading-[1.6] mt-0.5">{restText}</div>
+          )}
         </Link>
-        <div className="flex flex-col items-end gap-1.5 shrink-0">
-          {alert.waUrl && <WaButton url={alert.waUrl} label={t('notifications.page.waReminder')} />}
+        {/* زر الواتساب مثبّت في آخر سطر الاسم نفسه */}
+        {alert.waUrl && <WaButton url={alert.waUrl} label={t('notifications.page.waReminder')} />}
+      </div>
+      {/* السطر السفلي من كتلة الرأس: التفاصيل، وبجانبها على نفس
+          السطر زر فتح التفاصيل (تعديل المالك — لا سطر مستقل للزر،
+          وموضعه ثابت قبل الفتح وبعده) */}
+      {(alert.detail || expandable) && (
+        <div className="flex items-center gap-2 mt-1.5">
+          {alert.detail ? (
+            <Link
+              to={alert.to}
+              className="flex-1 min-w-0 text-muted text-[13.5px] leading-[1.6] no-underline"
+            >
+              {alert.detail}
+            </Link>
+          ) : (
+            <span className="flex-1" />
+          )}
           {expandable && (
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
-              className="inline-flex items-center gap-1 text-[12.5px] font-bold text-primary bg-soft border border-primary/20 rounded-full px-2.5 min-h-[36px] cursor-pointer"
+              className="shrink-0 inline-flex items-center gap-1 text-[12.5px] font-bold text-primary bg-soft border border-primary/20 rounded-full px-2.5 min-h-[36px] cursor-pointer"
             >
               {open
                 ? t('notifications.page.hideDetails')
@@ -110,7 +166,7 @@ function AlertRow({ alert, index = 0 }: { alert: AppAlert; index?: number }) {
             </button>
           )}
         </div>
-      </div>
+      )}
 
       {expandable && (
         <>
@@ -137,16 +193,20 @@ function AlertRow({ alert, index = 0 }: { alert: AppAlert; index?: number }) {
               {alert.prepaidMembers!.map((s) => (
                 <div
                   key={s.student_id}
-                  className="flex items-center gap-2 py-2 border-b border-border/60 last:border-0"
+                  className="flex items-start gap-2 py-2 border-b border-border/60 last:border-0"
                 >
+                  {/* صف منظّم بسطرين ذريين (نمط 3A-651): الاسم سطراً
+                      واحداً لا ينكسر، ومعلومة الباقة سطراً أسفله،
+                      وزر الواتساب في آخر سطر الاسم */}
                   <Link
                     to={`/students/${s.student_id}`}
-                    className="flex-1 min-w-0 font-semibold text-[13.5px] text-text no-underline"
+                    className="flex-1 min-w-0 text-text no-underline"
                   >
-                    {s.student_name}
-                    <span className="text-muted font-normal">
-                      {' '}
-                      · {t('notifications.page.prepaidMemberLeft', { left: s.left, prepaid: s.prepaid })}
+                    <span className="block truncate font-semibold text-[13.5px]">
+                      {s.student_name}
+                    </span>
+                    <span className="block truncate text-muted text-[12.5px] mt-0.5">
+                      {t('notifications.page.prepaidMemberLeft', { left: s.left, prepaid: s.prepaid })}
                     </span>
                   </Link>
                   {s.waUrl ? (
@@ -163,16 +223,17 @@ function AlertRow({ alert, index = 0 }: { alert: AppAlert; index?: number }) {
               {alert.lowStudents!.map((s) => (
                 <div
                   key={s.student_id}
-                  className="flex items-center gap-2 py-2 border-b border-border/60 last:border-0"
+                  className="flex items-start gap-2 py-2 border-b border-border/60 last:border-0"
                 >
                   <Link
                     to={`/students/${s.student_id}`}
-                    className="flex-1 min-w-0 font-semibold text-[13.5px] text-text no-underline"
+                    className="flex-1 min-w-0 text-text no-underline"
                   >
-                    {s.student_name}
-                    <span className="text-muted font-normal">
-                      {' '}
-                      · {t('notifications.page.gradeMemberScore', { score: s.score, max: s.max_score, pct: s.pct })}
+                    <span className="block truncate font-semibold text-[13.5px]">
+                      {s.student_name}
+                    </span>
+                    <span className="block truncate text-muted text-[12.5px] mt-0.5">
+                      {t('notifications.page.gradeMemberScore', { score: s.score, max: s.max_score, pct: s.pct })}
                     </span>
                   </Link>
                   {s.waUrl ? (
@@ -446,19 +507,22 @@ export function NotificationsPage() {
               <div className="text-muted text-[13.5px] mb-3">
                 {t('notifications.page.overdueActionsBody', { count: finCount })}
               </div>
-              <div className="flex gap-2 flex-wrap">
-                <Button variant="soft" onClick={() => copy(overdueText, t('invoices.copiedOverdueList'))}>
-                  <Copy size={18} />
+              {/* زرا النسخ شقيقان لنفس الفعل: ستايل واحد موحّد
+                  (3A-324 — كان الأول soft والثاني ghost فبدوا غير
+                  متناسقين في نفس البطاقة) وحجم واحد صغير جنب بعض في
+                  سطر واحد (3A-697 — كانا بحجم md ‏48px فيلتفّان على
+                  سطرين كبيرين منفصلين في لقطة المالك) */}
+              <div className="flex gap-2">
+                <Button variant="soft" size="sm" onClick={() => copy(overdueText, t('invoices.copiedOverdueList'))}>
+                  <Copy size={16} />
                   {t('notifications.page.copyOverdueList')}
                 </Button>
-                {/* زرا النسخ شقيقان لنفس الفعل: ستايل واحد موحّد
-                    (3A-324 — كان الأول soft والثاني ghost فبدوا غير
-                    متناسقين في نفس البطاقة) */}
                 <Button
                   variant="soft"
+                  size="sm"
                   onClick={() => copy(GENERIC_REMINDER_TEXT, t('notifications.page.copiedGenericReminder'))}
                 >
-                  <Copy size={18} />
+                  <Copy size={16} />
                   {t('notifications.page.copyGenericReminder')}
                 </Button>
               </div>
