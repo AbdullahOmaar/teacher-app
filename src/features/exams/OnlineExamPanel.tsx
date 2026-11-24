@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   CalendarClock,
   Check,
@@ -53,22 +53,18 @@ function fromLocalInput(v: string): string | null {
 }
 
 /**
- * هل يدعم المتصفح فتح منتقي التاريخ برمجياً (showPicker)؟ يُحسب مرة
- * واحدة: عند غيابه يرسم DateTimeField الحقل الأصلي المرئي كما كان قبل
- * 3A-384 — فلا بيئة تفقد القدرة على الضبط أبداً (شرط مراجعة B1).
- */
-const SHOW_PICKER_SUPPORTED =
-  typeof HTMLInputElement !== 'undefined' &&
-  'showPicker' in HTMLInputElement.prototype
-
-/**
- * حقل تاريخ+وقت بعرض عربي (3A-384 — ملاحظة المالك ٥-ط: الحقل الأصلي
- * كان يعرض «11/21/2026,» بصيغة المتصفح الأجنبية): زر يعرض القيمة
- * منسّقة عربياً (نفس نمط منتقي تاريخ الحضور) وحقل datetime-local
- * مخفي بصرياً يُفتح بـ showPicker — حالة القيمة وسلسلتها لم تتغيرا.
+ * حقل تاريخ+وقت بعرض عربي موحّد (3A-384 أصل التصميم، و3A-697 توحيد
+ * العرض): رقاقة تعرض القيمة منسّقة عربياً (نفس نمط منتقي تاريخ
+ * الحضور) وفوقها مباشرة حقل datetime-local الأصلي شفافاً — فالضغط
+ * على الرقاقة يقع على الحقل نفسه ويفتح منتقي المتصفح الأصلي في كل
+ * البيئات. قبل 3A-697 كان العرض فرعين: بـshowPicker تُرسم الرقاقة،
+ * وبدونه (هاتف المالك) يُرسم الحقل الأصلي المرئي فتتكدّس أجزاء
+ * اليوم/التاريخ/الوقت مكسّرة داخل صندوق نصف العرض (لقطة المالك).
+ * الآن العرض واحد في كل البيئات، والحقل الأصلي نفسه هو هدف الضغط
+ * فلا بيئة تفقد القدرة على الضبط أو المسح أبداً (شرط مراجعة B1) —
+ * حالة القيمة وسلسلتها ومعالج التغيير لم تتغير.
  * الحقلان اختياريان، فعند وجود قيمة يظهر زر مسح صغير يعيدها فارغة
- * (منتقي datetime-local الأصلي لا زر مسح فيه — شرط مراجعة B1)،
- * وعند غياب showPicker يبقى الحقل الأصلي المرئي قابلاً للتحرير.
+ * (منتقي datetime-local الأصلي لا زر مسح فيه — شرط مراجعة B1).
  */
 function DateTimeField({
   label,
@@ -79,50 +75,18 @@ function DateTimeField({
   value: string
   onChange: (v: string) => void
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const openPicker = () => {
-    const el = inputRef.current as
-      | (HTMLInputElement & { showPicker?: () => void })
-      | null
-    if (!el) return
-    if (typeof el.showPicker === 'function') {
-      try {
-        el.showPicker()
-        return
-      } catch {
-        /* تابع للبديل */
-      }
-    }
-    el.focus()
-    el.click()
-  }
-  if (!SHOW_PICKER_SUPPORTED) {
-    return (
-      <Field label={label}>
-        <TextInput
-          type="datetime-local"
-          dir="ltr"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      </Field>
-    )
-  }
   const [datePart, timePart] = value ? value.split('T') : ['', '']
   return (
     <Field label={label}>
       <div className="relative">
-        <button
-          type="button"
-          onClick={openPicker}
-          aria-label={label}
-          className={`w-full flex items-center gap-2 border border-border rounded-xl px-3 min-h-[52px] bg-card text-text cursor-pointer ${
+        <div
+          className={`w-full flex items-center gap-2 border border-border rounded-xl px-3 min-h-[52px] bg-card text-text focus-within:border-primary ${
             value ? 'pe-11' : ''
           }`}
         >
           <CalendarClock size={19} className="text-primary shrink-0" />
           <span
-            className={`flex-1 text-start font-semibold text-[14px] ${
+            className={`flex-1 text-start font-semibold text-[14px] leading-[1.35] ${
               value ? '' : 'text-muted'
             }`}
           >
@@ -130,15 +94,13 @@ function DateTimeField({
               ? `${formatDateLabel(datePart)} · ${formatTime12(timePart || '00:00')}`
               : t('exams.panelDateTimePlaceholder')}
           </span>
-        </button>
+        </div>
         <input
-          ref={inputRef}
           type="datetime-local"
           value={value}
-          tabIndex={-1}
-          aria-hidden="true"
+          aria-label={label}
           onChange={(e) => onChange(e.target.value)}
-          className="absolute inset-0 w-full opacity-0 pointer-events-none"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer outline-none"
         />
         {value && (
           <button
@@ -146,7 +108,7 @@ function DateTimeField({
             onClick={() => onChange('')}
             aria-label={t('exams.panelClearDateTime')}
             title={t('exams.panelClearDateTime')}
-            className="absolute end-1.5 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center bg-transparent border-0 cursor-pointer text-muted"
+            className="absolute end-1.5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 flex items-center justify-center bg-transparent border-0 cursor-pointer text-muted"
           >
             <X size={16} />
           </button>

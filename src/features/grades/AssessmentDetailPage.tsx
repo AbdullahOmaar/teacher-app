@@ -437,43 +437,34 @@ export function AssessmentDetailPage() {
                   key={st.id}
                   className={`px-[14px] py-3 ${i > 0 ? 'border-t border-border' : ''}`}
                 >
+                  {/* (3A-697 — إعادة تشكيل كاملة بأمر المالك): نظام
+                      سطرين موحّد لكل صفوف النتائج — سطر الاسم: الاسم
+                      سليماً في سطر واحد (ellipsis) ورقاقة الكود وحبة
+                      نسبة النجاح في آخر السطر؛ وسطر الإدخال: حقل
+                      الدرجة وإجراء الإرسال على ارتفاع واحد (44px)
+                      وإيقاع واحد، فلا عنصر مبعثر ولا التفاف أخرق.
+                      كل السلوكيات كما هي حرفياً (تحرير/حفظ الدرجة،
+                      الإرسال، التنقّل بـEnter بين الحقول) */}
                   <div className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Link
-                          to={`/students/${st.id}`}
-                          className="font-bold text-[15px] text-text no-underline"
-                        >
-                          {st.name}
-                        </Link>
-                        <span
-                          className="text-[12px] font-bold bg-soft text-muted rounded-full px-2 py-0.5"
-                          dir="ltr"
-                        >
-                          {st.public_code}
-                        </span>
-                      </div>
-                      {wa ? (
-                        <a
-                          href={wa}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-primary text-[13.5px] font-semibold no-underline inline-flex items-center gap-1 min-h-[48px] whitespace-nowrap"
-                        >
-                          <MessageCircle size={18} className="shrink-0" />
-                          {t('grades.detailSendScore')}
-                        </a>
-                      ) : effScore != null ? (
-                        <span className="text-muted text-[12px]">
-                          {t('grades.detailNoContact')}
-                        </span>
-                      ) : null}
-                    </div>
+                    <Link
+                      to={`/students/${st.id}`}
+                      className="flex-1 min-w-0 truncate font-bold text-[15px] text-text no-underline"
+                    >
+                      {st.name}
+                    </Link>
                     <span
-                      className={`shrink-0 min-w-[52px] text-center text-[13.5px] font-extrabold rounded-full px-2 py-1 ${TONE_BADGE[tone]}`}
+                      className="shrink-0 text-[12px] font-bold bg-soft text-muted rounded-full px-2 py-0.5"
+                      dir="ltr"
+                    >
+                      {st.public_code}
+                    </span>
+                    <span
+                      className={`shrink-0 min-w-[56px] min-h-[32px] inline-flex items-center justify-center text-[13.5px] font-extrabold rounded-full px-2 ${TONE_BADGE[tone]}`}
                     >
                       {pct == null ? '—' : `${pct}%`}
                     </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
                     <div className="w-[92px] shrink-0">
                       <input
                         ref={(el: HTMLInputElement | null) => {
@@ -495,9 +486,24 @@ export function AssessmentDetailPage() {
                           if (next) next.focus()
                           else e.currentTarget.blur()
                         }}
-                        className={`w-full border rounded-xl px-3 min-h-[52px] bg-card text-text text-[15px] outline-none focus:border-primary ${!valid ? 'border-bad' : 'border-border'}`}
+                        className={`w-full border rounded-xl px-3 min-h-[44px] bg-card text-text text-[15px] outline-none focus:border-primary ${!valid ? 'border-bad' : 'border-border'}`}
                       />
                     </div>
+                    {wa ? (
+                      <a
+                        href={wa}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-full bg-ok/10 text-ok-text border border-ok/30 font-bold text-[13px] px-3 whitespace-nowrap no-underline"
+                      >
+                        <MessageCircle size={16} className="shrink-0" />
+                        {t('grades.detailSendScore')}
+                      </a>
+                    ) : effScore != null ? (
+                      <span className="flex-1 text-muted text-[12px]">
+                        {t('grades.detailNoContact')}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               )

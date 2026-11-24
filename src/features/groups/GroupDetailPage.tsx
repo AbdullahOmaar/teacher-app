@@ -239,24 +239,27 @@ export function GroupDetailPage() {
             })}
           </div>
         )}
-        {/* إجراءات المجموعة: ثلاثة أزرار صغيرة جنباً إلى جنب في صف
-            واحد (3A-384 — قاعدة المالك ٦-٥)؛ كان «الواجبات» وحده
-            على سطر كامل تحت زرّين */}
-        <div className="flex gap-2 mt-3">
-          <Link to={`/students?group=${group.id}`} className="no-underline flex-1">
-            <Button variant="soft" size="sm" full>
+        {/* إجراءات المجموعة: صف واحد بأزرار موحّدة (3A-384 أصل الصف
+            الواحد؛ 3A-697 توحيد الشكل — لقطة المالك: التسميات كانت
+            تلتف سطرين والارتفاعات تختلف): ارتفاع واحد ممتد على الصف
+            كله، وتسميات سطر واحد بلا التفاف أبداً (أيقونة أولاً +
+            ‏nowrap)، والأساسي يحتفظ بملء النيلي بنفس الارتفاع
+            والإيقاع — لا زر أطول من أخيه */}
+        <div className="flex gap-2 mt-3 items-stretch">
+          <Link to={`/students?group=${group.id}`} className="no-underline flex-1 min-w-0 flex">
+            <Button variant="soft" size="sm" full className="h-full whitespace-nowrap">
               <Users size={16} />
               {t('groups.viewInStudents')}
             </Button>
           </Link>
           {!isArchived && (
-            <Button size="sm" className="flex-1" onClick={() => setEnrollOpen(true)}>
+            <Button size="sm" className="flex-1 min-w-0 whitespace-nowrap" onClick={() => setEnrollOpen(true)}>
               <UserPlus size={16} />
               {t('groups.addStudentBtn')}
             </Button>
           )}
-          <Link to={`/homework?group=${group.id}`} className="no-underline flex-1">
-            <Button variant="soft" size="sm" full>
+          <Link to={`/homework?group=${group.id}`} className="no-underline flex-1 min-w-0 flex">
+            <Button variant="soft" size="sm" full className="h-full whitespace-nowrap">
               <BookOpenCheck size={16} />
               {t('groups.homeworkBtn')}
             </Button>
