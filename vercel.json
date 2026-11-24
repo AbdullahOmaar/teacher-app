@@ -28,6 +28,10 @@
   ],
   "rewrites": [
     {
+      "destination": "/api/health",
+      "source": "/health"
+    },
+    {
       "destination": "/index.html",
       "source": "/((?!api/).*)"
     }

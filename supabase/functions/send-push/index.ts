@@ -29,7 +29,11 @@ import webpush from "npm:web-push@3.6.7";
 
 const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
-const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:admin@example.com";
+// SEC-L7 (تابع): لا عنوان اتصال افتراضي صامت — إن غاب السر يُسجَّل تحذير
+// في سجلات الدالة ويُستخدم العنوان الاحتياطي علناً حتى يُضبط السر.
+// خطوة المدير: ضبط سرّ VAPID_SUBJECT على الدالة (بريد اتصال حقيقي).
+const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "";
+const VAPID_SUBJECT_FALLBACK = "mailto:admin@example.com";
 const PUSH_INTERNAL_SECRET = Deno.env.get("PUSH_INTERNAL_SECRET") ?? "";
 
 // مفاتيح المشروع السرية الجديدة (sb_secret_*) — تحقنها المنصة JSON
@@ -53,7 +57,16 @@ const SERVICE_KEY = secretKeys()["default"] ??
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  if (!VAPID_SUBJECT) {
+    console.warn(
+      "send-push: VAPID_SUBJECT secret is not set — using the placeholder contact; set the VAPID_SUBJECT secret (SEC-L7).",
+    );
+  }
+  webpush.setVapidDetails(
+    VAPID_SUBJECT || VAPID_SUBJECT_FALLBACK,
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY,
+  );
 }
 
 interface PushPayload {

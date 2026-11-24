@@ -3,7 +3,7 @@
  * وُسّع في 3A-383 بعد الجرد الكامل أدناه).
  *
  * الجرد الموثق لمفاتيح localStorage في التطبيق وتصنيفها:
- * - `teacher-app-active-teacher` (lib/workspace): اختيار مساحة العمل —
+ * - `teacher-app-active-teacher` (lib/activeTeacher): اختيار مساحة العمل —
  *   جلسة/مستخدم ⇒ يُحذف دائماً.
  * - `teacher-app-show-mascot` (components/mascot/useMascotVisible):
  *   مرآة إعداد «إظهار دُفّي» الخاص بالمدرس، يقرؤها سكربت إقلاع index.html
