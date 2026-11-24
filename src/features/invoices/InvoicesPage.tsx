@@ -115,12 +115,11 @@ export function InvoiceCard({
           </>
         }
         secondaryClassName="text-muted text-[13.5px] leading-[1.6]"
-        trailing={
-          <span className="flex items-center gap-1 shrink-0">
-            {stateBadge(inv)}
-            <ChevronLeft size={18} className="text-muted" aria-hidden="true" />
-          </span>
-        }
+        // (3A-697 — بند المالك ٤): شارة الحالة وحدها في آخر سطر
+        // الاسم (الطرف المقابل) — السهم الذي كان بجانبها أُزيل نهائياً
+        // بقرار المالك («ملوش لازمة»)؛ الصف كله يبقى رابطاً قابلاً
+        // للضغط كما كان، والشارة لا تتحرك من موضعها
+        trailing={stateBadge(inv)}
       />
     </Link>
   )
