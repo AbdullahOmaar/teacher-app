@@ -210,7 +210,15 @@ async function offlineSection(browser, base) {
     if ('serviceWorker' in navigator) await navigator.serviceWorker.ready;
   });
   await page.reload({ waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
-  await waitBodyText(page, 'طالب جديد');
+  // إعادة محاولة واحدة موثقة: مهلة 45s ضاقت مرة على خادم CI مشترك
+  // (جولة 3A-712 الثانية) رغم سلامة التطبيق — إعادة التحميل تعيد
+  // نافذة الانتظار كاملة بدل إسقاط القسم كله
+  try {
+    await waitBodyText(page, 'طالب جديد');
+  } catch {
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
+    await waitBodyText(page, 'طالب جديد');
+  }
   await sleep(1000);
   const swState = await page.evaluate(async () => ({
     hasController: Boolean(navigator.serviceWorker && navigator.serviceWorker.controller),
