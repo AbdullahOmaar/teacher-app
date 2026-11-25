@@ -82,9 +82,12 @@ def deploy():
         "import_map_path": None,
     }
     field("metadata", json.dumps(metadata), content_type="application/json")
+    # أجزاء الملفات: اسم الحقل «file» مكرراً واسم الملف هو المسار النسبي
+    # (الصيغة التي قبلها الخادم فعلياً — تسمية الحقل باسم الملف تُرفض
+    # بـ «Entrypoint path does not exist»)
     for name in files:
         with open(os.path.join(FUNC_DIR, name), "rb") as fh:
-            field(name, fh.read(), filename=name,
+            field("file", fh.read(), filename=name,
                   content_type="application/octet-stream")
     parts.append(f"--{boundary}--\r\n".encode())
     body = b"".join(parts)
