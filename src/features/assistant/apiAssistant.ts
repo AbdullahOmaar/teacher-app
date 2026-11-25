@@ -83,6 +83,19 @@ interface FunctionInvokeError {
   context?: Response
 }
 
+/**
+ * تصنيف خطأ استعلام الحالة لعرض الصفحة: معطّل (503 — تصل الرسالة
+ * الصريحة بدل العامة) / شبكة (بلا سياق — فشل وصول قبل الدالة، كما في
+ * حجب preflight CORS) / عام.
+ */
+export function statusErrorKind(error: unknown): 'disabled' | 'network' | 'generic' {
+  if (error instanceof AssistantError) {
+    if (error.status === 503) return 'disabled'
+    if (error.status === 0) return 'network'
+  }
+  return 'generic'
+}
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }

@@ -18,6 +18,7 @@ import {
   fetchSessionLabel,
   fetchStudentName,
   sendAssistantMessage,
+  statusErrorKind,
   stopAssistantRun,
   type AssistantReply,
   type ChatHistoryTurn,
@@ -303,6 +304,9 @@ export function AssistantPage() {
 
   const status = statusQ.data ?? null
   const chatReady = Boolean(status?.enabled && status?.has_key)
+  // تصنيف خطأ الحالة مرة واحدة للعرض: 503 → بطاقة «مطفأ» الصريحة،
+  // فشل وصول (بلا سياق) → رسالة شبكة، غيرهما → الرسالة العامة.
+  const statusErrKind = statusQ.isError ? statusErrorKind(statusQ.error) : null
 
   const buildHistory = (): ChatHistoryTurn[] => {
     const turns: ChatHistoryTurn[] = []
@@ -454,11 +458,19 @@ export function AssistantPage() {
       {statusQ.isLoading && (
         <p className="text-muted text-[13.5px]">{t('assistant.loadingStatus')}</p>
       )}
-      {statusQ.isError && (
-        <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2" role="alert">
-          {t('assistant.errGeneric')}
-        </p>
-      )}
+      {statusQ.isError &&
+        (statusErrKind === 'disabled' ? (
+          <Card>
+            <p className="mt-0 mb-1 font-semibold text-[15px]">{t('assistant.disabledTitle')}</p>
+            <p className="text-muted text-[13.5px] mt-0 mb-0">{t('assistant.disabledBody')}</p>
+          </Card>
+        ) : (
+          <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2" role="alert">
+            {statusErrKind === 'network'
+              ? t('assistant.errNetwork')
+              : t('assistant.errGeneric')}
+          </p>
+        ))}
       {status && !status.enabled && (
         <Card>
           <p className="mt-0 mb-1 font-semibold text-[15px]">{t('assistant.disabledTitle')}</p>
