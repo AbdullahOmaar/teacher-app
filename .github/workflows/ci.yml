@@ -74,6 +74,46 @@ jobs:
           python3 -m pip install --quiet semgrep==1.186.0
           semgrep scan --config auto --error --skip-unknown-extensions
 
+  mail-interception:
+    # اعتراض البريد في CI (فجوة 45 — المهمة 7): Mailpit بإصدار مثبّت
+    # (نفس الإصدار المُتحقق منه محلياً) يلتقط رسالة SMTP اختبارية،
+    # وسكربت الدخان يتحقق من وصولها كاملة عبر واجهة Mailpit البرمجية —
+    # طبقة اعتراض موثقة لأي تدفق بريدي اختباري بلا إرسال حقيقي.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Start Mailpit v1.27.0
+        run: |
+          docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.27.0
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8025/api/v1/messages >/dev/null && break
+            sleep 1
+          done
+          curl -sf http://localhost:8025/api/v1/messages >/dev/null
+      - name: Mailpit smoke (SMTP send -> API verify)
+        run: python3 scripts/mailpit_smoke.py
+
+  mutation-testing:
+    # اختبار الطفرات (فجوة 43 — المهمة 7): Stryker على ملفين نقيين
+    # عاليي القيمة فقط (تطبيع الهاتف + دورة حياة توكنات البوابة).
+    # مترجم المشروع TypeScript 7 خارج نطاق دعم Stryker الحالي
+    # (ts.parseConfigFileTextToJson غير موجود في TS7) — نفس نمط وظيفة
+    # architecture-graph: تثبيت typescript@5.9.3 داخل صندوق الوظيفة
+    # فقط بـ --no-save، بلا مساس بالمانيفستات أو بقية الوظائف.
+    # العتبة break في stryker.config.json = خط أساس أول تشغيل ناقص هامش.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+      - run: npm install --no-save typescript@5.9.3
+      - run: npm run test:mutation
+
   architecture-graph:
     # حارس معمارية معلوماتي (3A-310 — من خريطة الكود 3A-309): يكشف
     # دوائر الاستيراد الجديدة في src دون أن يمنع الدمج — الوظيفة

@@ -43,3 +43,7 @@ e2e/visual/.tmp-capture-*/
 
 # Python bytecode (scripts are run, not shipped)
 __pycache__/
+
+# Stryker (فجوة 43 — المهمة 7)
+stryker-tmp/
+reports/mutation/
