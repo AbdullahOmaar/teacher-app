@@ -19,6 +19,7 @@ import { periodLabel } from '../invoices/api'
 import { formatDateLabel } from '../schedule/api'
 import { lastSixMonths, summaryOf, type MonthSummary } from './api'
 import { CashboxSection } from './CashboxSection'
+import { LedgerSection } from './LedgerSection'
 import {
   MONEY,
   useApplyRecurring,
@@ -236,6 +237,10 @@ export function MoneyPage() {
       {/* الإغلاق اليومي للخزنة (خطوة 5): قسم مستقل بحالاته الخاصة،
           يومي الإيقاع فلا يرتبط بتنقّل الشهور أسفله */}
       {teacherId && <CashboxSection teacherId={teacherId} />}
+
+      {/* دفتر السنتر (migration ‏0051 — مهمة 10): مشتريات ومبيعات وموردون،
+          مالك فقط كسائر المالية فلا يُرسم لغير المالك أصلاً */}
+      {teacherId && isOwner && <LedgerSection teacherId={teacherId} />}
 
       {pending ? (
         <LoadingState label={t('money.loading')} />
