@@ -55,22 +55,39 @@ def load_env():
 
 
 def http(method, url, anon, jwt=None, body=None):
-    data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method)
-    req.add_header("apikey", anon)
-    req.add_header("Content-Type", "application/json")
-    if jwt:
-        req.add_header("Authorization", f"Bearer {jwt}")
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            raw = resp.read().decode("utf-8", errors="replace")
-            return resp.status, json.loads(raw) if raw else {}
-    except urllib.error.HTTPError as e:
-        raw = e.read().decode("utf-8", errors="replace")
+    # إعادة محاولة عند انقطاع الاتصال فقط (المسار الشبكي لهذا المشروع
+    # بيقطع متقطعاً من بيئة التنفيذ): آمنة لأن قراءات المساعد مُدقَّقة
+    # بلا أثر، وآلة التأكيد تمنع أي تنفيذ مزدوج بنيوياً.
+    import http.client
+    import time
+    last_exc = None
+    for attempt in range(12):
+        data = json.dumps(body).encode() if body is not None else None
+        req = urllib.request.Request(url, data=data, method=method)
+        req.add_header("apikey", anon)
+        req.add_header("Content-Type", "application/json")
+        if jwt:
+            req.add_header("Authorization", f"Bearer {jwt}")
         try:
-            return e.code, json.loads(raw) if raw else {}
-        except json.JSONDecodeError:
-            return e.code, {"raw": raw[:200]}
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+                return resp.status, json.loads(raw) if raw else {}
+        except urllib.error.HTTPError as e:
+            # قراءة جسم الخطأ نفسها قد تنقطع على المسار المهتز — رمز
+            # الحالة وحده يكفي للفحوصات، فلا تدع القراءة تُسقط السائق
+            try:
+                raw = e.read().decode("utf-8", errors="replace")
+            except Exception:
+                raw = ""
+            try:
+                return e.code, json.loads(raw) if raw else {}
+            except json.JSONDecodeError:
+                return e.code, {"raw": raw[:200]}
+        except (http.client.RemoteDisconnected, http.client.IncompleteRead,
+                ConnectionError, urllib.error.URLError) as e:
+            last_exc = e
+            time.sleep(min(2 + attempt * 1.5, 10))
+    raise RuntimeError(f"connection kept dropping after 12 attempts: {last_exc}")
 
 
 def seed_cmd(cmd):

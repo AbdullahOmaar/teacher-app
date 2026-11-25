@@ -74,7 +74,7 @@ def seed(tid):
         rows = sql(
             "insert into groups (teacher_id, name, billing_type, price, days, "
             "start_time, duration_minutes) values "
-            f"('{tid}', 'مجموعة طيار {TAG} {i}', 'monthly', 300, "
+            f"('{tid}', 'مجموعة طيار {TAG} {i}', 'monthly_fixed', 300, "
             f"'{{6}}', '17:00', 60) returning id"
         )
         group_ids.append(rows[0]["id"])
@@ -89,9 +89,24 @@ def seed(tid):
         ") insert into enrollments (teacher_id, student_id, group_id) "
         f"select '{tid}', id, ({arr})[((rn - 1) / {PER_GROUP}) + 1] from ranked"
     )
+    # حصص الشهر الحالي بزرع مباشر: دالة generate_group_sessions محروسة
+    # بـ auth.uid() (تعمل بهوية المستدعي من التطبيق/الدالة فقط — وهو
+    # مسار الطيار نفسه عبر إجراء gen-sessions)، فالبذر لا يستدعيها.
+    import datetime as _dt
+    today = _dt.date.today()
+    first = today.replace(day=1)
+    saturdays = []
+    d = first
+    while d.month == first.month:
+        if d.weekday() == 5:  # السبت — نفس يوم المجموعة (days={6} بترقيم JS)
+            saturdays.append(d)
+        d += _dt.timedelta(days=1)
     for gid in group_ids:
-        sql("select generate_group_sessions("
-            f"'{tid}', '{gid}', date_trunc('month', current_date)::date)")
+        values = ", ".join(
+            f"('{tid}', '{gid}', '{d.isoformat()}', '17:00')" for d in saturdays
+        )
+        sql("insert into sessions (teacher_id, group_id, session_date, "
+            f"start_time) values {values} on conflict do nothing")
     return group_ids
 
 
