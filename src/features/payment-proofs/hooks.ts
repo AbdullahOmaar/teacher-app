@@ -8,6 +8,7 @@ import {
   rejectProof,
   type ApproveProofInput,
 } from './api'
+import { requestReceiptExtraction } from './extract'
 
 /** كل مفاتيح وحدة إثباتات الدفع تبدأ بـ 'payment-proofs' */
 export const PP = 'payment-proofs'
@@ -47,6 +48,17 @@ export function useApproveProof(teacherId: string, reviewerId: string) {
     mutationFn: ({ proof, input }: { proof: PaymentProofRow; input: ApproveProofInput }) =>
       approveProof(teacherId, reviewerId, proof, input),
     onSuccess: invalidate,
+  })
+}
+
+/**
+ * Extract-1 (T10): طلب قراءة تلقائية للقطة عبر دالة receipt-extract.
+ * قراءة مساعدة لا تكتب شيئاً ولا تُبطل أي كاش — نتيجتها تعبّئ حقول
+ * الاعتماد في الشيت ويبقى الاعتماد نفسه قرار المدرّس.
+ */
+export function useExtractReceipt() {
+  return useMutation({
+    mutationFn: (proofId: string) => requestReceiptExtraction(proofId),
   })
 }
 
