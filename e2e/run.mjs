@@ -422,6 +422,27 @@ const tests = [
       await disablePortalAccount(page, 'رابط بوابة الطالب');
     },
   },
+  {
+    id: '08-assistant',
+    title: 'المساعد الذكي: الصفحة تفتح وتعرض حالتها الصادقة — T6',
+    async run(page) {
+      await ensureSession(page);
+      await page.goto(BASE + '/assistant', { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
+      await waitBodyText(page, 'المساعد الذكي');
+      // الحالة الصادقة واحدة من المعروفة (حسب علم المنصة ومفتاح الديمو
+      // وقت التشغيل): مطفأ من المنصة / بلا مفتاح / جاهز بإدخال مفتوح /
+      // خطأ اتصال صريح — أيٌّ منها يثبت أن السلسلة تعمل طرفاً لطرف
+      // بلا شاشة فارغة صامتة.
+      await page.waitForFunction(
+        () =>
+          document.body.innerText.includes('المساعد مطفأ حالياً') ||
+          document.body.innerText.includes('لسه ما أضفتش مفتاح مزوّد') ||
+          document.body.innerText.includes('اكتب طلبك هنا') ||
+          document.body.innerText.includes('حصلت مشكلة'),
+        { timeout: WAIT_TIMEOUT },
+      );
+    },
+  },
 ];
 
 /**
