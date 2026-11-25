@@ -47,7 +47,13 @@ def open_req(req, timeout=120):
     add_surrogate_to_request(req, "custom.supabase", allowed_hosts=HOSTS)
     try:
         with urllib.request.build_opener(NoRedirect()).open(req, timeout=timeout) as resp:
-            return resp.status, read_json_response(resp)
+            raw = resp.read().decode("utf-8", errors="replace")
+            if not raw.strip():
+                return resp.status, {}
+            try:
+                return resp.status, json.loads(raw)
+            except json.JSONDecodeError:
+                return resp.status, {"raw": raw[:500]}
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"HTTP {e.code}: {body[:1500]}") from None
@@ -124,7 +130,9 @@ def set_secret(name):
 
 
 def delete_secret(name):
-    _, _ = call_json("DELETE", f"/v1/projects/{REF}/secrets?name={name}")
+    # نقطة نهاية الحذف تتوقع مصفوفة أسماء في الجسم — صيغة query ‏(?name=)
+    # تُرفض بـ 400 ‏«expected array» (اكتُشف حياً في جولة الإكمال).
+    _, _ = call_json("DELETE", f"/v1/projects/{REF}/secrets", [name])
     print(f"secret deleted: {name}")
 
 
