@@ -3,6 +3,7 @@ import { AlertTriangle, RotateCcw } from 'lucide-react'
 import { Card } from './Card'
 import { Button } from './Button'
 import { t } from '../../i18n'
+import { reportClientError } from '../../lib/errorReporter'
 import { readMascotMirror } from '../mascot/useMascotVisible'
 import oopsImg from '../../assets/mascot/oops.webp'
 
@@ -37,6 +38,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('[app] unhandled render error', error, info.componentStack)
+    // قياس الأخطاء الداخلي (مهمة 11 — فجوة 21): بلاغ مُجرّد الحمولة
+    // لسجل error_reports عبر lib/errorReporter — لا يكسر الحدّ أبداً
+    // ومصير فشله موثق هناك (إسقاط صامت حتى تُطبَّق 0053 عند البوابة)
+    reportClientError('render', error, info.componentStack)
   }
 
   render(): ReactNode {

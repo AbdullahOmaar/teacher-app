@@ -350,6 +350,50 @@ export type Database = {
           },
         ]
       }
+      error_reports: {
+        Row: {
+          id: string
+          teacher_id: string | null
+          reporter_user_id: string | null
+          kind: string
+          message: string
+          stack: string | null
+          route: string | null
+          app_version: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id?: string | null
+          reporter_user_id?: string | null
+          kind: string
+          message: string
+          stack?: string | null
+          route?: string | null
+          app_version?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string | null
+          reporter_user_id?: string | null
+          kind?: string
+          message?: string
+          stack?: string | null
+          route?: string | null
+          app_version?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "error_reports_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enrollments: {
         Row: {
           id: string
@@ -2205,6 +2249,47 @@ export type Database = {
           },
         ]
       }
+      teacher_feedback: {
+        Row: {
+          id: string
+          teacher_id: string
+          author_user_id: string
+          kind: string
+          body: string
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          author_user_id: string
+          kind?: string
+          body: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          author_user_id?: string
+          kind?: string
+          body?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_feedback_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_members: {
         Row: {
           id: string
@@ -3032,6 +3117,17 @@ export type Database = {
           Args: Record<PropertyKey, never>
           Returns: number
         }
+      report_client_error: {
+          Args: {
+            p_teacher_id: string | null
+            p_kind: string
+            p_message: string
+            p_stack: string | null
+            p_route: string | null
+            p_app_version: string | null
+          }
+          Returns: Json
+        }
       resolve_whatsapp_channel_internal: {
           Args: {
             p_user_id: string
@@ -3096,6 +3192,14 @@ export type Database = {
             teacher_id: string
             student_id: string
           }[]
+        }
+      submit_teacher_feedback: {
+          Args: {
+            p_teacher_id: string
+            p_kind: string
+            p_body: string
+          }
+          Returns: Json
         }
       teacher_id_claimable: {
           Args: {

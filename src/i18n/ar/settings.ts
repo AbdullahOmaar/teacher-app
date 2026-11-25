@@ -19,6 +19,7 @@ export const settings = {
   sectionEnrol: 'صفحة الحجز العامة',
   sectionWhatsapp: 'واتساب (اختياري)',
   sectionAssistant: 'المساعد الذكي (مفتاحك)',
+  sectionErrors: 'سجل أخطاء التطبيق',
   moreAssistant: 'المساعد الذكي',
   sectionMascot: 'الماسكوت دُفّي',
   /** قسم «حول التطبيق» (3A-312 — بند ٥): الاسم من هنا، وسطر الإصدار
@@ -399,6 +400,7 @@ export const settings = {
   morePortal: 'بوابة ولي الأمر',
   moreImportStudents: 'استيراد طلاب من Excel',
   moreActivity: 'سجل النشاط',
+  moreFeedback: 'ملاحظاتك لفريق مستر',
   moreExport: 'تصدير واستيراد',
   moreSettings: 'الإعدادات',
   pushEnabledMsg: 'تمام — إشعارات Push مفعّلة على المتصفح ده.',

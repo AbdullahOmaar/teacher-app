@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
-import { Bell, CalendarCheck2, FolderCog, GraduationCap, Handshake, Info, MessageCircle, MonitorSmartphone, NotebookPen, Palette, SlidersHorizontal, Sparkles, UserRound } from 'lucide-react'
+import { Bell, Bug, CalendarCheck2, FolderCog, GraduationCap, Handshake, Info, MessageCircle, MonitorSmartphone, NotebookPen, Palette, SlidersHorizontal, Sparkles, UserRound } from 'lucide-react'
 import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Button } from '../../components/ui/Button'
 import { Chip } from '../../components/ui/form'
@@ -38,6 +38,7 @@ import { PushNotificationsCard } from './PushNotificationsCard'
 import { MascotSettingsCard } from './MascotSettingsCard'
 import { WhatsAppSettingsCard } from './WhatsAppSettingsCard'
 import { AssistantKeyCard } from './AssistantKeyCard'
+import { ErrorLogCard } from './ErrorLogCard'
 import { DeleteAccountCard } from './DeleteAccountCard'
 import { DEMO_EMAIL } from '../auth/api'
 import { type TeacherSettingsInput } from './api'
@@ -444,6 +445,9 @@ export function SettingsPage() {
       ? [{ id: 'assistant', title: t('settings.sectionAssistant'), icon: Sparkles }]
       : []),
     ...(isOwnerWorkspace
+      ? [{ id: 'errors', title: t('settings.sectionErrors'), icon: Bug }]
+      : []),
+    ...(isOwnerWorkspace
       ? [{ id: 'enrol', title: t('settings.sectionEnrol'), icon: CalendarCheck2 }]
       : []),
     { id: 'about', title: t('settings.sectionAbout'), icon: Info },
@@ -673,6 +677,13 @@ export function SettingsPage() {
       {isOwnerWorkspace && (
         <SettingsSection {...sectionProps('assistant')} bare>
           <AssistantKeyCard />
+        </SettingsSection>
+      )}
+
+      {/* سجل أخطاء التطبيق الداخلي (مهمة 11 — 0053 / فجوة 21): مالك فقط */}
+      {isOwnerWorkspace && (
+        <SettingsSection {...sectionProps('errors')} bare>
+          <ErrorLogCard />
         </SettingsSection>
       )}
 

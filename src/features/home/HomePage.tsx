@@ -26,6 +26,8 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { Logo } from '../../components/brand/Logo'
 import { formatMoney, formatTime12 } from '../../lib/format'
 import {
+  channelsStepDone,
+  channelsStepVisible,
   kpiDelta,
   monthStartStr,
   nowDate,
@@ -45,6 +47,7 @@ import {
   useInvoiceBalances,
   useMonthPayments,
   useMonthlyAttendance,
+  useTeacherChannels,
   useUpcomingSessions,
 } from './hooks'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
@@ -165,6 +168,13 @@ export function HomePage() {
   const { user } = useAuth()
   const groupsQ = useGroups(teacherId)
   const anyAttendanceQ = useAnyAttendanceCount(teacherId)
+  // خطوة «فعّل قنواتك» (مهمة 11 — ج9-2): قنوات المدرس الاختيارية
+  // (واتساب ذاتي / مفتاح مساعد BYOK) — تُجلب فقط لمالك غير تجريبي،
+  // والخطوة نفسها تظهر فقط عند وجود قناة متاحة (channelsStepVisible)
+  const channelsQ = useTeacherChannels(
+    teacherId,
+    isOwner && user?.email !== DEMO_EMAIL,
+  )
   const dismissKey = teacherId ? `start-here-dismissed:${teacherId}` : null
   // إخفاء دائم محفوظ محلياً لكل مدرس — يُقرأ اشتقاقياً مع كل تغيّر
   // للمفتاح أو نقرة إخفاء (لا حالة مرآة في إفكت)
@@ -237,7 +247,20 @@ export function HomePage() {
       label: t('home.startHere.step3'),
       to: '/attendance',
     },
+    // خطوة القنوات تُضاف فقط عند وجود قناة متاحة للمدرس (شريط قبول
+    // مهمة 11 §3) — بلا قناة متاحة لا خطوة أصلاً، فلا تُحسب ناقصة
+    ...(channelsQ.data && channelsStepVisible(channelsQ.data)
+      ? [
+          {
+            done: channelsStepDone(channelsQ.data),
+            label: t('home.startHere.step4'),
+            to: '/settings',
+          },
+        ]
+      : []),
   ]
+  // بيانات القنوات لا تحجب البطاقة: إن تأخرت أو فشلت تُعرض البطاقة
+  // بالخطوات الأساسية وحدها، وتُضاف خطوة القنوات فور وصول بياناتها
   const stepsKnown =
     groupsQ.data !== undefined &&
     activeStudentsQ.data !== undefined &&

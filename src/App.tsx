@@ -1,7 +1,9 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './lib/AuthProvider'
+import { setErrorReporterTeacher } from './lib/errorReporter'
+import { useCurrentTeacher } from './hooks/useCurrentTeacher'
 import { registerRouteLoaders } from './lib/routePrefetch'
 import { ToastProvider } from './components/ui/Toast'
 import { AppShell } from './components/layout/AppShell'
@@ -31,6 +33,9 @@ const HomeworkPage = lazy(() =>
 )
 const AssistantPage = lazy(() =>
   import('./features/assistant/AssistantPage').then((m) => ({ default: m.AssistantPage })),
+)
+const FeedbackPage = lazy(() =>
+  import('./features/feedback/FeedbackPage').then((m) => ({ default: m.FeedbackPage })),
 )
 const StudentsPage = lazy(() =>
   import('./features/students/StudentsPage').then((m) => ({ default: m.StudentsPage })),
@@ -122,6 +127,7 @@ registerRouteLoaders({
   '/attendance': () => import('./features/attendance/AttendancePage'),
   '/homework': () => import('./features/homework/HomeworkPage'),
   '/assistant': () => import('./features/assistant/AssistantPage'),
+  '/feedback': () => import('./features/feedback/FeedbackPage'),
   '/students': () => import('./features/students/StudentsPage'),
   '/groups': () => import('./features/groups/GroupsPage'),
   '/invoices': () => import('./features/invoices/InvoicesPage'),
@@ -163,10 +169,25 @@ const queryClient = new QueryClient({
   },
 })
 
+/**
+ * جسر سياق مُرسِل الأخطاء (مهمة 11 — فجوة 21): حدّ الخطأ يعمل خارج
+ * المزوّدات فلا يعرف المدرس؛ هذا الجسر الصامت يضبط سياقه كلما حُلّت
+ * الهوية، فتصل البلاغات مرتبطة بحسابها (أو بلا سياق قبل الحلّ).
+ */
+function ErrorReporterTeacherBridge() {
+  const teacher = useCurrentTeacher()
+  const teacherId = teacher.status === 'ready' ? teacher.teacherId : null
+  useEffect(() => {
+    setErrorReporterTeacher(teacherId)
+  }, [teacherId])
+  return null
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <ErrorReporterTeacherBridge />
         <ToastProvider>
         <BrowserRouter>
           <Routes>
@@ -245,6 +266,14 @@ export default function App() {
                 element={
                   <LazyRoute>
                     <AssistantPage />
+                  </LazyRoute>
+                }
+              />
+              <Route
+                path="feedback"
+                element={
+                  <LazyRoute>
+                    <FeedbackPage />
                   </LazyRoute>
                 }
               />

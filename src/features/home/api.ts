@@ -1,4 +1,5 @@
 import { t } from '../../i18n'
+import { fetchProviderKeyStatus } from '../assistant/apiAssistant'
 import { attendanceRatePct } from '../../lib/format'
 import { db } from '../../lib/supabase'
 import type { InvoiceBalanceRow, SessionRow } from '../../types/database'
@@ -177,6 +178,65 @@ export async function fetchAnyAttendanceCount(teacherId: string): Promise<number
     .not('status', 'is', null)
   if (error) throw error
   return count ?? 0
+}
+
+// ---------------------------------------------------------------------------
+// قنوات المدرس الاختيارية — خطوة «فعّل قنواتك» في بطاقة «ابدأ هنا»
+// (مهمة 11 — بند 1، ج9-2؛ الجرد الكامل في docs/GATES-INVENTORY.md)
+// الخطوة لا تعرض إلا القنوات المتاحة للمدرس نفسه الآن — قناتان:
+// تهيئة واتساب الذاتية (3A-300) وحفظ مفتاح مزوّد المساعد BYOK (مهمة 6).
+// أعلام المنصة (ASSISTANT_ENABLED وغيرها) ليست خطوات مدرس ولا تظهر له.
+// ---------------------------------------------------------------------------
+
+export interface TeacherChannels {
+  /** واتساب ذاتي قابل للتهيئة من الإعدادات الآن (3A-300) */
+  whatsappAvailable: boolean
+  /** مفتاح BYOK للمساعد قابل للحفظ من الإعدادات الآن (مهمة 6 — 0049) */
+  assistantKeyAvailable: boolean
+  /** هل هيّأ المدرس إعداد واتساب فعلاً (صف في teacher_whatsapp_config) */
+  whatsappConfigured: boolean
+  /** هل حفظ مفتاح مزوّد فعلاً (assistant_provider_key_status.is_set) */
+  assistantKeySet: boolean
+}
+
+/** الخطوة تظهر فقط عند وجود قناة واحدة متاحة على الأقل للمدرس (شريط قبول §3) */
+export function channelsStepVisible(c: TeacherChannels): boolean {
+  return c.whatsappAvailable || c.assistantKeyAvailable
+}
+
+/** الخطوة تكتمل بتهيئة أي قناة متاحة واحدة على الأقل */
+export function channelsStepDone(c: TeacherChannels): boolean {
+  return (
+    (c.whatsappAvailable && c.whatsappConfigured) ||
+    (c.assistantKeyAvailable && c.assistantKeySet)
+  )
+}
+
+/** حالة قناتي المدرس: وجود صف التهيئة + حالة المفتاح عبر دالة المساعد */
+export async function fetchTeacherChannels(teacherId: string): Promise<TeacherChannels> {
+  const { count, error } = await db()
+    .from('teacher_whatsapp_config')
+    .select('teacher_id', { count: 'exact', head: true })
+    .eq('teacher_id', teacherId)
+  if (error) throw error
+  // حالة المفتاح تمر عبر دالة assistant-chat (الجدول بلا أي وصول عميل
+  // بالتصميم — مهمة 6). إن تعذّر الوصول للدالة (درس CORS 2026-11-25:
+  // البوابة مغلقة من المتصفح حتى نشر إصلاح Package 2) تبقى حالة
+  // المفتاح «غير مُعدّ» هنا بلا كسر للخطوة — تهيئة واتساب وحدها
+  // تُكملها، وبطاقة الإعدادات نفسها تعرض الحالة الدقيقة عند فتحها.
+  let keySet = false
+  try {
+    const status = await fetchProviderKeyStatus(teacherId)
+    keySet = status.is_set
+  } catch {
+    keySet = false
+  }
+  return {
+    whatsappAvailable: true,
+    assistantKeyAvailable: true,
+    whatsappConfigured: (count ?? 0) > 0,
+    assistantKeySet: keySet,
+  }
 }
 
 export interface MonthPayments {

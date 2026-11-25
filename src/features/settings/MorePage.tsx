@@ -10,6 +10,7 @@ import {
   HardDriveDownload,
   History,
   Landmark,
+  MessageSquarePlus,
   NotebookPen,
   Settings,
   Sparkles,
@@ -19,9 +20,11 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { t } from '../../i18n'
+import { useFeedbackUnreadCount } from '../feedback/hooks'
 
-const MENU: { icon: LucideIcon; label: string; path: string }[] = [
+const MENU: { icon: LucideIcon; label: string; path: string; id?: 'feedback' }[] = [
   { icon: CalendarDays, label: t('settings.moreSchedule'), path: '/schedule' },
   { icon: Users, label: t('settings.moreGroups'), path: '/groups' },
   { icon: NotebookPen, label: t('settings.moreGrades'), path: '/grades' },
@@ -34,6 +37,9 @@ const MENU: { icon: LucideIcon; label: string; path: string }[] = [
   // القائمة 64px في كل زيارة؛ الرابط العميق يفتح شيت الاستيراد مباشرة
   { icon: Upload, label: t('settings.moreImportStudents'), path: '/students?import=1' },
   { icon: History, label: t('settings.moreActivity'), path: '/activity-log' },
+  // قناة ملاحظات المدرس (مهمة 11 — 0052): شارة بعدّاد غير المقروء
+  // للمالك (القراءة RLS مالك فقط، فلا شارة لمساعد أصلاً)
+  { icon: MessageSquarePlus, label: t('settings.moreFeedback'), path: '/feedback', id: 'feedback' },
   { icon: HardDriveDownload, label: t('settings.backup'), path: '/backup' },
   { icon: Download, label: t('settings.moreExport'), path: '/export' },
   { icon: Settings, label: t('settings.moreSettings'), path: '/settings' },
@@ -42,6 +48,12 @@ const MENU: { icon: LucideIcon; label: string; path: string }[] = [
 /** قائمة «المزيد» — صفوف تنقّل لبقية الأقسام (المرجع: renderMore) */
 export function MorePage() {
   const navigate = useNavigate()
+  const teacher = useCurrentTeacher()
+  const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
+  // عدّاد ملاحظات غير المقروءة — حتى تطبيق 0052 يفشل الاستعلام بصمت
+  // واجهتي (data بلا قيمة) فلا تظهر شارة، ولا ينكسر أي صف آخر
+  const unreadQ = useFeedbackUnreadCount(teacherId)
+  const unread = unreadQ.data ?? 0
   // تسخين وجهات القائمة عند الخمول (3A-312 — بند ٢): أول ضغطة على أي
   // صف كانت تدفع ثمن جلب حزمة الوجهة وتحليلها بعد الضغطة (مقاساً حتى
   // 1207ms للتحليلات)؛ الآن تُسخَّن الحزم تسلسلياً أثناء وقوف المستخدم
@@ -66,6 +78,11 @@ export function MorePage() {
               <Icon size={24} />
             </span>
             <span className="flex-1 font-semibold text-[15px]">{item.label}</span>
+            {item.id === 'feedback' && unread > 0 ? (
+              <span className="shrink-0 text-[12.5px] font-extrabold bg-warn/15 text-warn-text rounded-full px-2 py-0.5">
+                {unread}
+              </span>
+            ) : null}
             <ChevronLeft size={20} className="text-muted" />
           </button>
         )

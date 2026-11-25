@@ -13,11 +13,13 @@ import {
   fetchMonthlyAttendance,
   fetchNewStudentsCount,
   fetchSessionsInRange,
+  fetchTeacherChannels,
   monthEndStr,
   monthStartStr,
   prevMonthSameDaysWindow,
   todayStr,
   type MonthlyAttendance,
+  type TeacherChannels,
 } from './api'
 import { fetchAlerts } from '../notifications/api'
 
@@ -52,6 +54,21 @@ export function useAnyAttendanceCount(teacherId: string | undefined) {
     queryFn: () => fetchAnyAttendanceCount(teacherId!),
   })
 }
+
+/**
+ * قنوات المدرس الاختيارية — خطوة «فعّل قنواتك» (مهمة 11): تُجلب فقط
+ * حين يمكن لبطاقة «ابدأ هنا» أن تظهر أصلاً (مالك، لا حساب تجريبي)،
+ * فلا يدفع بقية المستخدمين ثمن استعلامين إضافيين.
+ */
+export function useTeacherChannels(teacherId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: [HOME, 'channels', teacherId],
+    enabled: Boolean(teacherId) && enabled,
+    queryFn: () => fetchTeacherChannels(teacherId!),
+  })
+}
+
+export type { TeacherChannels }
 
 /** محصّل الشهر واليوم من payments — تُفعّل للمالك فقط (المالية محجوبة عن المساعد) */
 export function useMonthPayments(teacherId: string | undefined, enabled: boolean) {

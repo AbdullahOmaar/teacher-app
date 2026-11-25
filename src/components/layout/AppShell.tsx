@@ -49,6 +49,7 @@ const TITLES: Record<string, string> = {
   homework: t('shell.title.homework'),
   assistant: t('assistant.title'),
   activity: t('shell.title.activity'),
+  feedback: t('feedback.pageTitle'),
 }
 
 type TabKey = 'home' | 'students' | 'invoices' | 'more'
@@ -77,6 +78,7 @@ function resolveRoute(pathname: string): { screen: string; tab: TabKey } {
   if (pathname.startsWith('/analytics')) return { screen: 'analytics', tab: 'more' }
   if (pathname.startsWith('/homework')) return { screen: 'homework', tab: 'more' }
   if (pathname.startsWith('/assistant')) return { screen: 'assistant', tab: 'more' }
+  if (pathname.startsWith('/feedback')) return { screen: 'feedback', tab: 'more' }
   if (pathname.startsWith('/activity-log')) return { screen: 'activity', tab: 'more' }
   if (pathname.startsWith('/export')) return { screen: 'export', tab: 'more' }
   if (pathname.startsWith('/backup')) return { screen: 'backup', tab: 'more' }
