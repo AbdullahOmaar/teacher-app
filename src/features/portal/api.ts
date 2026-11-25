@@ -543,12 +543,17 @@ export async function fetchPortalProofs(
 
 export interface PortalNotification {
   id: string
-  kind: 'arrived' | 'left'
+  kind: 'arrived' | 'left' | 'absence' | 'invoice_issued'
   event_at: string
   read_at: string | null
-  session_date: string
-  start_time: string
-  group_name: string
+  /** أحداث الحصة فقط (وصول/مغادرة/غياب) — null لإشعار الفاتورة (0050) */
+  session_date: string | null
+  start_time: string | null
+  group_name: string | null
+  /** إشعار الفاتورة فقط (0050) — الشهر والمبالغ الحية من invoice_balances */
+  invoice_period: string | null
+  invoice_total: number | null
+  invoice_balance: number | null
 }
 
 export interface PortalNotificationsResult {
@@ -564,7 +569,7 @@ function notificationErrorMessage(error: unknown): string {
   return t('portal.apiNotifErrorGeneric')
 }
 
-/** تنبيهات وصل/غادر طالب الرابط + عدّاد غير المقروء — عبر RPC بالتوكن فقط */
+/** تنبيهات طالب الرابط (وصول/مغادرة/غياب/فاتورة — 0050) + عدّاد غير المقروء — عبر RPC بالتوكن فقط */
 export async function fetchPortalNotifications(
   rawToken: string,
   studentId: string,
@@ -679,6 +684,8 @@ export const PORTAL_NOTIF_META: Record<
 > = {
   arrived: { label: t('portal.apiNotifArrived'), badge: 'bg-ok-soft text-ok-text border-ok/30' },
   left: { label: t('portal.apiNotifLeft'), badge: 'bg-soft text-primary border-primary/30' },
+  absence: { label: t('portal.apiNotifAbsence'), badge: 'bg-warn-soft text-warn-text border-warn/30' },
+  invoice_issued: { label: t('portal.apiNotifInvoice'), badge: 'bg-soft text-primary border-primary/30' },
 }
 
 /** حالات الحضور الأربع في البوابة (§2.4) — الشارات مشتركة (buildAttMeta)، والتسميات بمفاتيح هذه البوابة */

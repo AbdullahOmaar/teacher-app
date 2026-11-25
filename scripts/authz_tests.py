@@ -22,6 +22,7 @@ import secrets
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -995,6 +996,260 @@ def main():
                             f"where teacher_id = '{demo_teacher}'")
             check("portal account fixtures cleaned",
                   left and int(left[0]["c"]) == 0, f"got {left}")
+
+        # ---------- GUARDIAN NOTIFICATIONS LADDER (0050 — 3A-713) ----------
+        # قناة داخل البوابة (غياب + فاتورة) + سلم البدائل بسجل تسليم لكل
+        # محاولة + عزل الأولياء: وليّ لا يرى إشعارات طالب غير مرتبط به.
+        print("GUARDIAN NOTIFICATIONS LADDER (0050):")
+        raw_a = "authz0050-a-" + secrets.token_urlsafe(24)
+        raw_b = "authz0050-b-" + secrets.token_urlsafe(24)
+        hash_a50 = hashlib.sha256(raw_a.encode()).hexdigest()
+        hash_b50 = hashlib.sha256(raw_b.encode()).hexdigest()
+        pre50 = sql(
+            ref,
+            "select (select count(*) from guardian_notifications) as gn, "
+            "(select count(*) from guardian_notification_deliveries) as dl, "
+            "(select count(*) from push_subscriptions) as ps, "
+            "(select count(*) from push_delivery_log) as pl",
+        )[0]
+        sess_ids50 = []
+        sub_id50 = None
+        inv_id50 = None
+        try:
+            link50 = sql(
+                ref,
+                "select gs.guardian_id, gs.student_id from guardian_students gs "
+                f"where gs.teacher_id = '{demo_teacher}' limit 1",
+            )[0]
+            g50 = link50["guardian_id"]
+            stu50 = link50["student_id"]
+            other_link50 = sql(
+                ref,
+                "select gs.guardian_id, gs.student_id from guardian_students gs "
+                f"where gs.teacher_id = '{demo_teacher}' "
+                f"and gs.guardian_id <> '{g50}' and gs.student_id <> '{stu50}' "
+                "limit 1",
+            )[0]
+            unlinked50 = sql(
+                ref,
+                f"select id from students where teacher_id = '{demo_teacher}' "
+                f"and id not in (select student_id from guardian_students "
+                f"where guardian_id = '{g50}') limit 1",
+            )[0]["id"]
+            grp50 = sql(
+                ref,
+                f"select id from groups where teacher_id = '{demo_teacher}' "
+                "limit 1",
+            )[0]["id"]
+            tok_a50 = sql(
+                ref,
+                "insert into guardian_access_tokens (teacher_id, guardian_id, "
+                "student_id, token_hash, expires_at) values "
+                f"('{demo_teacher}', '{g50}', '{stu50}', '{hash_a50}', "
+                "now() + interval '30 days') returning id",
+            )[0]["id"]
+            sql(
+                ref,
+                "insert into guardian_access_tokens (teacher_id, guardian_id, "
+                "student_id, token_hash, expires_at) values "
+                f"('{demo_teacher}', '{other_link50['guardian_id']}', "
+                f"'{other_link50['student_id']}', '{hash_b50}', "
+                "now() + interval '30 days')",
+            )
+
+            def mk_session50(day):
+                sid = sql(
+                    ref,
+                    "insert into sessions (teacher_id, group_id, session_date, "
+                    "start_time, duration_minutes, kind, status) values "
+                    f"('{demo_teacher}', '{grp50}', '{day}', '10:00', 60, "
+                    "'regular', 'scheduled') returning id",
+                )[0]["id"]
+                sess_ids50.append(sid)
+                return sid
+
+            def mark_absent50(sid):
+                sql(
+                    ref,
+                    "insert into attendance (teacher_id, session_id, "
+                    "student_id, status, homework_done, starred) values "
+                    f"('{demo_teacher}', '{sid}', '{stu50}', 'a', false, false)",
+                )
+
+            def notif50(kind, extra):
+                return sql(
+                    ref,
+                    "select id from guardian_notifications where "
+                    f"student_id = '{stu50}' and kind = '{kind}' {extra}",
+                )
+
+            def ladder50(nid):
+                return sql(
+                    ref,
+                    "select channel, status from "
+                    "guardian_notification_deliveries where "
+                    f"notification_id = '{nid}'",
+                )
+
+            # غياب: إشعار واحد + ٣ صفوف سلم (بوابة مُسلّمة، Push متخطّى بلا
+            # اشتراك، واتساب متخطّى — قناة المدرس غير مفعّلة في الديمو)
+            s1 = mk_session50("2099-01-05")
+            mark_absent50(s1)
+            n_abs = notif50("absence", f"and session_id = '{s1}'")
+            check("absence generates exactly one portal notification",
+                  len(n_abs) == 1, f"got {n_abs}")
+            lad = {r["channel"]: r["status"] for r in ladder50(n_abs[0]["id"])}
+            check("ladder rows recorded for the absence notification",
+                  lad.get("in_portal") == "delivered"
+                  and lad.get("web_push") == "skipped"
+                  and lad.get("whatsapp") == "skipped",
+                  f"got {lad}")
+            sql(ref, "update attendance set status = 'p' where "
+                     f"session_id = '{s1}' and student_id = '{stu50}'")
+            sql(ref, "update attendance set status = 'a' where "
+                     f"session_id = '{s1}' and student_id = '{stu50}'")
+            n_abs2 = notif50("absence", f"and session_id = '{s1}'")
+            check("re-saving absence does not duplicate the notification",
+                  len(n_abs2) == 1, f"got {n_abs2}")
+
+            # فاتورة: إشعار واحد بنوع invoice_issued + سلم كامل
+            inv_id50 = sql(
+                ref,
+                "insert into invoices (teacher_id, student_id, group_id, "
+                "period_month) values "
+                f"('{demo_teacher}', '{stu50}', '{grp50}', '2099-01-01') "
+                "returning id",
+            )[0]["id"]
+            n_inv = notif50("invoice_issued", f"and invoice_id = '{inv_id50}'")
+            check("invoice issue generates exactly one portal notification",
+                  len(n_inv) == 1, f"got {n_inv}")
+            lad_inv = ladder50(n_inv[0]["id"])
+            check("ladder rows recorded for the invoice notification",
+                  len(lad_inv) == 3, f"got {lad_inv}")
+
+            # Push: باشتراك فعّال تصبح محاولة البوابة «attempted»
+            sub_id50 = sql(
+                ref,
+                "insert into push_subscriptions (teacher_id, subscriber_kind, "
+                "portal_token_id, guardian_id, student_id, endpoint, p256dh, "
+                "auth) values "
+                f"('{demo_teacher}', 'guardian', '{tok_a50}', '{g50}', "
+                f"'{stu50}', 'https://push.example.test/authz-0050', "
+                "'authz-fake-p256dh', 'authz-fake-auth') returning id",
+            )[0]["id"]
+            s2 = mk_session50("2099-01-06")
+            mark_absent50(s2)
+            n_abs3 = notif50("absence", f"and session_id = '{s2}'")
+            lad3 = {r["channel"]: r["status"]
+                    for r in ladder50(n_abs3[0]["id"])}
+            check("with an active subscription the push rung is attempted",
+                  lad3.get("web_push") == "attempted", f"got {lad3}")
+
+            # RLS سجل التسليم: مالك فقط، ولا كتابة مباشرة لأحد
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/guardian_notification_deliveries?select=id")
+            check("anon reads no delivery log rows (RLS owner-only)",
+                  s == 200 and b == [], f"got {s} {str(b)[:80]}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/guardian_notification_deliveries?select=id"
+                        f"&teacher_id=eq.{demo_teacher}", jwt=other_jwt)
+            check("other teacher reads none of demo's delivery log",
+                  s == 200 and b == [], f"got {s} {str(b)[:80]}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/guardian_notification_deliveries?select=id"
+                        f"&teacher_id=eq.{demo_teacher}", jwt=asst_jwt)
+            check("assistant member reads no delivery log (owner-only)",
+                  s == 200 and b == [], f"got {s}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/guardian_notification_deliveries?select=id"
+                        f"&teacher_id=eq.{demo_teacher}", jwt=demo_jwt)
+            check("owner reads his delivery log",
+                  s == 200 and isinstance(b, list) and len(b) >= 9,
+                  f"got {s} {str(b)[:80]}")
+            s, b = rest(url, anon, "POST",
+                        "/rest/v1/guardian_notification_deliveries",
+                        jwt=demo_jwt,
+                        body={"notification_id": n_abs[0]["id"],
+                              "teacher_id": demo_teacher,
+                              "channel": "in_portal", "status": "delivered"})
+            check("even the owner cannot insert delivery rows directly",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+
+            # عزل البوابة: التوكن يرى طالبَه فقط
+            s, b = rest(url, anon, "POST",
+                        "/rest/v1/rpc/portal_list_guardian_notifications",
+                        body={"p_token": raw_a, "p_student_id": stu50})
+            ids_seen = [n["id"] for n in b.get("notifications", [])] \
+                if isinstance(b, dict) else []
+            inv_row = next((n for n in b.get("notifications", [])
+                            if n.get("id") == n_inv[0]["id"]), {}) \
+                if isinstance(b, dict) else {}
+            check("guardian token lists his student's new notifications",
+                  s == 200 and n_abs[0]["id"] in ids_seen
+                  and n_inv[0]["id"] in ids_seen
+                  and inv_row.get("invoice_period") == "2099-01",
+                  f"got {s} {str(b)[:160]}")
+            s, b = rest(url, anon, "POST",
+                        "/rest/v1/rpc/portal_list_guardian_notifications",
+                        body={"p_token": raw_a, "p_student_id": unlinked50})
+            check("guardian token is rejected for an unlinked student",
+                  s >= 400, f"got {s}")
+            s, b = rest(url, anon, "POST",
+                        "/rest/v1/rpc/portal_list_guardian_notifications",
+                        body={"p_token": raw_b, "p_student_id": stu50})
+            check("another guardian's token cannot list this student",
+                  s >= 400, f"got {s}")
+            s, b = rest(url, anon, "POST",
+                        "/rest/v1/rpc/portal_list_guardian_notifications",
+                        body={"p_token": "bogus-0050", "p_student_id": stu50})
+            check("a bogus token lists nothing", s >= 400, f"got {s}")
+            s, b = rest(url, anon, "POST",
+                        "/rest/v1/rpc/portal_mark_notifications_read",
+                        body={"p_token": raw_b, "p_student_id": stu50,
+                              "p_ids": [n_abs[0]["id"]]})
+            check("another guardian cannot mark this student's rows read",
+                  s >= 400, f"got {s}")
+            s, b = rest(url, anon, "POST",
+                        "/rest/v1/rpc/portal_mark_notifications_read",
+                        body={"p_token": raw_a, "p_student_id": stu50,
+                              "p_ids": [n_abs[0]["id"]]})
+            check("the guardian marks his own notification read",
+                  s == 200, f"got {s} {str(b)[:120]}")
+            after = sql(ref, "select read_at from guardian_notifications "
+                             f"where id = '{n_abs[0]['id']}'")
+            check("read state persisted on the notification row",
+                  after and after[0]["read_at"] is not None, f"got {after}")
+        finally:
+            # مهلة قصيرة لاستقرار أي إرسال Push غير متزامن قبل التنظيف
+            time.sleep(3)
+            if sub_id50:
+                sql(ref, "delete from push_delivery_log where "
+                         f"subscription_id = '{sub_id50}'")
+                sql(ref, "delete from push_subscriptions where "
+                         f"id = '{sub_id50}'")
+            if sess_ids50:
+                sql(ref, "delete from guardian_notifications where "
+                        "session_id in "
+                        f"({','.join(repr(x) for x in sess_ids50)})")
+            if inv_id50:
+                sql(ref, "delete from guardian_notifications where "
+                         f"invoice_id = '{inv_id50}'")
+                sql(ref, f"delete from invoices where id = '{inv_id50}'")
+            for sid in sess_ids50:
+                sql(ref, "delete from attendance where "
+                         f"session_id = '{sid}'")
+                sql(ref, f"delete from sessions where id = '{sid}'")
+            sql(ref, "delete from guardian_access_tokens where "
+                    f"token_hash in ('{hash_a50}', '{hash_b50}')")
+            post50 = sql(
+                ref,
+                "select (select count(*) from guardian_notifications) as gn, "
+                "(select count(*) from guardian_notification_deliveries) as dl, "
+                "(select count(*) from push_subscriptions) as ps, "
+                "(select count(*) from push_delivery_log) as pl",
+            )[0]
+            check("0050 fixtures cleaned (counts restored)",
+                  post50 == pre50, f"{pre50} -> {post50}")
 
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق

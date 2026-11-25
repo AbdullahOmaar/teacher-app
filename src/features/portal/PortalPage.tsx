@@ -307,7 +307,7 @@ function fmtEventTime(iso: string): string {
 }
 
 /**
- * قسم «تنبيهات الوصول والمغادرة» (Phase 3 خطوة 6): صندوق ولي الأمر
+ * قسم «تنبيهات ولي الأمر» (Phase 3 خطوة 6 + 0050): صندوق ولي الأمر
  * داخل البوابة نفسها — تنبيه «وصل» يتولد عند أول تسجيل حضور للطالب في
  * الحصة و«غادر» عند تسجيل انصرافه، ويُقرأ عبر RPC بالتوكن مقيداً بهذا
  * الطالب فقط، مع عدّاد غير مقروء وزر تعليم الكل كمقروء (RPC كتابة
@@ -373,9 +373,18 @@ function NotificationsSection({
                     {meta.label}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[15px] break-words">{n.group_name}</div>
+                    <div className="font-semibold text-[15px] break-words">{n.group_name ?? ''}</div>
                     <div className="text-muted text-[12px]">
-                      {t('portal.pageNotifSessionLine', { date: n.session_date, time: fmtEventTime(n.event_at) })}
+                      {n.kind === 'invoice_issued'
+                        ? t('portal.pageNotifInvoiceLine', {
+                            period: n.invoice_period ?? '',
+                            total: formatMoney(n.invoice_total),
+                            balance: formatMoney(n.invoice_balance),
+                          })
+                        : t('portal.pageNotifSessionLine', {
+                            date: n.session_date ?? '',
+                            time: fmtEventTime(n.event_at),
+                          })}
                     </div>
                   </div>
                   {isUnread && (
@@ -618,7 +627,7 @@ export function PortalPage() {
         </div>
       )}
 
-      {/* تنبيهات الوصول والمغادرة — صندوق ولي الأمر (خطوة 6، Phase 3) */}
+      {/* تنبيهات ولي الأمر — صندوق ولي الأمر (خطوة 6، Phase 3 + 0050) */}
       {o.sections.attendance && (
         <div className="rise-in mt-5" style={{ animationDelay: '90ms' }}>
           <NotificationsSection studentId={studentId} rawToken={rawToken} />
