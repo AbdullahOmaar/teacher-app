@@ -38,13 +38,20 @@ function stripWoff(): Plugin {
  * مصدر الإصدار الواحد (3A-312 — بند ٥): رقم إصدار التطبيق المعروض في
  * الإعدادات وفوتر الدخول يُقرأ من package.json وقت البناء ويُحقن ثابتاً
  * (__APP_VERSION__) — تحديث الرقم هنا وحده يكفي لكل مواضع العرض.
+ *
+ * وقت البناء (__BUILD_TIME__ — قاعدة المالك 2026-11-25): لحظة تشغيل
+ * البناء نفسه بصيغة ISO تُحقن آلياً مع كل build فتعرض شاشات التطبيق
+ * سطر «الإصدار X — نُشر [التاريخ والوقت]» من بيانات البناء الفعلية —
+ * لا قيمة مكتوبة يدوياً في أي مكان، وكل نشر جديد يحمل وقته هو.
  */
 const pkgVersion = (JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }).version
+const buildTime = new Date().toISOString()
 
 // https://vite.dev/config/
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkgVersion),
+    __BUILD_TIME__: JSON.stringify(buildTime),
   },
   plugins: [react(), tailwindcss(), stripWoff()],
   build: {
