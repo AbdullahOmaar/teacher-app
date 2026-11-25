@@ -1250,6 +1250,189 @@ def main():
             )[0]
             check("0050 fixtures cleaned (counts restored)",
                   post50 == pre50, f"{pre50} -> {post50}")
+        # ---------- CENTRE LEDGER (0051 — دفتر مشتريات/مبيعات السنتر) ----------
+        # ⚠️ المهاجرة 0051 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجداول أولاً: إن
+        # غابت يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        print("CENTRE LEDGER (0051):")
+        ledger_probe = sql(ref, "select to_regclass('public.suppliers') as t")
+        if not ledger_probe or not ledger_probe[0].get("t"):
+            print("  SKIP 0051 live section — migration 0051 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PHASE2-T10-FINANCE.md)")
+        else:
+            ledger_supplier = None
+            ledger_purchase = None
+            ledger_sale = None
+            try:
+                s, b = rest(url, anon, "GET", "/rest/v1/suppliers?select=id")
+                check("anon reads no suppliers (no grant)",
+                      s in (401, 403) or (s == 200 and b == []), f"got {s}")
+                s, b = rest(url, anon, "GET", "/rest/v1/suppliers?select=id",
+                            jwt=asst_jwt)
+                check("assistant reads no suppliers (finance is owner-only)",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "GET", "/rest/v1/purchases?select=id",
+                            jwt=asst_jwt)
+                check("assistant reads no purchases (finance is owner-only)",
+                      s == 200 and b == [], f"got {s}")
+                s, b = rest(url, anon, "GET", "/rest/v1/sales?select=id",
+                            jwt=asst_jwt)
+                check("assistant reads no sales (finance is owner-only)",
+                      s == 200 and b == [], f"got {s}")
+                s, b = rest(url, anon, "POST", "/rest/v1/suppliers",
+                            jwt=demo_jwt,
+                            body={"teacher_id": demo_teacher,
+                                  "name": "authz supplier"})
+                rows = b if isinstance(b, list) else []
+                check("owner creates a supplier",
+                      s in (200, 201) and len(rows) == 1, f"got {s} {str(b)[:120]}")
+                ledger_supplier = rows[0]["id"] if rows else None
+                s, b = rest(url, anon, "GET",
+                            f"/rest/v1/suppliers?select=id&teacher_id=eq.{demo_teacher}",
+                            jwt=other_jwt)
+                check("other teacher reads none of demo's suppliers",
+                      s == 200 and b == [], f"got {s}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/create_purchase",
+                            jwt=asst_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_supplier_id": ledger_supplier,
+                                  "p_purchase_date": "2026-11-01",
+                                  "p_note": "authz",
+                                  "p_lines": [{"description": "authz paper",
+                                               "quantity": 10,
+                                               "unit_price": 25}]})
+                check("assistant cannot create a purchase (owner-only RPC)",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/create_purchase",
+                            jwt=other_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_supplier_id": ledger_supplier,
+                                  "p_purchase_date": "2026-11-01",
+                                  "p_note": "authz",
+                                  "p_lines": [{"description": "authz paper",
+                                               "quantity": 10,
+                                               "unit_price": 25}]})
+                check("a stranger cannot create a purchase for demo's centre",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/create_purchase",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_supplier_id": ledger_supplier,
+                                  "p_purchase_date": "2026-11-01",
+                                  "p_note": "authz",
+                                  "p_lines": [{"description": "authz paper",
+                                               "quantity": 10,
+                                               "unit_price": 25}]})
+                check("owner creates a purchase via RPC (total computed server-side)",
+                      s == 200 and isinstance(b, dict) and b.get("id")
+                      and float(b.get("total") or 0) == 250.0,
+                      f"got {s} {str(b)[:160]}")
+                ledger_purchase = b.get("id") if isinstance(b, dict) else None
+                s, b = rest(url, anon, "POST", "/rest/v1/purchase_payments",
+                            jwt=demo_jwt,
+                            body={"teacher_id": demo_teacher,
+                                  "purchase_id": ledger_purchase,
+                                  "amount": 100, "method": "cash",
+                                  "paid_on": "2026-11-02"})
+                prow = b if isinstance(b, list) else []
+                check("owner records a purchase payment (ledger insert)",
+                      s in (200, 201) and len(prow) == 1, f"got {s} {str(b)[:120]}")
+                ledger_payment = prow[0]["id"] if prow else None
+                if ledger_payment:
+                    s, b = rest(url, anon, "PATCH",
+                                f"/rest/v1/purchase_payments?id=eq.{ledger_payment}",
+                            jwt=demo_jwt,
+                                body={"amount": 999})
+                    amt = sql(ref, "select amount from purchase_payments "
+                                   f"where id = '{ledger_payment}'")
+                    check("purchase_payments are immutable — no update path (RLS)",
+                          amt and float(amt[0]["amount"]) == 100.0,
+                          f"got {amt}")
+                    s, b = rest(url, anon, "DELETE",
+                                f"/rest/v1/purchase_payments?id=eq.{ledger_payment}",
+                            jwt=demo_jwt)
+                    left = sql(ref, "select count(*) as c from purchase_payments "
+                                    f"where id = '{ledger_payment}'")
+                    check("purchase_payments cannot be deleted (ledger — corrections "
+                          "are negative entries only)",
+                          left and int(left[0]["c"]) == 1, f"got {left}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/purchase_balances?select=purchase_id,remaining"
+                            f"&purchase_id=eq.{ledger_purchase}",
+                            jwt=demo_jwt)
+                check("owner reads purchase_balances (paid 100 of 250 → 150)",
+                      s == 200 and isinstance(b, list) and len(b) == 1
+                      and float(b[0]["remaining"]) == 150.0,
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/create_sale",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_student_id": demo_student,
+                                  "p_buyer_name": None,
+                                  "p_sale_date": "2026-11-03",
+                                  "p_amount_paid": 40,
+                                  "p_note": "authz",
+                                  "p_lines": [{"description": "authz book",
+                                               "quantity": 2,
+                                               "unit_price": 30}]})
+                check("owner creates a sale via RPC (paid ≤ total enforced)",
+                      s == 200 and isinstance(b, dict) and b.get("id")
+                      and float(b.get("remaining") or 0) == 20.0,
+                      f"got {s} {str(b)[:160]}")
+                ledger_sale = b.get("id") if isinstance(b, dict) else None
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/create_sale",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_student_id": demo_student,
+                                  "p_buyer_name": None,
+                                  "p_sale_date": "2026-11-03",
+                                  "p_amount_paid": 999,
+                                  "p_note": "authz overpay",
+                                  "p_lines": [{"description": "authz book",
+                                               "quantity": 1,
+                                               "unit_price": 30}]})
+                check("sale with amount_paid above the total is rejected",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/supplier_payables?select=supplier_id,remaining"
+                            f"&supplier_id=eq.{ledger_supplier}",
+                            jwt=demo_jwt)
+                check("owner reads supplier_payables (remaining 150)",
+                      s == 200 and isinstance(b, list) and len(b) == 1
+                      and float(b[0]["remaining"]) == 150.0,
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/monthly_centre_finance?select=month"
+                            f"&teacher_id=eq.{demo_teacher}",
+                            jwt=other_jwt)
+                check("other teacher reads none of demo's monthly centre finance",
+                      s == 200 and b == [], f"got {s}")
+            finally:
+                sql(ref, "delete from sale_lines "
+                         f"where teacher_id = '{demo_teacher}'")
+                sql(ref, "delete from sales "
+                         f"where teacher_id = '{demo_teacher}'")
+                sql(ref, "delete from purchase_payments "
+                         f"where teacher_id = '{demo_teacher}'")
+                sql(ref, "delete from purchase_lines "
+                         f"where teacher_id = '{demo_teacher}'")
+                sql(ref, "delete from purchases "
+                         f"where teacher_id = '{demo_teacher}'")
+                sql(ref, "delete from suppliers "
+                         f"where teacher_id = '{demo_teacher}'")
+                left = sql(ref, "select "
+                                "(select count(*) from suppliers "
+                                f"where teacher_id = '{demo_teacher}') as s, "
+                                "(select count(*) from purchases "
+                                f"where teacher_id = '{demo_teacher}') as p, "
+                                "(select count(*) from sales "
+                                f"where teacher_id = '{demo_teacher}') as sl")
+                check("0051 fixtures cleaned",
+                      left and int(left[0]["s"]) == 0 and int(left[0]["p"]) == 0
+                      and int(left[0]["sl"]) == 0, f"got {left}")
 
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
