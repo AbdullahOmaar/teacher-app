@@ -7,6 +7,7 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/useAuth'
+import { versionStampLine } from '../../lib/buildInfo'
 import { useTheme } from '../../hooks/useTheme'
 import { Logo } from '../../components/brand/Logo'
 import { useMascotVisible } from '../../components/mascot/useMascotVisible'
@@ -496,10 +497,11 @@ export function LoginPage() {
           )}
         </Card>
 
-        {/* فوتر الإصدار (3A-312 — ملحق د): نفس مصدر الإعدادات الواحد
-            (package.json عبر __APP_VERSION__) — يسهّل الدعم قبل الدخول */}
-        <p className="text-muted text-[12px] mt-4 mb-0 text-center">
-          {t('auth.footerVersion', { version: __APP_VERSION__ })}
+        {/* فوتر ختم الإصدار ووقت النشر (قاعدة المالك 2026-11-25،
+            امتداد 3A-312): نفس السطر الموحّد في كل المواضع، مبني من
+            بيانات البناء عبر lib/buildInfo — يسهّل الدعم قبل الدخول */}
+        <p className="text-muted text-[13px] mt-4 mb-0 text-center">
+          {versionStampLine()}
         </p>
       </div>
     </div>
