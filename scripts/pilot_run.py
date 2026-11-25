@@ -69,6 +69,10 @@ def http(method, url, anon, jwt=None, body=None):
         if jwt:
             req.add_header("Authorization", f"Bearer {jwt}")
         try:
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+            # تبرير (2026-11-25، Phase 2 T6): سكربت مشغّل محلي — كل
+            # العناوين تُبنى حصراً من VITE_SUPABASE_URL في .env.local
+            # (إعداد المشغّل نفسه) ولا يصل أي مدخل خارجي لهذا النداء.
             with urllib.request.urlopen(req, timeout=60) as resp:
                 raw = resp.read().decode("utf-8", errors="replace")
                 return resp.status, json.loads(raw) if raw else {}
