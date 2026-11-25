@@ -17,7 +17,9 @@
     "test:bundle": "node scripts/check-bundle-size.mjs",
     "test:a11y": "npm run build && node scripts/a11y_audit.mjs",
     "test:perf": "npm run build && node scripts/perf_audit.mjs",
-    "test:contracts": "node scripts/contract_tests.mjs"
+    "test:contracts": "node scripts/contract_tests.mjs",
+    "test:ratelimits": "node scripts/rate_limit_checks.mjs",
+    "test:faults": "node scripts/fault_injection.mjs"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans-arabic": "^5.3.0",
