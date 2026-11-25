@@ -95,10 +95,23 @@ interface SubRow {
   failure_count: number;
 }
 
+// CORS للمتصفح: الاستدعاء من التطبيق يمرّ بـ preflight OPTIONS
+// (Authorization + apikey + content-type ترويسات غير بسيطة)، فبلا معالج
+// OPTIONS وبلا ترويسات CORS يُحجب النداء قبل وصوله للدالة (405 بلا
+// Access-Control-* — ثبت حياً 2026-11-25). النمط الموثّق من Supabase:
+// ‏Allow-Origin: * يصلح مع ترويسة Authorization (بلا كوكيز/credentials).
+// هذه الدالة خادمية بالكامل (pg_net) فلا يطالها المتصفح اليوم، لكن
+// الترويسات توحّد السلوك مع باقي الدوال وتمنع تكرار الفجوة.
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
 
@@ -122,6 +135,7 @@ function secretEquals(provided: string | null, expected: string): boolean {
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
   if (!PUSH_INTERNAL_SECRET || !secretEquals(req.headers.get("x-push-secret"), PUSH_INTERNAL_SECRET)) {
     return json({ error: "unauthorized" }, 401);

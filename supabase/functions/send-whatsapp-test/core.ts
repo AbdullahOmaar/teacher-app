@@ -59,10 +59,21 @@ const DEFAULT_GRAPH_VERSION = 'v23.0'
 /** حدّ المعدل بين إرسالين تجريبيين لنفس السنتر */
 export const TEST_MIN_INTERVAL_MS = 60_000
 
+// CORS للمتصفح: الاستدعاء من التطبيق يمرّ بـ preflight OPTIONS
+// (Authorization + apikey + content-type ترويسات غير بسيطة)، فبلا معالج
+// OPTIONS وبلا ترويسات CORS يُحجب النداء قبل وصوله للدالة (405 بلا
+// Access-Control-* — ثبت حياً 2026-11-25). النمط الموثّق من Supabase:
+// ‏Allow-Origin: * يصلح مع ترويسة Authorization (بلا كوكيز/credentials).
+const CORS_HEADERS: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
   })
 }
 
@@ -124,6 +135,7 @@ export async function handleSendWhatsappTest(
   deps: WhatsappTestDeps,
   log: (msg: string) => void = () => {},
 ): Promise<Response> {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS })
   if (req.method !== 'POST') return jsonError(405, 'method not allowed')
 
   // Kill switch المنصة فوق الكل — يوقف أي إرسال واتساب من أي مدرس
