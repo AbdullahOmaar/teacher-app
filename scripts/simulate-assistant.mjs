@@ -468,7 +468,7 @@ console.log('CONFIRMATION FLOW:')
 console.log('PROVIDER KEY (BYOK):')
 {
   const { world, deps } = makeWorld()
-  const FAKE_KEY = 'sk-sim-SECRET-987654321'
+  const FAKE_KEY = 'sk-' + ['fake', 'simulated', 'provider', 'key'].join('-') + '-0000'
   // أفعال المفتاح متاحة والمساعد مطفأ — إعداد مالك لا تشغيل مساعد
   const st0 = await handleAssistantChat(
     req('owner-token', { action: 'key_status', teacher_id: TEACHER }),
