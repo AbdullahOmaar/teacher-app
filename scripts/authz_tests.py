@@ -586,6 +586,111 @@ def main():
             sql(ref, "delete from whatsapp_message_log "
                      f"where teacher_id = '{demo_teacher}'")
 
+        # ---------- ASSISTANT RUNS (0048 — سجل المساعد + آلة التأكيد) ----------
+        print("ASSISTANT RUNS (0048):")
+        try:
+            hash_a = "a" * 64
+            s, b = rest(url, anon, "GET", "/rest/v1/assistant_runs?select=id")
+            check("anon cannot read assistant_runs (no grant)",
+                  s in (401, 403), f"got {s}")
+            s, b = rest(url, anon, "GET", "/rest/v1/assistant_runs?select=id",
+                        jwt=other_jwt)
+            check("other teacher reads no assistant_runs",
+                  s == 200 and b == [], f"got {s} {str(b)[:80]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/assistant_runs",
+                        jwt=demo_jwt,
+                        body={"teacher_id": demo_teacher, "actor_user_id": demo_uid,
+                              "actor_role": "owner", "kind": "read",
+                              "tool": "unpaid_students", "status": "answered"})
+            check("even the owner cannot insert an assistant run directly (RPC only)",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "PATCH",
+                        f"/rest/v1/assistant_runs?teacher_id=eq.{demo_teacher}",
+                        jwt=demo_jwt, body={"status": "executed"})
+            check("owner cannot update assistant runs directly (RPC only)",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_begin_read",
+                        jwt=other_jwt,
+                        body={"p_teacher_id": demo_teacher, "p_tool": "unpaid_students",
+                              "p_request": "unpaid", "p_result": {}})
+            check("begin_read RPC rejects a non-member actor",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_begin_read",
+                        body={"p_teacher_id": demo_teacher, "p_tool": "unpaid_students",
+                              "p_request": "unpaid", "p_result": {}})
+            check("anon cannot call assistant_begin_read",
+                  s in (401, 403, 404), f"got {s}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_begin_read",
+                        jwt=demo_jwt,
+                        body={"p_teacher_id": demo_teacher, "p_tool": "unpaid_students",
+                              "p_request": "unpaid", "p_result": {"total_balance": 0}})
+            check("owner logs a read run via RPC",
+                  s == 200 and isinstance(b, str) and len(b) == 36,
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/assistant_runs?select=id,status"
+                        f"&teacher_id=eq.{demo_teacher}", jwt=demo_jwt)
+            check("owner reads his assistant runs",
+                  s == 200 and isinstance(b, list) and len(b) == 1
+                  and b[0]["status"] == "answered",
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/assistant_runs?select=id"
+                        f"&teacher_id=eq.{demo_teacher}", jwt=asst_jwt)
+            check("assistant member reads no assistant runs (owner-only)",
+                  s == 200 and b == [], f"got {s}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_create_proposal",
+                        jwt=demo_jwt,
+                        body={"p_teacher_id": demo_teacher, "p_tool": "add_student",
+                              "p_request": "add-student",
+                              "p_payload": {"name": "authz", "group_id": demo_student},
+                              "p_payload_hash": hash_a})
+            run_id = b.get("id") if isinstance(b, dict) else None
+            check("owner creates a proposal via RPC",
+                  s == 200 and bool(run_id), f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_confirm_proposal",
+                        jwt=demo_jwt,
+                        body={"p_run_id": run_id, "p_payload_hash": "b" * 64})
+            check("confirm with a wrong hash is rejected",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_confirm_proposal",
+                        jwt=asst_jwt,
+                        body={"p_run_id": run_id, "p_payload_hash": hash_a})
+            check("confirm by a non-proposer is rejected",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_confirm_proposal",
+                        jwt=demo_jwt,
+                        body={"p_run_id": run_id, "p_payload_hash": hash_a})
+            check("confirm with the stored hash returns the stored payload",
+                  s == 200 and isinstance(b, dict) and b.get("tool") == "add_student",
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_complete_run",
+                        jwt=demo_jwt,
+                        body={"p_run_id": run_id, "p_success": True,
+                              "p_result": {"student_id": "x"}, "p_error": None})
+            check("confirmed run completes as executed",
+                  s == 200, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_create_proposal",
+                        jwt=demo_jwt,
+                        body={"p_teacher_id": demo_teacher, "p_tool": "add_student",
+                              "p_request": "add-student",
+                              "p_payload": {"name": "authz2", "group_id": demo_student},
+                              "p_payload_hash": hash_a})
+            run2 = b.get("id") if isinstance(b, dict) else None
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_cancel_run",
+                        jwt=demo_jwt,
+                        body={"p_run_id": run2, "p_reason": "stopped"})
+            check("pending proposal can be stopped by its proposer",
+                  s == 200, f"got {s} {str(b)[:120]}")
+            rows = sql(ref, "select status from assistant_runs "
+                            f"where teacher_id = '{demo_teacher}' order by created_at")
+            check("run states persisted (answered/executed/stopped)",
+                  [r["status"] for r in rows] == ["answered", "executed", "stopped"],
+                  f"got {rows}")
+        finally:
+            sql(ref, "delete from assistant_runs "
+                     f"where teacher_id = '{demo_teacher}'")
+
         # ---------- PORTAL ACCOUNTS (3A-385 — هجرات 0040/0041/0042) ----------
         print("PORTAL ACCOUNTS (3A-385):")
         pw_guardian = secrets.token_urlsafe(12)
