@@ -22,6 +22,7 @@ import { schedule } from './schedule'
 import { settings } from './settings'
 import { paymentProofs } from './paymentProofs'
 import { assistant } from './assistant'
+import { feedback } from './feedback'
 import { format } from './format'
 import { mascot } from './mascot'
 
@@ -55,6 +56,7 @@ export const ar = {
   settings,
   paymentProofs,
   assistant,
+  feedback,
   format,
   mascot,
 } as const

@@ -2205,6 +2205,47 @@ export type Database = {
           },
         ]
       }
+      teacher_feedback: {
+        Row: {
+          id: string
+          teacher_id: string
+          author_user_id: string
+          kind: string
+          body: string
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          author_user_id: string
+          kind?: string
+          body: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          author_user_id?: string
+          kind?: string
+          body?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_feedback_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_members: {
         Row: {
           id: string
@@ -3096,6 +3137,14 @@ export type Database = {
             teacher_id: string
             student_id: string
           }[]
+        }
+      submit_teacher_feedback: {
+          Args: {
+            p_teacher_id: string
+            p_kind: string
+            p_body: string
+          }
+          Returns: Json
         }
       teacher_id_claimable: {
           Args: {

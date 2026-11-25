@@ -399,6 +399,7 @@ export const settings = {
   morePortal: 'بوابة ولي الأمر',
   moreImportStudents: 'استيراد طلاب من Excel',
   moreActivity: 'سجل النشاط',
+  moreFeedback: 'ملاحظاتك لفريق مستر',
   moreExport: 'تصدير واستيراد',
   moreSettings: 'الإعدادات',
   pushEnabledMsg: 'تمام — إشعارات Push مفعّلة على المتصفح ده.',

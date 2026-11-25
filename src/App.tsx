@@ -32,6 +32,9 @@ const HomeworkPage = lazy(() =>
 const AssistantPage = lazy(() =>
   import('./features/assistant/AssistantPage').then((m) => ({ default: m.AssistantPage })),
 )
+const FeedbackPage = lazy(() =>
+  import('./features/feedback/FeedbackPage').then((m) => ({ default: m.FeedbackPage })),
+)
 const StudentsPage = lazy(() =>
   import('./features/students/StudentsPage').then((m) => ({ default: m.StudentsPage })),
 )
@@ -122,6 +125,7 @@ registerRouteLoaders({
   '/attendance': () => import('./features/attendance/AttendancePage'),
   '/homework': () => import('./features/homework/HomeworkPage'),
   '/assistant': () => import('./features/assistant/AssistantPage'),
+  '/feedback': () => import('./features/feedback/FeedbackPage'),
   '/students': () => import('./features/students/StudentsPage'),
   '/groups': () => import('./features/groups/GroupsPage'),
   '/invoices': () => import('./features/invoices/InvoicesPage'),
@@ -245,6 +249,14 @@ export default function App() {
                 element={
                   <LazyRoute>
                     <AssistantPage />
+                  </LazyRoute>
+                }
+              />
+              <Route
+                path="feedback"
+                element={
+                  <LazyRoute>
+                    <FeedbackPage />
                   </LazyRoute>
                 }
               />

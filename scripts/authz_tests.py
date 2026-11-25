@@ -1434,6 +1434,90 @@ def main():
                       left and int(left[0]["s"]) == 0 and int(left[0]["p"]) == 0
                       and int(left[0]["sl"]) == 0, f"got {left}")
 
+        # ---------- TEACHER FEEDBACK (0052 — قناة ملاحظات المدرس) ----------
+        # ⚠️ المهاجرة 0052 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن
+        # غاب يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        print("TEACHER FEEDBACK (0052):")
+        fb_probe = sql(ref, "select to_regclass('public.teacher_feedback') as t")
+        if not fb_probe or not fb_probe[0].get("t"):
+            print("  SKIP 0052 live section — migration 0052 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PHASE2-T11-FIRST-RUN.md)")
+        else:
+            try:
+                s, b = rest(url, anon, "GET", "/rest/v1/teacher_feedback?select=id")
+                check("anon reads no teacher feedback (no grant)",
+                      s in (401, 403) or (s == 200 and b == []), f"got {s}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/submit_teacher_feedback",
+                            jwt=asst_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "suggestion",
+                                  "p_body": "authz feedback from assistant"})
+                check("active assistant member submits feedback via RPC",
+                      s == 200 and isinstance(b, dict) and b.get("id"),
+                      f"got {s} {str(b)[:120]}")
+                fb_id = b.get("id") if isinstance(b, dict) else None
+                s, b = rest(url, anon, "GET", "/rest/v1/teacher_feedback?select=id",
+                            jwt=asst_jwt)
+                check("assistant reads no feedback list (owner-only RLS)",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/teacher_feedback?select=id,status",
+                            jwt=demo_jwt)
+                rows = b if isinstance(b, list) else []
+                check("owner reads his centre's feedback",
+                      s == 200 and len(rows) == 1 and rows[0].get("status") == "new",
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET", "/rest/v1/teacher_feedback?select=id",
+                            jwt=other_jwt)
+                check("other teacher reads none of demo's feedback",
+                      s == 200 and b == [], f"got {s}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/submit_teacher_feedback",
+                            jwt=other_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "problem",
+                                  "p_body": "authz stranger feedback"})
+                check("a stranger cannot submit feedback for demo's centre",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/submit_teacher_feedback",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "bogus",
+                                  "p_body": "authz invalid kind"})
+                check("invalid feedback kind is rejected by the RPC",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/teacher_feedback",
+                            jwt=demo_jwt,
+                            body={"teacher_id": demo_teacher,
+                                  "author_user_id": demo_uid,
+                                  "kind": "praise",
+                                  "body": "authz direct insert attempt"})
+                check("even the owner cannot insert feedback directly (RPC only)",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "PATCH",
+                            f"/rest/v1/teacher_feedback?id=eq.{fb_id}",
+                            jwt=demo_jwt, body={"status": "read"})
+                st = sql(ref, "select status from teacher_feedback "
+                              f"where id = '{fb_id}'")
+                check("owner marks feedback read (status persisted)",
+                      s in (200, 204) and st and st[0]["status"] == "read",
+                      f"got {s} {st}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/teacher_feedback?select=id&status=eq.new",
+                            jwt=demo_jwt)
+                check("unread count query returns zero after marking read",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+            finally:
+                sql(ref, "delete from teacher_feedback "
+                         f"where teacher_id = '{demo_teacher}'")
+                left = sql(ref, "select count(*) as c from teacher_feedback "
+                                f"where teacher_id = '{demo_teacher}'")
+                check("0052 fixtures cleaned",
+                      left and int(left[0]["c"]) == 0, f"got {left}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد

@@ -55,6 +55,12 @@ export type WaitlistSource = 'manual' | 'booking_page'
 /** مصدر الدرجة (migration ‏0010): إدخال يدوي أم ترحيل من امتحان إلكتروني — قيد CHECK في المخطط */
 export type ScoreSource = 'manual' | 'online_exam'
 
+/** نوع ملاحظة المدرس (migration ‏0052 — مهمة 11): قيد CHECK في المخطط */
+export type FeedbackKind = 'suggestion' | 'problem' | 'praise' | 'other'
+
+/** حالة ملاحظة المدرس (migration ‏0052): جديدة ← مقروءة ← مغلقة — قيد CHECK في المخطط */
+export type FeedbackStatus = 'new' | 'read' | 'closed'
+
 // ---------------------------------------------------------------------------
 // الصفوف — أسماء مستقرة فوق الأنواع المولّدة
 // ---------------------------------------------------------------------------
@@ -86,6 +92,16 @@ export type WhatsappMessageLogRow = Tables<'whatsapp_message_log'>
 
 /** سجل ملخص Push اليومي (migration ‏0015) */
 export type PushDigestLogRow = Tables<'push_digest_log'>
+
+/**
+ * ملاحظة مدرس لقناة الملاحظات الداخلية (migration ‏0052 — مهمة 11):
+ * ‏kind/status نصان مقيدان بقيدي CHECK لوحدتي FeedbackKind/FeedbackStatus.
+ * القراءة للمالك فقط في RLS؛ الإدخال عبر RPC ‏submit_teacher_feedback وحده.
+ */
+export type TeacherFeedbackRow = WithFields<
+  Tables<'teacher_feedback'>,
+  { kind: FeedbackKind; status: FeedbackStatus }
+>
 
 /**
  * عضو فريق السنتر. ‏permissions jsonb شكله Record بتصميم كاتبه الوحيد
