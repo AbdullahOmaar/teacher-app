@@ -7,9 +7,16 @@
  * الديمو العام، ويضيف فحص أهداف اللمس (WCAG 2.2 ‎2.5.8: حد أدنى
  * 24×24px لمستوى AA؛ 24–44px تُبلَّغ استشارياً لأن إرشاد المنصات 44px).
  *
- * بوابة CI: أي مخالفة critical أو serious تُسقط السكربت (وظيفة
- * a11y-audit حاجبة)؛ moderate/minor تُطبع وتُوثَّق ولا تحجب — قرار
- * موثق في docs/PHASE2-T8-PERF-A11Y.md §٢.
+ * بوابة CI: أي مخالفة critical أو serious أو أي هدف لمس <24px
+ * يُسقط السكربت (وظيفة a11y-audit حاجبة)؛ moderate/minor تُطبع
+ * وتُوثَّق ولا تحجب — قرار موثق في docs/PHASE2-T8-PERF-A11Y.md §٢.
+ *
+ * حالة القياس: الصفحة تُفحص بحركة مخفّضة (prefers-reduced-motion —
+ * وضع يدعمه التطبيق بقاعدة عامة في index.css) وبعد سكون الحركات
+ * تماماً: تشغيل CI الأول قاس عناصر منتصف حركة rise-in فأظهر تباينات
+ * شبحية (ألوان ممتزجة نحو الخلفية) تختلف باختلاف سرعة الخادم؛ حالة
+ * المحتوى المستقرة هي ما يقيسه WCAG. شارة warn الحقيقية التي كشفها
+ * نفس التشغيل (4.46:1) أُصلحت في التوكن نفسه.
  *
  * axe-core اعتمادية تشغيل فقط: تُثبَّت --no-save (محلياً وفي صندوق
  * وظيفة CI) فلا تدخل مانيفستات التطبيق ولا حزمته.
@@ -118,7 +125,19 @@ async function touchTargets(page) {
 async function auditScreen(page, base, route, marker) {
   await page.goto(base + route, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
   if (marker) await waitBodyText(page, marker).catch(() => {});
-  await sleep(1200); // استقرار الرسم/الحركات قبل القياس
+  // سكون كامل قبل القياس: لا حركة جارية (بحد أقصى ٤ ثوانٍ) ثم هامش
+  const deadline = Date.now() + 4_000;
+  while (Date.now() < deadline) {
+    const running = await page
+      .evaluate(
+        () =>
+          document.getAnimations().filter((a) => a.playState === 'running').length,
+      )
+      .catch(() => 0);
+    if (running === 0) break;
+    await sleep(250);
+  }
+  await sleep(600);
   const violations = await runAxe(page);
   const targets = await touchTargets(page);
   return { route, violations, targets };
@@ -133,6 +152,10 @@ async function main() {
   try {
     const { page, watch } = await launchAuditedPage(browser, base);
     await emulateMobile(page);
+    // وضع الحركة المخفّضة المدعوم من التطبيق: قياس الحالة المستقرة
+    await page.emulateMediaFeatures([
+      { name: 'prefers-reduced-motion', value: 'reduce' },
+    ]);
 
     // شاشة الدخول (عامة)
     report.screens.push(await auditScreen(page, base, '/login', 'دخول تجريبي'));
@@ -176,10 +199,14 @@ async function main() {
     for (const tEl of s.targets.below24.slice(0, 5)) {
       console.log(`   [touch<24] ${tEl.tag} «${tEl.text}» ${tEl.w}×${tEl.h}`);
     }
+    if (s.targets.below24.length > 0) failures += 1;
   }
   console.log(`التقرير الكامل: ${path.relative(ROOT, OUT_FILE)}`);
-  assert(failures === 0, `توجد مخالفات critical/serious أو أخطاء فادحة: ${failures}`);
-  console.log('لا مخالفات critical/serious.');
+  assert(
+    failures === 0,
+    `توجد مخالفات critical/serious أو أهداف لمس <24px أو أخطاء فادحة: ${failures}`,
+  );
+  console.log('لا مخالفات critical/serious ولا أهداف لمس تحت 24px.');
 }
 
 main().catch((e) => {
