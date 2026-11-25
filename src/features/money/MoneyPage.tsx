@@ -19,6 +19,7 @@ import { periodLabel } from '../invoices/api'
 import { formatDateLabel } from '../schedule/api'
 import { lastSixMonths, summaryOf, type MonthSummary } from './api'
 import { CashboxSection } from './CashboxSection'
+import { DailyAuditCard } from './DailyAuditCard'
 import { LedgerSection } from './LedgerSection'
 import {
   MONEY,
@@ -233,6 +234,10 @@ export function MoneyPage() {
           {t('money.backToCurrent', { month: periodLabel(currentMonth) })}
         </Button>
       )}
+
+      {/* تدقيق اليوم (مهمة 11 — بند 4): فحص قرائي بسطر واحد أعلى
+          أقسام المال اليومية — لا ينفّذ أي إجراء بنفسه */}
+      {teacherId && <DailyAuditCard teacherId={teacherId} />}
 
       {/* الإغلاق اليومي للخزنة (خطوة 5): قسم مستقل بحالاته الخاصة،
           يومي الإيقاع فلا يرتبط بتنقّل الشهور أسفله */}
