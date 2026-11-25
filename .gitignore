@@ -45,5 +45,5 @@ e2e/visual/.tmp-capture-*/
 __pycache__/
 
 # Stryker (فجوة 43 — المهمة 7)
-stryker-tmp/
+.stryker-tmp/
 reports/mutation/
