@@ -691,6 +691,89 @@ def main():
             sql(ref, "delete from assistant_runs "
                      f"where teacher_id = '{demo_teacher}'")
 
+        # ---------- PROVIDER KEYS (0049 — مفتاح المزوّد BYOK) ----------
+        print("PROVIDER KEYS (0049):")
+        fake_ct = "ZmFrZS1jaXBoZXJ0ZXh0LWZvci1hdXRoei10ZXN0cy0wMDE="
+        fake_iv = "aXYtZm9yLWF1dGh6LXRlc3QtMDAx"
+        try:
+            s, b = rest(url, anon, "GET", "/rest/v1/teacher_ai_keys?select=teacher_id")
+            check("anon cannot read teacher_ai_keys (no grant at all)",
+                  s in (401, 403), f"got {s}")
+            s, b = rest(url, anon, "GET", "/rest/v1/teacher_ai_keys?select=teacher_id",
+                        jwt=demo_jwt)
+            check("even the owner cannot read teacher_ai_keys directly (RPC only)",
+                  s in (401, 403), f"got {s}")
+            s, b = rest(url, anon, "GET", "/rest/v1/teacher_ai_keys?select=teacher_id",
+                        jwt=asst_jwt)
+            check("member cannot read teacher_ai_keys directly either",
+                  s in (401, 403), f"got {s}")
+            s, b = rest(url, anon, "POST", "/rest/v1/teacher_ai_keys",
+                        jwt=demo_jwt,
+                        body={"teacher_id": demo_teacher, "provider": "gemini",
+                              "key_ciphertext": fake_ct, "key_iv": fake_iv})
+            check("owner cannot insert a key row directly",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_save_provider_key",
+                        jwt=asst_jwt,
+                        body={"p_teacher_id": demo_teacher, "p_provider": "gemini",
+                              "p_model": None, "p_base_url": None,
+                              "p_ciphertext": fake_ct, "p_iv": fake_iv})
+            check("member cannot save a provider key (owner-only)",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_save_provider_key",
+                        jwt=other_jwt,
+                        body={"p_teacher_id": demo_teacher, "p_provider": "gemini",
+                              "p_model": None, "p_base_url": None,
+                              "p_ciphertext": fake_ct, "p_iv": fake_iv})
+            check("a stranger cannot save a key for someone else's centre",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_save_provider_key",
+                        jwt=demo_jwt,
+                        body={"p_teacher_id": demo_teacher, "p_provider": "gemini",
+                              "p_model": None, "p_base_url": None,
+                              "p_ciphertext": fake_ct, "p_iv": fake_iv})
+            check("owner saves a provider key via RPC (ciphertext only)",
+                  s == 200 and isinstance(b, dict) and b.get("is_set") is True
+                  and "key_ciphertext" not in str(b) and fake_ct not in str(b),
+                  f"got {s} {str(b)[:160]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_provider_key_status",
+                        jwt=asst_jwt, body={"p_teacher_id": demo_teacher})
+            check("member cannot read key status (owner-only)",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_provider_key_status",
+                        jwt=demo_jwt, body={"p_teacher_id": demo_teacher})
+            check("owner key status is metadata only — never the ciphertext",
+                  s == 200 and isinstance(b, dict) and b.get("is_set") is True
+                  and b.get("provider") == "gemini" and fake_ct not in str(b),
+                  f"got {s} {str(b)[:160]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_read_provider_key",
+                        jwt=asst_jwt, body={"p_teacher_id": demo_teacher})
+            check("member CAN read the ciphertext row (Edge function path — "
+                  "useless without the platform encryption key)",
+                  s == 200 and isinstance(b, dict)
+                  and b.get("key_ciphertext") == fake_ct,
+                  f"got {s} {str(b)[:160]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_read_provider_key",
+                        jwt=other_jwt, body={"p_teacher_id": demo_teacher})
+            check("a stranger cannot read the ciphertext row",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_delete_provider_key",
+                        jwt=asst_jwt, body={"p_teacher_id": demo_teacher})
+            check("member cannot delete the provider key",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_delete_provider_key",
+                        jwt=demo_jwt, body={"p_teacher_id": demo_teacher})
+            check("owner deletes the provider key",
+                  s == 200, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/assistant_provider_key_status",
+                        jwt=demo_jwt, body={"p_teacher_id": demo_teacher})
+            check("status after delete reports no key",
+                  s == 200 and isinstance(b, dict) and b.get("is_set") is False,
+                  f"got {s} {str(b)[:120]}")
+        finally:
+            sql(ref, "delete from teacher_ai_keys "
+                     f"where teacher_id = '{demo_teacher}'")
+
         # ---------- PORTAL ACCOUNTS (3A-385 — هجرات 0040/0041/0042) ----------
         print("PORTAL ACCOUNTS (3A-385):")
         pw_guardian = secrets.token_urlsafe(12)

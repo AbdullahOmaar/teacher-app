@@ -3,30 +3,45 @@
 // ----------------------------------------------------------------------------
 // مدخل Deno فقط: المنطق كله في core.ts (نقي وقابل للمحاكاة محلياً).
 // التصميم الكامل: docs/PHASE2-T6-PREP.md ‏(§2 المدخلات + §4 خطة ب)
-// ومهاجرة 0048 (جدول assistant_runs + دوال التأكيد المحروسة).
+// ومهاجرتا 0048 (assistant_runs + التأكيد) و0049 (مفتاح المزوّد BYOK).
 //
 // verify_jwt مفعّل على مستوى المنصة لهذه الدالة: المستدعي مستخدم حقيقي
-// بـ JWT من التطبيق. الأسرار (أسماء فقط): ASSISTANT_ENABLED (Kill switch
-// المنصة — غير مضبوط = OFF)، ‏SUPABASE_URL، ومفتاح المنصة المحقون الجديد
-// SUPABASE_PUBLISHABLE_KEYS لعميل المستدعي (مدخل default — وبرجوع للمحفوظ
-// القديم حتى يُعطَّل، نمط ترحيل المفاتيح 3A-695).
+// بـ JWT من التطبيق. الأسرار (أسماء فقط):
+// • ASSISTANT_ENABLED — Kill switch المنصة لأفعال المحادثة (غير مضبوط
+//   = OFF). أفعال إدارة المفتاح والحالة لا يخضعان له (إعداد مالك).
+// • ASSISTANT_KEY_ENCRYPTION_KEY — مفتاح تشفير AES-GCM (32 بايت base64)
+//   لمفاتيح المزوّدات: التشفير/الفك خادمي هنا فقط، والمفاتيح الصريحة
+//   لا تُسجَّل ولا تخرج في أي رد.
+// • ASSISTANT_PLANNER — 'test' يركّب المخطط الاختباري الحتمي (للطيار
+//   والتحقق الوظيفي فقط)؛ أي قيمة أخرى/غيابه = مخطط المزوّد الحقيقي.
+// • SUPABASE_URL + مفتاح المنصة المحقون SUPABASE_PUBLISHABLE_KEYS
+//   لعميل المستدعي (مدخل default — وبرجوع للمحفوظ القديم حتى يُعطَّل،
+//   نمط ترحيل المفاتيح 3A-695).
 //
 // ⚠️ لا عميل إدارة (service role) في هذه الدالة إطلاقاً — بقاعدة التجهيز
 // §2-2: المساعد يعمل بهوية المستدعي دائماً؛ قراءاته وكتاباته بعميل
-// بتوكن المستدعي فتخضع لـ RLS، وكتابات سجل التشغيل عبر دوال RPC
-// محروسة (0048) بنفس التوكن. أي احتياج مستقبلي لمفتاح إدارة يُرفض
-// تصميمياً لا يُمرَّر.
+// بتوكن المستدعي فتخضع لـ RLS، وكتابات سجل التشغيل ومفتاح المزوّد عبر
+// دوال RPC محروسة (0048/0049) بنفس التوكن. أي احتياج مستقبلي لمفتاح
+// إدارة يُرفض تصميمياً لا يُمرَّر.
 // ============================================================================
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import {
   DeterministicTestPlanner,
+  PlannerError,
+  ProviderPlanner,
+  aesGcmDecrypt,
+  aesGcmEncrypt,
   handleAssistantChat,
+  parseEncryptionKey,
   type AddStudentPayload,
   type AssistantDeps,
   type AssistantEnv,
   type CallerContext,
   type ConfirmOutcome,
+  type ProviderId,
+  type ProviderKeyConfig,
+  type StoredKeyRow,
 } from './core.ts'
 
 // مفتاح المشروع القابل للنشر — تحقنه المنصة JSON بأسمائه في
@@ -59,6 +74,42 @@ function callerClient(req: Request): SupabaseClient {
       auth: { persistSession: false, autoRefreshToken: false },
     },
   )
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+const SESSION_COLS = 'id, group_id, session_date, start_time, kind, status'
+
+function mapSession(r: Record<string, unknown>) {
+  return {
+    id: String(r.id),
+    group_id: String(r.group_id),
+    session_date: String(r.session_date),
+    start_time: String(r.start_time),
+    kind: String(r.kind),
+    status: String(r.status),
+  }
+}
+
+/** قراءة صف المفتاح المشفّر عبر RPC 0049 — يرمي عند خطأ RPC، وnull عند غياب الصف */
+async function readKeyRow(
+  db: () => SupabaseClient,
+  teacherId: string,
+): Promise<StoredKeyRow | null> {
+  const { data, error } = await db().rpc('assistant_read_provider_key', {
+    p_teacher_id: teacherId,
+  })
+  if (error) throw new Error(`provider key read failed: ${error.message}`)
+  if (!isRecord(data)) return null
+  return {
+    provider: String(data.provider ?? ''),
+    model: typeof data.model === 'string' ? data.model : null,
+    base_url: typeof data.base_url === 'string' ? data.base_url : null,
+    key_ciphertext: String(data.key_ciphertext ?? ''),
+    key_iv: String(data.key_iv ?? ''),
+  }
 }
 
 function makeDeps(req: Request): AssistantDeps {
@@ -240,16 +291,230 @@ function makeDeps(req: Request): AssistantDeps {
       if (error) return { ok: false, error: error.message }
       return { ok: true }
     },
+    fetchGroupSessions: async (teacherId, groupId, limit) => {
+      const { data, error } = await db()
+        .from('sessions')
+        .select(SESSION_COLS)
+        .eq('teacher_id', teacherId)
+        .eq('group_id', groupId)
+        .order('session_date', { ascending: false })
+        .order('start_time', { ascending: false })
+        .limit(limit)
+      if (error) throw new Error(`group sessions fetch failed: ${error.message}`)
+      return (data ?? []).map((r) => mapSession(r as Record<string, unknown>))
+    },
+    fetchHomeworkMarks: async (teacherId, sessionIds) => {
+      if (sessionIds.length === 0) return []
+      const { data, error } = await db()
+        .from('attendance')
+        .select('session_id, student_id, status, homework_done')
+        .eq('teacher_id', teacherId)
+        .in('session_id', sessionIds)
+      if (error) throw new Error(`homework marks fetch failed: ${error.message}`)
+      return (data ?? []).map((r) => ({
+        session_id: String(r.session_id),
+        student_id: String(r.student_id),
+        status: r.status === null ? null : String(r.status),
+        homework_done: Boolean(r.homework_done),
+      }))
+    },
+    fetchSessionsInMonth: async (teacherId, groupId, month) => {
+      const from = `${month}-01`
+      const [y, m] = month.split('-').map(Number)
+      const next = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
+      const { data, error } = await db()
+        .from('sessions')
+        .select(SESSION_COLS)
+        .eq('teacher_id', teacherId)
+        .eq('group_id', groupId)
+        .gte('session_date', from)
+        .lt('session_date', next)
+        .order('session_date', { ascending: true })
+        .order('start_time', { ascending: true })
+      if (error) throw new Error(`month sessions fetch failed: ${error.message}`)
+      return (data ?? []).map((r) => mapSession(r as Record<string, unknown>))
+    },
+    fetchSession: async (teacherId, sessionId) => {
+      const { data, error } = await db()
+        .from('sessions')
+        .select(SESSION_COLS)
+        .eq('teacher_id', teacherId)
+        .eq('id', sessionId)
+        .maybeSingle()
+      if (error || !data) return null
+      return mapSession(data as Record<string, unknown>)
+    },
+    fetchStudentById: async (teacherId, studentId) => {
+      const { data, error } = await db()
+        .from('students')
+        .select('id, name')
+        .eq('teacher_id', teacherId)
+        .eq('id', studentId)
+        .maybeSingle()
+      if (error || !data) return null
+      return { id: String(data.id), name: String(data.name) }
+    },
+    setHomeworkMark: async (teacherId, sessionId, studentId, done) => {
+      const client = db()
+      const { data: existing, error: readError } = await client
+        .from('attendance')
+        .select('status, starred')
+        .eq('teacher_id', teacherId)
+        .eq('session_id', sessionId)
+        .eq('student_id', studentId)
+        .maybeSingle()
+      if (readError) throw new Error(`homework read failed: ${readError.message}`)
+      const status = existing?.status ?? null
+      const starred = Boolean(existing?.starred)
+      // نفس قاعدة مسار الحفظ الموحّد في التطبيق: القيمة الفارغة تماماً
+      // (لا حالة + لا واجب + لا نجمة) تعني حذف الصف لا تخزينه.
+      if (status === null && !done && !starred) {
+        const { error } = await client
+          .from('attendance')
+          .delete()
+          .eq('teacher_id', teacherId)
+          .eq('session_id', sessionId)
+          .eq('student_id', studentId)
+        if (error) throw new Error(`homework delete failed: ${error.message}`)
+        return
+      }
+      const { error } = await client.from('attendance').upsert(
+        {
+          teacher_id: teacherId,
+          session_id: sessionId,
+          student_id: studentId,
+          status,
+          homework_done: done,
+          starred,
+        },
+        { onConflict: 'session_id,student_id' },
+      )
+      if (error) throw new Error(`homework upsert failed: ${error.message}`)
+    },
+    generateGroupSessions: async (teacherId, groupId, monthDate) => {
+      const { data, error } = await db().rpc('generate_group_sessions', {
+        p_teacher_id: teacherId,
+        p_group_id: groupId,
+        p_month: monthDate,
+      })
+      if (error) throw new Error(`session generation failed: ${error.message}`)
+      return typeof data === 'number' ? data : 0
+    },
+    encryptApiKey: async (plaintext) => {
+      const keyB64 = Deno.env.get('ASSISTANT_KEY_ENCRYPTION_KEY')
+      if (!keyB64) throw new Error('ASSISTANT_KEY_ENCRYPTION_KEY is not set')
+      return aesGcmEncrypt(plaintext, parseEncryptionKey(keyB64))
+    },
+    saveProviderKey: async (teacherId, provider, model, baseUrl, ciphertext, iv) => {
+      const { data, error } = await db().rpc('assistant_save_provider_key', {
+        p_teacher_id: teacherId,
+        p_provider: provider,
+        p_model: model,
+        p_base_url: baseUrl,
+        p_ciphertext: ciphertext,
+        p_iv: iv,
+      })
+      if (error || !isRecord(data)) return null
+      return {
+        is_set: true,
+        provider: typeof data.provider === 'string' ? data.provider : provider,
+        model: typeof data.model === 'string' ? data.model : null,
+        updated_at: typeof data.updated_at === 'string' ? data.updated_at : undefined,
+      }
+    },
+    providerKeyStatus: async (teacherId) => {
+      const { data, error } = await db().rpc('assistant_provider_key_status', {
+        p_teacher_id: teacherId,
+      })
+      if (error || !isRecord(data)) return null
+      return {
+        is_set: data.is_set === true,
+        provider: typeof data.provider === 'string' ? data.provider : undefined,
+        model: typeof data.model === 'string' ? data.model : null,
+        updated_at: typeof data.updated_at === 'string' ? data.updated_at : undefined,
+      }
+    },
+    deleteProviderKey: async (teacherId) => {
+      const { error } = await db().rpc('assistant_delete_provider_key', {
+        p_teacher_id: teacherId,
+      })
+      return !error
+    },
+    readProviderKeyRow: async (teacherId) => readKeyRow(db, teacherId),
     now: () => Date.now(),
   }
+}
+
+const PROVIDER_IDS: ProviderId[] = ['openai', 'anthropic', 'gemini', 'openai_compatible']
+
+/**
+ * مخطط المزوّد الحقيقي: مفتاح المدرّس يُقرأ مشفّراً عبر RPC (بهوية
+ * المستدعي) ويُفكّ هنا في الذاكرة فقط — لا يُسجَّل ولا يخرج في رد.
+ */
+function makeProviderPlanner(req: Request): ProviderPlanner {
+  const db = () => callerClient(req)
+  return new ProviderPlanner({
+    resolveKey: async (teacherId): Promise<ProviderKeyConfig | null> => {
+      const row = await readKeyRow(db, teacherId)
+      if (!row) return null
+      if (!PROVIDER_IDS.includes(row.provider as ProviderId)) {
+        throw new PlannerError(
+          'the stored provider is not supported',
+          'planner_unconfigured',
+          500,
+        )
+      }
+      const keyB64 = Deno.env.get('ASSISTANT_KEY_ENCRYPTION_KEY')
+      if (!keyB64) {
+        throw new PlannerError(
+          'key storage is not configured on the platform',
+          'planner_unconfigured',
+          500,
+        )
+      }
+      let apiKey: string
+      try {
+        apiKey = await aesGcmDecrypt(
+          row.key_ciphertext,
+          row.key_iv,
+          parseEncryptionKey(keyB64),
+        )
+      } catch {
+        throw new PlannerError(
+          'the stored provider key cannot be decrypted',
+          'key_decrypt_failed',
+          500,
+        )
+      }
+      return {
+        provider: row.provider as ProviderId,
+        model: row.model,
+        base_url: row.base_url,
+        api_key: apiKey,
+      }
+    },
+    loadGroups: async (teacherId) => {
+      const { data, error } = await db()
+        .from('groups')
+        .select('id, name')
+        .eq('teacher_id', teacherId)
+        .is('archived_at', null)
+      if (error) throw new Error(`groups fetch failed: ${error.message}`)
+      return (data ?? []).map((r) => ({ id: String(r.id), name: String(r.name) }))
+    },
+  })
 }
 
 Deno.serve((req: Request) => {
   const env: AssistantEnv = {
     ASSISTANT_ENABLED: Deno.env.get('ASSISTANT_ENABLED'),
   }
-  // المخطط المركّب في هذا البناء هو البديل الاختباري الحتمي — ليس نموذجاً.
-  // مخطط المزوّد الحقيقي يركب هنا بعد حسم ق5 عند المالك.
-  const planner = new DeterministicTestPlanner()
+  // الافتراضي: مخطط المزوّد الحقيقي بمفتاح المدرّس (BYOK — ق5).
+  // ASSISTANT_PLANNER=test يركّب البديل الاختباري الحتمي — للطيار
+  // والتحقق الوظيفي فقط، وبقرار منصة صريح (علم بيئة) لا من العميل.
+  const planner =
+    Deno.env.get('ASSISTANT_PLANNER') === 'test'
+      ? new DeterministicTestPlanner()
+      : makeProviderPlanner(req)
   return handleAssistantChat(req, env, makeDeps(req), planner, (msg) => console.log(msg))
 })

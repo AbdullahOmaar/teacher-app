@@ -18,6 +18,8 @@ export const settings = {
   sectionTeam: 'فريق العمل (المساعدون)',
   sectionEnrol: 'صفحة الحجز العامة',
   sectionWhatsapp: 'واتساب (اختياري)',
+  sectionAssistant: 'المساعد الذكي (مفتاحك)',
+  moreAssistant: 'المساعد الذكي',
   sectionMascot: 'الماسكوت دُفّي',
   /** قسم «حول التطبيق» (3A-312 — بند ٥): الاسم والإصدار من مصدر واحد */
   sectionAbout: 'حول التطبيق',

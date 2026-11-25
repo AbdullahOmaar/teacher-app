@@ -47,6 +47,7 @@ const TITLES: Record<string, string> = {
   atrisk: t('shell.title.atrisk'),
   analytics: t('shell.title.analytics'),
   homework: t('shell.title.homework'),
+  assistant: t('assistant.title'),
   activity: t('shell.title.activity'),
 }
 
@@ -75,6 +76,7 @@ function resolveRoute(pathname: string): { screen: string; tab: TabKey } {
   if (pathname.startsWith('/money')) return { screen: 'money', tab: 'more' }
   if (pathname.startsWith('/analytics')) return { screen: 'analytics', tab: 'more' }
   if (pathname.startsWith('/homework')) return { screen: 'homework', tab: 'more' }
+  if (pathname.startsWith('/assistant')) return { screen: 'assistant', tab: 'more' }
   if (pathname.startsWith('/activity-log')) return { screen: 'activity', tab: 'more' }
   if (pathname.startsWith('/export')) return { screen: 'export', tab: 'more' }
   if (pathname.startsWith('/backup')) return { screen: 'backup', tab: 'more' }

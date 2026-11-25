@@ -21,6 +21,7 @@ import { groups } from './groups'
 import { schedule } from './schedule'
 import { settings } from './settings'
 import { paymentProofs } from './paymentProofs'
+import { assistant } from './assistant'
 import { format } from './format'
 import { mascot } from './mascot'
 
@@ -53,6 +54,7 @@ export const ar = {
   schedule,
   settings,
   paymentProofs,
+  assistant,
   format,
   mascot,
 } as const
