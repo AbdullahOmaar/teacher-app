@@ -364,7 +364,7 @@ export function LoginPage() {
               <button
                 type="button"
                 onClick={() => switchMode('forgot')}
-                className="block mx-auto mt-3 bg-transparent border-0 cursor-pointer text-primary font-bold text-[13.5px]"
+                className="flex items-center mx-auto mt-3 min-h-[36px] px-3 bg-transparent border-0 cursor-pointer text-primary font-bold text-[13.5px]"
               >
                 {t('auth.forgotPasswordLink')}
               </button>

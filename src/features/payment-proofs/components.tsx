@@ -10,7 +10,7 @@ import { Card } from '../../components/ui/Card'
 import { ListRow } from '../../components/ui/ListRow'
 import { Sheet } from '../../components/ui/Sheet'
 import { Field, FormError, Select, TextInput } from '../../components/ui/form'
-import { ErrorState, SkeletonRows } from '../../components/ui/states'
+import { ErrorState } from '../../components/ui/states'
 import { useToast } from '../../components/ui/toast'
 import { formatClock12, formatMoney } from '../../lib/format'
 import { PAYMENT_METHOD_LABELS, periodLabel } from '../invoices/api'
@@ -59,7 +59,15 @@ export function ProofsReviewSection({
     )
   }
 
-  if (!proofsQ.isPending && proofs.length === 0) return null
+  // أثناء التحميل لا يُرسم شيء (3A-712 — قياس CLS): البطاقة الهيكلية
+  // بارتفاعها الكامل كانت تختفي عند فراغ النتيجة فيقفز محتوى الفواتير
+  // تحتها لأعلى (إزاحة مقاسة 0.235 على 375px). القسم بحسب قصده الموثق
+  // أعلاه «يظهر فقط عند وجود معلّقات أو خطأ تحميل» — فالانتظار بلا
+  // رسم يطابق القصد ويُبقي موضعه النهائي ثابتاً، وصفحة الفواتير نفسها
+  // تعرض حالة تحميلها العامة في الأثناء.
+  if (proofsQ.isPending) return null
+
+  if (proofs.length === 0) return null
 
   return (
     <Card className="border-primary/40 bg-soft/40">
@@ -78,9 +86,7 @@ export function ProofsReviewSection({
         {t('paymentProofs.reviewHint')}
       </p>
 
-      {proofsQ.isPending ? (
-        <SkeletonRows rows={2} />
-      ) : (
+      {(
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
           {proofs.map((p, i) => (
             <ListRow

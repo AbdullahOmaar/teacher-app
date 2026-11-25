@@ -141,7 +141,9 @@ function AlertRow({ alert, index = 0 }: { alert: AppAlert; index?: number }) {
           {alert.detail ? (
             <Link
               to={alert.to}
-              className="flex-1 min-w-0 text-muted text-[13.5px] leading-[1.6] no-underline"
+              // min-h لهدف لمس ≥24px (WCAG 2.5.8): ارتفاع السطر وحده
+              // 21.6px — قياس axe/لمس حي في CI (مهمة 3A-712)
+              className="flex-1 min-w-0 flex items-center min-h-[28px] text-muted text-[13.5px] leading-[1.6] no-underline"
             >
               {alert.detail}
             </Link>
