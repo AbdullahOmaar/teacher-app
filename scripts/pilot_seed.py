@@ -60,8 +60,8 @@ def wipe(tid):
     sql(f"delete from sessions where teacher_id = '{tid}' and group_id in "
         f"(select id from groups where teacher_id = '{tid}' and name like '%{TAG}%')")
     sql(f"delete from enrollments where teacher_id = '{tid}' and student_id in "
-        f"(select id from students where teacher_id = '{tid}' and name like '%{TAG}%')")
-    sql(f"delete from students where teacher_id = '{tid}' and name like '%{TAG}%'")
+        f"(select id from students where teacher_id = '{tid}' and name like 'طالب طيار%')")
+    sql(f"delete from students where teacher_id = '{tid}' and name like 'طالب طيار%'")
     sql(f"delete from groups where teacher_id = '{tid}' and name like '%{TAG}%'")
     sql(f"delete from assistant_runs where teacher_id = '{tid}'")
     sql(f"delete from teacher_ai_keys where teacher_id = '{tid}'")
@@ -89,24 +89,11 @@ def seed(tid):
         ") insert into enrollments (teacher_id, student_id, group_id) "
         f"select '{tid}', id, ({arr})[((rn - 1) / {PER_GROUP}) + 1] from ranked"
     )
-    # حصص الشهر الحالي بزرع مباشر: دالة generate_group_sessions محروسة
-    # بـ auth.uid() (تعمل بهوية المستدعي من التطبيق/الدالة فقط — وهو
-    # مسار الطيار نفسه عبر إجراء gen-sessions)، فالبذر لا يستدعيها.
-    import datetime as _dt
-    today = _dt.date.today()
-    first = today.replace(day=1)
-    saturdays = []
-    d = first
-    while d.month == first.month:
-        if d.weekday() == 5:  # السبت — نفس يوم المجموعة (days={6} بترقيم JS)
-            saturdays.append(d)
-        d += _dt.timedelta(days=1)
-    for gid in group_ids:
-        values = ", ".join(
-            f"('{tid}', '{gid}', '{d.isoformat()}', '17:00')" for d in saturdays
-        )
-        sql("insert into sessions (teacher_id, group_id, session_date, "
-            f"start_time) values {values} on conflict do nothing")
+    # لا زرع يدوي للحصص: إنشاء المجموعة نفسه يُولّد حصصها تلقائياً
+    # (سلوك التطبيق — نافذة ٣ شهور حول الشهر الحالي ليوم المجموعة)،
+    # والزرع اليدوي كان يصطدم بقيد sessions_regular_unique عبثاً.
+    # توليد الشهور الإضافية عبر المساعد نفسه هو ما يختبره الطيار
+    # (إجراء gen-sessions ← RPC ‏0022 بهوية المستدعي).
     return group_ids
 
 

@@ -150,7 +150,7 @@ def main():
           f"got {s} {str(b)[:200]}")
 
     s, b = call({"action": "message",
-                 "message": f"add-student:طالب طيار مؤكد:{g1}"})
+                 "message": f"add-student:طالب طيار {seed_mod.TAG} مؤكد:{g1}"})
     check("proposal: add_student proposed with a payload hash",
           s == 200 and b.get("status") == "proposed"
           and len(str(b.get("payload_hash", ""))) == 64,
@@ -171,7 +171,7 @@ def main():
           mid["students"] == students_before + 1, f"students={mid['students']}")
 
     s, b = call({"action": "message",
-                 "message": f"add-student:طالب طيار موقوف:{g1}"})
+                 "message": f"add-student:طالب طيار {seed_mod.TAG} موقوف:{g1}"})
     run2, hash2 = b.get("run_id"), b.get("payload_hash")
     s, b = call({"action": "stop", "run_id": run2})
     check("stop cancels the pending proposal",
@@ -191,10 +191,22 @@ def main():
     s, b = call({"action": "message", "message": f"gen-sessions:{g1}:2027-01"})
     run3, hash3 = b.get("run_id"), b.get("payload_hash")
     s, b = call({"action": "confirm", "run_id": run3, "payload_hash": hash3})
+    jan_sessions = seed_mod.sql(
+        "select count(*) as n from sessions where teacher_id = "
+        f"'{tid}' and group_id = '{g1}' and session_date >= '2027-01-01' "
+        "and session_date < '2027-02-01'")[0]["n"]
+    run3_rows = seed_mod.sql(
+        "select status from assistant_runs where teacher_id = "
+        f"'{tid}' and tool = 'generate_sessions'")
+    # على المسار الشبكي المهتز قد يضيع رد التأكيد بعد نجاحه خادمياً
+    # فتُرجع إعادة المحاولة 409 — الحقيقة من سجل التدقيق والحصص نفسها:
+    # تنفيذ واحد بالضبط + حصص الشهر موجودة.
     check("generate_sessions executes via the confirmation machine",
-          s == 200 and b.get("status") == "executed"
-          and int(b.get("result", {}).get("created", 0)) > 0,
-          f"got {s} {str(b)[:200]}")
+          ((s == 200 and b.get("status") == "executed"
+            and int(b.get("result", {}).get("created", 0)) > 0)
+           or (len(run3_rows) == 1 and run3_rows[0]["status"] == "executed"))
+          and jan_sessions > 0,
+          f"got {s} {str(b)[:160]} jan_sessions={jan_sessions} runs={run3_rows}")
 
     s, b = call({"action": "key_delete"})
     check("key_delete removes the pilot key",
