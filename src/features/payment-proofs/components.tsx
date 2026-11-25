@@ -13,11 +13,20 @@ import { Field, FormError, Select, TextInput } from '../../components/ui/form'
 import { ErrorState } from '../../components/ui/states'
 import { useToast } from '../../components/ui/toast'
 import { formatClock12, formatMoney } from '../../lib/format'
-import { PAYMENT_METHOD_LABELS, periodLabel } from '../invoices/api'
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, periodLabel } from '../invoices/api'
 import { useStudentInvoices } from '../invoices/hooks'
 import { proofDate, type PendingProofItem } from './api'
-import { PP, useApproveProof, usePendingProofs, useProofImageUrl, useRejectProof } from './hooks'
-import { t } from '../../i18n'
+import type { ExtractRequestResult } from './extract'
+import {
+  PP,
+  useApproveProof,
+  useExtractReceipt,
+  usePendingProofs,
+  useProofImageUrl,
+  useRejectProof,
+} from './hooks'
+import { t, type I18nKey } from '../../i18n'
+import type { PaymentMethod } from '../../types/database'
 
 /** تاريخ ووقت رفع الإثبات بصيغة مقروءة (التوقيت المحلي للمتصفح) */
 function proofDateTime(iso: string): string {
@@ -127,6 +136,20 @@ export function ProofsReviewSection({
 }
 
 // ---------------------------------------------------------------------------
+/** شارة مطابقة قيمة مقروءة آلياً للمدّعى — لا تُرسم عند غياب المقارنة (null) */
+function ExtractMatchBadge({ match }: { match: boolean | null }) {
+  if (match == null) return null
+  return match ? (
+    <span className="text-[11px] font-bold rounded-full px-2 py-0.5 bg-ok-soft text-ok-text">
+      {t('paymentProofs.extractMatch')}
+    </span>
+  ) : (
+    <span className="text-[11px] font-bold rounded-full px-2 py-0.5 bg-warn/15 text-warn-text">
+      {t('paymentProofs.extractMismatch')}
+    </span>
+  )
+}
+
 // شيت مراجعة إثبات واحد: الصورة (رابط موقّع)، بيانات الادعاء، اختيار
 // فاتورة الاعتماد والمبلغ النهائي، واعتماد/رفض. الاعتماد بلا فاتورة
 // مستحقة للطالب مستحيل بنيوياً (payments.invoice_id إلزامي) فيُشرح
@@ -163,9 +186,54 @@ function ReviewProofSheet({
     null
 
   const [amount, setAmount] = useState(() => String(proof.amount))
+  const [method, setMethod] = useState<PaymentMethod>(proof.method)
+  const [paidOn, setPaidOn] = useState<string | null>(null)
   const [reason, setReason] = useState('')
   const amt = parseFloat(amount) || 0
   const busy = approve.isPending || reject.isPending
+
+  // Extract-1 (T10): قراءة تلقائية من اللقطة تعبّئ الحقول فوق — اقتراح
+  // يراجعه المدرّس، وحالاتها غير الناجحة رسائل صادقة لا أخطاء قاتلة.
+  const extract = useExtractReceipt()
+  const [extractState, setExtractState] = useState<
+    | { phase: 'idle' }
+    | { phase: 'done'; result: Extract<ExtractRequestResult, { kind: 'ok' }> }
+    | { phase: 'notice'; messageKey: I18nKey }
+  >({ phase: 'idle' })
+
+  function runExtract() {
+    extract.mutate(proof.id, {
+      onSuccess: (res) => {
+        if (res.kind === 'ok') {
+          setExtractState({ phase: 'done', result: res })
+          if (res.extraction.amount != null) setAmount(String(res.extraction.amount))
+          if (res.extraction.method != null) setMethod(res.extraction.method)
+          if (res.extraction.paid_on != null) setPaidOn(res.extraction.paid_on)
+        } else if (res.kind === 'unavailable') {
+          setExtractState({ phase: 'notice', messageKey: 'paymentProofs.extractUnavailable' })
+        } else if (res.kind === 'no_key') {
+          setExtractState({ phase: 'notice', messageKey: 'paymentProofs.extractNoKey' })
+        } else {
+          setExtractState({ phase: 'notice', messageKey: 'paymentProofs.extractFailed' })
+        }
+      },
+      onError: () =>
+        setExtractState({ phase: 'notice', messageKey: 'paymentProofs.extractFailed' }),
+    })
+  }
+
+  const extractOk = extractState.phase === 'done' ? extractState.result : null
+  const extractNothing =
+    extractOk != null &&
+    extractOk.extraction.amount == null &&
+    extractOk.extraction.method == null &&
+    extractOk.extraction.paid_on == null
+  const confidenceKey: I18nKey =
+    extractOk?.extraction.confidence === 'high'
+      ? 'paymentProofs.extractConfidenceHigh'
+      : extractOk?.extraction.confidence === 'medium'
+        ? 'paymentProofs.extractConfidenceMedium'
+        : 'paymentProofs.extractConfidenceLow'
 
   return (
     <Sheet
@@ -180,7 +248,15 @@ function ReviewProofSheet({
             onClick={() => {
               if (!selectedInvoice) return
               approve.mutate(
-                { proof, input: { invoiceId: selectedInvoice.invoice_id, amount: amt } },
+                {
+                  proof,
+                  input: {
+                    invoiceId: selectedInvoice.invoice_id,
+                    amount: amt,
+                    method,
+                    paidOn: paidOn ?? undefined,
+                  },
+                },
                 {
                   onSuccess: ({ receiptNo }) =>
                     onDone(t('paymentProofs.approveSuccessToast', { receiptNo })),
@@ -248,6 +324,52 @@ function ReviewProofSheet({
         </div>
       </div>
 
+      {/* Extract-1 (T10): قراءة تلقائية مساعدة — تعبّئ الحقول ولا تعتمد شيئاً */}
+      <div className="mb-3">
+        <Button variant="soft" size="sm" disabled={busy || extract.isPending} onClick={runExtract}>
+          <SearchCheck size={16} />
+          {extract.isPending ? t('paymentProofs.extracting') : t('paymentProofs.extractAction')}
+        </Button>
+        {extractState.phase === 'notice' && (
+          <p className="text-muted text-[13px] mt-2 mb-0">{t(extractState.messageKey)}</p>
+        )}
+        {extractOk && (
+          <div className="rounded-xl border border-border bg-bg px-3 py-2 mt-2 text-[13.5px]">
+            <div className="font-bold mb-1">{t('paymentProofs.extractTitle')}</div>
+            {extractNothing ? (
+              <p className="text-muted mb-0">{t('paymentProofs.extractNothing')}</p>
+            ) : (
+              <>
+                {extractOk.extraction.amount != null && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted">{t('paymentProofs.extractAmountLabel')}:</span>
+                    <b>{formatMoney(extractOk.extraction.amount)}</b>
+                    <ExtractMatchBadge match={extractOk.comparison.amount_match} />
+                  </div>
+                )}
+                {extractOk.extraction.method != null && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted">{t('paymentProofs.extractMethodLabel')}:</span>
+                    <b>{PAYMENT_METHOD_LABELS[extractOk.extraction.method]}</b>
+                    <ExtractMatchBadge match={extractOk.comparison.method_match} />
+                  </div>
+                )}
+                {extractOk.extraction.paid_on != null && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted">{t('paymentProofs.extractDateLabel')}:</span>
+                    <b>{proofDate(extractOk.extraction.paid_on)}</b>
+                  </div>
+                )}
+                <div className="text-muted text-[12.5px] mt-1">
+                  {t('paymentProofs.extractConfidenceLabel')}: {t(confidenceKey)}
+                </div>
+              </>
+            )}
+            <p className="text-muted text-[12.5px] mt-1 mb-0">{t('paymentProofs.extractHint')}</p>
+          </div>
+        )}
+      </div>
+
       <Field label={t('paymentProofs.invoiceFieldLabel')}>
         {invoicesQ.isPending ? (
           <p className="text-muted text-[13.5px]">{t('paymentProofs.loadingInvoices')}</p>
@@ -280,6 +402,16 @@ function ReviewProofSheet({
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
+      </Field>
+
+      <Field label={t('paymentProofs.methodFieldLabel')}>
+        <Select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
+          {PAYMENT_METHODS.map((m) => (
+            <option key={m.code} value={m.code}>
+              {m.label}
+            </option>
+          ))}
+        </Select>
       </Field>
 
       <Field label={t('paymentProofs.rejectReasonLabel')}>

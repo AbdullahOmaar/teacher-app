@@ -197,6 +197,45 @@ export type MonthlyProfitRow = NonNullRow<Tables<'monthly_profit'>>
 export type DailyClosingRow = Tables<'daily_closings'>
 
 // ---------------------------------------------------------------------------
+// دفتر السنتر — مشتريات ومبيعات (migration ‏0051، مهمة فيز 2 رقم 10).
+// ⚠️ أنواع الجداول والـ views في database.generated.ts كُتبت يدوياً هنا
+// مطابقةً لملف المهاجرة حرفياً لأن المهاجرة غير مطبّقة على القاعدة بعد
+// (قاعدة تجميد الفيز 2026-11-25) فلا يستطيع المولّد رؤيتها؛ عند تطبيقها
+// عند بوابة التجميد تُعاد التوليدة بـ scripts/gen_db_types.py للتحقق
+// النهائي — أي اختلاف يظهر هناك يُصحَّح لصالح المخطط الحي.
+// ---------------------------------------------------------------------------
+
+/** مورد للسنتر — جدول suppliers */
+export type SupplierRow = Tables<'suppliers'>
+
+/** رأس عملية شراء — جدول purchases (الإجمالي مشتق من البنود عبر purchase_balances) */
+export type PurchaseRow = Tables<'purchases'>
+
+/** بند شراء — جدول purchase_lines */
+export type PurchaseLineRow = Tables<'purchase_lines'>
+
+/** دفعة لمورد — جدول purchase_payments (دفتر: إدخال فقط، التصحيح بقيد سالب) */
+export type PurchasePaymentRow = Tables<'purchase_payments'>
+
+/** رأس عملية بيع غير دراسية — جدول sales */
+export type SaleRow = Tables<'sales'>
+
+/** بند بيع — جدول sale_lines */
+export type SaleLineRow = Tables<'sale_lines'>
+
+/** رصيد عملية شراء من view ‏purchase_balances (supplier_id يخلو لصفقات بلا مورد) */
+export type PurchaseBalanceRow = Tables<'purchase_balances'>
+
+/** رصيد عملية بيع من view ‏sale_balances (student_id يخلو لمشتري غير طالب) */
+export type SaleBalanceRow = Tables<'sale_balances'>
+
+/** مستحقات مورد مجمعة من view ‏supplier_payables (supplier_id قد يخلو لصفقات بلا مورد) */
+export type SupplierPayableRow = Tables<'supplier_payables'>
+
+/** صف التقرير الشهري الموحّد من view ‏monthly_centre_finance */
+export type MonthlyCentreFinanceRow = NonNullRow<Tables<'monthly_centre_finance'>>
+
+// ---------------------------------------------------------------------------
 // سجل النشاط — جدول activity_log (migration ‏0009)
 // ---------------------------------------------------------------------------
 

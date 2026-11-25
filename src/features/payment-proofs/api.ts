@@ -1,7 +1,7 @@
 import { t } from '../../i18n'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { db } from '../../lib/supabase'
-import type { PaymentProofRow } from '../../types/database'
+import type { PaymentMethod, PaymentProofRow } from '../../types/database'
 import { todayStr } from '../home/api'
 import { createPayment, voidPayment, PAYMENT_METHOD_LABELS } from '../invoices/api'
 import { logActivity } from '../activity/api'
@@ -112,11 +112,20 @@ export interface ApproveProofInput {
   invoiceId: string
   /** المبلغ المعتمد نهائياً — يبدأ من المدّعى ويقدر المدرس يعدّله قبل الاعتماد */
   amount: number
+  /**
+   * طريقة الدفع المعتمدة نهائياً — تبدأ من المدّعاة ويقدر المدرس يعدّلها
+   * قبل الاعتماد (Extract-1 T10: القراءة التلقائية من اللقطة قد تقترح
+   * طريقة مختلفة عن المدّعاة فتُعبَّأ هنا بعد مراجعته).
+   */
+  method: PaymentMethod
+  /** تاريخ الدفع المعتمد — افتراضياً اليوم؛ القراءة التلقائية قد تقترحه من اللقطة */
+  paidOn?: string
 }
 
 /**
- * اعتماد إثبات: حجز → دفعة حقيقية عبر createPayment القائمة (بنفس
- * الطريقة المدّعاة وتاريخ اليوم) → ربط payment_id وحالة approved.
+ * اعتماد إثبات: حجز → دفعة حقيقية عبر createPayment القائمة (بالمبلغ
+ * والطريقة والتاريخ كما اعتمدها المدرس في الشيت — تبدأ من المدّعى،
+ * وExtract-1 قد تعبّئها من قراءة اللقطة، والقرار الأخير له دائماً) → ربط payment_id وحالة approved.
  * أي فشل بعد إنشاء الدفعة يُعوَّض بعكسها بـ voidPayment القائمة.
  */
 export async function approveProof(
@@ -134,8 +143,8 @@ export async function approveProof(
   try {
     payment = await createPayment(teacherId, input.invoiceId, {
       amount: input.amount,
-      method: proof.method,
-      paid_on: todayStr(),
+      method: input.method,
+      paid_on: input.paidOn ?? todayStr(),
     })
 
     const { data, error } = await db()
@@ -156,8 +165,8 @@ export async function approveProof(
       entity_label: (proof as PendingProofItem).student_name ?? null,
       details: {
         amount: input.amount,
-        method: proof.method,
-        method_label: PAYMENT_METHOD_LABELS[proof.method] ?? proof.method,
+        method: input.method,
+        method_label: PAYMENT_METHOD_LABELS[input.method] ?? input.method,
         receipt_no: payment.receipt_no,
         payment_id: payment.id,
         invoice_id: input.invoiceId,
