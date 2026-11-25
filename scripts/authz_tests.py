@@ -1518,6 +1518,96 @@ def main():
                 check("0052 fixtures cleaned",
                       left and int(left[0]["c"]) == 0, f"got {left}")
 
+        # ---------- ERROR REPORTS (0053 — سجل أخطاء الإنتاج الداخلي) ----------
+        # ⚠️ المهاجرة 0053 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن
+        # غاب يطبع تخطياً موثقاً (لا فشل)، وبعد التطبيق يشتغل كاملاً.
+        print("ERROR REPORTS (0053):")
+        er_probe = sql(ref, "select to_regclass('public.error_reports') as t")
+        if not er_probe or not er_probe[0].get("t"):
+            print("  SKIP 0053 live section — migration 0053 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PHASE2-T11-FIRST-RUN.md)")
+        else:
+            try:
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/report_client_error",
+                            body={"p_teacher_id": None,
+                                  "p_kind": "unhandled",
+                                  "p_message": "authz anon pre-login error",
+                                  "p_stack": None, "p_route": "/login",
+                                  "p_app_version": "1.0.0"})
+                check("anonymous pre-login error intake works (no context)",
+                      s == 200 and isinstance(b, dict) and b.get("id"),
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/report_client_error",
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "unhandled",
+                                  "p_message": "authz anon with foreign context",
+                                  "p_stack": None, "p_route": "/login",
+                                  "p_app_version": "1.0.0"})
+                check("anonymous report cannot claim a teacher context",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/report_client_error",
+                            jwt=other_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "render",
+                                  "p_message": "authz stranger context error",
+                                  "p_stack": None, "p_route": "/",
+                                  "p_app_version": "1.0.0"})
+                check("a stranger cannot report under demo's teacher context",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/report_client_error",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "bogus",
+                                  "p_message": "authz invalid kind",
+                                  "p_stack": None, "p_route": "/",
+                                  "p_app_version": "1.0.0"})
+                check("invalid error kind is rejected by the intake RPC",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/report_client_error",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "render",
+                                  "p_message": "authz owner error " + "x" * 3000,
+                                  "p_stack": "authz stack", "p_route": "/money",
+                                  "p_app_version": "1.0.0"})
+                check("owner reports an error under his own context",
+                      s == 200 and isinstance(b, dict) and b.get("id"),
+                      f"got {s} {str(b)[:120]}")
+                er_len = sql(ref, "select char_length(message) as n "
+                                  "from error_reports "
+                                  "where message like 'authz owner error%'")
+                check("server truncates stored message to 2000 chars",
+                      er_len and int(er_len[0]["n"]) == 2000, f"got {er_len}")
+                s, b = rest(url, anon, "GET", "/rest/v1/error_reports?select=id",
+                            jwt=demo_jwt)
+                rows = b if isinstance(b, list) else []
+                check("owner reads exactly his own context's reports",
+                      s == 200 and len(rows) == 1, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET", "/rest/v1/error_reports?select=id",
+                            jwt=asst_jwt)
+                check("assistant reads no error reports (owner-only RLS)",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "GET", "/rest/v1/error_reports?select=id")
+                check("anon reads no error reports (no grant)",
+                      s in (401, 403) or (s == 200 and b == []), f"got {s}")
+                s, b = rest(url, anon, "POST", "/rest/v1/error_reports",
+                            jwt=demo_jwt,
+                            body={"teacher_id": demo_teacher,
+                                  "kind": "render",
+                                  "message": "authz direct insert attempt"})
+                check("even the owner cannot insert error rows directly (RPC only)",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+            finally:
+                sql(ref, "delete from error_reports "
+                         "where message like 'authz %'")
+                left = sql(ref, "select count(*) as c from error_reports "
+                                "where message like 'authz %'")
+                check("0053 fixtures cleaned",
+                      left and int(left[0]["c"]) == 0, f"got {left}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد

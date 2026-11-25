@@ -61,6 +61,9 @@ export type FeedbackKind = 'suggestion' | 'problem' | 'praise' | 'other'
 /** حالة ملاحظة المدرس (migration ‏0052): جديدة ← مقروءة ← مغلقة — قيد CHECK في المخطط */
 export type FeedbackStatus = 'new' | 'read' | 'closed'
 
+/** نوع خطأ سجل الأخطاء الداخلي (migration ‏0053 — مهمة 11): قيد CHECK في المخطط */
+export type ErrorReportKind = 'render' | 'unhandled' | 'rejection'
+
 // ---------------------------------------------------------------------------
 // الصفوف — أسماء مستقرة فوق الأنواع المولّدة
 // ---------------------------------------------------------------------------
@@ -102,6 +105,13 @@ export type TeacherFeedbackRow = WithFields<
   Tables<'teacher_feedback'>,
   { kind: FeedbackKind; status: FeedbackStatus }
 >
+
+/**
+ * صف سجل أخطاء الإنتاج الداخلي (migration ‏0053 — مهمة 11 / فجوة 21):
+ * ‏kind مقيد بقيد CHECK لوحدة ErrorReportKind. القراءة للمالك فقط في
+ * RLS؛ الكتابة عبر RPC ‏report_client_error وحده (حمولة مُجرّدة).
+ */
+export type ErrorReportRow = WithFields<Tables<'error_reports'>, { kind: ErrorReportKind }>
 
 /**
  * عضو فريق السنتر. ‏permissions jsonb شكله Record بتصميم كاتبه الوحيد

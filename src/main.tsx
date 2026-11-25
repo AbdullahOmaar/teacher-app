@@ -9,8 +9,13 @@ import '@fontsource/ibm-plex-sans-arabic/700.css'
 import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ui/ErrorBoundary.tsx'
+import { installGlobalErrorHandlers } from './lib/errorReporter.ts'
 // التقاط beforeinstallprompt مبكراً لبطاقة التثبيت في الإعدادات (خطوة 11)
 import './lib/installPrompt'
+
+// قياس أخطاء الإنتاج الداخلي (مهمة 11 — فجوة 21): ملتقطا النافذة
+// العامان (خطأ غير مُعالج + وعد مرفوض) بجانب بلاغات حدّ الخطأ نفسه
+installGlobalErrorHandlers()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
