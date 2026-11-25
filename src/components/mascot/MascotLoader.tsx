@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
+import { versionStampLine } from '../../lib/buildInfo'
 import { Logo } from '../brand/Logo'
 import { sampleLottieTransform, type LottieAnimation, type LottieKeyframe } from './lottie'
 import { useMascotVisible, usePrefersReducedMotion } from './useMascotVisible'
@@ -125,6 +126,9 @@ export function MascotSplash() {
       <MascotLoader size={132} />
       <div className="font-extrabold text-[22px] mt-2">{t('shell.appName')}</div>
       <div className="text-muted text-[14px]">{t('mascot.loading')}</div>
+      {/* ختم الإصدار ووقت النشر (قاعدة المالك 2026-11-25): سطر ظاهر
+          أسفل هوية السبلاش، مبني من بيانات البناء عبر lib/buildInfo */}
+      <div className="text-muted text-[13.5px] mt-3">{versionStampLine()}</div>
     </div>
   )
 }

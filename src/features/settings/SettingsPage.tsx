@@ -13,6 +13,7 @@ import { useAuth } from '../../lib/useAuth'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { hasExplicitThemeChoice, useTheme, type ThemeMode } from '../../hooks/useTheme'
 import { setActiveTeacherId } from '../../lib/activeTeacher'
+import { versionStampLine } from '../../lib/buildInfo'
 import { copyText } from '../../lib/clipboard'
 import {
   ASSISTANT_DEFAULT_PERMISSIONS,
@@ -682,14 +683,13 @@ export function SettingsPage() {
         </SettingsSection>
       )}
 
-      {/* حول التطبيق (3A-312 — بند ٥): الاسم + الإصدار من package.json
-          عبر __APP_VERSION__ — تحديث الرقم هناك يحدّث العرض تلقائياً */}
+      {/* حول التطبيق (قاعدة المالك 2026-11-25، امتداد 3A-312): الاسم +
+          سطر ختم الإصدار ووقت النشر الموحّد من بيانات البناء عبر
+          lib/buildInfo — تحديث الرقم في package.json يحدّث العرض تلقائياً */}
       <SettingsSection {...sectionProps('about')}>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col gap-1">
           <span className="font-bold text-[15px]">{t('shell.appName')}</span>
-          <span className="text-muted text-[13.5px]">
-            {t('settings.aboutVersion', { version: __APP_VERSION__ })}
-          </span>
+          <span className="text-muted text-[13.5px]">{versionStampLine()}</span>
         </div>
       </SettingsSection>
 
