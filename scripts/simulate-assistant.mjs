@@ -13,13 +13,21 @@
 // أي كتابة ← تأكيد بهاش خاطئ مرفوض ← إيقاف = صفر كتابات ← اقتراح جديد
 // ← تأكيد صحيح ينفّذ مرة واحدة ← مقترح منتهٍ مرفوض ← إلغاء = صفر
 // كتابات ← فشل إعادة التحقق (مجموعة حُذفت) يغلق التشغيل failed بلا كتابة.
+// وجولة التنفيذ (0049 + المخطط الحقيقي): إدارة مفتاح BYOK (حفظ مشفّر
+// فقط، حالة بلا نص مشفّر، مالك فقط، متاحة والمساعد مطفأ)، مخطط مزوّد
+// بـ HTTP مُحاكى (نداء أداة OpenAI، غياب المفتاح 422 بلا أي نداء، تنقية
+// خطأ المزوّد من المفتاح نفسه، إجابة نصية Anthropic مُدقَّقة، مقترح
+// Gemini يُنفَّذ بالتأكيد)، وأدوات الواجب/الحصص (قاعدة الصف الفارغ +
+// توليد حصص لا يتكرر).
 //
 // التشغيل: node scripts/simulate-assistant.mjs
 // ============================================================================
 import {
   DeterministicTestPlanner,
+  ProviderPlanner,
   computeAbsence,
   computeCollection,
+  computeHomeworkSummary,
   computeUnpaid,
   handleAssistantChat,
   hashPayload,
@@ -56,6 +64,7 @@ function makeWorld() {
       { id: 's1', name: 'طالب أول' },
       { id: 's2', name: 'طالب ثانٍ' },
       { id: 's3', name: 'طالب ثالث' },
+      { id: 's4', name: 'طالب رابع' },
     ],
     attendance: [
       { student_id: 's1', status: 'a' }, { student_id: 's1', status: 'a' },
@@ -68,6 +77,17 @@ function makeWorld() {
       { amount: 150, method: 'instapay', paid_on: '2026-11-10' },
       { amount: -50, method: 'cash', paid_on: '2026-11-12' }, // عكس دفعة
     ],
+    sessions: [
+      { id: 'sess1', group_id: GROUP, session_date: '2026-11-20', start_time: '17:00', kind: 'regular', status: 'scheduled' },
+      { id: 'sess2', group_id: GROUP, session_date: '2026-11-13', start_time: '17:00', kind: 'regular', status: 'held' },
+    ],
+    homeworkRows: [
+      { session_id: 'sess1', student_id: 's1', status: 'p', homework_done: true, starred: false },
+      { session_id: 'sess1', student_id: 's2', status: 'p', homework_done: false, starred: false },
+      { session_id: 'sess1', student_id: 's3', status: 'a', homework_done: false, starred: false },
+    ],
+    generatedMonths: new Set(),
+    keyRow: null,
     groups: [{ id: GROUP, name: 'مجموعة السبت' }],
     insertedStudents: [],
     enrollments: [],
@@ -148,6 +168,77 @@ function makeWorld() {
       run.status = reason
       return { ok: true }
     },
+    fetchGroupSessions: async (_t, groupId, limit) => world.sessions
+      .filter((s) => s.group_id === groupId)
+      .sort((a, b) => (b.session_date + b.start_time).localeCompare(a.session_date + a.start_time))
+      .slice(0, limit),
+    fetchHomeworkMarks: async (_t, sessionIds) => world.homeworkRows
+      .filter((r) => sessionIds.includes(r.session_id))
+      .map((r) => ({
+        session_id: r.session_id, student_id: r.student_id,
+        status: r.status, homework_done: r.homework_done,
+      })),
+    fetchSessionsInMonth: async (_t, groupId, month) => world.sessions
+      .filter((s) => s.group_id === groupId && s.session_date.startsWith(month))
+      .sort((a, b) => (a.session_date + a.start_time).localeCompare(b.session_date + b.start_time)),
+    fetchSession: async (_t, sessionId) => world.sessions.find((s) => s.id === sessionId) ?? null,
+    fetchStudentById: async (_t, studentId) => world.students.find((s) => s.id === studentId) ?? null,
+    setHomeworkMark: async (_t, sessionId, studentId, done) => {
+      // نفس قاعدة التطبيق: دمج مع الصف القائم، والقيمة الفارغة تماماً = حذف
+      const idx = world.homeworkRows.findIndex(
+        (r) => r.session_id === sessionId && r.student_id === studentId)
+      const existing = idx >= 0 ? world.homeworkRows[idx] : null
+      const status = existing?.status ?? null
+      const starred = existing?.starred ?? false
+      if (status === null && !done && !starred) {
+        if (idx >= 0) world.homeworkRows.splice(idx, 1)
+        return
+      }
+      const row = { session_id: sessionId, student_id: studentId, status, homework_done: done, starred }
+      if (idx >= 0) world.homeworkRows[idx] = row
+      else world.homeworkRows.push(row)
+    },
+    generateGroupSessions: async (_t, groupId, monthDate) => {
+      const month = monthDate.slice(0, 7)
+      const key = `${groupId}:${month}`
+      if (world.generatedMonths.has(key)) return 0
+      world.generatedMonths.add(key)
+      let created = 0
+      for (const day of ['05', '12', '19', '26']) {
+        world.sessions.push({
+          id: `gen-${month}-${day}`, group_id: groupId,
+          session_date: `${month}-${day}`, start_time: '17:00',
+          kind: 'regular', status: 'scheduled',
+        })
+        created++
+      }
+      return created
+    },
+    encryptApiKey: async (plain) => ({
+      ciphertext: `fake-enc(${Buffer.from(plain, 'utf8').toString('base64')})`,
+      iv: 'aXYtdGVzdA==',
+    }),
+    saveProviderKey: async (_t, provider, model, baseUrl, ciphertext, iv) => {
+      world.keyRow = {
+        provider, model, base_url: baseUrl,
+        key_ciphertext: ciphertext, key_iv: iv, updated_at: '2026-11-25T10:00:00Z',
+      }
+      return { is_set: true, provider, model, updated_at: world.keyRow.updated_at }
+    },
+    providerKeyStatus: async () => world.keyRow
+      ? {
+          is_set: true, provider: world.keyRow.provider,
+          model: world.keyRow.model, updated_at: world.keyRow.updated_at,
+        }
+      : { is_set: false },
+    deleteProviderKey: async () => { world.keyRow = null; return true },
+    readProviderKeyRow: async () => world.keyRow
+      ? {
+          provider: world.keyRow.provider, model: world.keyRow.model,
+          base_url: world.keyRow.base_url,
+          key_ciphertext: world.keyRow.key_ciphertext, key_iv: world.keyRow.key_iv,
+        }
+      : null,
     now: () => NOW,
   }
   return { world, deps }
@@ -371,6 +462,245 @@ console.log('CONFIRMATION FLOW:')
     ON, deps, planner, quiet)
   check('member without can_manage_students → 403 on propose',
     memberPropose.status === 403 && world.runs.length === 5)
+}
+
+// --- مفتاح المزوّد BYOK (مهاجرة 0049) ------------------------------------------
+console.log('PROVIDER KEY (BYOK):')
+{
+  const { world, deps } = makeWorld()
+  const FAKE_KEY = 'sk-' + ['fake', 'simulated', 'provider', 'key'].join('-') + '-0000'
+  // أفعال المفتاح متاحة والمساعد مطفأ — إعداد مالك لا تشغيل مساعد
+  const st0 = await handleAssistantChat(
+    req('owner-token', { action: 'key_status', teacher_id: TEACHER }),
+    {}, deps, planner, quiet)
+  const st0Body = await st0.json()
+  check('key actions work while the assistant is disabled → is_set false',
+    st0.status === 200 && st0Body.is_set === false, JSON.stringify(st0Body).slice(0, 200))
+  const save = await handleAssistantChat(
+    req('owner-token', { action: 'key_save', teacher_id: TEACHER, provider: 'gemini', api_key: FAKE_KEY }),
+    {}, deps, planner, quiet)
+  const saveText = JSON.stringify(await save.json())
+  check('key_save stores ciphertext only; the plaintext is never in the response',
+    save.status === 200 && world.keyRow !== null
+      && world.keyRow.key_ciphertext !== FAKE_KEY && !saveText.includes(FAKE_KEY),
+    saveText.slice(0, 200))
+  const st1 = await handleAssistantChat(
+    req('owner-token', { action: 'key_status', teacher_id: TEACHER }),
+    {}, deps, planner, quiet)
+  const st1Body = await st1.json()
+  check('key_status returns metadata only (no ciphertext anywhere)',
+    st1Body.is_set === true && st1Body.provider === 'gemini'
+      && !('key_ciphertext' in st1Body) && !JSON.stringify(st1Body).includes('fake-enc'),
+    JSON.stringify(st1Body).slice(0, 200))
+  const memberSave = await handleAssistantChat(
+    req('member-token', { action: 'key_save', teacher_id: TEACHER, provider: 'gemini', api_key: FAKE_KEY }),
+    ON, deps, planner, quiet)
+  check('member cannot save a provider key → 403', memberSave.status === 403)
+  const badCompat = await handleAssistantChat(
+    req('owner-token', { action: 'key_save', teacher_id: TEACHER, provider: 'openai_compatible', api_key: FAKE_KEY }),
+    {}, deps, planner, quiet)
+  check('openai_compatible without an https base_url → 400', badCompat.status === 400)
+  const del = await handleAssistantChat(
+    req('owner-token', { action: 'key_delete', teacher_id: TEACHER }),
+    {}, deps, planner, quiet)
+  check('key_delete removes the stored row', del.status === 200 && world.keyRow === null)
+  const status = await handleAssistantChat(
+    req('owner-token', { action: 'status', teacher_id: TEACHER }),
+    {}, deps, planner, quiet)
+  const statusBody = await status.json()
+  check('status action reports enabled=false while the switch is off',
+    status.status === 200 && statusBody.enabled === false && statusBody.has_key === false,
+    JSON.stringify(statusBody).slice(0, 200))
+}
+
+// --- المخطط الحقيقي بـ HTTP مُحاكى ------------------------------------------------
+console.log('PROVIDER PLANNER (mocked HTTP):')
+{
+  const { world, deps } = makeWorld()
+  const API_KEY = 'sk-provider-FAKE-13579'
+  const openAiDeps = {
+    resolveKey: async () => ({ provider: 'openai', model: null, base_url: null, api_key: API_KEY }),
+    loadGroups: async () => world.groups,
+  }
+  let seenUrl = ''
+  let seenAuth = ''
+  const openAiPlanner = new ProviderPlanner({
+    ...openAiDeps,
+    fetchFn: async (url, init) => {
+      seenUrl = url
+      seenAuth = init.headers.Authorization ?? ''
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            tool_calls: [{ function: { name: 'unpaid_students', arguments: '{}' } }],
+          },
+        }],
+      }), { status: 200 })
+    },
+  })
+  const r1 = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'مين عليه متأخرات؟' }),
+    ON, deps, openAiPlanner, quiet)
+  const r1Text = JSON.stringify(await r1.json())
+  check('provider tool call runs the read end-to-end with the teacher key',
+    r1.status === 200 && seenUrl === 'https://api.openai.com/v1/chat/completions'
+      && seenAuth === `Bearer ${API_KEY}` && r1Text.includes('"total_balance":1050'),
+    r1Text.slice(0, 200))
+  check('the API key never appears in any response', !r1Text.includes(API_KEY))
+
+  let fetchCalled = false
+  const noKeyPlanner = new ProviderPlanner({
+    resolveKey: async () => null,
+    loadGroups: async () => [],
+    fetchFn: async () => { fetchCalled = true; return new Response('{}', { status: 200 }) },
+  })
+  const r2 = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'أي حاجة' }),
+    ON, deps, noKeyPlanner, quiet)
+  const r2Body = await r2.json()
+  check('no key → 422 no_api_key and zero provider calls',
+    r2.status === 422 && r2Body.error.code === 'no_api_key' && fetchCalled === false,
+    JSON.stringify(r2Body).slice(0, 200))
+
+  const errPlanner = new ProviderPlanner({
+    ...openAiDeps,
+    fetchFn: async () => new Response(JSON.stringify({
+      error: { message: `invalid api key ${API_KEY} rejected` },
+    }), { status: 401 }),
+  })
+  const r3 = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'أي حاجة' }),
+    ON, deps, errPlanner, quiet)
+  const r3Text = JSON.stringify(await r3.json())
+  check('provider error → 502 with the key stripped from the message',
+    r3.status === 502 && r3Text.includes('invalid api key') && !r3Text.includes(API_KEY),
+    r3Text.slice(0, 200))
+
+  const anthropicPlanner = new ProviderPlanner({
+    resolveKey: async () => ({ provider: 'anthropic', model: null, base_url: null, api_key: API_KEY }),
+    loadGroups: async () => world.groups,
+    fetchFn: async () => new Response(JSON.stringify({
+      content: [{ type: 'text', text: 'أهلاً بك في السنتر' }],
+    }), { status: 200 }),
+  })
+  const runsBefore = world.runs.length
+  const r4 = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'أهلاً' }),
+    ON, deps, anthropicPlanner, quiet)
+  const r4Body = await r4.json()
+  check('a text answer is audited as a read and returned',
+    r4.status === 200 && r4Body.status === 'answered' && r4Body.tool === 'assistant_answer'
+      && r4Body.result.text === 'أهلاً بك في السنتر' && world.runs.length === runsBefore + 1,
+    JSON.stringify(r4Body).slice(0, 200))
+
+  let geminiUrl = ''
+  let geminiKeyHeader = ''
+  const geminiPlanner = new ProviderPlanner({
+    resolveKey: async () => ({ provider: 'gemini', model: null, base_url: null, api_key: API_KEY }),
+    loadGroups: async () => world.groups,
+    fetchFn: async (url, init) => {
+      geminiUrl = url
+      geminiKeyHeader = init.headers['x-goog-api-key'] ?? ''
+      return new Response(JSON.stringify({
+        candidates: [{
+          content: {
+            parts: [{
+              functionCall: {
+                name: 'set_homework',
+                args: { session_id: 'sess1', student_id: 's2', done: true },
+              },
+            }],
+          },
+        }],
+      }), { status: 200 })
+    },
+  })
+  const r5 = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'علّم واجب طالب ثانٍ' }),
+    ON, deps, geminiPlanner, quiet)
+  const r5Body = await r5.json()
+  check('gemini functionCall becomes a hash-bound proposal (zero writes yet)',
+    r5.status === 200 && r5Body.status === 'proposed' && r5Body.tool === 'set_homework'
+      && geminiUrl.includes(':generateContent') && geminiKeyHeader === API_KEY
+      && world.homeworkRows.find((r) => r.student_id === 's2').homework_done === false,
+    JSON.stringify(r5Body).slice(0, 200))
+  const r5c = await handleAssistantChat(
+    req('owner-token', { action: 'confirm', teacher_id: TEACHER, run_id: r5Body.run_id, payload_hash: r5Body.payload_hash }),
+    ON, deps, geminiPlanner, quiet)
+  const s2row = world.homeworkRows.find((r) => r.student_id === 's2')
+  check('confirm executes set_homework preserving the attendance status',
+    r5c.status === 200 && s2row.homework_done === true && s2row.status === 'p')
+}
+
+// --- أدوات الواجب والحصص -----------------------------------------------------------
+console.log('HOMEWORK + SESSIONS TOOLS:')
+{
+  const { world, deps } = makeWorld()
+  const pure = computeHomeworkSummary(
+    world.sessions[0],
+    world.homeworkRows,
+    world.students,
+  )
+  check('pure homework summary counts attended only',
+    pure.attended === 2 && pure.submitted === 1 && pure.pending === 1 && pure.rate === 50
+      && pure.pending_students.length === 1 && pure.pending_students[0].student_id === 's2',
+    JSON.stringify(pure))
+  const hw = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: `homework:${GROUP}` }),
+    ON, deps, planner, quiet)
+  const hwBody = await hw.json()
+  check('homework read over the latest session',
+    hw.status === 200 && hwBody.result.group_id === GROUP
+      && hwBody.result.session.id === 'sess1' && hwBody.result.attended === 2
+      && hwBody.result.submitted === 1,
+    JSON.stringify(hwBody).slice(0, 300))
+  const ov = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: `sessions:${GROUP}:2026-11` }),
+    ON, deps, planner, quiet)
+  const ovBody = await ov.json()
+  check('sessions overview counts the month',
+    ov.status === 200 && ovBody.result.count === 2, JSON.stringify(ovBody).slice(0, 200))
+
+  const p1 = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'set-homework:sess1:s4:0' }),
+    ON, deps, planner, quiet)
+  const p1Body = await p1.json()
+  const c1 = await handleAssistantChat(
+    req('owner-token', { action: 'confirm', teacher_id: TEACHER, run_id: p1Body.run_id, payload_hash: p1Body.payload_hash }),
+    ON, deps, planner, quiet)
+  check('set_homework done=false on an empty value creates no row (app rule)',
+    c1.status === 200 && !world.homeworkRows.some((r) => r.student_id === 's4'))
+  const p2 = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'set-homework:sess1:s4:1' }),
+    ON, deps, planner, quiet)
+  const p2Body = await p2.json()
+  const c2 = await handleAssistantChat(
+    req('owner-token', { action: 'confirm', teacher_id: TEACHER, run_id: p2Body.run_id, payload_hash: p2Body.payload_hash }),
+    ON, deps, planner, quiet)
+  const s4row = world.homeworkRows.find((r) => r.student_id === 's4')
+  check('set_homework done=true creates the row with null status',
+    c2.status === 200 && s4row !== undefined && s4row.homework_done === true && s4row.status === null)
+
+  const g1 = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: `gen-sessions:${GROUP}:2026-12` }),
+    ON, deps, planner, quiet)
+  const g1Body = await g1.json()
+  const gc1 = await handleAssistantChat(
+    req('owner-token', { action: 'confirm', teacher_id: TEACHER, run_id: g1Body.run_id, payload_hash: g1Body.payload_hash }),
+    ON, deps, planner, quiet)
+  const gc1Body = await gc1.json()
+  check('generate_sessions creates the month sessions',
+    gc1.status === 200 && gc1Body.result.created === 4, JSON.stringify(gc1Body).slice(0, 200))
+  const g2 = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: `gen-sessions:${GROUP}:2026-12` }),
+    ON, deps, planner, quiet)
+  const g2Body = await g2.json()
+  const gc2 = await handleAssistantChat(
+    req('owner-token', { action: 'confirm', teacher_id: TEACHER, run_id: g2Body.run_id, payload_hash: g2Body.payload_hash }),
+    ON, deps, planner, quiet)
+  const gc2Body = await gc2.json()
+  check('re-generating the same month creates zero (idempotent RPC)',
+    gc2.status === 200 && gc2Body.result.created === 0, JSON.stringify(gc2Body).slice(0, 200))
 }
 
 console.log(failures === 0 ? '\nALL SIMULATION CHECKS PASSED' : `\n${failures} SIMULATION CHECK(S) FAILED`)
