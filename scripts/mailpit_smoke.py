@@ -19,6 +19,7 @@ import os
 import smtplib
 import sys
 import time
+import urllib.parse
 import urllib.request
 import uuid
 from email.message import EmailMessage
@@ -39,7 +40,14 @@ def check(name, cond, extra=""):
 
 
 def api_get(path):
-    with urllib.request.urlopen(f"{API_URL}{path}", timeout=10) as resp:
+    # حارس (2026-11-25، Phase 2 T7 — إصلاح Semgrep dynamic-urllib): النداء
+    # مسموح به فقط نحو Mailpit المحلي — أي API_URL خارج loopback يُرفض
+    # قبل أي استدعاء، فلا يصل مدخل خارجي إلى urlopen؛ والمسار ثابت
+    # حرفيًا في موضعي النداء (معرّف رسالة عائد من Mailpit نفسه).
+    host = urllib.parse.urlparse(API_URL).hostname
+    if host not in ("localhost", "127.0.0.1", "::1"):
+        raise ValueError(f"mailpit smoke: API_URL must be local, got host={host!r}")
+    with urllib.request.urlopen(f"{API_URL}{path}", timeout=10) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         return json.loads(resp.read().decode("utf8"))
 
 
