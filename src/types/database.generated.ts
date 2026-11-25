@@ -1618,6 +1618,144 @@ export type Database = {
           },
         ]
       }
+      purchase_lines: {
+        Row: {
+          id: string
+          teacher_id: string
+          purchase_id: string
+          description: string
+          quantity: number
+          unit_price: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          purchase_id: string
+          description: string
+          quantity: number
+          unit_price: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          purchase_id?: string
+          description?: string
+          quantity?: number
+          unit_price?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_lines_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_lines_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_payments: {
+        Row: {
+          id: string
+          teacher_id: string
+          purchase_id: string
+          amount: number
+          method: Database["public"]["Enums"]["payment_method"]
+          paid_on: string
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          purchase_id: string
+          amount: number
+          method?: Database["public"]["Enums"]["payment_method"]
+          paid_on?: string
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          purchase_id?: string
+          amount?: number
+          method?: Database["public"]["Enums"]["payment_method"]
+          paid_on?: string
+          note?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_payments_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_payments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchases: {
+        Row: {
+          id: string
+          teacher_id: string
+          supplier_id: string | null
+          purchase_date: string
+          note: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          supplier_id?: string | null
+          purchase_date?: string
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          supplier_id?: string | null
+          purchase_date?: string
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchases_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       receipt_counters: {
         Row: {
           teacher_id: string
@@ -1675,6 +1813,102 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "recurring_expenses_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sale_lines: {
+        Row: {
+          id: string
+          teacher_id: string
+          sale_id: string
+          description: string
+          quantity: number
+          unit_price: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          sale_id: string
+          description: string
+          quantity: number
+          unit_price: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          sale_id?: string
+          description?: string
+          quantity?: number
+          unit_price?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_lines_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_lines_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          id: string
+          teacher_id: string
+          student_id: string | null
+          buyer_name: string | null
+          sale_date: string
+          amount_paid: number
+          note: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          student_id?: string | null
+          buyer_name?: string | null
+          sale_date?: string
+          amount_paid?: number
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          student_id?: string | null
+          buyer_name?: string | null
+          sale_date?: string
+          amount_paid?: number
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "teachers"
@@ -2205,6 +2439,44 @@ export type Database = {
           },
         ]
       }
+      suppliers: {
+        Row: {
+          id: string
+          teacher_id: string
+          name: string
+          phone: string | null
+          note: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          name: string
+          phone?: string | null
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          name?: string
+          phone?: string | null
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teachers: {
         Row: {
           id: string
@@ -2309,6 +2581,20 @@ export type Database = {
         }
         Relationships: []
       }
+      monthly_centre_finance: {
+        Row: {
+          teacher_id: string | null
+          month: string | null
+          tuition_collected: number | null
+          sales_total: number | null
+          sales_collected: number | null
+          purchases_total: number | null
+          purchases_paid: number | null
+          expenses: number | null
+          net_cash: number | null
+        }
+        Relationships: []
+      }
       monthly_profit: {
         Row: {
           teacher_id: string | null
@@ -2317,6 +2603,41 @@ export type Database = {
           expenses: number | null
           center_share_amount: number | null
           net_profit: number | null
+        }
+        Relationships: []
+      }
+      purchase_balances: {
+        Row: {
+          purchase_id: string | null
+          teacher_id: string | null
+          supplier_id: string | null
+          purchase_date: string | null
+          total: number | null
+          paid: number | null
+          remaining: number | null
+        }
+        Relationships: []
+      }
+      sale_balances: {
+        Row: {
+          sale_id: string | null
+          teacher_id: string | null
+          student_id: string | null
+          sale_date: string | null
+          total: number | null
+          paid: number | null
+          remaining: number | null
+        }
+        Relationships: []
+      }
+      supplier_payables: {
+        Row: {
+          teacher_id: string | null
+          supplier_id: string | null
+          purchases_count: number | null
+          total: number | null
+          paid: number | null
+          remaining: number | null
         }
         Relationships: []
       }
@@ -2342,6 +2663,28 @@ export type Database = {
     Functions: {
       claim_teacher_invites: {
           Args: Record<PropertyKey, never>
+          Returns: Json
+        }
+      create_purchase: {
+          Args: {
+            p_teacher_id: string
+            p_supplier_id: string | null
+            p_purchase_date: string | null
+            p_note: string | null
+            p_lines: Json
+          }
+          Returns: Json
+        }
+      create_sale: {
+          Args: {
+            p_teacher_id: string
+            p_student_id: string | null
+            p_buyer_name: string | null
+            p_sale_date: string | null
+            p_amount_paid: number | null
+            p_note: string | null
+            p_lines: Json
+          }
           Returns: Json
         }
       delete_my_teacher_account: {
