@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   addDaysStr,
+  channelsStepDone,
+  channelsStepVisible,
   kpiDelta,
   monthEndStr,
   monthStartStr,
@@ -9,6 +11,7 @@ import {
   sessionEnd,
   sessionStart,
   toDateStr,
+  type TeacherChannels,
 } from './api'
 
 // اختبارات مساعدات التاريخ النقية (بالتوقيت المحلي، صيغة 'YYYY-MM-DD')
@@ -95,5 +98,36 @@ describe('kpiDelta — دلتا المؤشر (W5 — R-13)', () => {
     expect(kpiDelta(87.5, 84.2)).toEqual({ abs: 3.3, pct: 4, direction: 'up' })
     expect(kpiDelta(84.2, 87.5)).toEqual({ abs: -3.3, pct: -4, direction: 'down' })
     expect(kpiDelta(84.2, 84.2)).toEqual({ abs: 0, pct: 0, direction: 'flat' })
+  })
+})
+
+describe('خطوة «فعّل قنواتك» — مهمة 11 (ج9-2)', () => {
+  const base: TeacherChannels = {
+    whatsappAvailable: true,
+    assistantKeyAvailable: true,
+    whatsappConfigured: false,
+    assistantKeySet: false,
+  }
+  it('تظهر عند وجود قناة متاحة واحدة على الأقل', () => {
+    expect(channelsStepVisible(base)).toBe(true)
+    expect(channelsStepVisible({ ...base, whatsappAvailable: false })).toBe(true)
+    expect(channelsStepVisible({ ...base, assistantKeyAvailable: false })).toBe(true)
+  })
+  it('تختفي تماماً بلا أي قناة متاحة — لا تُحسب خطوة ناقصة', () => {
+    expect(
+      channelsStepVisible({ ...base, whatsappAvailable: false, assistantKeyAvailable: false }),
+    ).toBe(false)
+  })
+  it('لا تكتمل قبل تهيئة أي قناة', () => {
+    expect(channelsStepDone(base)).toBe(false)
+  })
+  it('تكتمل بتهيئة واتساب أو بحفظ مفتاح المساعد', () => {
+    expect(channelsStepDone({ ...base, whatsappConfigured: true })).toBe(true)
+    expect(channelsStepDone({ ...base, assistantKeySet: true })).toBe(true)
+  })
+  it('تهيئة قناة غير متاحة لا تُكمل الخطوة', () => {
+    expect(
+      channelsStepDone({ ...base, whatsappAvailable: false, whatsappConfigured: true }),
+    ).toBe(false)
   })
 })
