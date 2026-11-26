@@ -33,6 +33,7 @@ import {
 } from '../auth/hooks'
 import { DEFAULT_WA_TEMPLATE } from '../invoices/api'
 import { InstallAppCard } from './InstallAppCard'
+import { EmailConfirmCard } from './EmailConfirmCard'
 import { EnrolLinkCard } from '../enrol/EnrolLinkCard'
 import { PushNotificationsCard } from './PushNotificationsCard'
 import { PrintFontCard } from './PrintFontCard'
@@ -538,6 +539,10 @@ export function SettingsPage() {
           role={teacher.role}
         />
       </SettingsSection>
+
+      {/* تأكيد البريد (3A-904): بطاقة ذاتية الإخفاء — لا تُرسم أصلاً
+          إلا والبريد غير مؤكَّد، وهي مسار إكمال التحقق المطلوب */}
+      <EmailConfirmCard />
 
       {/* ملف المدرس — بيانات السنتر المُدار (النشط إن كان مملوكاً) */}
       {managedCentre && (

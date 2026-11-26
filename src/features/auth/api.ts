@@ -70,7 +70,9 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
     email: input.email.trim(),
     password: input.password,
     options: {
-      // رابط التأكيد يرجع لصفحة الدخول في نفس الأصل (ضمن uri_allow_list)
+      // رابط التأكيد يرجع لصفحة الدخول في نفس الأصل (ضمن uri_allow_list) —
+      // منذ 3A-904 قالب التأكيد كود فقط فلا رابط يُرسل أصلاً، ويبقى
+      // المعامل لهبوط أي إيميلات أقدم من قلب القوالب
       emailRedirectTo: `${window.location.origin}/login`,
       data: {
         display_name: input.displayName.trim(),
@@ -111,14 +113,100 @@ export async function resendConfirmation(email: string): Promise<void> {
 
 /**
  * طلب استعادة كلمة المرور (SEC-5 جزئي — لم يكن موجوداً أصلاً):
- * يرسل رابطاً لصفحة /reset-password حيث تُعيَّن كلمة جديدة داخل
- * جلسة الاستعادة. الرد محايد دائماً من الخادم (لا يكشف تسجيل البريد).
+ * يرسل كود استعادة بالبريد (قالب كود فقط منذ 3A-904) يُدخَل في
+ * صفحة /reset-password فتنشئ جلسة الاستعادة بالتحقق منه؛ معامل
+ * redirectTo يبقى لهبوط روابط الإيميلات الأقدم من قلب القوالب.
+ * الرد محايد دائماً من الخادم (لا يكشف تسجيل البريد).
  */
 export async function requestPasswordReset(email: string): Promise<void> {
   const { error } = await db().auth.resetPasswordForEmail(email.trim(), {
     redirectTo: `${window.location.origin}/reset-password`,
   })
   if (error) throw new Error(translateAuthError(error.message))
+}
+
+/**
+ * تأكيد بريد التسجيل بكود OTP (3A-904 — قالب التأكيد صار كوداً فقط
+ * بلا أي رابط): verifyOtp بنوع signup يفعّل الحساب ويصدر الجلسة
+ * فوراً، فيكمل المتصل عقد ما بعد التسجيل (ادعاء دعوات/إنشاء ملف)
+ * كما في مسار الجلسة الفورية تماماً. هبوط روابط إيميلات سابقة للقلب
+ * يبقى شغالاً بالتوازي (جلسة من مقطع الرابط) حتى تنتهي طبيعياً.
+ */
+export async function confirmSignUpWithCode(
+  email: string,
+  token: string,
+): Promise<{ userId: string | null }> {
+  const { data, error } = await db().auth.verifyOtp({
+    email: email.trim(),
+    token: token.trim(),
+    type: 'signup',
+  })
+  if (error) throw new Error(translateAuthError(error.message))
+  return { userId: data.user?.id ?? null }
+}
+
+/**
+ * تأكيد كود استعادة كلمة المرور (3A-904): verifyOtp بنوع recovery
+ * ينشئ جلسة الاستعادة نفسها التي كان ينشئها رابط البريد، فتعرض
+ * صفحة /reset-password نموذج تعيين كلمة جديدة داخل الجلسة.
+ */
+export async function confirmRecoveryWithCode(email: string, token: string): Promise<void> {
+  const { error } = await db().auth.verifyOtp({
+    email: email.trim(),
+    token: token.trim(),
+    type: 'recovery',
+  })
+  if (error) throw new Error(translateAuthError(error.message))
+}
+
+/** لقطة مستخدم Auth التي تحتاجها بطاقة تأكيد البريد في الإعدادات */
+export interface AuthUserSnapshot {
+  email: string | null
+  email_confirmed_at: string | null
+}
+
+/**
+ * قراءة مستخدم Auth الطازج من الخادم (getUser) — بطاقة تأكيد البريد
+ * في الإعدادات لا تثق بنسخة الجلسة المحلية وحدها: التأكيد قد يكون
+ * حدث من جهاز/متصفح آخر فتبقى النسخة المحلية «غير مؤكَّد» كذباً.
+ * مصير فشل القراءة صريح: null، والمتصل يسقط لنسخة الجلسة.
+ */
+export async function fetchAuthUser(): Promise<AuthUserSnapshot | null> {
+  const { data, error } = await db().auth.getUser()
+  if (error || !data.user) return null
+  return {
+    email: data.user.email ?? null,
+    email_confirmed_at: data.user.email_confirmed_at ?? null,
+  }
+}
+
+/**
+ * هل بريد المستخدم غير مؤكَّد بعد؟ (3A-904): مصدر الحقيقة هو
+ * email_confirmed_at عند GoTrue؛ غيابه أو فراغه = لم يُؤكَّد. بلا
+ * مستخدم أصلاً = false (لا بطاقة ولا مطالبة). البطاقة في الإعدادات
+ * هي مسار إكمال التحقق المطلوب للحسابات غير المؤكَّدة متى كان نظام
+ * التأكيد مفعّلاً من إدارة المنصة.
+ */
+export function isEmailUnconfirmed(
+  user: { email_confirmed_at?: string | null } | null | undefined,
+): boolean {
+  if (!user) return false
+  return !user.email_confirmed_at
+}
+
+/**
+ * قرار شاشة ما بعد التسجيل (3A-904 — نموذج التأكيد بتصحيح المالك
+ * 2026-11-26 ~17:19): نظام التأكيد مطفأ افتراضياً فيدخل المسجّل
+ * فوراً (جلسة فورية أو دخول فوري ناجح بنفس البيانات) → 'enter'
+ * فيكمل عقد ما بعد التسجيل؛ ومتى فعّلته إدارة المنصة يرفض الخادم
+ * دخول غير المؤكَّدين فتسقط المحاولة → 'code' وتظهر شاشة إدخال
+ * الكود إلزامية بلا أي تخطٍّ. لا طريق مسدود في أي حالة.
+ */
+export function signUpNextStep(
+  hasSession: boolean,
+  instantSignInOk: boolean,
+): 'enter' | 'code' {
+  return hasSession || instantSignInOk ? 'enter' : 'code'
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import { invalidatePrefixes } from '../../lib/invalidate'
 import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { FlaskConical, LogIn, Moon, Send, Sun, UserPlus } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -15,13 +15,16 @@ import doffyIcon from '../../assets/mascot/icon.webp'
 import {
   checkSelfRegistrationAllowed,
   claimTeacherInvites,
+  confirmSignUpWithCode,
   ensureTeacherProfile,
   signInDemo,
   requestPasswordReset,
   resendConfirmation,
   signInWithEmail,
+  signUpNextStep,
   signUpWithEmail,
 } from './api'
+import { CodeEntry } from './CodeEntry'
 import { t } from '../../i18n'
 import { WHATSAPP_OTP_ENABLED } from '../../lib/phone'
 import { PhoneAuth } from './PhoneAuth'
@@ -31,14 +34,18 @@ type Method = 'email' | 'phone'
 
 /**
  * الدخول والتسجيل الحقيقي بـ Supabase Auth (بريد + كلمة مرور).
- * عند أول تسجيل بجلسة فورية يُنشأ صف teachers + إعدادات افتراضية؛
- * وإن تطلب تأكيد البريد تظهر رسالة، ويُستكمل الإنشاء من شاشة الإعداد
- * (Onboarding) بعد أول دخول. مع جلسة قائمة يُعاد التوجيه للرئيسية.
+ * عند أول تسجيل يُنشأ صف teachers + إعدادات افتراضية بعد قيام
+ * الجلسة (فورية أو بدخول فوري بنفس البيانات)؛ وإن كان نظام التأكيد
+ * مفعّلاً من إدارة المنصة تظهر شاشة إدخال كود التأكيد الإلزامية
+ * (3A-904) قبل الدخول، ويُستكمل الإنشاء من شاشة الإعداد
+ * (Onboarding) بعد أول دخول.
+ * مع جلسة قائمة يُعاد التوجيه للرئيسية.
  */
 export function LoginPage() {
   const { session, loading, configured } = useAuth()
   const qc = useQueryClient()
   const location = useLocation()
+  const navigate = useNavigate()
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   const [mode, setMode] = useState<Mode>('signin')
@@ -51,9 +58,11 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [busy, setBusy] = useState(false)
-  const [resendBusy, setResendBusy] = useState(false)
-  // إظهار زر إعادة إرسال التأكيد: بعد تسجيل بلا جلسة أو خطأ «بريد غير مؤكد»
-  const [canResend, setCanResend] = useState(false)
+  // بريد ينتظر تأكيد الكود (3A-904): بعد تسجيل بلا جلسة أو من مسار
+  // «بريد غير مؤكد» عند الدخول — عندها تعرض البطاقة شاشة إدخال الكود
+  const [pendingConfirmEmail, setPendingConfirmEmail] = useState<string | null>(null)
+  // إظهار زر «إدخال كود التأكيد» بعد خطأ «بريد غير مؤكد» عند الدخول
+  const [showCodeCta, setShowCodeCta] = useState(false)
   const [demoBusy, setDemoBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -81,32 +90,50 @@ export function LoginPage() {
     setMode(next)
     setError(null)
     setNotice(null)
-    setCanResend(false)
+    setShowCodeCta(false)
+    setPendingConfirmEmail(null)
   }
 
   const switchMethod = (next: Method) => {
     setMethod(next)
     setError(null)
     setNotice(null)
-    setCanResend(false)
+    setShowCodeCta(false)
+    setPendingConfirmEmail(null)
   }
 
-  const handleResend = async () => {
-    if (!email.trim()) {
-      setError(t('auth.emailRequiredForResend'))
-      return
-    }
-    setResendBusy(true)
-    setError(null)
+  /**
+   * عقد ما بعد قيام الجلسة من تسجيل جديد (جلسة فورية أو تأكيد بالكود
+   * 3A-904 — المساران متطابقان هنا): دعوة بريد معلّقة؟ (migration
+   * ‏0006) إن ادّعى الحساب الجديد دعوة مساعد فهو منضم لفريق مدرس آخر
+   * — لا ننشئ له ملف مدرس خاصاً حتى يهبط داخل حساب المدرس مباشرة
+   * (وإن أُزيل من الفريق لاحقاً ستعرض له شاشة الإعداد إنشاء ملفه).
+   * فشل الادعاء لا يمنع المسار العادي، وفشل إنشاء الملف تستكمله
+   * شاشة الإعداد بعد الدخول. بلا اسم معروض (مسار «بريد غير مؤكد» من
+   * شاشة الدخول) يُترك إنشاء الملف للإعداد — يقرأ الاسم من بيانات
+   * الحساب المحفوظة عند التسجيل.
+   */
+  const finishSignUpSession = async (userId: string) => {
+    let claimed = 0
     try {
-      await resendConfirmation(email)
-      setNotice(t('auth.resendConfirmationSent'))
-      setCanResend(false)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.resendFailed'))
-    } finally {
-      setResendBusy(false)
+      claimed = (await claimTeacherInvites()).claimed
+    } catch {
+      claimed = 0
     }
+    if (claimed === 0 && displayName.trim()) {
+      try {
+        await ensureTeacherProfile(userId, displayName, phone || null)
+      } catch {
+        // تجاهل: Onboarding سيعيد المحاولة
+      }
+    }
+    // إصلاح جذري (تدقيق أول استخدام — M1): تغيّر الجلسة يعيد توجيه
+    // المستخدم فوراً، فتُحلّ الهوية في AppShell غالباً قبل انتهاء
+    // إنشاء الملف هنا، وتُخزَّن نتيجة «لا مدرس» في الكاش — وبلا هذا
+    // الإبطال يعلق المسجّل الجديد على شاشة «كمّل إعداد حسابك» رغم
+    // أن التسجيل جمع بياناته والملف صار موجوداً. الإبطال يجبر حلّ
+    // الهوية على إعادة القراءة بعد اكتمال الإنشاء/الادعاء.
+    await invalidatePrefixes(qc, ['current-teacher'])
   }
 
   const handleForgot = async (e: FormEvent) => {
@@ -116,9 +143,11 @@ export function LoginPage() {
     setBusy(true)
     try {
       await requestPasswordReset(email)
-      // رد محايد دائماً: لا نؤكد ولا ننفي تسجيل البريد
-      setNotice(t('auth.passwordResetSent'))
-      setMode('signin')
+      // الرد محايد دائماً: لا نؤكد ولا ننفي تسجيل البريد — والانتقال
+      // لشاشة الاستعادة بالبريد مكتوباً يحدث في الحالتين (3A-904:
+      // الكود يُدخَل هناك، فتنشئ جلسة الاستعادة ويظهر نموذج كلمة
+      // المرور في نفس الصفحة)
+      navigate('/reset-password', { state: { email: email.trim() } })
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.passwordResetFailed'))
     } finally {
@@ -137,7 +166,9 @@ export function LoginPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('auth.signInFailed')
       setError(msg)
-      if (msg === t('auth.errEmailNotConfirmed')) setCanResend(true)
+      // بريد غير مؤكد ليس طريقاً مسدوداً (3A-904): زر يفتح شاشة
+      // إدخال كود التأكيد لنفس البريد (وفيها إعادة الإرسال بعدّاد)
+      if (msg === t('auth.errEmailNotConfirmed')) setShowCodeCta(true)
     } finally {
       setBusy(false)
     }
@@ -190,40 +221,32 @@ export function LoginPage() {
         displayName,
         phone: phone || undefined,
       })
-      if (result.hasSession && result.userId) {
-        // دعوة بريد معلّقة؟ (migration ‏0006): إن ادّعى الحساب الجديد
-        // دعوة مساعد، فهو منضم لفريق مدرس آخر — لا ننشئ له ملف مدرس
-        // خاصاً هنا حتى يهبط داخل حساب المدرس مباشرة (وإن أُزيل من
-        // الفريق لاحقاً ستعرض له شاشة الإعداد إنشاء ملفه). فشل الادعاء
-        // لا يمنع المسار العادي.
-        let claimed = 0
+      // دخول فوري بنفس البيانات عند غياب الجلسة الفورية (3A-904 —
+      // نموذج التأكيد بتصحيح المالك 2026-11-26 ~17:19): نظام التأكيد
+      // مطفأ افتراضياً (حال الإنتاج اليوم) فينجح الدخول رغم غياب
+      // التأكيد ويدخل المسجّل فوراً بلا أي كود؛ ومتى فعّلته إدارة
+      // المنصة يرفض الخادم دخول غير المؤكَّدين — فشل المحاولة مصيره
+      // الصريح هو السقوط لشاشة الكود الإلزامية تحت، لا طريق مسدود.
+      let instantSignInOk = false
+      if (!result.hasSession) {
         try {
-          claimed = (await claimTeacherInvites()).claimed
+          await signInWithEmail(email, password)
+          instantSignInOk = true
         } catch {
-          claimed = 0
+          instantSignInOk = false
         }
-        if (claimed === 0) {
-          // أول تسجيل: إنشاء ملف المدرس + إعداداته (آمن التكرار،
-          // وإن فشل هنا تستكمله شاشة الإعداد بعد الدخول)
-          try {
-            await ensureTeacherProfile(result.userId, displayName, phone || null)
-          } catch {
-            // تجاهل: Onboarding سيعيد المحاولة
-          }
-        }
-        // إصلاح جذري (تدقيق أول استخدام — M1): تغيّر الجلسة يعيد توجيه
-        // المستخدم فوراً، فتُحلّ الهوية في AppShell غالباً قبل انتهاء
-        // إنشاء الملف هنا، وتُخزَّن نتيجة «لا مدرس» في الكاش — وبلا هذا
-        // الإبطال يعلق المسجّل الجديد على شاشة «كمّل إعداد حسابك» رغم
-        // أن التسجيل جمع بياناته والملف صار موجوداً. الإبطال يجبر حلّ
-        // الهوية على إعادة القراءة بعد اكتمال الإنشاء/الادعاء.
-        await invalidatePrefixes(qc, ['current-teacher'])
+      }
+      if (signUpNextStep(result.hasSession, instantSignInOk) === 'enter') {
+        if (result.userId) await finishSignUpSession(result.userId)
+        // الجلسة قائمة (فورية أو من الدخول الفوري): تغيّرها يعيد
+        // التوجيه للرئيسية تلقائياً من أعلى المكوّن
       } else {
-        setMode('signin')
+        // نظام التأكيد مفعّل: شاشة إدخال الكود لنفس البريد (3A-904)
+        // — إلزامية بلا أي تخطٍّ؛ التحقق الناجح يصدر الجلسة ويكمل
+        // نفس عقد ما بعد التسجيل في finishSignUpSession
         setPassword('')
         setPasswordConfirm('')
-        setNotice(t('auth.accountCreatedNotice'))
-        setCanResend(true)
+        setPendingConfirmEmail(email.trim())
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.signUpFailed'))
@@ -278,7 +301,7 @@ export function LoginPage() {
           </p>
         </div>
 
-        {WHATSAPP_OTP_ENABLED && (
+        {WHATSAPP_OTP_ENABLED && !pendingConfirmEmail && (
           <div className="flex bg-soft rounded-xl p-1 mb-4 rise-in" style={{ animationDelay: '50ms' }} role="tablist" aria-label={t('auth.methodLabel')}>
             <button
               type="button"
@@ -305,7 +328,7 @@ export function LoginPage() {
           </div>
         )}
 
-        {method === 'email' && (
+        {method === 'email' && !pendingConfirmEmail && (
         <div className="flex bg-soft rounded-xl p-1 mb-4 rise-in" style={{ animationDelay: '50ms' }} role="tablist" aria-label={t('auth.authTabsLabel')}>
           <button
             type="button"
@@ -342,7 +365,20 @@ export function LoginPage() {
             </p>
           )}
 
-          {method === 'phone' ? (
+          {pendingConfirmEmail ? (
+            <CodeEntry
+              email={pendingConfirmEmail}
+              hint={t('auth.emailCodeSentNotice')}
+              verifyLabel={t('auth.verifyCode')}
+              onVerify={async (token) => {
+                const { userId } = await confirmSignUpWithCode(pendingConfirmEmail, token)
+                if (userId) await finishSignUpSession(userId)
+              }}
+              onResend={() => resendConfirmation(pendingConfirmEmail)}
+              onBack={() => setPendingConfirmEmail(null)}
+              backLabel={t('auth.changeEmail')}
+            />
+          ) : method === 'phone' ? (
             <PhoneAuth />
           ) : mode === 'signin' ? (
             <form onSubmit={handleSignIn}>
@@ -379,16 +415,19 @@ export function LoginPage() {
               >
                 {t('auth.forgotPasswordLink')}
               </button>
-              {canResend && (
+              {showCodeCta && (
                 <Button
                   full
                   variant="soft"
                   type="button"
-                  onClick={handleResend}
-                  disabled={resendBusy}
                   className="mt-2"
+                  onClick={() => {
+                    setError(null)
+                    setShowCodeCta(false)
+                    setPendingConfirmEmail(email.trim())
+                  }}
                 >
-                  {resendBusy ? t('auth.sending') : t('auth.resendConfirmation')}
+                  {t('auth.enterConfirmationCode')}
                 </Button>
               )}
             </form>
@@ -407,7 +446,7 @@ export function LoginPage() {
               </Field>
               <Button full type="submit" disabled={busy || !configured}>
                 <Send size={18} />
-                {busy ? t('auth.sending') : t('auth.sendResetLink')}
+                {busy ? t('auth.sending') : t('auth.sendResetCode')}
               </Button>
               <button
                 type="button"
@@ -481,24 +520,28 @@ export function LoginPage() {
             </form>
           )}
 
-          <div className="flex items-center gap-3 mt-5 mb-3" aria-hidden="true">
-            <span className="flex-1 h-px bg-border" />
-            <span className="text-muted text-[12px]">{t('auth.tryDivider')}</span>
-            <span className="flex-1 h-px bg-border" />
-          </div>
-          <Button full variant="soft" type="button" onClick={handleDemo} disabled={demoBusy || busy || !configured}>
-            {demoBusy ? (
-              t('auth.demoLoading')
-            ) : (
-              <>
-                <FlaskConical size={20} />
-                {t('auth.demoCta')}
-              </>
-            )}
-          </Button>
-          <p className="text-muted text-[12px] mt-2 mb-0 text-center">
-            {t('auth.demoWarning')}
-          </p>
+          {!pendingConfirmEmail && (
+            <>
+              <div className="flex items-center gap-3 mt-5 mb-3" aria-hidden="true">
+                <span className="flex-1 h-px bg-border" />
+                <span className="text-muted text-[12px]">{t('auth.tryDivider')}</span>
+                <span className="flex-1 h-px bg-border" />
+              </div>
+              <Button full variant="soft" type="button" onClick={handleDemo} disabled={demoBusy || busy || !configured}>
+                {demoBusy ? (
+                  t('auth.demoLoading')
+                ) : (
+                  <>
+                    <FlaskConical size={20} />
+                    {t('auth.demoCta')}
+                  </>
+                )}
+              </Button>
+              <p className="text-muted text-[12px] mt-2 mb-0 text-center">
+                {t('auth.demoWarning')}
+              </p>
+            </>
+          )}
 
           {!configured && (
             <p className="text-warn-text text-[13.5px] mt-3 mb-0 text-center">
