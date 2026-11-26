@@ -1360,6 +1360,62 @@ export type Database = {
           },
         ]
       }
+      platform_admins: {
+        Row: {
+          user_id: string
+          granted_by: string | null
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          granted_by?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          granted_by?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      platform_audit_log: {
+        Row: {
+          id: string
+          admin_user_id: string | null
+          action: string
+          target_teacher_id: string | null
+          details: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          admin_user_id?: string | null
+          action: string
+          target_teacher_id?: string | null
+          details?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          admin_user_id?: string | null
+          action?: string
+          target_teacher_id?: string | null
+          details?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_audit_log_target_teacher_id_fkey"
+            columns: ["target_teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_accounts: {
         Row: {
           id: string
@@ -2574,6 +2630,7 @@ export type Database = {
           created_at: string
           updated_at: string
           owner_user_id: string
+          account_activated: boolean
         }
         Insert: {
           id?: string
@@ -2583,6 +2640,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
           owner_user_id: string
+          account_activated?: boolean
         }
         Update: {
           id?: string
@@ -2592,6 +2650,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
           owner_user_id?: string
+          account_activated?: boolean
         }
         Relationships: [
           {
@@ -2871,6 +2930,10 @@ export type Database = {
           }
           Returns: string
         }
+      is_platform_admin: {
+          Args: Record<PropertyKey, never>
+          Returns: boolean
+        }
       is_teacher_member: {
           Args: {
             p_teacher_id: string
@@ -2888,6 +2951,10 @@ export type Database = {
             p_teacher_id: string
             p_perm: string
           }
+          Returns: boolean
+        }
+      my_platform_admin: {
+          Args: Record<PropertyKey, never>
           Returns: boolean
         }
       next_receipt_no: {
@@ -2908,6 +2975,10 @@ export type Database = {
             p_path: string
           }
           Returns: boolean
+        }
+      platform_overview: {
+          Args: Record<PropertyKey, never>
+          Returns: Json
         }
       portal_account_apply_password: {
           Args: {

@@ -25,7 +25,7 @@ export type TeacherResolution =
       memberships: TeacherMemberRow[]
     }
 
-const TEACHER_COLS = 'id, owner_user_id, display_name, avatar_url, phone, created_at, updated_at'
+const TEACHER_COLS = 'id, owner_user_id, display_name, avatar_url, phone, created_at, updated_at, account_activated'
 const MEMBER_COLS =
   'id, teacher_id, user_id, invited_email, role, permissions, status, created_at, updated_at'
 
