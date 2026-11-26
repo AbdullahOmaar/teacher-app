@@ -24,7 +24,11 @@
     "test:mailpit": "python3 scripts/mailpit_smoke.py"
   },
   "dependencies": {
+    "@fontsource/almarai": "^5.3.0",
+    "@fontsource/amiri": "^5.3.0",
+    "@fontsource/cairo": "^5.3.0",
     "@fontsource/ibm-plex-sans-arabic": "^5.3.0",
+    "@fontsource/tajawal": "^5.3.0",
     "@supabase/supabase-js": "^2.119.2",
     "@tanstack/react-query": "^5.108.1",
     "@zxing/browser": "^0.2.1",

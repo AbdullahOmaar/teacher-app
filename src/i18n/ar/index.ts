@@ -14,6 +14,7 @@ import { attendance } from './attendance'
 import { homework } from './homework'
 import { exams } from './exams'
 import { enrol } from './enrol'
+import { centre } from './centre'
 import { portal } from './portal'
 import { studentPortal } from './studentPortal'
 import { grades } from './grades'
@@ -49,6 +50,7 @@ export const ar = {
   homework,
   exams,
   enrol,
+  centre,
   portal,
   studentPortal,
   grades,

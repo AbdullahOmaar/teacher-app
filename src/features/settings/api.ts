@@ -27,6 +27,7 @@ export {
   isValidDigestTime,
   touchLastExportAt,
   updateMascotVisibility,
+  updatePrintFontSettings,
   updatePushDigestSettings,
   updateTeacherSettings,
   type TeacherSettingsInput,

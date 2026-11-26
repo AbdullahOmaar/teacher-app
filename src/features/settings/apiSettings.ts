@@ -2,6 +2,7 @@ import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { isValidAccent } from '../../lib/brand'
+import { isPrintFontKey, type PrintFontKey } from '../../lib/printFonts'
 import type { TeacherSettingsRow } from '../../types/database'
 import type { ThemeMode } from '../../hooks/useTheme'
 import { SETTINGS_COLS } from './apiShared'
@@ -51,6 +52,12 @@ export interface TeacherSettingsInput {
    */
   push_daily_digest_enabled?: boolean
   push_daily_digest_time?: string
+  /**
+   * خط طباعة المستندات (0054 — مهمة 12 / ج16-1) — اختياري بنفس منطق
+   * ملخص Push: غيابه = إبقاء قيمة القاعدة، وبطاقة «خط الطباعة» تحفظه
+   * منفصلاً عبر updatePrintFontSettings. null = الافتراضي (plex).
+   */
+  print_font?: PrintFontKey | null
 }
 
 /** وقت ملخص صالح؟ 'HH:MM' (24 ساعة) — نفس ما يقبله عمود time في القاعدة */
@@ -104,6 +111,16 @@ export async function updateTeacherSettings(
     throw new Error(t('settings.settingsApiDigestTimeInvalid'))
   }
 
+  // خط الطباعة (0054): مفتاح من القائمة المغلقة أو null فقط — مطابق
+  // لقيد CHECK في القاعدة، والتحقق هنا حتى لا تصل قيمة مكسورة لسطح طباعة
+  if (
+    input.print_font !== undefined &&
+    input.print_font !== null &&
+    !isPrintFontKey(input.print_font)
+  ) {
+    throw new Error(t('settings.settingsApiPrintFontInvalid'))
+  }
+
   const { data, error } = await db()
     .from('teacher_settings')
     .upsert(
@@ -124,9 +141,35 @@ export async function updateTeacherSettings(
         ...(input.push_daily_digest_time !== undefined
           ? { push_daily_digest_time: input.push_daily_digest_time }
           : {}),
+        // خط الطباعة (0054): يُكتب فقط إن مرّره المستدعي صراحة
+        ...(input.print_font !== undefined ? { print_font: input.print_font } : {}),
       },
       { onConflict: 'teacher_id' },
     )
+    .select(SETTINGS_COLS)
+    .single()
+  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+  const row = data
+  return { ...row, center_share_percent: Number(row.center_share_percent) || 0 }
+}
+
+/**
+ * حفظ خط طباعة المستندات وحده (0054 — مهمة 12 / ج16-1) — upsert جزئي
+ * بنمط updatePushDigestSettings: يكتب print_font فقط ولا يمسّ أي عمود
+ * آخر. القيمة مفتاح من القائمة المغلقة (lib/printFonts) أو null
+ * (الافتراضي). حتى تُطبَّق 0054 عند بوابة التجميد يفشل الحفظ برسالة
+ * قاعدة واضحة ولا يُحفظ شيء — البطاقة تعرض الخطأ كما هو.
+ */
+export async function updatePrintFontSettings(
+  teacherId: string,
+  printFont: PrintFontKey | null,
+): Promise<TeacherSettingsRow> {
+  if (printFont !== null && !isPrintFontKey(printFont)) {
+    throw new Error(t('settings.settingsApiPrintFontInvalid'))
+  }
+  const { data, error } = await db()
+    .from('teacher_settings')
+    .upsert({ teacher_id: teacherId, print_font: printFont }, { onConflict: 'teacher_id' })
     .select(SETTINGS_COLS)
     .single()
   if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))

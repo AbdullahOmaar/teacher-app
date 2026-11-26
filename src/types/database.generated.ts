@@ -2354,6 +2354,7 @@ export type Database = {
           brand_name: string | null
           brand_logo_path: string | null
           brand_accent: string | null
+          print_font: string | null
           push_daily_digest_enabled: boolean
           push_daily_digest_time: string
           push_daily_digest_last_sent_on: string | null
@@ -2382,6 +2383,7 @@ export type Database = {
           brand_name?: string | null
           brand_logo_path?: string | null
           brand_accent?: string | null
+          print_font?: string | null
           push_daily_digest_enabled?: boolean
           push_daily_digest_time?: string
           push_daily_digest_last_sent_on?: string | null
@@ -2410,6 +2412,7 @@ export type Database = {
           brand_name?: string | null
           brand_logo_path?: string | null
           brand_accent?: string | null
+          print_font?: string | null
           push_daily_digest_enabled?: boolean
           push_daily_digest_time?: string
           push_daily_digest_last_sent_on?: string | null

@@ -6,6 +6,9 @@ import { Logo } from '../../components/brand/Logo'
 import { Mascot } from '../../components/mascot/Mascot'
 import { useMascotVisible } from '../../components/mascot/useMascotVisible'
 import { useBrandIdentity } from '../../hooks/useBrandIdentity'
+import { usePrintFont } from '../../hooks/usePrintFont'
+import { printFontStyle } from '../../lib/printFonts'
+import { PrintBrandHeader } from '../../components/brand/PrintBrandHeader'
 import { Chip, ChipRow, Field, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import { formatMoney, formatTime12 } from '../../lib/format'
 import { errText } from '../../lib/supabaseErrors'
@@ -300,6 +303,8 @@ export function ReceiptSheet({
   // الإيصال إن وُجدت — الاسم التجاري يتقدم اسم المدرس، وغيابها = الشكل
   // الحالي حرفياً (شعار التطبيق + اسم المدرس).
   const { brand } = useBrandIdentity(teacherId, true)
+  // خط طباعة المستندات المختار (مهمة 12 — ج16-1): الافتراضي بلا ستايل
+  const { printFont } = usePrintFont(teacherId, true)
   // احتفال الدفعة (دُفّي + جملته) نقطة ظهور ماسكوت: مفتاح الإظهار يحكم
   // الشريط كله — صورةً ونصاً — كما في باقي النقاط (MASCOT-PLAN §٧)
   const mascotVisible = useMascotVisible()
@@ -363,34 +368,21 @@ export function ReceiptSheet({
 
       <div
         className={`print-area ${paper === 'thermal' ? 'paper-thermal' : ''} bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3`}
+        style={printFontStyle(printFont)}
       >
-        <div
-          className="text-center border-b border-slate-200 pb-2 mb-2"
-          style={brand.accent ? { borderBottomColor: brand.accent, borderBottomWidth: 2 } : undefined}
+        <PrintBrandHeader
+          brand={brand}
+          fallbackTitle={teacherNameQ.data ? teacherNameQ.data : t('invoices.sheetReceiptFallbackTitle')}
+          logoAlt={t('invoices.sheetCentreLogoAlt')}
+          fallbackLogo={<Logo size={44} />}
+          className="mb-2"
         >
-          <div className="flex justify-center mb-1.5">
-            {brand.logoUrl ? (
-              <img
-                src={brand.logoUrl}
-                alt={brand.name ?? t('invoices.sheetCentreLogoAlt')}
-                className="h-[52px] max-w-[180px] object-contain"
-              />
-            ) : (
-              <Logo size={44} />
-            )}
-          </div>
-          <div
-            className="font-extrabold text-[16px]"
-            style={brand.accent ? { color: brand.accent } : undefined}
-          >
-            {brand.name ?? (teacherNameQ.data ? teacherNameQ.data : t('invoices.sheetReceiptFallbackTitle'))}
-          </div>
           <div className="text-[12px] text-slate-500">
             {t('invoices.sheetReceiptNoLabel')} <span dir="ltr" className="font-bold text-slate-800">{payment.receipt_no}</span>
             {' · '}
             {payment.paid_on}
           </div>
-        </div>
+        </PrintBrandHeader>
         <div className="text-[13.5px] space-y-1">
           <div>
             {t('invoices.sheetReceiptStudent')} <b>{invoice.student_name}</b>

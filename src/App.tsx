@@ -88,6 +88,9 @@ const StudentPortalPage = lazy(() =>
 const EnrolPage = lazy(() =>
   import('./features/enrol/EnrolPage').then((m) => ({ default: m.EnrolPage })),
 )
+const CentrePage = lazy(() =>
+  import('./features/centre/CentrePage').then((m) => ({ default: m.CentrePage })),
+)
 const PortalManagePage = lazy(() =>
   import('./features/portal/PortalManagePage').then((m) => ({ default: m.PortalManagePage })),
 )
@@ -239,6 +242,17 @@ export default function App() {
               element={
                 <LazyRoute>
                   <EnrolPage />
+                </LazyRoute>
+              }
+            />
+            {/* صفحة السنتر العامة (مهمة 12 — ج10-4): بلا جلسة — نفس رمز
+                رابط الحجز ونفس الـRPC المقيدة، قراءة تعريفية فقط وزرها
+                ينقل لصفحة الحجز بنفس الرمز */}
+            <Route
+              path="/centre"
+              element={
+                <LazyRoute>
+                  <CentrePage />
                 </LazyRoute>
               }
             />

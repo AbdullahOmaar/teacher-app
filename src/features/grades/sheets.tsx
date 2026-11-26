@@ -16,6 +16,9 @@ import type {
 import { formatDateLabel } from '../schedule/api'
 import { useTeacherDisplayName } from '../invoices/hooks'
 import { useBrandIdentity } from '../../hooks/useBrandIdentity'
+import { usePrintFont } from '../../hooks/usePrintFont'
+import { printFontStyle } from '../../lib/printFonts'
+import { PrintBrandHeader } from '../../components/brand/PrintBrandHeader'
 import {
   ASSESSMENT_TYPES,
   OPTION_LETTERS,
@@ -433,6 +436,8 @@ export function ExamSheetSheet({
   // الهوية البيضاء (Phase 3 خطوة 1): شعار واسم ولهجة السنتر على ترويسة
   // الورقة إن وُجدت، وإلا اسم المدرس كما كان.
   const { brand } = useBrandIdentity(teacherId, true)
+  // خط طباعة المستندات المختار (مهمة 12 — ج16-1): الافتراضي بلا ستايل
+  const { printFont } = usePrintFont(teacherId, true)
 
   return (
     <Sheet open title={t('grades.examSheet')} onClose={onClose}>
@@ -445,33 +450,22 @@ export function ExamSheetSheet({
         </Chip>
       </ChipRow>
 
-      <div className="print-area bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3">
-        <div
-          className="text-center border-b border-slate-200 pb-2 mb-3"
-          style={brand.accent ? { borderBottomColor: brand.accent, borderBottomWidth: 2 } : undefined}
+      <div
+        className="print-area bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3"
+        style={printFontStyle(printFont)}
+      >
+        <PrintBrandHeader
+          brand={brand}
+          fallbackTitle={teacherNameQ.data ? teacherNameQ.data : t('grades.examSheet')}
+          logoAlt={t('grades.sheetLogoAlt')}
         >
-          {brand.logoUrl && (
-            <div className="flex justify-center mb-1.5">
-              <img
-                src={brand.logoUrl}
-                alt={brand.name ?? t('grades.sheetLogoAlt')}
-                className="h-[52px] max-w-[180px] object-contain"
-              />
-            </div>
-          )}
-          <div
-            className="font-extrabold text-[16px]"
-            style={brand.accent ? { color: brand.accent } : undefined}
-          >
-            {brand.name ?? (teacherNameQ.data ? teacherNameQ.data : t('grades.examSheet'))}
-          </div>
           <div className="text-[13.5px] text-slate-600">
             {assessment.title} · {groupName}
           </div>
           <div className="text-[13.5px] text-slate-500">
             {t('grades.sheetMeta', { max: fmtScore(assessment.max_score), date: formatDateLabel(assessment.assess_date) })}
           </div>
-        </div>
+        </PrintBrandHeader>
         <div className="text-[13.5px] mb-3 flex justify-between gap-4">
           <span>
             {t('grades.sheetStudentName')} <span className="text-slate-400">…………………………</span>
