@@ -47,13 +47,33 @@ function stripWoff(): Plugin {
 const pkgVersion = (JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }).version
 const buildTime = new Date().toISOString()
 
+/*
+ * ختم النسخة القابل للجلب (3A-903): نفس قيم define أعلاه تُكتب
+ * version.json في جذر dist، فيقارن حارس النسخة عند العميل
+ * (src/lib/versionGuard) بناءه الجاري بما يخدمه الخادم فعلاً —
+ * مصدر واحد للختم، بلا أي قيمة يدوية وبلا أي تغيير في sw.js
+ * (الطلب GET عادي لا يعترضه الـ SW أصلاً: ليس تنقلاً ولا أصلاً ثابتاً).
+ */
+function emitVersionJson(): Plugin {
+  return {
+    name: 'emit-version-json',
+    generateBundle() {
+      this.emitFile({
+        fileName: 'version.json',
+        type: 'asset',
+        source: JSON.stringify({ version: pkgVersion, buildTime }),
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkgVersion),
     __BUILD_TIME__: JSON.stringify(buildTime),
   },
-  plugins: [react(), tailwindcss(), stripWoff()],
+  plugins: [react(), tailwindcss(), stripWoff(), emitVersionJson()],
   build: {
     rolldownOptions: {
       output: {

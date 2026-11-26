@@ -3,9 +3,30 @@ import { t } from '../../i18n'
 import type { Tables, TeacherMemberRow, TeacherRow, TeacherSettingsRow } from '../../types/database'
 import { logActivity } from '../activity/api'
 
+/**
+ * هل رسالة الخادم من فئة «عميل قديم»؟ (3A-903): رفض بسبب مفتاح API —
+ * مفتاح تراثي معطّل (صيغة GoTrue عند تعطيل المفاتيح القديمة:
+ * «Legacy API keys are disabled»)، أو مفتاح غير صالح/ملغي، أو غياب
+ * المفتاح من الطلب أصلاً. كلها تعني شيئاً واحداً للمستخدم: النسخة
+ * التي بين يديه أقدم من هجرة المفاتيح، وحلّها التحديث لا إعادة المحاولة.
+ */
+export function isStaleClientError(message: string): boolean {
+  const m = message.toLowerCase()
+  if (m.includes('legacy api keys')) return true
+  if (m.includes('no api key found')) return true
+  const mentionsKey = m.includes('api key') || m.includes('apikey')
+  const rejected = m.includes('invalid') || m.includes('disabled') || m.includes('revoked')
+  return mentionsKey && rejected
+}
+
 /** ترجمة أخطاء Supabase Auth الشائعة لرسائل عربية واضحة */
 export function translateAuthError(message: string): string {
   const m = message.toLowerCase()
+  // فئة «عميل قديم» أولاً (3A-903 — تصعيد المالك 2026-11-26 ~18:27):
+  // الخادم يرد بنص إنجليزي خام، وقاعدة المالك (18:06) أن لا نص خام
+  // يصل للمستخدم أبداً — الرسالة المصممة تسمّي المشكلة وحلّها.
+  if (isStaleClientError(m))
+    return `${t('auth.errStaleVersion')} ${t('auth.errStaleVersionHint')}`
   if (m.includes('invalid login credentials')) return t('auth.authApiInvalidCredentials')
   if (m.includes('already registered') || m.includes('already exists'))
     return t('auth.authApiAlreadyRegistered')
@@ -33,7 +54,10 @@ export function translateAuthError(message: string): string {
     return t('auth.authApiRateLimited')
   if (m.includes('network') || m.includes('fetch'))
     return t('auth.authApiNetworkError')
-  return message
+  // احتياطي آمن (قاعدة المالك 2026-11-26 ~18:06 + 3A-903): خطأ غير
+  // معروف يرجع لرسالة عامة مهذبة — نص الخادم الخام لا يصل للمستخدم
+  // أبداً، أياً كانت صيغته.
+  return t('auth.authApiUnexpected')
 }
 
 /** ترجمة أخطاء قاعدة البيانات (قيود/RLS) لرسائل عربية */
@@ -45,7 +69,9 @@ export function translateDbError(error: { code?: string; message?: string }): st
     return t('auth.authApiDbMissingRelated')
   if (code === '42501' || msg.toLowerCase().includes('row-level security'))
     return t('auth.authApiDbForbidden')
-  return msg || t('auth.authApiDbUnexpected')
+  // نفس قاعدة عدم النص الخام (3A-903): كود/رسالة غير معروفين يرجعان
+  // للعام المهذب — رسالة PostgREST الخام لا تظهر للمستخدم أبداً.
+  return t('auth.authApiDbUnexpected')
 }
 
 // ---------------------------------------------------------------------------

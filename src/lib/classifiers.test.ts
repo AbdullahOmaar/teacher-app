@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { friendlyDbError } from './supabaseErrors'
-import { translateAuthError, translateDbError } from '../features/auth/api'
+import {
+  isStaleClientError,
+  translateAuthError,
+  translateDbError,
+} from '../features/auth/api'
 import { examErrorInfo, buildExamLink } from '../features/exams/api'
 import { portalErrorInfo, buildPortalLink } from '../features/portal/api'
 import { studentPortalErrorInfo, buildStudentPortalLink } from '../features/student-portal/api'
@@ -17,8 +21,29 @@ describe('translateAuthError', () => {
     expect(translateAuthError('Email not confirmed')).toContain('مش متأكد')
     expect(translateAuthError('User already registered')).toContain('مسجل بالفعل')
   })
-  it('يمرر الرسائل غير المعروفة كما هي', () => {
-    expect(translateAuthError('some unknown failure')).toBe('some unknown failure')
+  it('الرسائل غير المعروفة ترجع لرسالة عامة مهذبة — لا نص خام أبداً (قاعدة المالك 2026-11-26 + 3A-903)', () => {
+    const out = translateAuthError('some unknown failure')
+    expect(out).not.toBe('some unknown failure')
+    expect(out).toContain('غير متوقع')
+  })
+})
+
+describe('translateAuthError — فئة العميل القديم (3A-903)', () => {
+  it('رسالة المفتاح التراثي المعطّل تُترجم لرسالة النسخة القديمة المصممة', () => {
+    const out = translateAuthError('Legacy API keys are disabled')
+    expect(out).toContain('نسختك قديمة')
+    expect(out).not.toContain('Legacy')
+  })
+  it('صيغ رفض مفتاح API الأخرى تأخذ نفس الرسالة المصممة', () => {
+    for (const raw of ['Invalid API key', 'No API key found in request', 'API key revoked']) {
+      expect(translateAuthError(raw)).toContain('نسختك قديمة')
+    }
+  })
+  it('isStaleClientError لا يبتلع أخطاء مصادقة عادية', () => {
+    expect(isStaleClientError('Invalid login credentials')).toBe(false)
+    expect(isStaleClientError('Email not confirmed')).toBe(false)
+    expect(isStaleClientError('Network request failed')).toBe(false)
+    expect(isStaleClientError('Legacy API keys are disabled')).toBe(true)
   })
 })
 
@@ -27,7 +52,7 @@ describe('translateDbError', () => {
     expect(translateDbError({ code: '23505' })).toContain('موجود بالفعل')
     expect(translateDbError({ code: '23503' })).toContain('غير موجودة')
     expect(translateDbError({ code: '42501' })).toContain('لا تسمح')
-    expect(translateDbError({ message: 'raw msg' })).toBe('raw msg')
+    expect(translateDbError({ message: 'raw msg' })).toContain('غير متوقع')
   })
 })
 
@@ -154,8 +179,10 @@ describe('translateDbError — فروع إضافية (تعميق)', () => {
       'لا تسمح',
     )
   })
-  it('كود غير معروف يرجع لنص الرسالة', () => {
-    expect(translateDbError({ code: '22001', message: 'value too long' })).toBe('value too long')
+  it('كود غير معروف يرجع للعام المهذب — لا نص خام (قاعدة المالك 2026-11-26 + 3A-903)', () => {
+    const out = translateDbError({ code: '22001', message: 'value too long' })
+    expect(out).not.toBe('value too long')
+    expect(out).toContain('غير متوقع')
   })
   it('خطأ فارغ تماماً يرجع لاحتياطي «غير متوقع» لا لسلسلة فارغة', () => {
     const out = translateDbError({})
