@@ -3,6 +3,7 @@ import {
   fetchEffectiveEntitlements,
   mergeEntitlements,
   parseEffectiveEntitlements,
+  resolveVerificationSettings,
   type OverrideInput,
 } from './entitlements'
 import type { PlanLimits } from './subscription'
@@ -164,7 +165,32 @@ describe('parseEffectiveEntitlements — تحويل حمولة RPC بأمان', 
         maxAiMessagesMonth: 100,
       },
       features: { whatsapp_auto: true },
+      verification: { required: false, channels: [] },
       overridesApplied: ['limit:max_students', 'feature:whatsapp_auto'],
+    })
+  })
+
+  it('يشتق إعدادات التأكيد من خصائص الحمولة', () => {
+    const out = parseEffectiveEntitlements({
+      teacher_id: 't-1',
+      plan_slug: 'pro',
+      status: 'active',
+      trial_ends_at: null,
+      limits: { max_students: 1000, max_messages_month: 10000, max_storage_mb: 10240, max_team_members: 10, max_ai_messages_month: 5000 },
+      features: {
+        verification_required: true,
+        verification_channel_whatsapp: true,
+        verification_channel_email: true,
+      },
+      overrides_applied: [
+        'feature:verification_required',
+        'feature:verification_channel_whatsapp',
+        'feature:verification_channel_email',
+      ],
+    })
+    expect(out?.verification).toEqual({
+      required: true,
+      channels: ['email', 'whatsapp'],
     })
   })
 
@@ -178,6 +204,75 @@ describe('parseEffectiveEntitlements — تحويل حمولة RPC بأمان', 
         limits: 'garbage',
       }),
     ).toBeNull()
+  })
+})
+
+describe('resolveVerificationSettings — اشتقاق إعدادات التأكيد (3A-905)', () => {
+  it('الافتراضي بلا أي تجاوز: النظام مقفول', () => {
+    expect(resolveVerificationSettings({})).toEqual({
+      required: false,
+      channels: [],
+    })
+  })
+
+  it('مطلوب + قناتان مفعّلتان؛ المفتاح false والمفتاح الغائب يُتجاهلان', () => {
+    expect(
+      resolveVerificationSettings({
+        verification_required: true,
+        verification_channel_whatsapp: true,
+        verification_channel_email: true,
+        verification_channel_sms: false,
+      }),
+    ).toEqual({ required: true, channels: ['email', 'whatsapp'] })
+  })
+
+  it('قناة بلا إلزام: القناة تُشتق وحدها وrequired يبقى false', () => {
+    expect(
+      resolveVerificationSettings({ verification_channel_sms: true }),
+    ).toEqual({ required: false, channels: ['sms'] })
+  })
+
+  it('تجاوز منتهٍ لا يفعّل التأكيد — الدمج أولاً ثم الاشتقاق', () => {
+    const merged = mergeEntitlements(
+      BASE_LIMITS,
+      [
+        {
+          kind: 'feature',
+          key: 'verification_required',
+          value: true,
+          expiresAt: '2026-11-20T00:00:00Z',
+        },
+        {
+          kind: 'feature',
+          key: 'verification_channel_whatsapp',
+          value: true,
+          expiresAt: null,
+        },
+      ],
+      NOW,
+    )
+    expect(merged.applied).toEqual(['feature:verification_channel_whatsapp'])
+    expect(resolveVerificationSettings(merged.features)).toEqual({
+      required: false,
+      channels: ['whatsapp'],
+    })
+  })
+
+  it('تجاوز نشط يفوز ويُسجَّل في applied', () => {
+    const merged = mergeEntitlements(
+      BASE_LIMITS,
+      [
+        {
+          kind: 'feature',
+          key: 'verification_required',
+          value: true,
+          expiresAt: null,
+        },
+      ],
+      NOW,
+    )
+    expect(merged.applied).toEqual(['feature:verification_required'])
+    expect(resolveVerificationSettings(merged.features).required).toBe(true)
   })
 })
 

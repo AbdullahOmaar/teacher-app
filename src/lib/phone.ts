@@ -16,6 +16,19 @@
 export const WHATSAPP_OTP_ENABLED =
   import.meta.env.VITE_WHATSAPP_OTP_ENABLED === 'true'
 
+/**
+ * علم قناة التأكيد عبر واتساب (3A-905 — تجهيز فقط، بلا إرسال):
+ * مقفل افتراضياً، ويُفتح بضبط
+ * ‏VITE_WHATSAPP_VERIFICATION_ENABLED=true في بيئة البناء فقط بعد
+ * اكتمال أصول Meta عند المالك (رقم منصة + قالب Authentication) وقرار
+ * ‏Q4. عند قفله لا يظهر قسم رقم التأكيد في بطاقة واتساب إطلاقاً —
+ * العلم بوابة عرض للقناة وحدها، لا تفعيل للنظام: التفعيل الحقيقي
+ * بيد أدمن المنصة عبر مفاتيح الاستحقاق (0060)، وواجهته في الخطوة 7
+ * من خطة الأدمن.
+ */
+export const WHATSAPP_VERIFICATION_CHANNEL_ENABLED =
+  import.meta.env.VITE_WHATSAPP_VERIFICATION_ENABLED === 'true'
+
 /** الجزء الوطني من رقم موبايل مصري: 10 أرقام تبدأ بـ 1 وبادئة صحيحة */
 const EG_NATIONAL_RE = /^1[0125]\d{8}$/
 

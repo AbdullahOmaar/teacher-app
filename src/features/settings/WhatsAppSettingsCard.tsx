@@ -5,7 +5,11 @@ import { Button } from '../../components/ui/Button'
 import { Field, FormError, Select, TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/useAuth'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
-import { normalizeEgyptianPhone } from '../../lib/phone'
+import {
+  WHATSAPP_VERIFICATION_CHANNEL_ENABLED,
+  normalizeEgyptianPhone,
+} from '../../lib/phone'
+import { useUpdateOwnProfile } from '../auth/hooks'
 import { formatDateTimeAr } from '../../lib/format'
 import {
   useConfirmPhoneLink,
@@ -80,6 +84,9 @@ export function WhatsAppSettingsCard() {
   const sendTest = useSendWhatsappTest(teacherId)
   const requestLink = useRequestPhoneLink()
   const confirmLink = useConfirmPhoneLink()
+  // رقم التأكيد عبر واتساب (3A-905 — تجهيز فقط): يكتب رقم الموبايل
+  // في الملف الشخصي نفسه (teachers.phone)، فلا مصدر ثانٍ للرقم.
+  const updateOwnProfile = useUpdateOwnProfile(teacherId)
   const templatesQ = useWhatsappTemplates(teacherId || undefined, isOwner && Boolean(teacherId))
   const upsertTemplate = useUpsertWhatsappTemplate(teacherId)
   const messageLogQ = useWhatsappMessageLog(teacherId || undefined, isOwner && Boolean(teacherId))
@@ -98,6 +105,10 @@ export function WhatsAppSettingsCard() {
   // التوكن: قيمة عابرة في الذاكرة فقط — تُمسح بعد الحفظ ولا تُعاد قراءتها
   const [tokenInput, setTokenInput] = useState('')
   const [confirmClearToken, setConfirmClearToken] = useState(false)
+
+  // رقم التأكيد عبر واتساب: يُملأ من رقم الملف الشخصي مرة عند وصوله
+  const [verifyPhone, setVerifyPhone] = useState('')
+  const [verifyPhoneHydratedFor, setVerifyPhoneHydratedFor] = useState('')
 
   // ربط الهاتف: خطوتان (طلب الكود ثم تأكيده)
   const [linkPhone, setLinkPhone] = useState('')
@@ -126,6 +137,17 @@ export function WhatsAppSettingsCard() {
     setTemplateLang(configQ.data.template_language || 'ar')
     setHydratedFor(teacherId)
   }, [configQ.data, hydratedFor, teacherId])
+
+  useEffect(() => {
+    if (
+      teacher.status !== 'ready' ||
+      !teacherId ||
+      verifyPhoneHydratedFor === teacherId
+    )
+      return
+    setVerifyPhone(teacherPhone)
+    setVerifyPhoneHydratedFor(teacherId)
+  }, [teacher.status, teacherId, teacherPhone, verifyPhoneHydratedFor])
 
   const savedTemplateForm = (
     def: (typeof WHATSAPP_TEMPLATE_CATALOG)[number],
@@ -304,6 +326,41 @@ export function WhatsAppSettingsCard() {
       setMsg(t('settings.waLinkDoneMsg'))
     } catch (err) {
       setFormError(err instanceof Error ? err.message : t('settings.waLinkFailed'))
+    }
+  }
+
+  // حفظ رقم التأكيد: نفس مسار حفظ الملف الشخصي في SettingsPage —
+  // الاسم والصورة يُحملان كما هما، والرقم وحده يتغيّر (E.164).
+  const handleSaveVerifyPhone = async () => {
+    setMsg(null)
+    setFormError(null)
+    const e164 = normalizeEgyptianPhone(verifyPhone)
+    if (!e164) {
+      setFormError(t('settings.waVerifyInvalidPhone'))
+      return
+    }
+    const displayName =
+      teacher.status === 'ready'
+        ? (teacher.teacher?.display_name ?? '').trim()
+        : ''
+    if (!displayName) {
+      setFormError(t('settings.waVerifySaveFailed'))
+      return
+    }
+    try {
+      await updateOwnProfile.mutateAsync({
+        display_name: displayName,
+        phone: e164,
+        avatar_url:
+          teacher.status === 'ready'
+            ? (teacher.teacher?.avatar_url ?? null)
+            : null,
+      })
+      setMsg(t('settings.waVerifySavedMsg'))
+    } catch (err) {
+      setFormError(
+        err instanceof Error ? err.message : t('settings.waVerifySaveFailed'),
+      )
     }
   }
 
@@ -507,6 +564,49 @@ export function WhatsAppSettingsCard() {
               {!configComplete && (
                 <p className="text-muted text-[12.5px] mt-2 mb-0">{t('settings.waLinkNeedsConfig')}</p>
               )}
+            </>
+          )}
+
+          {/* ٥ب) رقم التأكيد عبر واتساب (3A-905 — تجهيز فقط، يظهر
+              بعلم البناء وحده): الرقم المحفوظ هنا هو رقم الملف
+              الشخصي نفسه — لا إرسال ولا تفعيل من هذه البطاقة؛ التفعيل
+              بيد أدمن المنصة عبر الاستحقاق (0060) بعد اكتمال أصول Meta. */}
+          {WHATSAPP_VERIFICATION_CHANNEL_ENABLED && (
+            <>
+              <h3 className="type-section mt-6 mb-2 text-[15px]">
+                {t('settings.waVerifyTitle')}
+              </h3>
+              <p className="text-muted text-[13px] mt-0 mb-3">
+                {t('settings.waVerifyIntro')}
+              </p>
+              <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3">
+                {teacherPhone
+                  ? t('settings.waVerifyCurrent', { phone: teacherPhone })
+                  : t('settings.waVerifyNoPhone')}
+              </p>
+              <div className="flex flex-wrap items-end gap-2 mb-5">
+                <div className="grow min-w-[200px]">
+                  <Field label={t('settings.waVerifyPhoneLabel')}>
+                    <TextInput
+                      dir="ltr"
+                      inputMode="tel"
+                      value={verifyPhone}
+                      onChange={(e) => setVerifyPhone(e.target.value)}
+                      placeholder="01xxxxxxxxx"
+                      autoComplete="tel"
+                    />
+                  </Field>
+                </div>
+                <Button
+                  variant="soft"
+                  onClick={handleSaveVerifyPhone}
+                  disabled={updateOwnProfile.isPending}
+                >
+                  {updateOwnProfile.isPending
+                    ? t('settings.waVerifySaving')
+                    : t('settings.waVerifySave')}
+                </Button>
+              </div>
             </>
           )}
 
