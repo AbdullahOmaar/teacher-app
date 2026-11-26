@@ -18,6 +18,57 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      account_overrides: {
+        Row: {
+          id: string
+          teacher_id: string
+          kind: string
+          key: string
+          value: Json | null
+          reason: string
+          expires_at: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          kind: string
+          key: string
+          value?: Json | null
+          reason: string
+          expires_at?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          kind?: string
+          key?: string
+          value?: Json | null
+          reason?: string
+          expires_at?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_overrides_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_overrides_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_log: {
         Row: {
           id: string
@@ -2972,6 +3023,12 @@ export type Database = {
           Args: Record<PropertyKey, never>
           Returns: Json
         }
+      effective_entitlements: {
+          Args: {
+            p_teacher_id: string
+          }
+          Returns: Json
+        }
       enrolment_page_by_token: {
           Args: {
             p_token: string
@@ -3337,6 +3394,12 @@ export type Database = {
           Args: Record<PropertyKey, never>
           Returns: number
         }
+      revoke_account_override: {
+          Args: {
+            p_override_id: string
+          }
+          Returns: string
+        }
       report_client_error: {
           Args: {
             p_teacher_id: string | null
@@ -3359,6 +3422,17 @@ export type Database = {
             template_language: string
             access_token: string
           }[]
+        }
+      set_account_override: {
+          Args: {
+            p_teacher_id: string
+            p_kind: string
+            p_key: string
+            p_value: Json | null
+            p_reason: string
+            p_expires_at?: string | null
+          }
+          Returns: string
         }
       set_teacher_whatsapp_token: {
           Args: {
