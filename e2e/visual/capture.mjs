@@ -174,20 +174,33 @@ async function waitBodyText(page, text, timeout = WAIT_TIMEOUT) {
 }
 
 async function clickByText(page, text, { timeout = WAIT_TIMEOUT, selector = 'button, a' } = {}) {
-  const handle = await page.waitForFunction(
-    (t, sel) => {
-      const els = [...document.querySelectorAll(sel)];
-      return els.find((el) => el.innerText && el.innerText.includes(t) && !el.disabled) || null;
-    },
+  // نقر داخل الصفحة بلا مقابض عناصر (إصلاح فجوة 42): مقبض Puppeteer
+  // بين waitForFunction والنقر يفسد عندما يعيد React تصيير الحوار
+  // («Node is either not clickable or not an Element») — البحث +
+  // التمرير + النقر خطوة ذرّية واحدة داخل evaluate طازج، بإعادة
+  // محاولة إن اختفى العنصر بين الانتظار والنقر.
+  await page.waitForFunction(
+    (t, sel) => [...document.querySelectorAll(sel)].some((el) => el.innerText && el.innerText.includes(t) && !el.disabled),
     { timeout },
     text,
     selector,
   );
-  const el = handle.asElement();
-  if (!el) throw new Error(`عنصر غير موجود: ${text}`);
-  await el.scrollIntoView().catch(() => {});
-  await el.click();
-  return el;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const clicked = await page.evaluate(
+      (t, sel) => {
+        const el = [...document.querySelectorAll(sel)].find((e) => e.innerText && e.innerText.includes(t) && !e.disabled);
+        if (!el) return false;
+        el.scrollIntoView({ block: 'center' });
+        el.click();
+        return true;
+      },
+      text,
+      selector,
+    );
+    if (clicked) return true;
+    await sleep(400);
+  }
+  throw new Error(`عنصر يختفي قبل النقر: ${text}`);
 }
 
 /** سباق مهلة: أي انتظار داخل الصفحة قد يعلّق للأبد (fonts.ready مع خط
@@ -398,20 +411,29 @@ async function capturePortal(browser, page, stats, kind, width, file) {
       await page.goto(BASE + href, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
       await waitBodyText(page, tile);
       await clickByText(page, tile);
-      const genHandle = await page.waitForFunction(
-        (texts) => [...document.querySelectorAll('button')].find((b) => texts.some((t) => b.innerText.includes(t))) || null,
+      await page.waitForFunction(
+        (texts) => [...document.querySelectorAll('button')].some((b) => texts.some((t) => b.innerText.includes(t))),
         { timeout: WAIT_TIMEOUT },
         generateTexts,
       );
-      const genBtn = genHandle.asElement();
-      const disabled = await page.evaluate((el) => el.disabled, genBtn);
-      if (disabled) {
+      // نقر evaluate طازج (إصلاح فجوة 42): الحوار يعيد React تصييره
+      // بين الانتظار والنقر فيفسد أي مقبض عنصر — فحص التعطيل والبحث
+      // والنقر خطوة ذرّية واحدة داخل الصفحة.
+      const genState = await page.evaluate((texts) => {
+        const b = [...document.querySelectorAll('button')].find((x) => texts.some((t) => x.innerText.includes(t)));
+        if (!b) return 'missing';
+        if (b.disabled) return 'disabled';
+        b.scrollIntoView({ block: 'center' });
+        b.click();
+        return 'clicked';
+      }, generateTexts);
+      if (genState === 'disabled') {
         await page.keyboard.press('Escape');
         await sleep(500);
         lastErr = new Error(`زر التوليد معطّل للطالب ${href} (لا هاتف ولي على الأرجح)`);
         continue;
       }
-      await genBtn.click();
+      if (genState !== 'clicked') throw new Error('زر التوليد اختفى قبل النقر');
       const link = await page
         .waitForFunction(
           (mk) => {
@@ -473,7 +495,9 @@ async function main() {
     startedAt: new Date().toISOString(),
     widths: {},
   };
-  const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  // protocolTimeout مرفوع (600s): درس تدهور الريلاي/CDP — المهلة
+  // الافتراضية تقطع جلسات الالتقاط الطويلة عند أول بطء عابر.
+  const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'], protocolTimeout: 600_000 });
   let failures = 0;
   try {
     for (const width of WIDTHS) {
@@ -510,7 +534,12 @@ async function main() {
       await page.setViewport({ width, height: 844, hasTouch: true, isMobile: true });
       await preparePage(page, stats);
       const authScreens = screens.filter((x) => x.auth === 'demo');
-      if (authScreens.length) {
+      const tokenScreens = WITH_TOKENS ? screens.filter((x) => x.auth === 'token') : [];
+      // دخول الديمو شرط لشاشات البوابات أيضاً (إصلاح فجوة 42): تشغيل
+      // ‎--only portal-*‎ بلا أي شاشة demo كان يتخطى مرحلة الدخول
+      // كلياً (demoLogin لا يُستدعى) فيصل الالتقاط إلى /students
+      // بلا جلسة ويعلّق حتى المهلة.
+      if (authScreens.length || tokenScreens.length) {
         let loginErr = null;
         for (let attempt = 1; attempt <= 2; attempt++) {
           try {
@@ -531,9 +560,10 @@ async function main() {
           }
         }
         if (loginErr) {
-          failures += authScreens.length;
-          for (const s of authScreens) entries.push({ id: s.id, file: `${width}/${s.id}.png`, error: `فشل دخول الديمو: ${loginErr.message}` });
+          failures += authScreens.length + tokenScreens.length;
+          for (const s of [...authScreens, ...tokenScreens]) entries.push({ id: s.id, file: `${width}/${s.id}.png`, error: `فشل دخول الديمو: ${loginErr.message}` });
           authScreens.length = 0;
+          tokenScreens.length = 0;
         }
       }
       const resolved = {};
@@ -571,8 +601,8 @@ async function main() {
         }
       }
       // البوابتان بروابط مولّدة
-      if (WITH_TOKENS) {
-        for (const s of screens.filter((x) => x.auth === 'token')) {
+      if (tokenScreens.length) {
+        for (const s of tokenScreens) {
           const file = path.join(dir, s.id + '.png');
           try {
             await ensureSession(page);
