@@ -143,9 +143,7 @@ export function FeedbackPage() {
               <LoadingState />
             ) : listQ.error ? (
               <ErrorState
-                message={
-                  listQ.error instanceof Error ? listQ.error.message : t('common.unknownError')
-                }
+                message={t('feedback.listError')}
                 onRetry={() => void invalidatePrefixes(qc, [FEEDBACK])}
               />
             ) : items.length === 0 ? (
