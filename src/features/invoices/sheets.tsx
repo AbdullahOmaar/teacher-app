@@ -6,6 +6,8 @@ import { Logo } from '../../components/brand/Logo'
 import { Mascot } from '../../components/mascot/Mascot'
 import { useMascotVisible } from '../../components/mascot/useMascotVisible'
 import { useBrandIdentity } from '../../hooks/useBrandIdentity'
+import { usePrintFont } from '../../hooks/usePrintFont'
+import { printFontStyle } from '../../lib/printFonts'
 import { PrintBrandHeader } from '../../components/brand/PrintBrandHeader'
 import { Chip, ChipRow, Field, FormError, Select, TextArea, TextInput } from '../../components/ui/form'
 import { formatMoney, formatTime12 } from '../../lib/format'
@@ -301,6 +303,8 @@ export function ReceiptSheet({
   // الإيصال إن وُجدت — الاسم التجاري يتقدم اسم المدرس، وغيابها = الشكل
   // الحالي حرفياً (شعار التطبيق + اسم المدرس).
   const { brand } = useBrandIdentity(teacherId, true)
+  // خط طباعة المستندات المختار (مهمة 12 — ج16-1): الافتراضي بلا ستايل
+  const { printFont } = usePrintFont(teacherId, true)
   // احتفال الدفعة (دُفّي + جملته) نقطة ظهور ماسكوت: مفتاح الإظهار يحكم
   // الشريط كله — صورةً ونصاً — كما في باقي النقاط (MASCOT-PLAN §٧)
   const mascotVisible = useMascotVisible()
@@ -364,6 +368,7 @@ export function ReceiptSheet({
 
       <div
         className={`print-area ${paper === 'thermal' ? 'paper-thermal' : ''} bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3`}
+        style={printFontStyle(printFont)}
       >
         <PrintBrandHeader
           brand={brand}

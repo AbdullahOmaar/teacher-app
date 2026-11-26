@@ -16,6 +16,8 @@ import type {
 import { formatDateLabel } from '../schedule/api'
 import { useTeacherDisplayName } from '../invoices/hooks'
 import { useBrandIdentity } from '../../hooks/useBrandIdentity'
+import { usePrintFont } from '../../hooks/usePrintFont'
+import { printFontStyle } from '../../lib/printFonts'
 import { PrintBrandHeader } from '../../components/brand/PrintBrandHeader'
 import {
   ASSESSMENT_TYPES,
@@ -434,6 +436,8 @@ export function ExamSheetSheet({
   // الهوية البيضاء (Phase 3 خطوة 1): شعار واسم ولهجة السنتر على ترويسة
   // الورقة إن وُجدت، وإلا اسم المدرس كما كان.
   const { brand } = useBrandIdentity(teacherId, true)
+  // خط طباعة المستندات المختار (مهمة 12 — ج16-1): الافتراضي بلا ستايل
+  const { printFont } = usePrintFont(teacherId, true)
 
   return (
     <Sheet open title={t('grades.examSheet')} onClose={onClose}>
@@ -446,7 +450,10 @@ export function ExamSheetSheet({
         </Chip>
       </ChipRow>
 
-      <div className="print-area bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3">
+      <div
+        className="print-area bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3"
+        style={printFontStyle(printFont)}
+      >
         <PrintBrandHeader
           brand={brand}
           fallbackTitle={teacherNameQ.data ? teacherNameQ.data : t('grades.examSheet')}

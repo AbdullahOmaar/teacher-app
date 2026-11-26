@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
-import { Bell, Bug, CalendarCheck2, FolderCog, GraduationCap, Handshake, Info, MessageCircle, MonitorSmartphone, NotebookPen, Palette, SlidersHorizontal, Sparkles, UserRound } from 'lucide-react'
+import { Bell, Bug, CalendarCheck2, FolderCog, GraduationCap, Handshake, Info, MessageCircle, MonitorSmartphone, NotebookPen, Palette, Printer, SlidersHorizontal, Sparkles, UserRound } from 'lucide-react'
 import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Button } from '../../components/ui/Button'
 import { Chip } from '../../components/ui/form'
@@ -35,6 +35,7 @@ import { DEFAULT_WA_TEMPLATE } from '../invoices/api'
 import { InstallAppCard } from './InstallAppCard'
 import { EnrolLinkCard } from '../enrol/EnrolLinkCard'
 import { PushNotificationsCard } from './PushNotificationsCard'
+import { PrintFontCard } from './PrintFontCard'
 import { MascotSettingsCard } from './MascotSettingsCard'
 import { WhatsAppSettingsCard } from './WhatsAppSettingsCard'
 import { AssistantKeyCard } from './AssistantKeyCard'
@@ -450,6 +451,9 @@ export function SettingsPage() {
     ...(isOwnerWorkspace
       ? [{ id: 'enrol', title: t('settings.sectionEnrol'), icon: CalendarCheck2 }]
       : []),
+    ...(isOwnerWorkspace
+      ? [{ id: 'printfont', title: t('settings.sectionPrintFont'), icon: Printer }]
+      : []),
     { id: 'about', title: t('settings.sectionAbout'), icon: Info },
   ]
   const effectiveOpenSections = isDesktop
@@ -691,6 +695,13 @@ export function SettingsPage() {
       {isOwnerWorkspace && (
         <SettingsSection {...sectionProps('enrol')} bare>
           <EnrolLinkCard />
+        </SettingsSection>
+      )}
+
+      {/* خط طباعة المستندات (مهمة 12 — ج16-1 / 0054): البطاقة مالك فقط */}
+      {isOwnerWorkspace && (
+        <SettingsSection {...sectionProps('printfont')} bare>
+          <PrintFontCard />
         </SettingsSection>
       )}
 

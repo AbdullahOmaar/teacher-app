@@ -18,6 +18,7 @@ import {
   setWhatsappToken,
   touchLastExportAt,
   updateMascotVisibility,
+  updatePrintFontSettings,
   updatePushDigestSettings,
   updateTeacherSettings,
   uploadBrandLogo,
@@ -30,6 +31,7 @@ import {
   type WhatsappTemplateInput,
 } from './api'
 import type { WhatsappMessageKind } from './whatsappTemplates'
+import type { PrintFontKey } from '../../lib/printFonts'
 import { confirmPhoneLink, requestPhoneLink } from '../auth/api'
 
 /** كل مفاتيح وحدة الإعدادات/التصدير تبدأ بـ 'settings' */
@@ -87,6 +89,24 @@ export function useUpdateMascotVisibility(teacherId: string) {
     onSuccess: (row: TeacherSettingsRow) => {
       qc.setQueryData([SETTINGS, 'teacher-settings', teacherId], row)
       void invalidatePrefixes(qc, [SETTINGS])
+    },
+  })
+}
+
+/**
+ * حفظ خط طباعة المستندات (0054 — مهمة 12 / ج16-1) من بطاقة «خط
+ * الطباعة» — تحديث جزئي (print_font فقط) يحدّث كاش الإعدادات ويبطل
+ * كاش ['print-font'] الذي تقرأه أسطح الطباعة مباشرة.
+ */
+export function useUpdatePrintFontSettings(teacherId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (printFont: PrintFontKey | null) =>
+      updatePrintFontSettings(teacherId, printFont),
+    onSuccess: (row: TeacherSettingsRow) => {
+      qc.setQueryData([SETTINGS, 'teacher-settings', teacherId], row)
+      void invalidatePrefixes(qc, [SETTINGS])
+      void qc.invalidateQueries({ queryKey: ['print-font'] })
     },
   })
 }
