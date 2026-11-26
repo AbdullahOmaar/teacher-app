@@ -12,6 +12,7 @@ import { HomePage } from './features/home/HomePage'
 import { LoginPage } from './features/auth/LoginPage'
 import { ResetPasswordPage } from './features/auth/ResetPasswordPage'
 import { RequireAuth } from './features/auth/RequireAuth'
+import { RequirePlatformAdmin } from './features/platform-admin/RequirePlatformAdmin'
 import { NotFoundGate } from './features/notfound/NotFoundGate'
 
 /*
@@ -36,6 +37,11 @@ const AssistantPage = lazy(() =>
 )
 const FeedbackPage = lazy(() =>
   import('./features/feedback/FeedbackPage').then((m) => ({ default: m.FeedbackPage })),
+)
+const PlatformAdminPage = lazy(() =>
+  import('./features/platform-admin/PlatformAdminPage').then((m) => ({
+    default: m.PlatformAdminPage,
+  })),
 )
 const StudentsPage = lazy(() =>
   import('./features/students/StudentsPage').then((m) => ({ default: m.StudentsPage })),
@@ -257,6 +263,21 @@ export default function App() {
               }
             />
             <Route element={<RequireAuth />}>
+            {/* لوحة أدمن المنصة (مهمة 17 — 0055): داخل الجلسة لكن بره
+                قشرة المدرس تماماً — نوع مستخدم مستقل بلوحته الخاصة،
+                وبوابتها RequirePlatformAdmin تثبت صفة الأدمن عبر RPC
+                فوق جلسة RequireAuth؛ لا ملف مدرس مطلوب ولا شاشة مدرس
+                تُفتح من هنا */}
+            <Route element={<RequirePlatformAdmin />}>
+              <Route
+                path="admin"
+                element={
+                  <LazyRoute>
+                    <PlatformAdminPage />
+                  </LazyRoute>
+                }
+              />
+            </Route>
             <Route element={<AppShell />}>
               <Route index element={<HomePage />} />
               <Route

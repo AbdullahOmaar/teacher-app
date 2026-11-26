@@ -213,7 +213,30 @@ export async function signInDemo(): Promise<void> {
 // is_teacher_owner). الدالة آمنة التكرار.
 // ---------------------------------------------------------------------------
 
-const TEACHER_COLS = 'id, owner_user_id, display_name, avatar_url, phone, created_at, updated_at'
+export const TEACHER_COLS_BASE =
+  'id, owner_user_id, display_name, avatar_url, phone, created_at, updated_at'
+export const TEACHER_COLS = `${TEACHER_COLS_BASE}, account_activated`
+
+/**
+ * قراءة متسامحة لعمود account_activated (مهاجرة 0055، بوابة التجميد):
+ * على قاعدة بلا المهاجرة يرفض PostgREST الـ select بـ PGRST204 —
+ * نرجع لقائمة الأعمدة القديمة ونملأ الافتراضي true (نفس افتراضي
+ * المهاجرة: كل الحسابات القائمة تبقى مفعّلة). لا إنفاذ للعلم في أي
+ * مسار بعد، فالرجوع لا يغيّر أي سلوك — والدخول يبقى شغالاً بلا 0055.
+ */
+export function isMissingAccountActivatedColumn(error: {
+  code?: string
+  message?: string
+} | null): boolean {
+  if (!error) return false
+  return error.code === 'PGRST204' || (error.message ?? '').includes('account_activated')
+}
+
+export function withAccountActivatedDefault<T extends object>(
+  row: T,
+): T & { account_activated: boolean } {
+  return { ...row, account_activated: true }
+}
 const SETTINGS_COLS =
   'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, mascot_accessory, show_mascot, portal_link_ttl_days, portal_guardian_show_attendance, portal_guardian_show_scores, portal_guardian_show_notes, portal_guardian_show_money, portal_guardian_show_groups, portal_student_show_schedule, portal_student_show_homework, portal_student_show_grades, portal_student_show_money, last_export_at, created_at, updated_at, print_font'
 const MEMBER_COLS =
@@ -233,7 +256,18 @@ async function fetchOwnTeacher(userId: string): Promise<TeacherRow | null> {
     .select(TEACHER_COLS)
     .eq('id', userId)
     .maybeSingle()
-  if (error) throw error
+  if (error) {
+    if (isMissingAccountActivatedColumn(error)) {
+      const retry = await db()
+        .from('teachers')
+        .select(TEACHER_COLS_BASE)
+        .eq('id', userId)
+        .maybeSingle()
+      if (retry.error) throw retry.error
+      return retry.data ? withAccountActivatedDefault(retry.data) : null
+    }
+    throw error
+  }
   return data ?? null
 }
 
@@ -289,12 +323,25 @@ export async function updateOwnTeacherProfile(
  */
 export async function createCentre(userId: string, displayName: string): Promise<TeacherRow> {
   const client = db()
-  const { data, error } = await client
+  let { data, error } = await client
     .from('teachers')
     .insert({ owner_user_id: userId, display_name: displayName.trim() })
     .select(TEACHER_COLS)
     .single()
+  if (error && isMissingAccountActivatedColumn(error)) {
+    // الـ insert مع الـ returning يفشل كجملة واحدة — لم يُنشأ صف،
+    // فنعيد الإنشاء كاملاً بقائمة الأعمدة القديمة.
+    const retry = await client
+      .from('teachers')
+      .insert({ owner_user_id: userId, display_name: displayName.trim() })
+      .select(TEACHER_COLS_BASE)
+      .single()
+    if (retry.error) throw new Error(translateDbError(retry.error))
+    data = withAccountActivatedDefault(retry.data)
+    error = null
+  }
   if (error) throw new Error(translateDbError(error))
+  if (!data) throw new Error(t('auth.authApiTeacherProfileFailed'))
   const centre = data
 
   const { error: sErr } = await client

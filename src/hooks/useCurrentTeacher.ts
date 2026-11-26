@@ -3,7 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import { useActiveTeacherId } from '../lib/activeTeacher'
-import { claimTeacherInvites, toMemberRow } from '../features/auth/api'
+import {
+  TEACHER_COLS,
+  TEACHER_COLS_BASE,
+  claimTeacherInvites,
+  isMissingAccountActivatedColumn,
+  toMemberRow,
+  withAccountActivatedDefault,
+} from '../features/auth/api'
 import type { TeacherMemberRow, TeacherRow } from '../types/database'
 
 export type TeacherResolution =
@@ -25,7 +32,6 @@ export type TeacherResolution =
       memberships: TeacherMemberRow[]
     }
 
-const TEACHER_COLS = 'id, owner_user_id, display_name, avatar_url, phone, created_at, updated_at'
 const MEMBER_COLS =
   'id, teacher_id, user_id, invited_email, role, permissions, status, created_at, updated_at'
 
@@ -123,12 +129,27 @@ export function useCurrentTeacher(): TeacherResolution {
         }
       }
 
-      const { data: ownRows, error: ownErr } = await db
+      let { data: ownRows, error: ownErr } = await db
         .from('teachers')
         .select(TEACHER_COLS)
         .eq('owner_user_id', uid)
         .order('created_at', { ascending: true })
-      if (ownErr) throw ownErr
+      if (ownErr) {
+        if (isMissingAccountActivatedColumn(ownErr)) {
+          // 0055 غير مطبقة بعد — نرجع لقائمة الأعمدة القديمة مع
+          // الافتراضي true (نفس افتراضي المهاجرة).
+          const retry = await db
+            .from('teachers')
+            .select(TEACHER_COLS_BASE)
+            .eq('owner_user_id', uid)
+            .order('created_at', { ascending: true })
+          if (retry.error) throw retry.error
+          ownRows = (retry.data ?? []).map(withAccountActivatedDefault)
+          ownErr = null
+        } else {
+          throw ownErr
+        }
+      }
       const ownTeachers = ownRows ?? []
       // السنتر الأساسي: الصف التاريخي id = uid إن وُجد، وإلا الأقدم
       const ownTeacher = ownTeachers.find((t) => t.id === uid) ?? ownTeachers[0] ?? null
