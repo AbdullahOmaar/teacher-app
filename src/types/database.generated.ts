@@ -1416,6 +1416,27 @@ export type Database = {
           },
         ]
       }
+      platform_settings: {
+        Row: {
+          key: string
+          value: Json
+          updated_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          value: Json
+          updated_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          key?: string
+          value?: Json
+          updated_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       portal_accounts: {
         Row: {
           id: string
@@ -2305,6 +2326,33 @@ export type Database = {
           },
         ]
       }
+      teacher_allowlist: {
+        Row: {
+          id: string
+          email: string | null
+          phone: string | null
+          note: string | null
+          added_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          email?: string | null
+          phone?: string | null
+          note?: string | null
+          added_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string | null
+          phone?: string | null
+          note?: string | null
+          added_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       teacher_feedback: {
         Row: {
           id: string
@@ -2808,8 +2856,22 @@ export type Database = {
       }
     }
     Functions: {
+      can_self_register: {
+          Args: {
+            p_email: string
+            p_phone: string
+          }
+          Returns: boolean
+        }
       claim_teacher_invites: {
           Args: Record<PropertyKey, never>
+          Returns: Json
+        }
+      create_teacher_profile_for_self: {
+          Args: {
+            p_display_name: string
+            p_phone: string
+          }
           Returns: Json
         }
       create_purchase: {
