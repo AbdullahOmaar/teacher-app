@@ -465,6 +465,8 @@ export const settings = {
   planStatusPastDue: 'متأخرة',
   planStatusCancelled: 'ملغاة',
   planPilotBadge: 'باقة الطيار',
+  planOverrideNote:
+    'تفعيل خاص من إدارة المنصة على حسابك — حدود أو خصائص إضافية فوق باقتك.',
   printFontCardTitle: 'خط طباعة المستندات',
   printFontCardIntro:
     'اختر خط مستنداتك المطبوعة بهوية سنترك: ورقة الامتحان وإيصال الدفع. بطاقة الطالب الرقمية ليها تصميمها الثابت ومش بتتأثر بالاختيار ده.',
