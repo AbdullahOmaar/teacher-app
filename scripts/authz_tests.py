@@ -2343,7 +2343,7 @@ def main():
                          f"('{usage_admin_uid}', 'authz usage fixture')")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/usage_counters",
-                            jwt=<redacted>
+                            jwt=demo_jwt,
                             body={"teacher_id": demo_teacher,
                                   "period_month": "2026-11-01",
                                   "counter_key": "messages_month",
@@ -2357,7 +2357,7 @@ def main():
                       s >= 400, f"got {s} {str(b)[:120]}")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/rpc/usage_summary",
-                            jwt=<redacted>
+                            jwt=demo_jwt,
                             body={"p_teacher_id": demo_teacher})
                 summary_ok = (
                     s == 200 and isinstance(b, dict)
@@ -2375,7 +2375,7 @@ def main():
                       summary_ok, f"got {s} {str(b)[:200]}")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/rpc/check_usage_limit",
-                            jwt=<redacted>
+                            jwt=demo_jwt,
                             body={"p_teacher_id": demo_teacher,
                                   "p_key": "max_students"})
                 check("check_usage_limit agrees with the summary",
@@ -2388,7 +2388,7 @@ def main():
                       f"got {s} {str(b)[:160]}")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/rpc/check_usage_limit",
-                            jwt=<redacted>
+                            jwt=demo_jwt,
                             body={"p_teacher_id": demo_teacher,
                                   "p_key": "no_such_key"})
                 check("an unknown usage key is rejected",
@@ -2398,7 +2398,7 @@ def main():
                 # يعيد الإدراج.
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/rpc/set_account_override",
-                            jwt=<redacted>
+                            jwt=usage_admin_jwt,
                             body={"p_teacher_id": demo_teacher,
                                   "p_kind": "limit",
                                   "p_key": "max_students",
@@ -2410,7 +2410,7 @@ def main():
                       f"got {s} {str(b)[:120]}")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/rpc/usage_summary",
-                            jwt=<redacted>
+                            jwt=demo_jwt,
                             body={"p_teacher_id": demo_teacher})
                 check("the override flows into the summary (limit 0)",
                       s == 200 and isinstance(b, dict)
@@ -2419,7 +2419,7 @@ def main():
                       f"got {s} {str(b)[:160]}")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/rpc/check_usage_limit",
-                            jwt=<redacted>
+                            jwt=demo_jwt,
                             body={"p_teacher_id": demo_teacher,
                                   "p_key": "max_students"})
                 check("the override makes check_usage_limit refuse",
@@ -2429,21 +2429,21 @@ def main():
                       f"got {s} {str(b)[:160]}")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/students",
-                            jwt=<redacted>
+                            jwt=demo_jwt,
                             body={"teacher_id": demo_teacher,
                                   "name": "authz-limit-probe"})
                 check("the student-limit trigger rejects the insert",
                       s >= 400, f"got {s} {str(b)[:160]}")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/rpc/revoke_account_override",
-                            jwt=<redacted>
+                            jwt=usage_admin_jwt,
                             body={"p_override_id": usage_override_id})
                 check("admin revokes the override",
                       s == 200, f"got {s} {str(b)[:120]}")
                 usage_override_id = None
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/students",
-                            jwt=<redacted>
+                            jwt=demo_jwt,
                             body={"teacher_id": demo_teacher,
                                   "name": "authz-limit-probe"})
                 check("the insert works again after the revoke",
