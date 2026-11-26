@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   checkSelfRegistrationAllowed,
+  confirmRecoveryWithCode,
+  confirmSignUpWithCode,
   createTeacherProfileViaRpc,
   isMissingRpcFunction,
 } from './api'
@@ -18,6 +20,7 @@ import {
 const h = vi.hoisted(() => ({
   result: { data: null as unknown, error: null as unknown },
   calls: [] as { name: string; args: unknown }[],
+  authCalls: [] as { args: unknown }[],
 }))
 
 vi.mock('../../lib/supabase', () => ({
@@ -25,6 +28,12 @@ vi.mock('../../lib/supabase', () => ({
     rpc: (name: string, args: unknown) => {
       h.calls.push({ name, args })
       return Promise.resolve(h.result)
+    },
+    auth: {
+      verifyOtp: (args: unknown) => {
+        h.authCalls.push({ args })
+        return Promise.resolve(h.result)
+      },
     },
     from: () => {
       throw new Error('auth api test must not read tables directly')
@@ -35,6 +44,11 @@ vi.mock('../../lib/supabase', () => ({
 function setRpc(data: unknown, error: unknown = null) {
   h.result = { data, error }
   h.calls = []
+}
+
+function setAuth(data: unknown, error: unknown = null) {
+  h.result = { data, error }
+  h.authCalls = []
 }
 
 describe('isMissingRpcFunction — تمييز غياب الدالة', () => {
@@ -116,5 +130,39 @@ describe('createTeacherProfileViaRpc — نقطة الإنفاذ', () => {
     const err = { message: 'boom', code: 'XX000' }
     setRpc(null, err)
     await expect(createTeacherProfileViaRpc('مستر أحمد', null)).rejects.toBe(err)
+  })
+})
+
+describe('confirmSignUpWithCode — تأكيد التسجيل بالكود (3A-904)', () => {
+  it('يتحقق بنوع signup ببريد وكود مقصوصين، ويرجع معرّف المستخدم', async () => {
+    setAuth({ user: { id: 'u9' }, session: { access_token: 'x' } })
+    await expect(
+      confirmSignUpWithCode(' Teacher@Example.com ', ' 123456 '),
+    ).resolves.toEqual({ userId: 'u9' })
+    expect(h.authCalls).toEqual([
+      { args: { email: 'Teacher@Example.com', token: '123456', type: 'signup' } },
+    ])
+  })
+  it('كود خاطئ/منتهٍ من GoTrue يُترجم لرسالة «الكود غير صحيح»', async () => {
+    setAuth({ user: null, session: null }, { message: 'Token has expired or is invalid' })
+    await expect(confirmSignUpWithCode('x@y.z', '000000')).rejects.toThrow(
+      'الكود غير صحيح',
+    )
+  })
+})
+
+describe('confirmRecoveryWithCode — تأكيد كود الاستعادة (3A-904)', () => {
+  it('يتحقق بنوع recovery ويصدر جلسة الاستعادة (بلا قيمة مرجعة)', async () => {
+    setAuth({ user: { id: 'u9' }, session: { access_token: 'x' } })
+    await expect(confirmRecoveryWithCode('x@y.z', '654321')).resolves.toBeUndefined()
+    expect(h.authCalls).toEqual([
+      { args: { email: 'x@y.z', token: '654321', type: 'recovery' } },
+    ])
+  })
+  it('كود منتهٍ يُترجم لرسالة انتهاء الصلاحية', async () => {
+    setAuth({ user: null, session: null }, { message: 'Token has expired' })
+    await expect(confirmRecoveryWithCode('x@y.z', '654321')).rejects.toThrow(
+      'انتهت صلاحيته',
+    )
   })
 })

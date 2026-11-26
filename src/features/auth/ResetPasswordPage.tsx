@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
@@ -7,20 +7,33 @@ import { useAuth } from '../../lib/useAuth'
 import { Logo } from '../../components/brand/Logo'
 import { useMascotVisible } from '../../components/mascot/useMascotVisible'
 import doffyIcon from '../../assets/mascot/icon.webp'
-import { Check } from 'lucide-react'
-import { updatePassword } from './api'
+import { Check, Send } from 'lucide-react'
+import { confirmRecoveryWithCode, requestPasswordReset, updatePassword } from './api'
+import { CodeEntry } from './CodeEntry'
 import { t } from '../../i18n'
 
 /**
- * صفحة تعيين كلمة مرور جديدة من رابط الاستعادة (SEC-5 جزئي):
- * رابط البريد يهبط هنا بجلسة استعادة مؤقتة ينشئها عميل Supabase من
- * مقطع الرابط تلقائياً؛ بوجود الجلسة نعرض نموذج كلمة جديدة، وبعد
- * الحفظ نوجّه للرئيسية. بلا جلسة (رابط منتهٍ/مستخدم) نعرض إرشاداً
- * لطلب رابط جديد من صفحة الدخول.
+ * صفحة تعيين كلمة مرور جديدة داخل جلسة استعادة (SEC-5 جزئي):
+ * الجلسة تصل بإحدى طريقتين — كود استعادة يُدخَل هنا فيتحقق منه
+ * ‏verifyOtp (3A-904، المسار الأساسي بعد قلب قالب البريد لكود فقط)،
+ * أو مقطع رابط إيميل أقدم من القلب ينشئ العميل منه الجلسة تلقائياً.
+ * بوجود الجلسة نعرض نموذج كلمة جديدة، وبعد الحفظ نوجّه للرئيسية.
+ * بلا جلسة نعرض طلب الكود نفسه (بريد + إرسال) ثم إدخاله — فالصفحة
+ * مكتفية ذاتياً ولا ترمي المستخدم لصفحة الدخول.
  */
 export function ResetPasswordPage() {
   const { session, loading } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  // البريد المحمول من «نسيت كلمة المرور» في صفحة الدخول (3A-904):
+  // الكود طُلب هناك أصلاً، فتُفتح شاشة إدخاله مباشرة على هذا البريد
+  const carriedEmail = (location.state as { email?: string } | null)?.email ?? ''
+  const [emailInput, setEmailInput] = useState(carriedEmail)
+  const [codeRequested, setCodeRequested] = useState(Boolean(carriedEmail))
+  // هبوط من رابط قديم منتهٍ/مستخدم: مقطع الرابط يحمل خطأً صريحاً
+  const [linkError] = useState(
+    () => typeof window !== 'undefined' && window.location.hash.includes('error'),
+  )
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [busy, setBusy] = useState(false)
@@ -36,6 +49,21 @@ export function ResetPasswordPage() {
     const id = setTimeout(() => setWaited(true), 2500)
     return () => clearTimeout(id)
   }, [])
+
+  const handleRequestCode = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setBusy(true)
+    try {
+      await requestPasswordReset(emailInput)
+      // رد الخادم محايد: ننتقل لإدخال الكود في الحالتين
+      setCodeRequested(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.passwordResetFailed'))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -94,14 +122,49 @@ export function ResetPasswordPage() {
               </Button>
             </>
           ) : !session ? (
-            <>
-              <p className="bg-bad-soft text-bad-text text-[13.5px] font-semibold rounded-xl px-3 py-2 mb-4 mt-0" role="alert">
-                {t('auth.resetLinkInvalid')}
-              </p>
-              <Link to="/login" className="block text-center text-primary font-bold text-[14px]">
-                {t('auth.backToSignIn')}
-              </Link>
-            </>
+            codeRequested ? (
+              <CodeEntry
+                email={emailInput}
+                hint={t('auth.recoveryCodeSentNotice')}
+                verifyLabel={t('auth.verifyRecoveryCode')}
+                onVerify={(token) => confirmRecoveryWithCode(emailInput, token)}
+                onResend={() => requestPasswordReset(emailInput)}
+                onBack={() => setCodeRequested(false)}
+                backLabel={t('auth.changeEmail')}
+              />
+            ) : (
+              <form onSubmit={handleRequestCode}>
+                {linkError && (
+                  <p className="bg-bad-soft text-bad-text text-[13.5px] font-semibold rounded-xl px-3 py-2 mb-3 mt-0" role="alert">
+                    {t('auth.resetLinkInvalid')}
+                  </p>
+                )}
+                {error && (
+                  <p className="bg-bad-soft text-bad-text text-[13.5px] font-semibold rounded-xl px-3 py-2 mb-3 mt-0" role="alert">
+                    {error}
+                  </p>
+                )}
+                <p className="text-muted text-[13.5px] mb-4 mt-0">{t('auth.resetCodeIntro')}</p>
+                <Field label={t('auth.emailLabel')}>
+                  <TextInput
+                    type="email"
+                    dir="ltr"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    required
+                  />
+                </Field>
+                <Button full type="submit" disabled={busy}>
+                  <Send size={18} />
+                  {busy ? t('auth.sending') : t('auth.sendResetCode')}
+                </Button>
+                <Link to="/login" className="block text-center text-primary font-bold text-[14px] mt-3">
+                  {t('auth.backToSignIn')}
+                </Link>
+              </form>
+            )
           ) : (
             <form onSubmit={handleSubmit}>
               {error && (
