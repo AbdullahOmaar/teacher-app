@@ -16,6 +16,7 @@ import type {
 import { formatDateLabel } from '../schedule/api'
 import { useTeacherDisplayName } from '../invoices/hooks'
 import { useBrandIdentity } from '../../hooks/useBrandIdentity'
+import { PrintBrandHeader } from '../../components/brand/PrintBrandHeader'
 import {
   ASSESSMENT_TYPES,
   OPTION_LETTERS,
@@ -446,32 +447,18 @@ export function ExamSheetSheet({
       </ChipRow>
 
       <div className="print-area bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3">
-        <div
-          className="text-center border-b border-slate-200 pb-2 mb-3"
-          style={brand.accent ? { borderBottomColor: brand.accent, borderBottomWidth: 2 } : undefined}
+        <PrintBrandHeader
+          brand={brand}
+          fallbackTitle={teacherNameQ.data ? teacherNameQ.data : t('grades.examSheet')}
+          logoAlt={t('grades.sheetLogoAlt')}
         >
-          {brand.logoUrl && (
-            <div className="flex justify-center mb-1.5">
-              <img
-                src={brand.logoUrl}
-                alt={brand.name ?? t('grades.sheetLogoAlt')}
-                className="h-[52px] max-w-[180px] object-contain"
-              />
-            </div>
-          )}
-          <div
-            className="font-extrabold text-[16px]"
-            style={brand.accent ? { color: brand.accent } : undefined}
-          >
-            {brand.name ?? (teacherNameQ.data ? teacherNameQ.data : t('grades.examSheet'))}
-          </div>
           <div className="text-[13.5px] text-slate-600">
             {assessment.title} · {groupName}
           </div>
           <div className="text-[13.5px] text-slate-500">
             {t('grades.sheetMeta', { max: fmtScore(assessment.max_score), date: formatDateLabel(assessment.assess_date) })}
           </div>
-        </div>
+        </PrintBrandHeader>
         <div className="text-[13.5px] mb-3 flex justify-between gap-4">
           <span>
             {t('grades.sheetStudentName')} <span className="text-slate-400">…………………………</span>
