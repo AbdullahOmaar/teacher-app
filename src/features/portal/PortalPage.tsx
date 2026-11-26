@@ -45,6 +45,7 @@ import {
   loadPortalSessionToken,
   portalClaimGuardian,
   portalSessionStudents,
+  savePortalSessionToken,
   type PortalSessionInfo,
 } from './accounts'
 import { ClaimPasswordCard, PortalLoginForm, SessionAccountCard } from './accessUi'
@@ -417,7 +418,7 @@ function NotificationsSection({
 
 export function PortalPage() {
   const params = useParams()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const urlStudentId = params.studentId ?? searchParams.get('student')
   const urlToken = searchParams.get('t') ?? searchParams.get('token')
 
@@ -427,6 +428,8 @@ export function PortalPage() {
   // أسفله تعمل بأيٍّ منهما دون تمييز.
   const [session, setSession] = useState<{ token: string; info: PortalSessionInfo } | null>(null)
   const [pickedStudentId, setPickedStudentId] = useState<string | null>(null)
+  // اسم دخول claim تم للتو في هذه الزيارة — لعرض تأكيد ما بعد الـ claim
+  const [justClaimed, setJustClaimed] = useState<string | null>(null)
   // توكن الجلسة المحفوظ يُقرأ مرة واحدة عند التحميل (مبادرة كسولة)،
   // والتحقق منه خادمياً غير متزامن فقط — لا setState متزامناً داخل effect
   const [savedToken] = useState(() => (urlToken ? null : loadPortalSessionToken('guardian')))
@@ -467,6 +470,21 @@ export function PortalPage() {
     void qc.removeQueries({ queryKey: [PORTAL, 'overview'] })
     void qc.removeQueries({ queryKey: [PORTAL, 'proofs'] })
     void qc.removeQueries({ queryKey: [PORTAL, 'notifications'] })
+  }
+
+  // بعد claim ناجح (0055): الرابط المستعمل أُبطل خادمياً والجلسة هي
+  // الاعتماد من الآن — حذف التوكن من الرابط يجعل rawToken يسقط على
+  // الجلسة، ويمنع إعادة مشاركة رابط ميت.
+  const stripUrlToken = () => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('t')
+        next.delete('token')
+        return next
+      },
+      { replace: true },
+    )
   }
 
   const overviewQ = usePortalOverview(studentId, rawToken)
@@ -769,9 +787,21 @@ export function PortalPage() {
         </>
       )}
 
-      {/* بطاقة الحساب (3A-385): الواصل برابط يعيّن كلمة سر للدخول
-          الجاي، والداخل بجلسة يدير كلمة سره أو يخرج */}
+      {/* بطاقة الحساب (3A-385 + 0055): الواصل برابط يعيّن كلمة سر
+          للدخول الجاي — والـ claim يستهلك الرابط ويبدّل الاعتماد لجلسة
+          الحساب فوراً — والداخل بجلسة يدير كلمة سره أو يخرج */}
       <div className="mt-5">
+        {justClaimed && (
+          <p
+            className="flex items-start gap-2 bg-ok-soft text-ok-text text-[13.5px] font-semibold rounded-xl px-3 py-2.5 mb-3 mt-0"
+            role="status"
+          >
+            <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
+            <span>
+              {t('portal.claimDone', { username: justClaimed })} {t('portal.claimLinkDone')}
+            </span>
+          </p>
+        )}
         <Card>
           {session ? (
             <SessionAccountCard
@@ -785,7 +815,16 @@ export function PortalPage() {
             />
           ) : (
             <ClaimPasswordCard
-              claim={(pw) => portalClaimGuardian(rawToken, studentId, pw)}
+              claim={(pw) =>
+                portalClaimGuardian(rawToken, studentId, pw).then((res) => {
+                  savePortalSessionToken('guardian', res.session_token)
+                  clearCredentialCaches()
+                  setSession({ token: res.session_token, info: res })
+                  setJustClaimed(res.username)
+                  stripUrlToken()
+                  return { username: res.username }
+                })
+              }
             />
           )}
         </Card>

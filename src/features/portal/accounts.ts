@@ -11,7 +11,9 @@ import {
 import type { TeacherSettingsRow } from '../../types/database'
 
 // ===========================================================================
-// حسابات دخول البوابات الحقيقية (3A-385 — هجرات 0040/0041/0042).
+// حسابات دخول البوابات الحقيقية (3A-385 — هجرات 0040/0041/0042؛ إكمال
+// المهمة 20 — هجرة 0055: دخول الطالب برقم موبايله المسجل بديلاً عن
+// الكود، والـ claim يستهلك الرابط ويفتح جلسة فوراً).
 //
 // نموذج الأمان كما صُمم خادمياً ولا يضعفه العميل:
 // • كلمة السر لا تُهشّ إلا في القاعدة (bcrypt داخل RPC) — العميل
@@ -44,6 +46,14 @@ export interface PortalLoginResult {
 }
 
 export type PortalSessionInfo = Omit<PortalLoginResult, 'session_token'>
+
+/**
+ * نتيجة الـ claim (0055): حمولة دخول كاملة (جلسة مفتوحة فوراً) + معرّف
+ * الحساب — الرابط المستعمل أُبطل خادمياً، فالصفحة تكمل بالجلسة.
+ */
+export interface PortalClaimResult extends PortalLoginResult {
+  account_id: string
+}
 
 // ---------------------------------------------------------------------------
 // دوال نقية — تطبيع اسم الدخول وتحقق كلمة السر (مرآة لقواعد الخادم)
@@ -115,32 +125,37 @@ export async function portalLogout(sessionToken: string): Promise<void> {
   }
 }
 
-/** إنشاء كلمة سر لولي الأمر من داخل بوابته عند الوصول برابط صالح */
+/**
+ * إنشاء كلمة سر لولي الأمر من داخل بوابته عند الوصول برابط صالح.
+ * منذ 0055: الـ claim يستهلك الرابط (يُبطَل خادمياً) ويعيد جلسة حساب
+ * مفتوحة — على المستدعي حفظ توكن الجلسة وتبديل الاعتماد فوراً، فالرابط
+ * لن يعمل بعدها.
+ */
 export async function portalClaimGuardian(
   rawToken: string,
   studentId: string,
   password: string,
-): Promise<{ username: string }> {
+): Promise<PortalClaimResult> {
   const { data, error } = await db().rpc('portal_account_claim_guardian', {
     p_token: rawToken,
     p_student_id: studentId,
     p_password: password,
   })
   if (error) throw error
-  return data as unknown as { username: string }
+  return data as unknown as PortalClaimResult
 }
 
-/** إنشاء كلمة سر للطالب من داخل بوابته عند الوصول برابط صالح */
+/** إنشاء كلمة سر للطالب من داخل بوابته عند الوصول برابط صالح — نفس عقد 0055 */
 export async function portalClaimStudent(
   rawToken: string,
   password: string,
-): Promise<{ username: string }> {
+): Promise<PortalClaimResult> {
   const { data, error } = await db().rpc('portal_account_claim_student', {
     p_token: rawToken,
     p_password: password,
   })
   if (error) throw error
-  return data as unknown as { username: string }
+  return data as unknown as PortalClaimResult
 }
 
 /** تغيير كلمة السر بجلسة قائمة (يتحقق من القديمة ويبطل باقي الجلسات) */
