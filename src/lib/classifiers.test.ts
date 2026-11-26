@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { friendlyDbError } from './supabaseErrors'
+import { getStaleClientSnapshot, resetStaleClientForTests } from './staleClient'
 import {
   isStaleClientError,
   translateAuthError,
@@ -38,6 +39,14 @@ describe('translateAuthError — فئة العميل القديم (3A-903)', () 
     for (const raw of ['Invalid API key', 'No API key found in request', 'API key revoked']) {
       expect(translateAuthError(raw)).toContain('نسختك قديمة')
     }
+  })
+  it('الترجمة ترفع إشارة ألرت التحديث لفئة القديم فقط (طبقة المالك 20:06)', () => {
+    resetStaleClientForTests()
+    translateAuthError('Invalid login credentials')
+    expect(getStaleClientSnapshot()).toBe(false)
+    translateAuthError('Legacy API keys are disabled')
+    expect(getStaleClientSnapshot()).toBe(true)
+    resetStaleClientForTests()
   })
   it('isStaleClientError لا يبتلع أخطاء مصادقة عادية', () => {
     expect(isStaleClientError('Invalid login credentials')).toBe(false)

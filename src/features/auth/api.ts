@@ -1,4 +1,5 @@
 import { db } from '../../lib/supabase'
+import { markStaleClient } from '../../lib/staleClient'
 import { t } from '../../i18n'
 import type { Tables, TeacherMemberRow, TeacherRow, TeacherSettingsRow } from '../../types/database'
 import { logActivity } from '../activity/api'
@@ -25,8 +26,12 @@ export function translateAuthError(message: string): string {
   // فئة «عميل قديم» أولاً (3A-903 — تصعيد المالك 2026-11-26 ~18:27):
   // الخادم يرد بنص إنجليزي خام، وقاعدة المالك (18:06) أن لا نص خام
   // يصل للمستخدم أبداً — الرسالة المصممة تسمّي المشكلة وحلّها.
-  if (isStaleClientError(m))
+  // وطبقة الألرت (مطلب المالك 20:06): نفس الكشف يرفع إشارة «عميل
+  // قديم» المشتركة فيظهر ألرت التحديث الثابت فوق الرسالة المضمّنة.
+  if (isStaleClientError(m)) {
+    markStaleClient()
     return `${t('auth.errStaleVersion')} ${t('auth.errStaleVersionHint')}`
+  }
   if (m.includes('invalid login credentials')) return t('auth.authApiInvalidCredentials')
   if (m.includes('already registered') || m.includes('already exists'))
     return t('auth.authApiAlreadyRegistered')

@@ -6,6 +6,7 @@ import { setErrorReporterTeacher } from './lib/errorReporter'
 import { useCurrentTeacher } from './hooks/useCurrentTeacher'
 import { registerRouteLoaders } from './lib/routePrefetch'
 import { ToastProvider } from './components/ui/Toast'
+import { UpdateAlert } from './components/UpdateAlert'
 import { AppShell } from './components/layout/AppShell'
 import { LoadingState } from './components/ui/states'
 import { HomePage } from './features/home/HomePage'
@@ -197,6 +198,9 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ErrorReporterTeacherBridge />
+        {/* ألرت التحديث الثابت (3A-903): خارج المسارات عند الجذر حتى
+            يظهر قبل الدخول وبعده — انظر components/UpdateAlert */}
+        <UpdateAlert />
         <ToastProvider>
         <BrowserRouter>
           <Routes>

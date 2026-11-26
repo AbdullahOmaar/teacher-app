@@ -11,7 +11,13 @@
  * حدوده الصادقة: عميل أقدم من هذا الحارس نفسه لا يحتويه، فلا يشفى
  * إلا يدوياً — ورسالة «نسختك قديمة» المصممة في translateAuthError
  * (features/auth/api) هي شبكة الأمان التي تشرح له الحل.
+ *
+ * طبقة الألرت (مطلب المالك 2026-11-26 20:06): إن بقي البناء مختلفاً
+ * بعد إعادة التحميل الشافية الواحدة (الشفاء الصامت لم يأخذ)، يرفع
+ * الحارس إشارة «عميل قديم» (lib/staleClient) فيعرض مكوّن UpdateAlert
+ * ألرتاً ثابتاً بزر تحديث فعلي — لا خطأ خام ولا سكوت.
  */
+import { markStaleClient } from './staleClient'
 
 export type VersionAction = 'reload' | 'none'
 
@@ -58,19 +64,52 @@ export async function runVersionGuard(): Promise<void> {
     const alreadyReloaded = remoteBuild
       ? window.sessionStorage.getItem(VERSION_RELOAD_MARK_KEY) === pair
       : false
-    if (decideVersionAction(__BUILD_TIME__, remoteBuild, alreadyReloaded) !== 'reload') return
+    if (decideVersionAction(__BUILD_TIME__, remoteBuild, alreadyReloaded) !== 'reload') {
+      // بناء مختلف وبقينا عليه بعد إعادة التحميل الشافية لهذا الزوج:
+      // الشفاء الصامت لم يأخذ — ارفع إشارة الألرت (مطلب المالك 20:06)
+      if (remoteBuild && remoteBuild !== __BUILD_TIME__ && alreadyReloaded) markStaleClient()
+      return
+    }
     // العلامة قبل إعادة التحميل حتماً — وإلا صارت الحلقة ممكنة
     window.sessionStorage.setItem(VERSION_RELOAD_MARK_KEY, pair)
-    if ('caches' in window) {
-      const keys = await caches.keys()
-      await Promise.all(keys.map((k) => caches.delete(k)))
-    }
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations()
-      await Promise.all(registrations.map((r) => r.unregister()))
-    }
+    await purgeShellCaches()
     window.location.reload()
   } catch {
     // إسقاط صامت مقصود وموثّق أعلاه: لا إعادة محاولة ولا كسر تشغيل
   }
+}
+
+/** مسح كاشات القشرة كلها + إلغاء تسجيل عمال الخدمة كلهم — خطوة التهيئة المشتركة بين الشفاء الصامت وزر التحديث */
+export async function purgeShellCaches(): Promise<void> {
+  if ('caches' in window) {
+    const keys = await caches.keys()
+    await Promise.all(keys.map((k) => caches.delete(k)))
+  }
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations()
+    await Promise.all(registrations.map((r) => r.unregister()))
+  }
+}
+
+/**
+ * رابط إعادة التحميل كاسر الكاش: يضيف/يستبدل وسم `__v` بختم فريد فيبقى
+ * أحدث طلب تنقّل خارج أي كاش HTTP وسيط، مع حفظ باقي الاستعلام والهاش.
+ */
+export function cacheBustedUrl(href: string, stamp: string): string {
+  const url = new URL(href)
+  url.searchParams.set('__v', stamp)
+  return url.toString()
+}
+
+/**
+ * إجراء زر «تحديث التطبيق» في ألرت النسخة القديمة (3A-903): بضغطة
+ * واحدة — مسح الكاشات وإلغاء تسجيل عمال الخدمة ثم تنقّل قسري لرابط
+ * كاسر للكاش، فلا يبقى بين المستخدم وأحدث بناء أي طبقة تخزين.
+ * التنقّل قابل للحقن لاختبار الإجراء بلا تنقّل فعلي.
+ */
+export async function forceClientUpdate(
+  navigate: (url: string) => void = (url) => window.location.replace(url),
+): Promise<void> {
+  await purgeShellCaches()
+  navigate(cacheBustedUrl(window.location.href, String(Date.now())))
 }
