@@ -1,8 +1,8 @@
 import { invalidatePrefixes } from '../../lib/invalidate'
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { FlaskConical, LogIn, Moon, Send, Sun, UserPlus } from 'lucide-react'
+import { FlaskConical, Loader2, LogIn, Moon, Send, Sun, UserPlus } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
@@ -58,6 +58,22 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [busy, setBusy] = useState(false)
+  // حارس إرسال مكرر (3A-914): تعطيل الزر وحده لا يكفي — إرسال ثانٍ
+  // متزامن (Enter مزدوج أو إرسال برمجي) قد يسبق إعادة التصيير فيمرّ
+  // قبل ما تنعكس حالة التعطيل. الـref يُقفل فوراً وبشكل متزامن داخل
+  // المعالج نفسه، والحالة المرئية تتبعه؛ والإفراج دائماً من finally
+  // فلا تبقى حالة «جارٍ…» عالقة بعد نجاح أو خطأ.
+  const busyRef = useRef(false)
+  const beginBusy = () => {
+    if (busyRef.current) return false
+    busyRef.current = true
+    setBusy(true)
+    return true
+  }
+  const endBusy = () => {
+    busyRef.current = false
+    setBusy(false)
+  }
   // بريد ينتظر تأكيد الكود (3A-904): بعد تسجيل بلا جلسة أو من مسار
   // «بريد غير مؤكد» عند الدخول — عندها تعرض البطاقة شاشة إدخال الكود
   const [pendingConfirmEmail, setPendingConfirmEmail] = useState<string | null>(null)
@@ -138,9 +154,9 @@ export function LoginPage() {
 
   const handleForgot = async (e: FormEvent) => {
     e.preventDefault()
+    if (!beginBusy()) return
     setError(null)
     setNotice(null)
-    setBusy(true)
     try {
       await requestPasswordReset(email)
       // الرد محايد دائماً: لا نؤكد ولا ننفي تسجيل البريد — والانتقال
@@ -151,15 +167,15 @@ export function LoginPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.passwordResetFailed'))
     } finally {
-      setBusy(false)
+      endBusy()
     }
   }
 
   const handleSignIn = async (e: FormEvent) => {
     e.preventDefault()
+    if (!beginBusy()) return
     setError(null)
     setNotice(null)
-    setBusy(true)
     try {
       await signInWithEmail(email, password)
       // تغيّر الجلسة في AuthProvider يعيد التوجيه تلقائياً بالأعلى
@@ -170,7 +186,7 @@ export function LoginPage() {
       // إدخال كود التأكيد لنفس البريد (وفيها إعادة الإرسال بعدّاد)
       if (msg === t('auth.errEmailNotConfirmed')) setShowCodeCta(true)
     } finally {
-      setBusy(false)
+      endBusy()
     }
   }
 
@@ -204,7 +220,7 @@ export function LoginPage() {
       setError(t('auth.passwordMismatch'))
       return
     }
-    setBusy(true)
+    if (!beginBusy()) return
     try {
       // بوابة قفل التسجيل (0057 — قائمة السماح): تُفحص قبل signUp
       // حتى لا ينشأ حساب Auth أصلاً لمرفوض؛ غياب الدالة قبل تطبيق
@@ -251,7 +267,7 @@ export function LoginPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.signUpFailed'))
     } finally {
-      setBusy(false)
+      endBusy()
     }
   }
 
@@ -404,8 +420,8 @@ export function LoginPage() {
                   required
                 />
               </Field>
-              <Button full type="submit" disabled={busy || !configured}>
-                <LogIn size={18} />
+              <Button full type="submit" disabled={busy || !configured} aria-busy={busy}>
+                {busy ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
                 {busy ? t('auth.signingIn') : t('auth.signInSubmit')}
               </Button>
               <button
@@ -444,8 +460,8 @@ export function LoginPage() {
                   required
                 />
               </Field>
-              <Button full type="submit" disabled={busy || !configured}>
-                <Send size={18} />
+              <Button full type="submit" disabled={busy || !configured} aria-busy={busy}>
+                {busy ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                 {busy ? t('auth.sending') : t('auth.sendResetCode')}
               </Button>
               <button
@@ -510,8 +526,8 @@ export function LoginPage() {
                   required
                 />
               </Field>
-              <Button full type="submit" disabled={busy || !configured}>
-                <UserPlus size={18} />
+              <Button full type="submit" disabled={busy || !configured} aria-busy={busy}>
+                {busy ? <Loader2 size={18} className="animate-spin" /> : <UserPlus size={18} />}
                 {busy ? t('auth.creatingAccount') : t('auth.createAccount')}
               </Button>
               <p className="text-muted text-[12px] mt-3 mb-0 text-center">

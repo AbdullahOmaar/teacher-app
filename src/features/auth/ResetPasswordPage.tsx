@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -7,7 +7,7 @@ import { useAuth } from '../../lib/useAuth'
 import { Logo } from '../../components/brand/Logo'
 import { useMascotVisible } from '../../components/mascot/useMascotVisible'
 import doffyIcon from '../../assets/mascot/icon.webp'
-import { Check, Send } from 'lucide-react'
+import { Check, Loader2, Send } from 'lucide-react'
 import { confirmRecoveryWithCode, requestPasswordReset, updatePassword } from './api'
 import { CodeEntry } from './CodeEntry'
 import { t } from '../../i18n'
@@ -37,6 +37,20 @@ export function ResetPasswordPage() {
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [busy, setBusy] = useState(false)
+  // حارس إرسال مكرر (3A-914) — نفس نمط صفحة الدخول: الـref يُقفل
+  // متزامناً داخل المعالج نفسه (تعطيل الزر وحده قد يسبقه إرسال ثانٍ)،
+  // والإفراج دائماً من finally فلا حالة تحميل عالقة بعد أي مصير.
+  const busyRef = useRef(false)
+  const beginBusy = () => {
+    if (busyRef.current) return false
+    busyRef.current = true
+    setBusy(true)
+    return true
+  }
+  const endBusy = () => {
+    busyRef.current = false
+    setBusy(false)
+  }
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   // نفس لوك أب الدخول (خطة الهوية P-1، توحيد 3A-310): وش دُفّي حين
@@ -52,8 +66,8 @@ export function ResetPasswordPage() {
 
   const handleRequestCode = async (e: FormEvent) => {
     e.preventDefault()
+    if (!beginBusy()) return
     setError(null)
-    setBusy(true)
     try {
       await requestPasswordReset(emailInput)
       // رد الخادم محايد: ننتقل لإدخال الكود في الحالتين
@@ -61,7 +75,7 @@ export function ResetPasswordPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.passwordResetFailed'))
     } finally {
-      setBusy(false)
+      endBusy()
     }
   }
 
@@ -76,14 +90,14 @@ export function ResetPasswordPage() {
       setError(t('auth.passwordMismatch'))
       return
     }
-    setBusy(true)
+    if (!beginBusy()) return
     try {
       await updatePassword(password)
       setDone(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.resetFailed'))
     } finally {
-      setBusy(false)
+      endBusy()
     }
   }
 
@@ -156,8 +170,8 @@ export function ResetPasswordPage() {
                     required
                   />
                 </Field>
-                <Button full type="submit" disabled={busy}>
-                  <Send size={18} />
+                <Button full type="submit" disabled={busy} aria-busy={busy}>
+                  {busy ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                   {busy ? t('auth.sending') : t('auth.sendResetCode')}
                 </Button>
                 <Link to="/login" className="block text-center text-primary font-bold text-[14px] mt-3">
@@ -194,8 +208,8 @@ export function ResetPasswordPage() {
                   required
                 />
               </Field>
-              <Button full type="submit" disabled={busy}>
-                <Check size={18} />
+              <Button full type="submit" disabled={busy} aria-busy={busy}>
+                {busy ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
                 {busy ? t('auth.saving') : t('auth.savePassword')}
               </Button>
             </form>
