@@ -20,7 +20,6 @@ export const platformAdmin = {
   comingSoonHint:
     'القسم ده لسه مش مفعّل على المنصة — بيجهز وبيظهر هنا أول ما يتفعّل.',
   sectionLoadError: 'تعذّر تحميل القسم ده — حاول تاني.',
-  retry: 'إعادة المحاولة',
   actionError: 'تعذّر تنفيذ الإجراء — حاول تاني.',
   confirm: 'تأكيد',
   cancel: 'إلغاء',
@@ -42,12 +41,10 @@ export const platformAdmin = {
   // مساحات العمل (0061)
   workspacesTitle: 'مساحات العمل',
   workspacesEmpty: 'لا توجد مساحات عمل لسه.',
-  colTeacher: 'المدرس',
   colPlan: 'الباقة',
   colStatus: 'الحالة',
   colStudents: 'الطلاب',
   colLastActivity: 'آخر نشاط',
-  colActions: 'إجراءات',
   statusActivated: 'مفعّل',
   statusDeactivated: 'موقوف',
   noActivity: 'لا نشاط بعد',

@@ -306,7 +306,7 @@ function EntitlementsBlock({ teacherId }: { teacherId: string }) {
                     key ?? '',
                   )
                 })
-                .join('، ')}
+                .join(t('format.daysSeparator'))}
             </p>
           )}
         </div>

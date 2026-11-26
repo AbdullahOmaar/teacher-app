@@ -249,6 +249,12 @@ function WorkspaceRow({
   selected: boolean
   onSelect: () => void
 }) {
+  const trialPart = w.trialEndsAt
+    ? ' · ' +
+      t('platformAdmin.trialEndsLabel') +
+      ': ' +
+      new Date(w.trialEndsAt).toLocaleDateString('ar-EG')
+    : ''
   return (
     <Card className="flex items-center justify-between gap-3 flex-wrap">
       <div className="text-[14px]">
@@ -267,9 +273,7 @@ function WorkspaceRow({
           {w.lastActivityAt
             ? new Date(w.lastActivityAt).toLocaleDateString('ar-EG')
             : t('platformAdmin.noActivity')}
-          {w.trialEndsAt
-            ? ` · ${t('platformAdmin.trialEndsLabel')}: ${new Date(w.trialEndsAt).toLocaleDateString('ar-EG')}`
-            : ''}
+          {trialPart}
         </div>
       </div>
       <Button size="sm" variant={selected ? 'soft' : 'ghost'} onClick={onSelect}>
@@ -434,6 +438,10 @@ function WhatsappSection() {
   // مالك ق4 والعدّادات مع الخطوة 5/T24) — فالقسم «قريباً» دائماً في
   // هذه الخطوة، بقرار whatsappSectionState النقي.
   const state = whatsappSectionState({ platformNumberRegistered: false })
+  const hint =
+    t('platformAdmin.whatsappComingSoon') +
+    ' — ' +
+    t('platformAdmin.whatsappComingSoonHint')
 
   return (
     <section className="space-y-3">
@@ -441,11 +449,7 @@ function WhatsappSection() {
         <MessageCircle size={20} className="text-primary" />
         {t('platformAdmin.whatsappTitle')}
       </h2>
-      {state === 'coming-soon' && (
-        <ComingSoonCard
-          hint={`${t('platformAdmin.whatsappComingSoon')} — ${t('platformAdmin.whatsappComingSoonHint')}`}
-        />
-      )}
+      {state === 'coming-soon' && <ComingSoonCard hint={hint} />}
     </section>
   )
 }
