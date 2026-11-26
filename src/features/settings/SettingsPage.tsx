@@ -1,7 +1,7 @@
 import { invalidatePrefixes } from '../../lib/invalidate'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
 import { Bell, Bug, CalendarCheck2, Crown, FolderCog, GraduationCap, Handshake, Info, MessageCircle, MonitorSmartphone, NotebookPen, Palette, Printer, SlidersHorizontal, Sparkles, UserRound } from 'lucide-react'
@@ -26,11 +26,14 @@ import {
   useCreateCentre,
   useInviteAssistant,
   useInviteAssistantByEmail,
+  useReactivateTeamMember,
   useRemoveTeamMember,
+  useSuspendTeamMember,
   useTeamMembers,
   useUpdateMemberPermissions,
   useUpdateOwnProfile,
 } from '../auth/hooks'
+import { fetchTeamLimitState, type TeamLimitState } from './teamLimits'
 import { DEFAULT_WA_TEMPLATE } from '../invoices/api'
 import { InstallAppCard } from './InstallAppCard'
 import { EmailConfirmCard } from './EmailConfirmCard'
@@ -145,6 +148,19 @@ export function SettingsPage() {
   const cancelInvite = useCancelTeamInvite(teamTeacherId)
   const updatePerms = useUpdateMemberPermissions(teamTeacherId)
   const removeMember = useRemoveTeamMember(teamTeacherId)
+  const suspendMember = useSuspendTeamMember(teamTeacherId)
+  const reactivateMember = useReactivateTeamMember(teamTeacherId)
+  // حالة حدّ الفريق (T21 — 3A-896): الاستحقاقات الفعّالة + المقاعد
+  // المشغولة. المفتاح يشمل العدد فيُعاد الجلب مع كل تغيير في الفريق؛
+  // وnull تعني الحدّ غير معروف (0059 غير مطبّقة) فيُخفى السطر ويُتخطى
+  // الفحص المسبق — والتريجر 0064 يبقى الضمان الصلب عند التطبيق.
+  const teamUsedCount = membersQ.data?.length ?? 0
+  const teamLimitQ = useQuery<TeamLimitState | null>({
+    queryKey: ['team', 'limit', teamTeacherId, teamUsedCount],
+    enabled: Boolean(teamTeacherId) && Boolean(ownTeacher),
+    queryFn: () => fetchTeamLimitState(teamTeacherId, teamUsedCount),
+  })
+  const teamLimit = teamLimitQ.data ?? null
   const [assistantId, setAssistantId] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
   const [perms, setPerms] = useState<Record<string, boolean>>({ ...ASSISTANT_DEFAULT_PERMISSIONS })
@@ -153,6 +169,7 @@ export function SettingsPage() {
   const [emailInviteMsg, setEmailInviteMsg] = useState<string | null>(null)
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
+  const [confirmSuspendId, setConfirmSuspendId] = useState<string | null>(null)
 
   // نموذج إنشاء سنتر جديد (0016)
   const [newCentreName, setNewCentreName] = useState('')
@@ -347,6 +364,14 @@ export function SettingsPage() {
   const handleInvite = (e: FormEvent) => {
     e.preventDefault()
     setInviteMsg(null)
+    // الفحص المسبق الودود (T21 — 3A-896): عند بلوغ الحدّ نرفض هنا
+    // برسالة عربية واضحة؛ والتريجر 0064 هو الضمان الصلب خادمياً.
+    if (teamLimit?.atLimit) {
+      setInviteMsg(
+        t('settings.teamLimitReached', { limit: teamLimit.limit ?? 0 }),
+      )
+      return
+    }
     const id = assistantId.trim()
     if (!UUID_RE.test(id)) {
       setInviteMsg(t('settings.inviteInvalidId'))
@@ -372,6 +397,12 @@ export function SettingsPage() {
   const handleEmailInvite = (e: FormEvent) => {
     e.preventDefault()
     setEmailInviteMsg(null)
+    if (teamLimit?.atLimit) {
+      setEmailInviteMsg(
+        t('settings.teamLimitReached', { limit: teamLimit.limit ?? 0 }),
+      )
+      return
+    }
     const email = normalizeInviteEmail(inviteEmail)
     if (!INVITE_EMAIL_RE.test(email)) {
       setEmailInviteMsg(t('settings.emailInviteInvalid'))
@@ -650,6 +681,11 @@ export function SettingsPage() {
             setConfirmRemoveId={setConfirmRemoveId}
             confirmCancelId={confirmCancelId}
             setConfirmCancelId={setConfirmCancelId}
+            confirmSuspendId={confirmSuspendId}
+            setConfirmSuspendId={setConfirmSuspendId}
+            teamLimit={teamLimit}
+            suspendMember={suspendMember}
+            reactivateMember={reactivateMember}
             handleInvite={handleInvite}
             handleEmailInvite={handleEmailInvite}
             invite={invite}

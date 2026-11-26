@@ -74,6 +74,9 @@ export function translateDbError(error: { code?: string; message?: string }): st
     return t('auth.authApiDbMissingRelated')
   if (code === '42501' || msg.toLowerCase().includes('row-level security'))
     return t('auth.authApiDbForbidden')
+  // حدّ الفريق (تريجر 0064 — T21): الرسالة الخام لا تظهر أبداً.
+  if (msg.includes('limit_reached:max_team_members'))
+    return t('auth.authApiTeamLimitReached')
   // نفس قاعدة عدم النص الخام (3A-903): كود/رسالة غير معروفين يرجعان
   // للعام المهذب — رسالة PostgREST الخام لا تظهر للمستخدم أبداً.
   return t('auth.authApiDbUnexpected')
@@ -819,6 +822,68 @@ export async function removeTeamMember(teacherId: string, memberId: string): Pro
   if (error) throw new Error(translateDbError(error))
   void logActivity(teacherId, {
     event_type: 'member_removed',
+    entity_type: 'teacher_member',
+    entity_id: memberId,
+    entity_label: beforeRow?.invited_email ?? beforeRow?.user_id ?? null,
+    details: {
+      ...(beforeRow?.invited_email ? { invited_email: beforeRow.invited_email } : {}),
+      ...(beforeRow?.user_id ? { member_user_id: beforeRow.user_id } : {}),
+    },
+  })
+}
+
+/**
+ * إيقاف عضو فعّال — status='suspended'. سياسات المساعد في RLS تشترط
+ * status='active'، فالإيقاف يقطع وصول العضو خادمياً فوراً بلا أي
+ * تغيير في السياسات؛ والعضو الموقوف يبقى يشغل مقعداً في حدّ الفريق
+ * (0064) لأنه قابل للتفعيل. الدعوة المعلّقة لا تُوقَف (تُلغى بدلاً
+ * منها) — لذلك التحديث مقيّد بالفعّال فقط.
+ */
+export async function suspendTeamMember(teacherId: string, memberId: string): Promise<void> {
+  const { data: before } = await db()
+    .from('teacher_members')
+    .select(MEMBER_COLS)
+    .eq('teacher_id', teacherId)
+    .eq('id', memberId)
+    .maybeSingle()
+  const beforeRow = before ? toMemberRow(before) : null
+  const { error } = await db()
+    .from('teacher_members')
+    .update({ status: 'suspended' })
+    .eq('teacher_id', teacherId)
+    .eq('id', memberId)
+    .eq('status', 'active')
+  if (error) throw new Error(translateDbError(error))
+  void logActivity(teacherId, {
+    event_type: 'member_suspended',
+    entity_type: 'teacher_member',
+    entity_id: memberId,
+    entity_label: beforeRow?.invited_email ?? beforeRow?.user_id ?? null,
+    details: {
+      ...(beforeRow?.invited_email ? { invited_email: beforeRow.invited_email } : {}),
+      ...(beforeRow?.user_id ? { member_user_id: beforeRow.user_id } : {}),
+    },
+  })
+}
+
+/** تفعيل عضو موقوف — عودة status='active'، والوصول يعود معها فوراً. */
+export async function reactivateTeamMember(teacherId: string, memberId: string): Promise<void> {
+  const { data: before } = await db()
+    .from('teacher_members')
+    .select(MEMBER_COLS)
+    .eq('teacher_id', teacherId)
+    .eq('id', memberId)
+    .maybeSingle()
+  const beforeRow = before ? toMemberRow(before) : null
+  const { error } = await db()
+    .from('teacher_members')
+    .update({ status: 'active' })
+    .eq('teacher_id', teacherId)
+    .eq('id', memberId)
+    .eq('status', 'suspended')
+  if (error) throw new Error(translateDbError(error))
+  void logActivity(teacherId, {
+    event_type: 'member_reactivated',
     entity_type: 'teacher_member',
     entity_id: memberId,
     entity_label: beforeRow?.invited_email ?? beforeRow?.user_id ?? null,

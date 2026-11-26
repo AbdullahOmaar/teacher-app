@@ -2312,6 +2312,177 @@ def main():
                       left and int(left[0]["pa"]) == 0
                       and bool(left[0]["act"]) == orig_act, f"got {left}")
 
+        # ---------- TEAM LIMIT + SUSPEND (0064 — T21 المهمة 21) ----------
+        # ⚠️ المهاجرة 0064 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود التريجر أولاً: إن
+        # غاب يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: إنفاذ حدّ max_team_members خادمياً (تريجر team_limit_trg)
+        # + الإيقاف/التفعيل يقطع/يعيد وصول العضو فوراً (سياسات المساعد
+        # تشترط status='active').
+        # ملحوظة: تشغيلة الـ authz نفسها تضيف عضواً للمدرّس التجريبي
+        # (asst_uid — فعّال) قبل هذا القسم، فالمقاعد المشغولة = 1
+        # والحدّ التجريبي = 1: التسلسل يرفع الحدّ بتجاوز 2 أولاً
+        # (إثبات الضابط)، ثم يخفضه إلى 0 (إثبات الرفض)، ثم يسحب
+        # التجاوز فيعود الحدّ 1 مع مقعدين مشغولين فيبقى الرفض صحيحاً.
+        print("TEAM LIMIT + SUSPEND (0064):")
+        team_probe = sql(ref, "select to_regprocedure(\n"
+                               "'public.enforce_team_limit()') as f")
+        if not team_probe or not team_probe[0].get("f"):
+            print("  SKIP 0064 live section — migration 0064 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate)")
+        else:
+            pw_team_admin = secrets.token_urlsafe(18)
+            pw_team_member = secrets.token_urlsafe(18)
+            pw_team_member2 = secrets.token_urlsafe(18)
+            team_admin_uid = create_user_sql(
+                ref, "authz-team-admin@teacher-app.test", pw_team_admin)
+            team_member_uid = create_user_sql(
+                ref, "authz-team-member@teacher-app.test", pw_team_member)
+            team_member2_uid = create_user_sql(
+                ref, "authz-team-member2@teacher-app.test", pw_team_member2)
+            team_override_id = None
+            team_member_row = None
+            try:
+                team_admin_jwt, _ = sign_in(
+                    url, anon, "authz-team-admin@teacher-app.test",
+                    pw_team_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{team_admin_uid}', 'authz team fixture')")
+                # رفع الحدّ إلى 2 بتجاوز أدمن — الضابط: إدراج عضو جديد ينجح.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/set_account_override",
+                            jwt=team_admin_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "limit",
+                                  "p_key": "max_team_members",
+                                  "p_value": 2,
+                                  "p_reason": "authz team limit probe"})
+                team_override_id = b if isinstance(b, str) else None
+                check("admin sets a max_team_members=2 override",
+                      s == 200 and team_override_id,
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/teacher_members",
+                            jwt=demo_jwt,
+                            body={"teacher_id": demo_teacher,
+                                  "user_id": team_member_uid,
+                                  "role": "assistant",
+                                  "permissions": {"can_take_attendance": True},
+                                  "status": "active"})
+                team_member_row = b if isinstance(b, dict) else None
+                check("the team-limit trigger allows the insert under the raised limit",
+                      s in (200, 201) and team_member_row
+                      and team_member_row.get("user_id") == team_member_uid,
+                      f"got {s} {str(b)[:160]}")
+                team_member_jwt, _ = sign_in(
+                    url, anon, "authz-team-member@teacher-app.test",
+                    pw_team_member)
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/students?select=id&limit=1",
+                            jwt=team_member_jwt)
+                check("an active member reads the host teacher's students",
+                      s == 200 and isinstance(b, list) and len(b) == 1,
+                      f"got {s} {str(b)[:120]}")
+                # إيقاف العضو — الوصول يُقطع فوراً (سياسات المساعد تشترط active).
+                s, b = rest(url, anon, "PATCH",
+                            f"/rest/v1/teacher_members?id=eq.{team_member_row['id']}",
+                            jwt=demo_jwt,
+                            body={"status": "suspended"})
+                check("the owner suspends the member",
+                      s in (200, 204), f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/students?select=id&limit=1",
+                            jwt=team_member_jwt)
+                check("a suspended member reads no students",
+                      s == 200 and b == [], f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "PATCH",
+                            f"/rest/v1/teacher_members?id=eq.{team_member_row['id']}",
+                            jwt=demo_jwt,
+                            body={"status": "active"})
+                check("the owner reactivates the member",
+                      s in (200, 204), f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/students?select=id&limit=1",
+                            jwt=team_member_jwt)
+                check("a reactivated member reads students again",
+                      s == 200 and isinstance(b, list) and len(b) == 1,
+                      f"got {s} {str(b)[:120]}")
+                # خفض الحدّ إلى 0 — التريجر يرفض أي إدراج جديد.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/set_account_override",
+                            jwt=team_admin_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "limit",
+                                  "p_key": "max_team_members",
+                                  "p_value": 0,
+                                  "p_reason": "authz team limit probe 0"})
+                team_override_id = b if isinstance(b, str) else None
+                check("admin sets a max_team_members=0 override",
+                      s == 200 and team_override_id,
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/teacher_members",
+                            jwt=demo_jwt,
+                            body={"teacher_id": demo_teacher,
+                                  "user_id": team_member2_uid,
+                                  "role": "assistant",
+                                  "permissions": {"can_take_attendance": True},
+                                  "status": "active"})
+                check("the team-limit trigger rejects the insert at limit 0",
+                      s >= 400, f"got {s} {str(b)[:160]}")
+                # سحب التجاوز: الحدّ يعود 1 (تجريبي) مع مقعدين مشغولين
+                # (عضو التشغيلة + عضو الاستكشاف) فيبقى الرفض صحيحاً.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/revoke_account_override",
+                            jwt=team_admin_jwt,
+                            body={"p_override_id": team_override_id})
+                check("admin revokes the override",
+                      s == 200, f"got {s} {str(b)[:120]}")
+                team_override_id = None
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/teacher_members",
+                            jwt=demo_jwt,
+                            body={"teacher_id": demo_teacher,
+                                  "user_id": team_member2_uid,
+                                  "role": "assistant",
+                                  "permissions": {"can_take_attendance": True},
+                                  "status": "active"})
+                check("the insert is still rejected at the trial limit",
+                      s >= 400, f"got {s} {str(b)[:160]}")
+            finally:
+                if team_override_id:
+                    sql(ref, "delete from account_overrides "
+                             f"where id = '{team_override_id}'")
+                sql(ref, "delete from teacher_members "
+                         f"where teacher_id = '{demo_teacher}' "
+                         f"and user_id in ('{team_member_uid}', "
+                         f"'{team_member2_uid}')")
+                sql(ref, "delete from platform_audit_log "
+                         f"where target_teacher_id = '{demo_teacher}' "
+                         "and action in ('override_set', 'override_revoked')")
+                sql(ref, "delete from auth.users "
+                         f"where id in ('{team_admin_uid}', "
+                         f"'{team_member_uid}', '{team_member2_uid}')")
+                left = sql(ref, "select "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{team_admin_uid}') as pa, "
+                                "(select count(*) from account_overrides "
+                                f"where teacher_id = '{demo_teacher}' "
+                                "and key = 'max_team_members' "
+                                "and (expires_at is null "
+                                "or expires_at > now())) as ov, "
+                                "(select count(*) from teacher_members "
+                                f"where teacher_id = '{demo_teacher}' "
+                                f"and user_id in ('{team_member_uid}', "
+                                f"'{team_member2_uid}')) as tm")
+                check("0064 fixtures cleaned + demo state restored",
+                      left and int(left[0]["pa"]) == 0
+                      and int(left[0]["ov"]) == 0
+                      and int(left[0]["tm"]) == 0, f"got {left}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد

@@ -6,7 +6,9 @@ import {
   fetchTeamMembers,
   inviteAssistant,
   inviteAssistantByEmail,
+  reactivateTeamMember,
   removeTeamMember,
+  suspendTeamMember,
   updateMemberPermissions,
   updateOwnTeacherProfile,
 } from './api'
@@ -80,6 +82,24 @@ export function useRemoveTeamMember(teacherId: string) {
   const invalidate = useInvalidateTeam()
   return useMutation({
     mutationFn: (memberId: string) => removeTeamMember(teacherId, memberId),
+    onSuccess: invalidate,
+  })
+}
+
+/** إيقاف عضو فعّال (T21 — 3A-896): الوصول يُقطع خادمياً فوراً. */
+export function useSuspendTeamMember(teacherId: string) {
+  const invalidate = useInvalidateTeam()
+  return useMutation({
+    mutationFn: (memberId: string) => suspendTeamMember(teacherId, memberId),
+    onSuccess: invalidate,
+  })
+}
+
+/** إعادة تفعيل عضو موقوف (T21 — 3A-896). */
+export function useReactivateTeamMember(teacherId: string) {
+  const invalidate = useInvalidateTeam()
+  return useMutation({
+    mutationFn: (memberId: string) => reactivateTeamMember(teacherId, memberId),
     onSuccess: invalidate,
   })
 }
