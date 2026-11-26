@@ -4,7 +4,10 @@ import {
   confirmRecoveryWithCode,
   confirmSignUpWithCode,
   createTeacherProfileViaRpc,
+  fetchAuthUser,
+  isEmailUnconfirmed,
   isMissingRpcFunction,
+  signUpNextStep,
 } from './api'
 
 /**
@@ -34,6 +37,7 @@ vi.mock('../../lib/supabase', () => ({
         h.authCalls.push({ args })
         return Promise.resolve(h.result)
       },
+      getUser: () => Promise.resolve(h.result),
     },
     from: () => {
       throw new Error('auth api test must not read tables directly')
@@ -164,5 +168,55 @@ describe('confirmRecoveryWithCode — تأكيد كود الاستعادة (3A-9
     await expect(confirmRecoveryWithCode('x@y.z', '654321')).rejects.toThrow(
       'انتهت صلاحيته',
     )
+  })
+})
+
+describe('signUpNextStep — قرار ما بعد التسجيل (3A-904، تصحيح 17:19)', () => {
+  it('جلسة فورية من التسجيل = دخول', () => {
+    expect(signUpNextStep(true, false)).toBe('enter')
+    expect(signUpNextStep(true, true)).toBe('enter')
+  })
+  it('لا جلسة لكن الدخول الفوري نجح (النظام مطفأ) = دخول بلا كود', () => {
+    expect(signUpNextStep(false, true)).toBe('enter')
+  })
+  it('لا جلسة والدخول الفوري اترفض (النظام مفعّل) = شاشة الكود الإلزامية', () => {
+    expect(signUpNextStep(false, false)).toBe('code')
+  })
+})
+
+describe('isEmailUnconfirmed — حارس بطاقة تأكيد البريد (3A-904)', () => {
+  it('بلا مستخدم = لا بطاقة', () => {
+    expect(isEmailUnconfirmed(null)).toBe(false)
+    expect(isEmailUnconfirmed(undefined)).toBe(false)
+  })
+  it('email_confirmed_at غائب أو null أو فارغ = غير مؤكَّد', () => {
+    expect(isEmailUnconfirmed({})).toBe(true)
+    expect(isEmailUnconfirmed({ email_confirmed_at: null })).toBe(true)
+    expect(isEmailUnconfirmed({ email_confirmed_at: '' })).toBe(true)
+  })
+  it('email_confirmed_at موجود = مؤكَّد فلا بطاقة', () => {
+    expect(
+      isEmailUnconfirmed({ email_confirmed_at: '2026-11-26T10:00:00Z' }),
+    ).toBe(false)
+  })
+})
+
+describe('fetchAuthUser — لقطة المستخدم الطازجة (3A-904)', () => {
+  it('يرسم البريد وحالة التأكيد من رد getUser', async () => {
+    setAuth({
+      user: { email: 'x@y.z', email_confirmed_at: null },
+    })
+    await expect(fetchAuthUser()).resolves.toEqual({
+      email: 'x@y.z',
+      email_confirmed_at: null,
+    })
+  })
+  it('خطأ من الخادم = null (المتصل يسقط لنسخة الجلسة)', async () => {
+    setAuth({ user: null }, { message: 'network down' })
+    await expect(fetchAuthUser()).resolves.toBeNull()
+  })
+  it('لا مستخدم في الرد = null', async () => {
+    setAuth({ user: null })
+    await expect(fetchAuthUser()).resolves.toBeNull()
   })
 })

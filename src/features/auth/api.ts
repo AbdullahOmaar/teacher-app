@@ -159,6 +159,56 @@ export async function confirmRecoveryWithCode(email: string, token: string): Pro
   if (error) throw new Error(translateAuthError(error.message))
 }
 
+/** لقطة مستخدم Auth التي تحتاجها بطاقة تأكيد البريد في الإعدادات */
+export interface AuthUserSnapshot {
+  email: string | null
+  email_confirmed_at: string | null
+}
+
+/**
+ * قراءة مستخدم Auth الطازج من الخادم (getUser) — بطاقة تأكيد البريد
+ * في الإعدادات لا تثق بنسخة الجلسة المحلية وحدها: التأكيد قد يكون
+ * حدث من جهاز/متصفح آخر فتبقى النسخة المحلية «غير مؤكَّد» كذباً.
+ * مصير فشل القراءة صريح: null، والمتصل يسقط لنسخة الجلسة.
+ */
+export async function fetchAuthUser(): Promise<AuthUserSnapshot | null> {
+  const { data, error } = await db().auth.getUser()
+  if (error || !data.user) return null
+  return {
+    email: data.user.email ?? null,
+    email_confirmed_at: data.user.email_confirmed_at ?? null,
+  }
+}
+
+/**
+ * هل بريد المستخدم غير مؤكَّد بعد؟ (3A-904): مصدر الحقيقة هو
+ * email_confirmed_at عند GoTrue؛ غيابه أو فراغه = لم يُؤكَّد. بلا
+ * مستخدم أصلاً = false (لا بطاقة ولا مطالبة). البطاقة في الإعدادات
+ * هي مسار إكمال التحقق المطلوب للحسابات غير المؤكَّدة متى كان نظام
+ * التأكيد مفعّلاً من إدارة المنصة.
+ */
+export function isEmailUnconfirmed(
+  user: { email_confirmed_at?: string | null } | null | undefined,
+): boolean {
+  if (!user) return false
+  return !user.email_confirmed_at
+}
+
+/**
+ * قرار شاشة ما بعد التسجيل (3A-904 — نموذج التأكيد بتصحيح المالك
+ * 2026-11-26 ~17:19): نظام التأكيد مطفأ افتراضياً فيدخل المسجّل
+ * فوراً (جلسة فورية أو دخول فوري ناجح بنفس البيانات) → 'enter'
+ * فيكمل عقد ما بعد التسجيل؛ ومتى فعّلته إدارة المنصة يرفض الخادم
+ * دخول غير المؤكَّدين فتسقط المحاولة → 'code' وتظهر شاشة إدخال
+ * الكود إلزامية بلا أي تخطٍّ. لا طريق مسدود في أي حالة.
+ */
+export function signUpNextStep(
+  hasSession: boolean,
+  instantSignInOk: boolean,
+): 'enter' | 'code' {
+  return hasSession || instantSignInOk ? 'enter' : 'code'
+}
+
 // ---------------------------------------------------------------------------
 // Supabase Auth — رقم الهاتف + OTP عبر واتساب (P5-3 / 3A-300)
 // GoTrue يولّد الكود ويتحقق منه ويصدر الجلسة؛ التوصيل يتم عبر Send SMS

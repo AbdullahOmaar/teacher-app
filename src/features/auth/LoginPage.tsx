@@ -21,6 +21,7 @@ import {
   requestPasswordReset,
   resendConfirmation,
   signInWithEmail,
+  signUpNextStep,
   signUpWithEmail,
 } from './api'
 import { CodeEntry } from './CodeEntry'
@@ -33,9 +34,11 @@ type Method = 'email' | 'phone'
 
 /**
  * الدخول والتسجيل الحقيقي بـ Supabase Auth (بريد + كلمة مرور).
- * عند أول تسجيل بجلسة فورية يُنشأ صف teachers + إعدادات افتراضية؛
- * وإن تطلب تأكيد البريد تظهر شاشة إدخال كود التأكيد (3A-904)،
- * ويُستكمل الإنشاء من شاشة الإعداد (Onboarding) بعد أول دخول.
+ * عند أول تسجيل يُنشأ صف teachers + إعدادات افتراضية بعد قيام
+ * الجلسة (فورية أو بدخول فوري بنفس البيانات)؛ وإن كان نظام التأكيد
+ * مفعّلاً من إدارة المنصة تظهر شاشة إدخال كود التأكيد الإلزامية
+ * (3A-904) قبل الدخول، ويُستكمل الإنشاء من شاشة الإعداد
+ * (Onboarding) بعد أول دخول.
  * مع جلسة قائمة يُعاد التوجيه للرئيسية.
  */
 export function LoginPage() {
@@ -218,13 +221,29 @@ export function LoginPage() {
         displayName,
         phone: phone || undefined,
       })
-      if (result.hasSession && result.userId) {
-        await finishSignUpSession(result.userId)
+      // دخول فوري بنفس البيانات عند غياب الجلسة الفورية (3A-904 —
+      // نموذج التأكيد بتصحيح المالك 2026-11-26 ~17:19): نظام التأكيد
+      // مطفأ افتراضياً (حال الإنتاج اليوم) فينجح الدخول رغم غياب
+      // التأكيد ويدخل المسجّل فوراً بلا أي كود؛ ومتى فعّلته إدارة
+      // المنصة يرفض الخادم دخول غير المؤكَّدين — فشل المحاولة مصيره
+      // الصريح هو السقوط لشاشة الكود الإلزامية تحت، لا طريق مسدود.
+      let instantSignInOk = false
+      if (!result.hasSession) {
+        try {
+          await signInWithEmail(email, password)
+          instantSignInOk = true
+        } catch {
+          instantSignInOk = false
+        }
+      }
+      if (signUpNextStep(result.hasSession, instantSignInOk) === 'enter') {
+        if (result.userId) await finishSignUpSession(result.userId)
+        // الجلسة قائمة (فورية أو من الدخول الفوري): تغيّرها يعيد
+        // التوجيه للرئيسية تلقائياً من أعلى المكوّن
       } else {
-        // تأكيد البريد مطلوب: شاشة إدخال الكود لنفس البريد (3A-904)
-        // — القالب صار كوداً فقط، فلا انتظار لرابط ولا رجوع لتبويب
-        // الدخول؛ التحقق الناجح يصدر الجلسة ويكمل نفس عقد ما بعد
-        // التسجيل في finishSignUpSession
+        // نظام التأكيد مفعّل: شاشة إدخال الكود لنفس البريد (3A-904)
+        // — إلزامية بلا أي تخطٍّ؛ التحقق الناجح يصدر الجلسة ويكمل
+        // نفس عقد ما بعد التسجيل في finishSignUpSession
         setPassword('')
         setPasswordConfirm('')
         setPendingConfirmEmail(email.trim())
