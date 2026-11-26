@@ -2051,6 +2051,136 @@ def main():
             check("another teacher cannot read this plan limits",
                   s >= 400, f"got {s} {str(b)[:120]}")
 
+        # ---------- ACCOUNT OVERRIDES (0059 — T18 الخطوة 4) ----------
+        # ⚠️ المهاجرة 0059 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن
+        # غاب يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: التجاوز يفوز على الباقة وينتهي في ميعاده — والمدرس لا
+        # يرى تجاوزاته إطلاقاً (لا قراءة جدول ولا RPC كتابة)، ويرى
+        # الأثر فقط عبر effective_entitlements(). كل تجاوز يُنشأ هنا
+        # يُلغى وينظَّف في finally؛ باقة الديمو نفسها لا تتغير إطلاقاً.
+        print("ACCOUNT OVERRIDES (0059):")
+        ov_probe = sql(ref, "select to_regclass('public.account_overrides') as t")
+        if not ov_probe or not ov_probe[0].get("t"):
+            print("  SKIP 0059 live section — migration 0059 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PLATFORM-ADMIN-OVERRIDES.md)")
+        else:
+            pw_ov_admin = secrets.token_urlsafe(18)
+            ov_admin_uid = create_user_sql(
+                ref, "authz-ov-admin@teacher-app.test", pw_ov_admin)
+            try:
+                ov_admin_jwt, _ = sign_in(
+                    url, anon, "authz-ov-admin@teacher-app.test", pw_ov_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{ov_admin_uid}', 'authz overrides fixture')")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/account_overrides?select=id",
+                            jwt=demo_jwt)
+                check("a teacher reads NO override rows directly",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/account_overrides?select=id",
+                            jwt=ov_admin_jwt)
+                check("admin reads the overrides table (empty)",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/set_account_override",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "limit",
+                                  "p_key": "max_students",
+                                  "p_value": 999,
+                                  "p_reason": "authz spoof"})
+                check("a teacher cannot set an override",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/set_account_override",
+                            jwt=ov_admin_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "limit",
+                                  "p_key": "max_students",
+                                  "p_value": 200,
+                                  "p_reason": "authz fixture"})
+                ov_id = b if isinstance(b, str) and b else None
+                check("admin sets a limit override",
+                      s == 200 and ov_id, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/effective_entitlements",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher})
+                check("override wins over the plan in effective_entitlements",
+                      s == 200 and isinstance(b, dict)
+                      and int(b.get("limits", {}).get("max_students", -1)) == 200
+                      and "limit:max_students" in (b.get("overrides_applied") or []),
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/effective_entitlements",
+                            jwt=other_jwt,
+                            body={"p_teacher_id": demo_teacher})
+                check("another teacher cannot read these entitlements",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/set_account_override",
+                            jwt=ov_admin_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "feature",
+                                  "p_key": "whatsapp_auto",
+                                  "p_value": "yes",
+                                  "p_reason": "authz bad value"})
+                check("feature override with a non-boolean value is rejected",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                left = sql(ref, "select count(*) as c from account_overrides "
+                                f"where teacher_id = '{demo_teacher}' "
+                                "and kind = 'feature'")
+                check("rejected override left no feature row",
+                      left and int(left[0]["c"]) == 0, f"got {left}")
+                if ov_id:
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/revoke_account_override",
+                                jwt=ov_admin_jwt,
+                                body={"p_override_id": ov_id})
+                    check("admin revokes the override",
+                          s == 200 and b == ov_id,
+                          f"got {s} {str(b)[:120]}")
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/effective_entitlements",
+                                jwt=demo_jwt,
+                                body={"p_teacher_id": demo_teacher})
+                    check("after revoke the plan limit returns (trial 50)",
+                          s == 200 and isinstance(b, dict)
+                          and int(b.get("limits", {}).get("max_students", -1)) == 50
+                          and (b.get("overrides_applied") or []) == [],
+                          f"got {s} {str(b)[:160]}")
+                audit = sql(ref, "select action, count(*) as c "
+                                 "from platform_audit_log "
+                                 f"where target_teacher_id = '{demo_teacher}' "
+                                 "and action in ('override_set', 'override_revoked') "
+                                 "group by action order by action")
+                acts = {r["action"]: int(r["c"]) for r in audit}
+                check("set + revoke both left audit rows",
+                      acts.get("override_set", 0) >= 1
+                      and acts.get("override_revoked", 0) >= 1,
+                      f"got {acts}")
+            finally:
+                sql(ref, "delete from account_overrides "
+                         f"where teacher_id = '{demo_teacher}'")
+                sql(ref, "delete from platform_audit_log "
+                         f"where target_teacher_id = '{demo_teacher}' "
+                         "and action in ('override_set', 'override_revoked')")
+                sql(ref, "delete from auth.users "
+                         f"where id = '{ov_admin_uid}'")
+                left = sql(ref, "select "
+                                "(select count(*) from account_overrides "
+                                f"where teacher_id = '{demo_teacher}') as ov, "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{ov_admin_uid}') as pa")
+                check("0059 fixtures cleaned",
+                      left and int(left[0]["ov"]) == 0
+                      and int(left[0]["pa"]) == 0, f"got {left}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد
