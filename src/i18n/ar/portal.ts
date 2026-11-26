@@ -188,6 +188,7 @@ export const portal = {
   claimDoneTitle: 'تمام!',
   claimDone: 'اسم الدخول بتاعك {username} — احفظه مع كلمة السر اللي اخترتها للدخول الجاي.',
   claimLinkDone: 'والرابط اللي فتحت بيه اتقفل خلاص — دخولك الجاي من هنا باسم الدخول وكلمة السر.',
+  claimLinkStillValid: 'والرابط اللي فتحت بيه لسه شغال — دخولك الجاي من هنا باسم الدخول وكلمة السر.',
   sessionTitle: 'حسابك',
   sessionOldPw: 'كلمة السر الحالية',
   sessionNewPw: 'كلمة السر الجديدة',

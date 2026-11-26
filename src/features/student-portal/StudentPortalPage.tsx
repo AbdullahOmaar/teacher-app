@@ -39,6 +39,7 @@ import {
   loadPortalSessionToken,
   portalClaimStudent,
   portalSessionStudents,
+  resolveClaimOutcome,
   savePortalSessionToken,
 } from '../portal/accounts'
 import { ClaimPasswordCard, PortalLoginForm, SessionAccountCard } from '../portal/accessUi'
@@ -148,8 +149,12 @@ export function StudentPortalPage() {
   // جلسة حساب محفوظة على هذا المتصفح بعد دخول حقيقي بكود الطالب
   // وكلمة السر — الخادم يقبل الاثنين بنفس الفحوص (هجرة 0042).
   const [sessionToken, setSessionToken] = useState<string | null>(null)
-  // اسم دخول claim تم للتو في هذه الزيارة — لعرض تأكيد ما بعد الـ claim
-  const [justClaimed, setJustClaimed] = useState<string | null>(null)
+  // claim تم للتو في هذه الزيارة — لعرض تأكيد ما بعد الـ claim، مع
+  // ما إذا أُبطل الرابط (0056) أم ما زال صالحاً (إجابة 0044 القديمة)
+  const [justClaimed, setJustClaimed] = useState<{
+    username: string
+    linkClosed: boolean
+  } | null>(null)
   // توكن الجلسة المحفوظ يُقرأ مرة واحدة عند التحميل (مبادرة كسولة)،
   // والتحقق منه خادمياً غير متزامن فقط — لا setState متزامناً داخل effect
   const [savedToken] = useState(() => (urlToken ? null : loadPortalSessionToken('student')))
@@ -184,7 +189,7 @@ export function StudentPortalPage() {
     void qc.removeQueries({ queryKey: [STUDENT_PORTAL, 'overview'] })
   }
 
-  // بعد claim ناجح (0055): الرابط المستعمل أُبطل خادمياً والجلسة هي
+  // بعد claim ناجح (0056): الرابط المستعمل أُبطل خادمياً والجلسة هي
   // الاعتماد من الآن — حذف التوكن من الرابط يجعل rawToken يسقط على
   // الجلسة، ويمنع إعادة مشاركة رابط ميت.
   const stripUrlToken = () => {
@@ -584,7 +589,7 @@ export function StudentPortalPage() {
         </>
       )}
 
-      {/* بطاقة الحساب (3A-385 + 0055): الواصل برابط يعيّن كلمة سر
+      {/* بطاقة الحساب (3A-385 + 0056): الواصل برابط يعيّن كلمة سر
           للدخول الجاي — والـ claim يستهلك الرابط ويبدّل الاعتماد لجلسة
           الحساب فوراً — والداخل بجلسة يدير كلمة سره أو يخرج */}
       <div className="mt-5">
@@ -595,7 +600,8 @@ export function StudentPortalPage() {
           >
             <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
             <span>
-              {t('portal.claimDone', { username: justClaimed })} {t('portal.claimLinkDone')}
+              {t('portal.claimDone', { username: justClaimed.username })}{' '}
+              {justClaimed.linkClosed ? t('portal.claimLinkDone') : t('portal.claimLinkStillValid')}
             </span>
           </p>
         )}
@@ -613,12 +619,21 @@ export function StudentPortalPage() {
             <ClaimPasswordCard
               claim={(pw) =>
                 portalClaimStudent(rawToken, pw).then((res) => {
-                  savePortalSessionToken('student', res.session_token)
+                  const outcome = resolveClaimOutcome(res)
+                  if (outcome.kind === 'legacy') {
+                    // إجابة 0044 القديمة بلا جلسة (0056 غير مطبقة بعد):
+                    // كلمة السر اتعيّنت، لكن الرابط يبقى صالحاً — لا
+                    // نحفظ توكن ناقصاً ولا نحذف التوكن من الرابط ولا
+                    // نبدّل الاعتماد.
+                    setJustClaimed({ username: outcome.username, linkClosed: false })
+                    return { username: outcome.username }
+                  }
+                  savePortalSessionToken('student', outcome.sessionToken)
                   clearCredentialCache()
-                  setSessionToken(res.session_token)
-                  setJustClaimed(res.username)
+                  setSessionToken(outcome.sessionToken)
+                  setJustClaimed({ username: outcome.username, linkClosed: true })
                   stripUrlToken()
-                  return { username: res.username }
+                  return { username: outcome.username }
                 })
               }
             />

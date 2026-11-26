@@ -911,7 +911,7 @@ def main():
                   s == 200 and bool(g_session2), f"got {s}")
 
             # إخفاء قسم المال: الرصيد لا يصل أصلاً (0038). الاعتماد هنا
-            # هو الجلسة لا الرابط: منذ 0055 الـ claim يستهلك الرابط،
+            # هو الجلسة لا الرابط: منذ 0056 الـ claim يستهلك الرابط،
             # والجلسة صالحة قبلها وبعدها (المدقق الموحد 0042).
             rest(url, anon, "PATCH",
                  f"/rest/v1/teacher_settings?teacher_id=eq.{demo_teacher}",
@@ -999,81 +999,81 @@ def main():
             check("portal account fixtures cleaned",
                   left and int(left[0]["c"]) == 0, f"got {left}")
 
-        # ---------- PORTAL ACCOUNTS COMPLETION (0055 — المهمة 20 / 3A-895) ----------
-        # ⚠️ المهاجرة 0055 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # ---------- PORTAL ACCOUNTS COMPLETION (0056 — المهمة 20 / 3A-895) ----------
+        # ⚠️ المهاجرة 0056 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
         # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
         # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود دالة فتح الجلسة
         # الجديدة أولاً: إن غابت يطبع تخطياً موثقاً (لا فشل — الغياب هو
         # الحالة المتوقعة حتى البوابة)، وبعد التطبيق يشتغل كاملاً
         # تلقائياً في نفس التشغيلة.
-        print("PORTAL ACCOUNTS COMPLETION (0055):")
-        probe55 = sql(ref, "select count(*) as c from pg_proc "
+        print("PORTAL ACCOUNTS COMPLETION (0056):")
+        probe56 = sql(ref, "select count(*) as c from pg_proc "
                            "where proname = 'portal_issue_session'")
-        if not probe55 or int(probe55[0]["c"]) == 0:
-            print("  SKIP 0055 live section — migration 0055 is written but NOT "
+        if not probe56 or int(probe56[0]["c"]) == 0:
+            print("  SKIP 0056 live section — migration 0056 is written but NOT "
                   "applied (phase-freeze rule 2026-11-25: application deferred "
                   "to the Phase-2 freeze + QA gate)")
         else:
-            pw55_student = secrets.token_urlsafe(12)
-            pw55_claim = secrets.token_urlsafe(12)
-            g55_raw = "authz55-g-" + secrets.token_urlsafe(24)
-            g55_hash = hashlib.sha256(g55_raw.encode()).hexdigest()
-            s55_raw = "authz55-s-" + secrets.token_urlsafe(24)
-            s55_hash = hashlib.sha256(s55_raw.encode()).hexdigest()
-            test_phone55 = "0100" + "".join(
+            pw56_student = secrets.token_urlsafe(12)
+            pw56_claim = secrets.token_urlsafe(12)
+            g56_raw = "authz56-g-" + secrets.token_urlsafe(24)
+            g56_hash = hashlib.sha256(g56_raw.encode()).hexdigest()
+            s56_raw = "authz56-s-" + secrets.token_urlsafe(24)
+            s56_hash = hashlib.sha256(s56_raw.encode()).hexdigest()
+            test_phone56 = "0100" + "".join(
                 secrets.choice("0123456789") for _ in range(7))
-            stu55 = None
-            orig_phone55 = None
+            stu56 = None
+            orig_phone56 = None
             try:
-                link55 = sql(
+                link56 = sql(
                     ref,
                     "select gs.guardian_id, gs.student_id, g.phone from "
                     "guardian_students gs join guardians g on g.id = gs.guardian_id "
                     f"where gs.teacher_id = '{demo_teacher}' limit 1",
                 )[0]
-                g55 = link55["guardian_id"]
-                stu55 = link55["student_id"]
-                g55_phone = link55["phone"]
-                orig_phone55 = sql(
-                    ref, f"select phone from students where id = '{stu55}'"
+                g56 = link56["guardian_id"]
+                stu56 = link56["student_id"]
+                g56_phone = link56["phone"]
+                orig_phone56 = sql(
+                    ref, f"select phone from students where id = '{stu56}'"
                 )[0]["phone"]
-                sql(ref, f"update students set phone = '{test_phone55}' "
-                         f"where id = '{stu55}'")
+                sql(ref, f"update students set phone = '{test_phone56}' "
+                         f"where id = '{stu56}'")
 
                 # حساب طالب بيد المالك، ثم الدخول برقم الموبايل المسجل
                 s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_account_upsert",
                             jwt=demo_jwt,
                             body={"p_teacher_id": demo_teacher, "p_role": "student",
-                                  "p_target_id": stu55, "p_password": pw55_student})
-                check("0055: owner upserts the student account",
+                                  "p_target_id": stu56, "p_password": pw56_student})
+                check("0056: owner upserts the student account",
                       s == 200 and isinstance(b, dict) and bool(b.get("account_id")),
                       f"got {s} {str(b)[:120]}")
                 s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_login",
-                            body={"p_username": "+20" + test_phone55[1:],
+                            body={"p_username": "+20" + test_phone56[1:],
                                   "p_password": "definitely-wrong"})
-                check("0055: phone login rejects a wrong password generically",
+                check("0056: phone login rejects a wrong password generically",
                       s == 200 and isinstance(b, dict)
                       and b.get("error") == "invalid credentials"
                       and not b.get("session_token"),
                       f"got {s} {str(b)[:120]}")
                 s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_login",
-                            body={"p_username": "+20" + test_phone55[1:],
-                                  "p_password": pw55_student})
-                s55_session = b.get("session_token") if isinstance(b, dict) else None
-                check("0055: student logs in by his registered mobile number",
-                      s == 200 and bool(s55_session) and isinstance(b, dict)
-                      and b.get("student_id") == stu55,
+                            body={"p_username": "+20" + test_phone56[1:],
+                                  "p_password": pw56_student})
+                s56_session = b.get("session_token") if isinstance(b, dict) else None
+                check("0056: student logs in by his registered mobile number",
+                      s == 200 and bool(s56_session) and isinstance(b, dict)
+                      and b.get("student_id") == stu56,
                       f"got {s} {str(b)[:120]}")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/rpc/student_portal_overview_by_token",
-                            body={"p_token": s55_session})
-                check("0055: the phone-login session opens the student overview",
+                            body={"p_token": s56_session})
+                check("0056: the phone-login session opens the student overview",
                       s == 200 and isinstance(b, dict) and "sections" in b,
                       f"got {s}")
                 s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_login",
                             body={"p_username": "01009999999",
-                                  "p_password": pw55_student})
-                check("0055: an unregistered phone gets the same generic error",
+                                  "p_password": pw56_student})
+                check("0056: an unregistered phone gets the same generic error",
                       s == 200 and isinstance(b, dict)
                       and b.get("error") == "invalid credentials"
                       and not b.get("session_token"),
@@ -1082,29 +1082,29 @@ def main():
                 # claim ولي الأمر: يستهلك الرابط ويفتح جلسة فوراً
                 sql(ref, "insert into guardian_access_tokens (teacher_id, "
                          "guardian_id, student_id, token_hash, expires_at) values "
-                         f"('{demo_teacher}', '{g55}', '{stu55}', '{g55_hash}', "
+                         f"('{demo_teacher}', '{g56}', '{stu56}', '{g56_hash}', "
                          "now() + interval '30 days')")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/rpc/portal_account_claim_guardian",
-                            body={"p_token": g55_raw, "p_student_id": stu55,
-                                  "p_password": pw55_claim})
-                g55_session = b.get("session_token") if isinstance(b, dict) else None
-                check("0055: guardian claim returns an open account session",
-                      s == 200 and bool(g55_session) and isinstance(b, dict)
+                            body={"p_token": g56_raw, "p_student_id": stu56,
+                                  "p_password": pw56_claim})
+                g56_session = b.get("session_token") if isinstance(b, dict) else None
+                check("0056: guardian claim returns an open account session",
+                      s == 200 and bool(g56_session) and isinstance(b, dict)
                       and bool(b.get("account_id")),
                       f"got {s} {str(b)[:120]}")
                 s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_overview_by_token",
-                            body={"p_token": g55_session, "p_student_id": stu55})
-                check("0055: the claim session opens the guardian overview",
+                            body={"p_token": g56_session, "p_student_id": stu56})
+                check("0056: the claim session opens the guardian overview",
                       s == 200 and isinstance(b, dict) and "sections" in b,
                       f"got {s}")
                 s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_overview_by_token",
-                            body={"p_token": g55_raw, "p_student_id": stu55})
-                check("0055: the claimed guardian link is dead (first entry only)",
+                            body={"p_token": g56_raw, "p_student_id": stu56})
+                check("0056: the claimed guardian link is dead (first entry only)",
                       s >= 400, f"got {s}")
                 s, b = rest(url, anon, "POST", "/rest/v1/rpc/portal_login",
-                            body={"p_username": g55_phone, "p_password": pw55_claim})
-                check("0055: guardian logs in with the claimed password",
+                            body={"p_username": g56_phone, "p_password": pw56_claim})
+                check("0056: guardian logs in with the claimed password",
                       s == 200 and isinstance(b, dict)
                       and bool(b.get("session_token")),
                       f"got {s}")
@@ -1112,43 +1112,43 @@ def main():
                 # claim الطالب: يستهلك رابطه هو الآخر
                 sql(ref, "insert into student_access_tokens (teacher_id, "
                          "student_id, token_hash, expires_at) values "
-                         f"('{demo_teacher}', '{stu55}', '{s55_hash}', "
+                         f"('{demo_teacher}', '{stu56}', '{s56_hash}', "
                          "now() + interval '30 days')")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/rpc/portal_account_claim_student",
-                            body={"p_token": s55_raw, "p_password": pw55_claim})
-                sc55_session = b.get("session_token") if isinstance(b, dict) else None
-                check("0055: student claim returns an open account session",
-                      s == 200 and bool(sc55_session),
+                            body={"p_token": s56_raw, "p_password": pw56_claim})
+                sc56_session = b.get("session_token") if isinstance(b, dict) else None
+                check("0056: student claim returns an open account session",
+                      s == 200 and bool(sc56_session),
                       f"got {s} {str(b)[:120]}")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/rpc/student_portal_overview_by_token",
-                            body={"p_token": s55_raw})
-                check("0055: the claimed student link is dead (first entry only)",
+                            body={"p_token": s56_raw})
+                check("0056: the claimed student link is dead (first entry only)",
                       s >= 400, f"got {s}")
                 s, b = rest(url, anon, "POST",
                             "/rest/v1/rpc/student_portal_overview_by_token",
-                            body={"p_token": sc55_session})
-                check("0055: the student claim session opens the overview",
+                            body={"p_token": sc56_session})
+                check("0056: the student claim session opens the overview",
                       s == 200 and isinstance(b, dict) and "sections" in b,
                       f"got {s}")
             finally:
                 sql(ref, "delete from portal_accounts "
                          f"where teacher_id = '{demo_teacher}'")
                 sql(ref, "delete from guardian_access_tokens "
-                         f"where token_hash = '{g55_hash}'")
+                         f"where token_hash = '{g56_hash}'")
                 sql(ref, "delete from student_access_tokens "
-                         f"where token_hash = '{s55_hash}'")
-                if stu55 is not None:
-                    if orig_phone55 is None:
+                         f"where token_hash = '{s56_hash}'")
+                if stu56 is not None:
+                    if orig_phone56 is None:
                         sql(ref, f"update students set phone = null "
-                                 f"where id = '{stu55}'")
+                                 f"where id = '{stu56}'")
                     else:
-                        sql(ref, f"update students set phone = '{orig_phone55}' "
-                                 f"where id = '{stu55}'")
+                        sql(ref, f"update students set phone = '{orig_phone56}' "
+                                 f"where id = '{stu56}'")
                 left = sql(ref, "select count(*) as c from portal_accounts "
                                 f"where teacher_id = '{demo_teacher}'")
-                check("0055 fixtures cleaned",
+                check("0056 fixtures cleaned",
                       left and int(left[0]["c"]) == 0, f"got {left}")
 
         # ---------- GUARDIAN NOTIFICATIONS LADDER (0050 — 3A-713) ----------

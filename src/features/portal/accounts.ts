@@ -12,7 +12,7 @@ import type { TeacherSettingsRow } from '../../types/database'
 
 // ===========================================================================
 // حسابات دخول البوابات الحقيقية (3A-385 — هجرات 0040/0041/0042؛ إكمال
-// المهمة 20 — هجرة 0055: دخول الطالب برقم موبايله المسجل بديلاً عن
+// المهمة 20 — هجرة 0056: دخول الطالب برقم موبايله المسجل بديلاً عن
 // الكود، والـ claim يستهلك الرابط ويفتح جلسة فوراً).
 //
 // نموذج الأمان كما صُمم خادمياً ولا يضعفه العميل:
@@ -48,11 +48,36 @@ export interface PortalLoginResult {
 export type PortalSessionInfo = Omit<PortalLoginResult, 'session_token'>
 
 /**
- * نتيجة الـ claim (0055): حمولة دخول كاملة (جلسة مفتوحة فوراً) + معرّف
+ * نتيجة الـ claim (0056): حمولة دخول كاملة (جلسة مفتوحة فوراً) + معرّف
  * الحساب — الرابط المستعمل أُبطل خادمياً، فالصفحة تكمل بالجلسة.
  */
 export interface PortalClaimResult extends PortalLoginResult {
   account_id: string
+}
+
+/**
+ * نتيجة الـ claim قد تأتي بشكلين: 0056 الكاملة (جلسة مفتوحة فوراً +
+ * account_id) أو 0044 القديمة ({username} فقط — 0056 غير مطبّقة بعد
+ * على قاعدة الديمو/الإنتاج). التمييز هنا حتى لا يحفظ العميل توكن
+ * جلسة ناقصاً (undefined) ولا يحذف توكن الرابط من الـ URL قبل أن
+ * يُستهلك الرابط خادمياً فعلاً — في الشكل القديم الرابط يبقى صالحاً.
+ */
+export type ClaimOutcome =
+  | { kind: 'session'; username: string; sessionToken: string; accountId: string }
+  | { kind: 'legacy'; username: string }
+
+export function resolveClaimOutcome(res: unknown): ClaimOutcome {
+  const r = res as Partial<PortalClaimResult> | null
+  const username = typeof r?.username === 'string' ? r.username : ''
+  if (r && typeof r.session_token === 'string' && r.session_token.length > 0) {
+    return {
+      kind: 'session',
+      username,
+      sessionToken: r.session_token,
+      accountId: typeof r.account_id === 'string' ? r.account_id : '',
+    }
+  }
+  return { kind: 'legacy', username }
 }
 
 // ---------------------------------------------------------------------------
@@ -127,7 +152,7 @@ export async function portalLogout(sessionToken: string): Promise<void> {
 
 /**
  * إنشاء كلمة سر لولي الأمر من داخل بوابته عند الوصول برابط صالح.
- * منذ 0055: الـ claim يستهلك الرابط (يُبطَل خادمياً) ويعيد جلسة حساب
+ * منذ 0056: الـ claim يستهلك الرابط (يُبطَل خادمياً) ويعيد جلسة حساب
  * مفتوحة — على المستدعي حفظ توكن الجلسة وتبديل الاعتماد فوراً، فالرابط
  * لن يعمل بعدها.
  */
@@ -145,7 +170,7 @@ export async function portalClaimGuardian(
   return data as unknown as PortalClaimResult
 }
 
-/** إنشاء كلمة سر للطالب من داخل بوابته عند الوصول برابط صالح — نفس عقد 0055 */
+/** إنشاء كلمة سر للطالب من داخل بوابته عند الوصول برابط صالح — نفس عقد 0056 */
 export async function portalClaimStudent(
   rawToken: string,
   password: string,
