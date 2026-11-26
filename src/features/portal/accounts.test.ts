@@ -5,6 +5,7 @@ import {
   normalizePhoneDigits,
   normalizeStudentCode,
   portalPasswordProblem,
+  resolveClaimOutcome,
 } from './accounts'
 
 // اختبارات وحدة حسابات البوابات (3A-385) — الدوال النقية فقط؛ مسارات
@@ -81,5 +82,43 @@ describe('accessSettingsFromRow / accessSettingsToColumns', () => {
     expect(cols.portal_guardian_show_notes).toBe(false)
     expect(cols.portal_student_show_schedule).toBe(false)
     expect(cols.portal_guardian_show_money).toBe(true)
+  })
+})
+
+describe('resolveClaimOutcome (شكلا الـ claim: 0056 بجلسة / 0044 بلا جلسة)', () => {
+  it('إجابة 0056 الكاملة ← جلسة', () => {
+    expect(
+      resolveClaimOutcome({
+        session_token: 'tok-123',
+        account_id: 'acc-1',
+        username: '01134309805',
+        role: 'guardian',
+        teacher_id: 't1',
+        student_id: null,
+        students: [],
+      }),
+    ).toEqual({
+      kind: 'session',
+      username: '01134309805',
+      sessionToken: 'tok-123',
+      accountId: 'acc-1',
+    })
+  })
+  it('إجابة 0044 القديمة ({username} فقط) ← legacy بلا جلسة', () => {
+    expect(resolveClaimOutcome({ username: '01134309805' })).toEqual({
+      kind: 'legacy',
+      username: '01134309805',
+    })
+  })
+  it('توكن فارغ أو غائب ← legacy (لا جلسة ناقصة)', () => {
+    expect(resolveClaimOutcome({ username: 'FQSSG6P7', session_token: '' })).toEqual({
+      kind: 'legacy',
+      username: 'FQSSG6P7',
+    })
+    expect(resolveClaimOutcome({ username: 'FQSSG6P7', session_token: null })).toEqual({
+      kind: 'legacy',
+      username: 'FQSSG6P7',
+    })
+    expect(resolveClaimOutcome(null)).toEqual({ kind: 'legacy', username: '' })
   })
 })

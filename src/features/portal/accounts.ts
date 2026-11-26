@@ -11,7 +11,9 @@ import {
 import type { TeacherSettingsRow } from '../../types/database'
 
 // ===========================================================================
-// حسابات دخول البوابات الحقيقية (3A-385 — هجرات 0040/0041/0042).
+// حسابات دخول البوابات الحقيقية (3A-385 — هجرات 0040/0041/0042؛ إكمال
+// المهمة 20 — هجرة 0056: دخول الطالب برقم موبايله المسجل بديلاً عن
+// الكود، والـ claim يستهلك الرابط ويفتح جلسة فوراً).
 //
 // نموذج الأمان كما صُمم خادمياً ولا يضعفه العميل:
 // • كلمة السر لا تُهشّ إلا في القاعدة (bcrypt داخل RPC) — العميل
@@ -44,6 +46,39 @@ export interface PortalLoginResult {
 }
 
 export type PortalSessionInfo = Omit<PortalLoginResult, 'session_token'>
+
+/**
+ * نتيجة الـ claim (0056): حمولة دخول كاملة (جلسة مفتوحة فوراً) + معرّف
+ * الحساب — الرابط المستعمل أُبطل خادمياً، فالصفحة تكمل بالجلسة.
+ */
+export interface PortalClaimResult extends PortalLoginResult {
+  account_id: string
+}
+
+/**
+ * نتيجة الـ claim قد تأتي بشكلين: 0056 الكاملة (جلسة مفتوحة فوراً +
+ * account_id) أو 0044 القديمة ({username} فقط — 0056 غير مطبّقة بعد
+ * على قاعدة الديمو/الإنتاج). التمييز هنا حتى لا يحفظ العميل توكن
+ * جلسة ناقصاً (undefined) ولا يحذف توكن الرابط من الـ URL قبل أن
+ * يُستهلك الرابط خادمياً فعلاً — في الشكل القديم الرابط يبقى صالحاً.
+ */
+export type ClaimOutcome =
+  | { kind: 'session'; username: string; sessionToken: string; accountId: string }
+  | { kind: 'legacy'; username: string }
+
+export function resolveClaimOutcome(res: unknown): ClaimOutcome {
+  const r = res as Partial<PortalClaimResult> | null
+  const username = typeof r?.username === 'string' ? r.username : ''
+  if (r && typeof r.session_token === 'string' && r.session_token.length > 0) {
+    return {
+      kind: 'session',
+      username,
+      sessionToken: r.session_token,
+      accountId: typeof r.account_id === 'string' ? r.account_id : '',
+    }
+  }
+  return { kind: 'legacy', username }
+}
 
 // ---------------------------------------------------------------------------
 // دوال نقية — تطبيع اسم الدخول وتحقق كلمة السر (مرآة لقواعد الخادم)
@@ -115,32 +150,37 @@ export async function portalLogout(sessionToken: string): Promise<void> {
   }
 }
 
-/** إنشاء كلمة سر لولي الأمر من داخل بوابته عند الوصول برابط صالح */
+/**
+ * إنشاء كلمة سر لولي الأمر من داخل بوابته عند الوصول برابط صالح.
+ * منذ 0056: الـ claim يستهلك الرابط (يُبطَل خادمياً) ويعيد جلسة حساب
+ * مفتوحة — على المستدعي حفظ توكن الجلسة وتبديل الاعتماد فوراً، فالرابط
+ * لن يعمل بعدها.
+ */
 export async function portalClaimGuardian(
   rawToken: string,
   studentId: string,
   password: string,
-): Promise<{ username: string }> {
+): Promise<PortalClaimResult> {
   const { data, error } = await db().rpc('portal_account_claim_guardian', {
     p_token: rawToken,
     p_student_id: studentId,
     p_password: password,
   })
   if (error) throw error
-  return data as unknown as { username: string }
+  return data as unknown as PortalClaimResult
 }
 
-/** إنشاء كلمة سر للطالب من داخل بوابته عند الوصول برابط صالح */
+/** إنشاء كلمة سر للطالب من داخل بوابته عند الوصول برابط صالح — نفس عقد 0056 */
 export async function portalClaimStudent(
   rawToken: string,
   password: string,
-): Promise<{ username: string }> {
+): Promise<PortalClaimResult> {
   const { data, error } = await db().rpc('portal_account_claim_student', {
     p_token: rawToken,
     p_password: password,
   })
   if (error) throw error
-  return data as unknown as { username: string }
+  return data as unknown as PortalClaimResult
 }
 
 /** تغيير كلمة السر بجلسة قائمة (يتحقق من القديمة ويبطل باقي الجلسات) */
