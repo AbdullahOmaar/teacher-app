@@ -67,6 +67,10 @@ export const auth = {
   authApiInvalidEmail: 'صيغة البريد الإلكتروني غير صحيحة.',
   authApiRateLimited: 'محاولات كتير في وقت قصير — استنى دقيقة وجرّب تاني.',
   authApiNetworkError: 'مشكلة في الاتصال بالإنترنت — اتأكد من الشبكة وجرّب تاني.',
+  errStaleVersion: 'نسختك قديمة — حدّث التطبيق أو أعد تثبيته.',
+  errStaleVersionHint:
+    'اقفل التطبيق خالص وافتحه من جديد وانت متصل بشبكة كويسة، أو امسحه من الشاشة الرئيسية وارجع ضيفه من المتصفح.',
+  authApiUnexpected: 'حصل خطأ غير متوقع — جرّب تاني.',
   authApiDbDuplicate: 'العنصر ده موجود بالفعل.',
   authApiDbMissingRelated: 'البيانات المرتبطة غير موجودة — اتأكد إن الحساب المطلوب مسجل فعلاً.',
   authApiDbForbidden: 'صلاحياتك لا تسمح بالعملية دي.',

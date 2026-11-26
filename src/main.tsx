@@ -24,12 +24,21 @@ import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ui/ErrorBoundary.tsx'
 import { installGlobalErrorHandlers } from './lib/errorReporter.ts'
+import { runVersionGuard } from './lib/versionGuard.ts'
 // التقاط beforeinstallprompt مبكراً لبطاقة التثبيت في الإعدادات (خطوة 11)
 import './lib/installPrompt'
 
 // قياس أخطاء الإنتاج الداخلي (مهمة 11 — فجوة 21): ملتقطا النافذة
 // العامان (خطأ غير مُعالج + وعد مرفوض) بجانب بلاغات حدّ الخطأ نفسه
 installGlobalErrorHandlers()
+
+// حارس النسخة (3A-903): شفاء ذاتي للنسخ المثبتة القديمة — يقارن ختم
+// بناء العميل بما يخدمه الخادم (version.json) ويعيد تحميلاً شافياً
+// واحداً عند الاختلاف. إنتاج فقط، وفشله صامت موثّق فلا يكسر بدء
+// التشغيل أبداً (انظر lib/versionGuard).
+if (import.meta.env.PROD) {
+  void runVersionGuard()
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
