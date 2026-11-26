@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
-import { Bell, Bug, CalendarCheck2, FolderCog, GraduationCap, Handshake, Info, MessageCircle, MonitorSmartphone, NotebookPen, Palette, Printer, SlidersHorizontal, Sparkles, UserRound } from 'lucide-react'
+import { Bell, Bug, CalendarCheck2, Crown, FolderCog, GraduationCap, Handshake, Info, MessageCircle, MonitorSmartphone, NotebookPen, Palette, Printer, SlidersHorizontal, Sparkles, UserRound } from 'lucide-react'
 import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Button } from '../../components/ui/Button'
 import { Chip } from '../../components/ui/form'
@@ -36,6 +36,7 @@ import { InstallAppCard } from './InstallAppCard'
 import { EnrolLinkCard } from '../enrol/EnrolLinkCard'
 import { PushNotificationsCard } from './PushNotificationsCard'
 import { PrintFontCard } from './PrintFontCard'
+import { SubscriptionCard } from './SubscriptionCard'
 import { MascotSettingsCard } from './MascotSettingsCard'
 import { WhatsAppSettingsCard } from './WhatsAppSettingsCard'
 import { AssistantKeyCard } from './AssistantKeyCard'
@@ -454,6 +455,9 @@ export function SettingsPage() {
     ...(isOwnerWorkspace
       ? [{ id: 'printfont', title: t('settings.sectionPrintFont'), icon: Printer }]
       : []),
+    ...(isOwnerWorkspace
+      ? [{ id: 'plan', title: t('settings.sectionPlan'), icon: Crown }]
+      : []),
     { id: 'about', title: t('settings.sectionAbout'), icon: Info },
   ]
   const effectiveOpenSections = isDesktop
@@ -702,6 +706,14 @@ export function SettingsPage() {
       {isOwnerWorkspace && (
         <SettingsSection {...sectionProps('printfont')} bare>
           <PrintFontCard />
+        </SettingsSection>
+      )}
+
+      {/* باقتك الحالية (مهمة 19 — 0058): عرض قراءة فقط، مالك فقط؛
+          تُخفى البطاقة نفسها حتى تُطبَّق 0058 عند بوابة التجميد */}
+      {isOwnerWorkspace && (
+        <SettingsSection {...sectionProps('plan')} bare>
+          <SubscriptionCard />
         </SettingsSection>
       )}
 
