@@ -1199,6 +1199,36 @@ export type Database = {
           },
         ]
       }
+      plans: {
+        Row: {
+          slug: string
+          name: string
+          limits: Json
+          is_pilot: boolean
+          is_active: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          slug: string
+          name: string
+          limits: Json
+          is_pilot?: boolean
+          is_active?: boolean
+          sort_order: number
+          created_at?: string
+        }
+        Update: {
+          slug?: string
+          name?: string
+          limits?: Json
+          is_pilot?: boolean
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
       payment_proofs: {
         Row: {
           id: string
@@ -2326,6 +2356,48 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          teacher_id: string
+          plan_slug: string
+          status: string
+          trial_ends_at: string | null
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          teacher_id: string
+          plan_slug: string
+          status?: string
+          trial_ends_at?: string | null
+          started_at?: string
+          updated_at?: string
+        }
+        Update: {
+          teacher_id?: string
+          plan_slug?: string
+          status?: string
+          trial_ends_at?: string | null
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_slug_fkey"
+            columns: ["plan_slug"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "subscriptions_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: true
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_allowlist: {
         Row: {
           id: string
@@ -3019,6 +3091,12 @@ export type Database = {
           Args: Record<PropertyKey, never>
           Returns: boolean
         }
+      my_subscription: {
+          Args: {
+            p_teacher_id: string
+          }
+          Returns: Json
+        }
       next_receipt_no: {
           Args: {
             p_teacher_id: string
@@ -3031,6 +3109,12 @@ export type Database = {
             p_name: string
           }
           Returns: boolean
+        }
+      plan_limits: {
+          Args: {
+            p_teacher_id: string
+          }
+          Returns: Json
         }
       payment_proof_upload_allowed: {
           Args: {

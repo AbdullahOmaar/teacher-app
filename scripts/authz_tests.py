@@ -1988,6 +1988,69 @@ def main():
                       and int(left[0]["t"]) == 0
                       and left[0]["open"] is True, f"got {left}")
 
+        # ---------- PLANS + SUBSCRIPTIONS (0058 — T19 الخطوة 3) ----------
+        # ⚠️ المهاجرة 0058 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن
+        # غاب يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: الباقات كبيانات بلا أسعار (م1 للمالك) + ربط كل حساب
+        # بباقة — المالك يرى اشتراكه هو فقط عبر my_subscription، ومدرس
+        # آخر لا يرى اشتراكه ولا يغيّره، والزائر لا يرى شيئاً؛ والأدمن
+        # يقرأ عبر RPC الحارس. ملحوظة: فحص باقة الديمو نفسها بلا
+        # كتابة (التعبئة الرجعية ربطته بالتجريبي)؛ لا تُغيَّر باقة أي
+        # حساب حي في هذا القسم — التغيير فعل أدمن لاحق (الخطوة 4).
+        print("PLANS + SUBSCRIPTIONS (0058):")
+        pl_probe = sql(ref, "select to_regclass('public.plans') as t")
+        if not pl_probe or not pl_probe[0].get("t"):
+            print("  SKIP 0058 live section — migration 0058 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PLATFORM-ADMIN-PLANS.md)")
+        else:
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/my_subscription",
+                        jwt=demo_jwt, body={"p_teacher_id": demo_teacher})
+            check("owner reads his own subscription via my_subscription",
+                  s == 200 and isinstance(b, dict)
+                  and b.get("plan_slug") == "trial"
+                  and isinstance(b.get("limits"), dict),
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/plan_limits",
+                        jwt=demo_jwt, body={"p_teacher_id": demo_teacher})
+            check("owner reads his plan limits via plan_limits",
+                  s == 200 and isinstance(b, dict)
+                  and int(b.get("max_students", -1)) == 50,
+                  f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/my_subscription",
+                        jwt=other_jwt, body={"p_teacher_id": demo_teacher})
+            check("another teacher cannot read this subscription",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/my_subscription",
+                        body={"p_teacher_id": demo_teacher})
+            check("anon cannot call my_subscription (no grant)",
+                  s in (401, 403, 404), f"got {s}")
+            s, b = rest(url, anon, "GET",
+                        "/rest/v1/subscriptions?select=teacher_id,plan_slug",
+                        jwt=other_jwt)
+            check("another teacher reads no subscription rows",
+                  s == 200 and b == [], f"got {s} {str(b)[:80]}")
+            s, b = rest(url, anon, "GET", "/rest/v1/plans?select=slug",
+                        jwt=demo_jwt)
+            check("a teacher cannot read the plans table directly",
+                  s in (401, 403, 404) or (s == 200 and b == []),
+                  f"got {s} {str(b)[:80]}")
+            s, b = rest(url, anon, "PATCH",
+                        "/rest/v1/subscriptions?teacher_id=eq." + demo_teacher,
+                        jwt=demo_jwt, body={"plan_slug": "pro"})
+            row = sql(ref, "select plan_slug from subscriptions "
+                           f"where teacher_id = '{demo_teacher}'")
+            check("owner cannot change his own plan (no client UPDATE)",
+                  row and row[0]["plan_slug"] == "trial",
+                  f"got {s} {row}")
+            s, b = rest(url, anon, "POST", "/rest/v1/rpc/plan_limits",
+                        jwt=other_jwt, body={"p_teacher_id": demo_teacher})
+            check("another teacher cannot read this plan limits",
+                  s >= 400, f"got {s} {str(b)[:120]}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد
