@@ -20,8 +20,10 @@ import {
 // «قريباً» المصممة — لا خطأ خام أبداً (قاعدة مالك 2026-11-26).
 // ---------------------------------------------------------------------------
 
-/** حمولة قالب كما تُخزَّن في role_templates.entitlements */
-export interface TemplateEntitlements {
+/** حمولة قالب كما تُخزَّن في role_templates.entitlements
+ * (نوع لا واجهة: الواجهة بلا فهرس ضمني فلا تُسند إلى Json عند
+ * تمريرها RPC — والـ type alias يأخذ الفهرس الضمني تلقائياً) */
+export type TemplateEntitlements = {
   features: Partial<Record<FeatureKey, boolean>>
   limits: Partial<Record<LimitKey, number | null>>
   settings: Partial<Record<SettingKey, string>>
