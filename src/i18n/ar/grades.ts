@@ -12,6 +12,7 @@ export const grades = {
   detailNotFoundHint: 'ممكن يكون اتحذف أو الرابط غير صحيح',
   saveScoresError: 'حصلت مشكلة في حفظ الدرجات — راجع القيم وحاول تاني',
   scoreMustBeNumber: 'الدرجة لازم تكون رقماً صفر أو أكبر',
+  scoreAboveMax: 'في درجة أكبر من النهائية ({max}) — صحّحها قبل الحفظ',
   detailSummaryLine: '{type} · {group} · {date} · النهائية {max} · النجاح {pass}',
   detailAutoSaveHint: 'الحفظ عند الخروج من الحقل',
   detailProgress: '{progress} درجة مسجلة',

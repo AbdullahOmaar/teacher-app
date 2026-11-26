@@ -23,6 +23,7 @@ import {
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired, Skeleton } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
+import { errText } from '../../lib/supabaseErrors'
 import { formatDateLabel } from '../schedule/api'
 import { ATT, useGuardianContacts, useSessionRoster } from '../attendance/hooks'
 import { useGroups } from '../groups/hooks'
@@ -204,7 +205,9 @@ export function AssessmentDetailPage() {
           })
           if (successMsg) toast(successMsg)
         },
-        onError: () => toast(t('grades.saveScoresError')),
+        // رسالة الخطأ الفعلية (مثلاً تجاوز النهائية) بدل الرسالة العامة —
+        // أخطاء القاعدة تمر عبر friendlyDbError فتصل مترجمة أصلاً.
+        onError: (err) => toast(errText(err)),
       },
     )
   }
@@ -472,6 +475,7 @@ export function AssessmentDetailPage() {
                         }}
                         type="number"
                         min="0"
+                        max={assessment.max_score}
                         step="0.5"
                         inputMode="decimal"
                         dir="ltr"
