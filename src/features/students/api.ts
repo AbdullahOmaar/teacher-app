@@ -2,6 +2,7 @@ import { t } from '../../i18n'
 import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { logActivity } from '../activity/api'
+import { checkUsageLimit } from '../platform-admin/usage'
 import type {
   EnrollmentInput,
   EnrollmentRow,
@@ -74,7 +75,21 @@ export async function fetchStudentBalances(teacherId: string): Promise<Map<strin
   return map
 }
 
+/**
+ * فحص مسبق ودود لحد الطلاب قبل الإدراج (0062 — الخطوة 5): عند بلوغ
+ * الحد يُرفض برسالة ترقية عربية قبل أي كتابة. الدالة غائبة قبل
+ * تطبيق 0062 فيُتخطى الفحص (null) — والتريجر الخادمي
+ * ‏students_limit_trg هو الحارس النهائي بعد التطبيق.
+ */
+export async function assertStudentsLimit(teacherId: string): Promise<void> {
+  const check = await checkUsageLimit(teacherId, 'max_students')
+  if (check && !check.allowed) {
+    throw new Error(t('settings.usageLimitStudentsReached'))
+  }
+}
+
 export async function createStudent(teacherId: string, input: StudentInput): Promise<StudentRow> {
+  await assertStudentsLimit(teacherId)
   // public_code لا يُرسل: الـ trigger يولّد كوداً عشوائياً من 8 أحرف
   const { data, error } = await db()
     .from('students')
