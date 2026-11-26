@@ -1608,6 +1608,116 @@ def main():
                 check("0053 fixtures cleaned",
                       left and int(left[0]["c"]) == 0, f"got {left}")
 
+        # ---------- PLATFORM ADMIN (0055 — أساس أدمن المنصة، T17) ----------
+        # ⚠️ المهاجرة 0055 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن
+        # غاب يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: فصل نوعي المستخدمين في الاتجاهين — الأدمن يرى تجميعات
+        # المنصة فقط ولا يلمس صفوف مدرس تشغيلية، والمدرس لا يلمس أي سطح
+        # منصة (فحص/نظرة عامة/سجل تدقيق/قائمة أدمن).
+        print("PLATFORM ADMIN (0055):")
+        pa_probe = sql(ref, "select to_regclass('public.platform_admins') as t")
+        if not pa_probe or not pa_probe[0].get("t"):
+            print("  SKIP 0055 live section — migration 0055 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PLATFORM-ADMIN-FOUNDATION.md)")
+        else:
+            pw_admin = secrets.token_urlsafe(18)
+            admin_uid = create_user_sql(
+                ref, "authz-admin@teacher-app.test", pw_admin)
+            try:
+                admin_jwt, _ = sign_in(
+                    url, anon, "authz-admin@teacher-app.test", pw_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{admin_uid}', 'authz fixture')")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/my_platform_admin",
+                            jwt=admin_jwt, body={})
+                check("platform admin passes my_platform_admin",
+                      s == 200 and b is True, f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/my_platform_admin",
+                            jwt=demo_jwt, body={})
+                check("a teacher is NOT a platform admin",
+                      s == 200 and b is False, f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/my_platform_admin",
+                            body={})
+                check("anon cannot call my_platform_admin (no grant)",
+                      s in (401, 403, 404), f"got {s}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/platform_overview",
+                            jwt=demo_jwt, body={})
+                check("a teacher cannot call platform_overview",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/platform_overview",
+                            jwt=admin_jwt, body={})
+                totals = sql(ref, "select count(*) as c from teachers")
+                check("admin overview returns aggregate counts only",
+                      s == 200 and isinstance(b, dict)
+                      and int(b.get("teachers_total", -1))
+                      == int(totals[0]["c"]),
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET", "/rest/v1/students?select=id",
+                            jwt=admin_jwt)
+                check("admin reads NO teacher operational rows (students)",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "GET", "/rest/v1/teachers?select=id",
+                            jwt=admin_jwt)
+                check("admin reads NO teacher rows via normal policies",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "GET", "/rest/v1/platform_admins?select=user_id",
+                            jwt=demo_jwt)
+                check("a teacher cannot read the platform_admins list",
+                      s in (401, 403, 404) or (s == 200 and b == []),
+                      f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/platform_audit_log",
+                            jwt=admin_jwt,
+                            body={"admin_user_id": admin_uid,
+                                  "action": "authz_probe",
+                                  "details": {}})
+                check("admin writes an audit row under his own id",
+                      s in (201, 204), f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/platform_audit_log?select=id,action",
+                            jwt=admin_jwt)
+                rows = b if isinstance(b, list) else []
+                check("admin reads the platform audit log",
+                      s == 200 and len(rows) == 1
+                      and rows[0].get("action") == "authz_probe",
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/platform_audit_log?select=id",
+                            jwt=demo_jwt)
+                check("a teacher reads no platform audit rows",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/platform_audit_log",
+                            jwt=demo_jwt,
+                            body={"admin_user_id": admin_uid,
+                                  "action": "authz_spoof",
+                                  "details": {}})
+                check("a teacher cannot spoof an audit row as the admin",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "PATCH",
+                            "/rest/v1/platform_audit_log?action=eq.authz_probe",
+                            jwt=admin_jwt, body={"action": "authz_tampered"})
+                after = sql(ref, "select action from platform_audit_log "
+                                 f"where admin_user_id = '{admin_uid}'")
+                check("audit log is append-only (admin PATCH changes nothing)",
+                      len(after) == 1 and after[0]["action"] == "authz_probe",
+                      f"got {s} {after}")
+            finally:
+                sql(ref, "delete from platform_audit_log "
+                         f"where admin_user_id = '{admin_uid}'")
+                sql(ref, "delete from auth.users "
+                         f"where id = '{admin_uid}'")
+                left = sql(ref, "select "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{admin_uid}') as pa, "
+                                "(select count(*) from platform_audit_log "
+                                f"where admin_user_id = '{admin_uid}') as al")
+                check("0055 fixtures cleaned",
+                      left and int(left[0]["pa"]) == 0
+                      and int(left[0]["al"]) == 0, f"got {left}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد
