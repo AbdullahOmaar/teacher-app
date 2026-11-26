@@ -27,11 +27,11 @@ import { fmtScore, pctOf } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import {
   PORTAL_ATT_META,
-  PORTAL_NOTIF_META,
   PROOF_METHODS,
-  PROOF_STATUS_META,
   fetchGuardianPushStatus,
   portalErrorInfo,
+  portalNotifMeta,
+  portalProofStatusMeta,
   subscribeGuardianPush,
   unsubscribeGuardianPush,
   type PortalBrand,
@@ -272,7 +272,7 @@ function PaymentProofSection({
       {proofs.length > 0 && (
         <Card className="p-0 overflow-hidden mt-3">
           {proofs.map((p, i) => {
-            const meta = PROOF_STATUS_META[p.status]
+            const meta = portalProofStatusMeta(p.status)
             return (
               <div
                 key={p.id}
@@ -360,7 +360,7 @@ function NotificationsSection({
         <>
           <Card className="p-0 overflow-hidden">
             {notifications.map((n, i) => {
-              const meta = PORTAL_NOTIF_META[n.kind]
+              const meta = portalNotifMeta(n.kind)
               const isUnread = !n.read_at
               return (
                 <div

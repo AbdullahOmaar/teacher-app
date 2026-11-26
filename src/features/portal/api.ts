@@ -409,10 +409,27 @@ export const PROOF_STATUS_META: Record<
   rejected: { label: t('portal.apiProofStatusRejected'), badge: 'bg-bad-soft text-bad-text border-bad/30' },
 }
 
-function proofErrorMessage(error: unknown): string {
+/** شارة محايدة لأي قيمة حالة/نوع لا يعرفها العميل (نفس شارة بديل الحضور في الصفحة). */
+const META_FALLBACK_BADGE = 'bg-soft text-muted border-border'
+
+/**
+ * حسم ميتا حالة إثبات بأمان (3A-909): الحالة تأتي من الخادم عبر JSONB
+ * مُلقاة بنوع العميل — أي حالة لا يعرفها العميل (انحراف نسخ بين العميل
+ * وقاعدة البيانات) تتحل هنا لشارة محايدة بدل أن ترمي أثناء العرض
+ * وتُسقط صفحة البوابة كلها على حدّ الخطأ العام «حصلت مشكلة غير متوقعة».
+ */
+export function portalProofStatusMeta(status: string): { label: string; badge: string } {
+  const known = (PROOF_STATUS_META as Partial<Record<string, { label: string; badge: string }>>)[status]
+  return known ?? { label: t('portal.apiProofStatusFallback'), badge: META_FALLBACK_BADGE }
+}
+
+export function proofErrorMessage(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error ?? '')
   if (msg.includes('invalid or expired') || msg.includes('not authorized') || msg.includes('token not valid')) {
     return t('portal.apiProofErrorInvalidLink')
+  }
+  if (msg.includes('section disabled')) {
+    return t('portal.apiProofErrorSectionDisabled')
   }
   if (msg.includes('too many pending proofs')) {
     return t('portal.apiProofErrorTooMany')
@@ -686,6 +703,18 @@ export const PORTAL_NOTIF_META: Record<
   left: { label: t('portal.apiNotifLeft'), badge: 'bg-soft text-primary border-primary/30' },
   absence: { label: t('portal.apiNotifAbsence'), badge: 'bg-warn-soft text-warn-text border-warn/30' },
   invoice_issued: { label: t('portal.apiNotifInvoice'), badge: 'bg-soft text-primary border-primary/30' },
+}
+
+/**
+ * حسم ميتا تنبيه بأمان (3A-909): النوع يأتي من الخادم — قائمة الأنواع
+ * الحية أوسع من أي نسخة عميل أقدم (0050 أضاف absence/invoice_issued
+ * بينما عميل الإنتاج 36391a49 كان يعرف arrived/left فقط، فكان البحث
+ * غير المحروس يرمي أثناء العرض ويُسقط البوابة كلها على حدّ الخطأ
+ * العام). أي نوع غير معروف يتحل هنا لشارة «تنبيه» محايدة ولا يرمي أبداً.
+ */
+export function portalNotifMeta(kind: string): { label: string; badge: string } {
+  const known = (PORTAL_NOTIF_META as Partial<Record<string, { label: string; badge: string }>>)[kind]
+  return known ?? { label: t('portal.apiNotifFallback'), badge: META_FALLBACK_BADGE }
 }
 
 /** حالات الحضور الأربع في البوابة (§2.4) — الشارات مشتركة (buildAttMeta)، والتسميات بمفاتيح هذه البوابة */
