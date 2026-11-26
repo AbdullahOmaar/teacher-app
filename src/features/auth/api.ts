@@ -237,6 +237,74 @@ export function withAccountActivatedDefault<T extends object>(
 ): T & { account_activated: boolean } {
   return { ...row, account_activated: true }
 }
+
+// ---------------------------------------------------------------------------
+// قفل التسجيل + قائمة السماح (مهاجرة 0057، بوابة التجميد):
+// البوابة تُستدعى قبل signUp (بلا جلسة — الـ RPC منفَّذ لـ anon عمداً
+// ويعيد بوليان فقط)، ونقطة الإنفاذ الحقيقية هي RPC إنشاء الملف
+// ‏create_teacher_profile_for_self الذي يتحقق ببريد JWT نفسه.
+// دالتا 0057 غائبتان قبل تطبيق المهاجرة: الغياب = الوضع الحالي
+// (تسجيل مفتوح) فيُرجع للمسار القديم، لا قفل وهمي ولا كسر دخول.
+// ---------------------------------------------------------------------------
+
+/** خطأ «الدالة غير موجودة» من PostgREST (42883) = مهاجرة غير مطبّقة بعد */
+export function isMissingRpcFunction(error: {
+  code?: string
+  message?: string
+} | null): boolean {
+  if (!error) return false
+  return (
+    error.code === '42883' ||
+    error.code === 'PGRST202' ||
+    (error.message ?? '').includes('does not exist')
+  )
+}
+
+/**
+ * هل التسجيل الذاتي مسموح لهذا البريد/الهاتف؟ (قبل signUp — بلا جلسة)
+ * الدالة غائبة قبل 0057 → مسموح (التسجيل المفتوح الحالي).
+ * أي خطأ آخر يصعد كما هو (فشل مغلق: لا تسجيل بلا قرار بوابة).
+ */
+export async function checkSelfRegistrationAllowed(
+  email: string,
+  phone?: string | null,
+): Promise<boolean> {
+  const { data, error } = await db().rpc('can_self_register', {
+    p_email: email.trim(),
+    p_phone: phone?.trim() || '',
+  })
+  if (error) {
+    if (isMissingRpcFunction(error)) return true
+    throw new Error(translateDbError(error))
+  }
+  return data === true
+}
+
+/**
+ * إنشاء ملف المدرس عبر RPC البوابة (0057): يرجع صف المدرس، أو null
+ * عندما تكون الدالة غائبة (قبل تطبيق المهاجرة — فيرجع المتصل للمسار
+ * القديم). رفض البوابة ('registration closed') يُترجم لرسالة عربية
+ * واضحة؛ أي خطأ آخر يصعد كما هو — لا رجوع صامت للمسار القديم عند
+ * رفض صريح، وإلا صار القفل وهماً.
+ */
+export async function createTeacherProfileViaRpc(
+  displayName: string,
+  phone?: string | null,
+): Promise<TeacherRow | null> {
+  const { data, error } = await db().rpc('create_teacher_profile_for_self', {
+    p_display_name: displayName.trim(),
+    p_phone: phone?.trim() || '',
+  })
+  if (error) {
+    if (isMissingRpcFunction(error)) return null
+    if ((error.message ?? '').includes('registration closed')) {
+      throw new Error(t('auth.registrationInviteOnly'))
+    }
+    throw error
+  }
+  if (!data || typeof data !== 'object') return null
+  return data as unknown as TeacherRow
+}
 const SETTINGS_COLS =
   'teacher_id, whatsapp_template, center_share_percent, reminder_minutes, theme, brand_name, brand_logo_path, brand_accent, push_daily_digest_enabled, push_daily_digest_time, push_daily_digest_last_sent_on, mascot_accessory, show_mascot, portal_link_ttl_days, portal_guardian_show_attendance, portal_guardian_show_scores, portal_guardian_show_notes, portal_guardian_show_money, portal_guardian_show_groups, portal_student_show_schedule, portal_student_show_homework, portal_student_show_grades, portal_student_show_money, last_export_at, created_at, updated_at, print_font'
 const MEMBER_COLS =
@@ -277,6 +345,11 @@ export async function ensureTeacherProfile(
   phone?: string | null,
 ): Promise<TeacherRow> {
   const client = db()
+  // المسار الأول: RPC البوابة (0057) — ينشئ الملف غير مفعّل ويرفض
+  // المسجّل المرفوض خادمياً؛ غياب الدالة قبل تطبيق المهاجرة يرجع
+  // null فيسقط للمسار القديم أدناه (التسجيل المفتوح الحالي).
+  const viaRpc = await createTeacherProfileViaRpc(displayName, phone)
+  if (viaRpc) return viaRpc
   const existing = await fetchOwnTeacher(userId)
   if (!existing) {
     const { error } = await client.from('teachers').insert({

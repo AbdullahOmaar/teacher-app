@@ -13,6 +13,7 @@ import { Logo } from '../../components/brand/Logo'
 import { useMascotVisible } from '../../components/mascot/useMascotVisible'
 import doffyIcon from '../../assets/mascot/icon.webp'
 import {
+  checkSelfRegistrationAllowed,
   claimTeacherInvites,
   ensureTeacherProfile,
   signInDemo,
@@ -174,6 +175,15 @@ export function LoginPage() {
     }
     setBusy(true)
     try {
+      // بوابة قفل التسجيل (0057 — قائمة السماح): تُفحص قبل signUp
+      // حتى لا ينشأ حساب Auth أصلاً لمرفوض؛ غياب الدالة قبل تطبيق
+      // المهاجرة = التسجيل المفتوح الحالي (ترجع true). رفض البوابة
+      // هنا لا يمنع مسار الدخول ولا الديمو — التسجيل وحده المقفول.
+      const allowed = await checkSelfRegistrationAllowed(email, phone || null)
+      if (!allowed) {
+        setError(t('auth.registrationInviteOnly'))
+        return
+      }
       const result = await signUpWithEmail({
         email,
         password,
