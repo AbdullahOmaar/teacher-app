@@ -1,7 +1,7 @@
 import { Crown } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
-import { useSubscription } from '../platform-admin/hooks'
+import { useEffectiveEntitlements, useSubscription } from '../platform-admin/hooks'
 import { t } from '../../i18n'
 
 /**
@@ -16,10 +16,18 @@ export function SubscriptionCard() {
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : ''
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
   const subQ = useSubscription(teacherId || undefined, isOwner)
+  // الاستحقاقات الفعّالة (0059): سطر واحد «تفعيل خاص» عند وجود تجاوز
+  // نشط — تُخفى تماماً قبل تطبيق المهاجرة (الدالة غائبة → null).
+  const entQ = useEffectiveEntitlements(teacherId || undefined, isOwner)
 
   if (!isOwner) return null
   const sub = subQ.data
   if (!sub) return null
+  const hasOverride =
+    (entQ.data?.overridesApplied.length ?? 0) > 0
+  // الحدود المعروضة هي الفعّالة (باقة ⊕ تجاوز) عند توفرها — وإلا
+  // حدود الباقة نفسها؛ فلا تُعرض أرقام تجاوزها التجاوز.
+  const limits = entQ.data?.limits ?? sub.limits
 
   const statusLabel =
     sub.status === 'active'
@@ -32,20 +40,20 @@ export function SubscriptionCard() {
 
   const rows: Array<{ label: string; limit: number | null; unit?: string }> =
     [
-      { label: t('settings.planLimitStudents'), limit: sub.limits.maxStudents },
+      { label: t('settings.planLimitStudents'), limit: limits.maxStudents },
       {
         label: t('settings.planLimitMessages'),
-        limit: sub.limits.maxMessagesMonth,
+        limit: limits.maxMessagesMonth,
       },
       {
         label: t('settings.planLimitStorage'),
-        limit: sub.limits.maxStorageMb,
+        limit: limits.maxStorageMb,
         unit: t('settings.planUnitMb'),
       },
-      { label: t('settings.planLimitTeam'), limit: sub.limits.maxTeamMembers },
+      { label: t('settings.planLimitTeam'), limit: limits.maxTeamMembers },
       {
         label: t('settings.planLimitAi'),
-        limit: sub.limits.maxAiMessagesMonth,
+        limit: limits.maxAiMessagesMonth,
       },
     ]
 
@@ -87,6 +95,12 @@ export function SubscriptionCard() {
         <p className="text-muted text-[13.5px] mt-3 mb-0">
           {t('settings.planTrialEnds')}:{' '}
           {new Date(sub.trialEndsAt).toLocaleDateString('ar-EG')}
+        </p>
+      )}
+
+      {hasOverride && (
+        <p className="text-primary text-[13.5px] font-semibold mt-3 mb-0">
+          {t('settings.planOverrideNote')}
         </p>
       )}
     </Card>

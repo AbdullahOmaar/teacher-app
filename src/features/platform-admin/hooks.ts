@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchIsPlatformAdmin, fetchPlatformOverview } from './api'
+import { fetchEffectiveEntitlements } from './entitlements'
 import { fetchMySubscription } from './subscription'
 
 export const PLATFORM_ADMIN = 'platform-admin'
@@ -39,5 +40,21 @@ export function useSubscription(
     queryKey: [PLATFORM_ADMIN, 'subscription', teacherId],
     enabled: enabled && Boolean(teacherId),
     queryFn: () => fetchMySubscription(teacherId as string),
+  })
+}
+
+/**
+ * الاستحقاقات الفعّالة لمساحة العمل (مهمة 18 — 0059): حدود الباقة ⊕
+ * التجاوزات النشطة. حتى تطبيق 0059 ترجع الدالة null فيُخفى سطر
+ * التجاوز — تدهور معلن ومقصود: لا تجاوز مخترع.
+ */
+export function useEffectiveEntitlements(
+  teacherId: string | undefined,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'entitlements', teacherId],
+    enabled: enabled && Boolean(teacherId),
+    queryFn: () => fetchEffectiveEntitlements(teacherId as string),
   })
 }
