@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase'
 import type { StudentInput, StudentRow } from '../../../types/database'
-import { createStudent, upsertEnrollment } from '../api'
+import { createStudent, upsertEnrollment, validateStudentPhones } from '../api'
 import type { ClassifiedRow } from './logic'
 import { t } from '../../../i18n'
 import { friendlyDbError } from '../../../lib/supabaseErrors'
@@ -38,6 +38,9 @@ async function createStudentWithCode(
   input: StudentInput,
   code: string,
 ): Promise<StudentRow> {
+  // نفس تحقق createStudent: هذا المسار يُدرج مباشرة فيتجاوزها.
+  const phoneError = validateStudentPhones(input)
+  if (phoneError) throw new Error(phoneError)
   if (!supabase) throw new Error(t('students.impApiSupabaseNotLinked'))
   const { data, error } = await supabase
     .from('students')

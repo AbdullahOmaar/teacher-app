@@ -1,6 +1,7 @@
 import { t } from '../../i18n'
 import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
+import { isValidEgyptianMobile } from '../../lib/phone'
 import { logActivity } from '../activity/api'
 import type {
   EnrollmentInput,
@@ -74,7 +75,31 @@ export async function fetchStudentBalances(teacherId: string): Promise<Map<strin
   return map
 }
 
+/**
+ * تحقق نقي من موبايلات الطالب (3A-913 — يغطي 3A-910 أيضاً): أي رقم
+ * غير فارغ لازم يكون موبايلاً مصرياً صالحاً (010/011/012/015، 11 رقماً).
+ * الفارغ مسموح (الحقلان اختياريان). يعيد رسالة الخطأ العربية أو null.
+ * المدقق موجود في lib/phone.ts منذ P5-3 لكنه لم يُوصَّل بوحدة الطلاب أبداً.
+ */
+export function validateStudentPhones(
+  input: Pick<StudentInput, 'phone' | 'guardian_phone'>,
+): string | null {
+  if (input.phone != null && input.phone.trim() !== '' && !isValidEgyptianMobile(input.phone)) {
+    return t('students.formPhoneError')
+  }
+  if (
+    input.guardian_phone != null &&
+    input.guardian_phone.trim() !== '' &&
+    !isValidEgyptianMobile(input.guardian_phone)
+  ) {
+    return t('students.formGuardianPhoneError')
+  }
+  return null
+}
+
 export async function createStudent(teacherId: string, input: StudentInput): Promise<StudentRow> {
+  const phoneError = validateStudentPhones(input)
+  if (phoneError) throw new Error(phoneError)
   // public_code لا يُرسل: الـ trigger يولّد كوداً عشوائياً من 8 أحرف
   const { data, error } = await db()
     .from('students')
@@ -90,6 +115,8 @@ export async function updateStudent(
   studentId: string,
   input: StudentInput,
 ): Promise<StudentRow> {
+  const phoneError = validateStudentPhones(input)
+  if (phoneError) throw new Error(phoneError)
   const { data, error } = await db()
     .from('students')
     .update(input)
