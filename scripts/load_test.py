@@ -29,6 +29,7 @@ SQL عبر Management API بأداة الموصل — لا أسرار تُطبع
 import http.client
 import json
 import os
+import ssl
 import subprocess
 import sys
 import threading
@@ -80,10 +81,18 @@ def _connection(url):
         proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
         if proxy:
             p = urllib.parse.urlparse(proxy)
-            conn = http.client.HTTPSConnection(p.hostname, p.port, timeout=30)
+            # التحقق من الشهادة صريح (سياق افتراضي يتحقق) — قاعدة التدقيق
+            # ‏httpsconnection-detected تُشعل على أي استدعاء، فالتعطيل هنا
+            # ‏مبرَّر: نقاط النهاية مملوكة للمشروع وحده (Supabase/Vercel)
+            # ‏ولا أسرار في السكربت.
+            conn = http.client.HTTPSConnection(  # nosemgrep: python.lang.security.audit.httpsconnection-detected.httpsconnection-detected
+                p.hostname, p.port, timeout=30, context=ssl.create_default_context()
+            )
             conn.set_tunnel(host, 443)
         else:
-            conn = http.client.HTTPSConnection(host, 443, timeout=30)
+            conn = http.client.HTTPSConnection(  # nosemgrep: python.lang.security.audit.httpsconnection-detected.httpsconnection-detected
+                host, 443, timeout=30, context=ssl.create_default_context()
+            )
         _local.conn = conn
     return conn
 
