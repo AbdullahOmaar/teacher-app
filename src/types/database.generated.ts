@@ -2022,6 +2022,50 @@ export type Database = {
           },
         ]
       }
+      role_templates: {
+        Row: {
+          id: string
+          slug: string
+          name: string
+          description: string
+          entitlements: Json
+          is_active: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          slug: string
+          name: string
+          description?: string
+          entitlements?: Json
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          slug?: string
+          name?: string
+          description?: string
+          entitlements?: Json
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_lines: {
         Row: {
           id: string
@@ -2979,6 +3023,15 @@ export type Database = {
       }
     }
     Functions: {
+      apply_role_template: {
+          Args: {
+            p_template_id: string
+            p_teacher_id: string
+            p_reason: string
+            p_expires_at?: string | null
+          }
+          Returns: Json
+        }
       can_self_register: {
           Args: {
             p_email: string
@@ -3006,6 +3059,15 @@ export type Database = {
             p_lines: Json
           }
           Returns: Json
+        }
+      create_role_template: {
+          Args: {
+            p_slug: string
+            p_name: string
+            p_description?: string
+            p_entitlements?: Json
+          }
+          Returns: string
         }
       create_sale: {
           Args: {
@@ -3524,6 +3586,16 @@ export type Database = {
             p_id: string
           }
           Returns: boolean
+        }
+      update_role_template: {
+          Args: {
+            p_template_id: string
+            p_name: string
+            p_description: string
+            p_entitlements: Json
+            p_is_active: boolean
+          }
+          Returns: string
         }
     }
     Enums: {

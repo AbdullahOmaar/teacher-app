@@ -2312,6 +2312,168 @@ def main():
                       left and int(left[0]["pa"]) == 0
                       and bool(left[0]["act"]) == orig_act, f"got {left}")
 
+        # ---------- ROLE TEMPLATES (0063 — T18 قوالب الأدوار الجاهزة) ----------
+        # ⚠️ المهاجرة 0063 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن
+        # غاب يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: القالب حزمة استحقاقات جاهزة — تطبيقه يكتب تجاوزاً
+        # فردياً واحداً لكل إدخال عبر set_account_override نفسه، فيُحلّ
+        # عبر effective_entitlements (بما فيها خريطة settings الجديدة
+        # ومفتاحا التأكيد الإلزامي 17:19)، والمدرس لا يرى القوالب
+        # إطلاقاً. كل ما يُنشأ هنا يُلغى وينظَّف في finally؛ باقة
+        # الديمو نفسها لا تتغير إطلاقاً.
+        print("ROLE TEMPLATES (0063):")
+        tpl_probe = sql(ref, "select to_regclass('public.role_templates') as t")
+        if not tpl_probe or not tpl_probe[0].get("t"):
+            print("  SKIP 0063 live section — migration 0063 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PLATFORM-ADMIN-TEMPLATES.md)")
+        else:
+            pw_tpl_admin = secrets.token_urlsafe(18)
+            tpl_admin_uid = create_user_sql(
+                ref, "authz-tpl-admin@teacher-app.test", pw_tpl_admin)
+            tpl_id = None
+            try:
+                tpl_admin_jwt, _ = sign_in(
+                    url, anon, "authz-tpl-admin@teacher-app.test", pw_tpl_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{tpl_admin_uid}', 'authz templates fixture')")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/role_templates?select=id",
+                            jwt=demo_jwt)
+                check("a teacher reads NO template rows directly",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/role_templates?select=id",
+                            jwt=tpl_admin_jwt)
+                check("admin reads the templates table (empty)",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/create_role_template",
+                            jwt=demo_jwt,
+                            body={"p_slug": "authz-pilot",
+                                  "p_name": "authz spoof",
+                                  "p_description": "",
+                                  "p_entitlements": {"features": {}}})
+                check("a teacher cannot create a template",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/create_role_template",
+                            jwt=tpl_admin_jwt,
+                            body={"p_slug": "authz-bad",
+                                  "p_name": "bad entitlements",
+                                  "p_description": "",
+                                  "p_entitlements": {
+                                      "features": {"not_a_feature": True}}})
+                check("a template with an unknown feature is rejected",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/create_role_template",
+                            jwt=tpl_admin_jwt,
+                            body={"p_slug": "authz-pilot",
+                                  "p_name": "authz pilot template",
+                                  "p_description": "authz fixture",
+                                  "p_entitlements": {
+                                      "features": {
+                                          "confirmation_required": True},
+                                      "limits": {"max_students": 200},
+                                      "settings": {
+                                          "confirmation_channel": "whatsapp"}}})
+                tpl_id = b if isinstance(b, str) and b else None
+                check("admin creates a template (feature + limit + setting)",
+                      s == 200 and tpl_id, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/apply_role_template",
+                            jwt=demo_jwt,
+                            body={"p_template_id": tpl_id,
+                                  "p_teacher_id": demo_teacher,
+                                  "p_reason": "authz template fixture"})
+                check("a teacher cannot apply a template",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/apply_role_template",
+                            jwt=tpl_admin_jwt,
+                            body={"p_template_id": tpl_id,
+                                  "p_teacher_id": demo_teacher,
+                                  "p_reason": "authz template fixture"})
+                check("admin applies the template (3 overrides written)",
+                      s == 200 and isinstance(b, list) and len(b) == 3,
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/effective_entitlements",
+                            jwt=tpl_admin_jwt,
+                            body={"p_teacher_id": demo_teacher})
+                check("applied template resolves via effective_entitlements",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("features", {}).get(
+                          "confirmation_required") is True
+                      and b.get("settings", {}).get(
+                          "confirmation_channel") == "whatsapp"
+                      and int(b.get("limits", {}).get("max_students", -1)) == 200
+                      and "setting:confirmation_channel" in (
+                          b.get("overrides_applied") or []),
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/update_role_template",
+                            jwt=tpl_admin_jwt,
+                            body={"p_template_id": tpl_id,
+                                  "p_name": "authz pilot template",
+                                  "p_description": "authz fixture",
+                                  "p_entitlements": {
+                                      "features": {
+                                          "confirmation_required": True},
+                                      "limits": {"max_students": 200},
+                                      "settings": {
+                                          "confirmation_channel": "whatsapp"}},
+                                  "p_is_active": False})
+                check("admin deactivates the template",
+                      s == 200 and b == tpl_id, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/apply_role_template",
+                            jwt=tpl_admin_jwt,
+                            body={"p_template_id": tpl_id,
+                                  "p_teacher_id": demo_teacher,
+                                  "p_reason": "authz template fixture"})
+                check("a deactivated template cannot be applied",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                audit = sql(ref, "select action, count(*) as c "
+                                 "from platform_audit_log "
+                                 f"where details->>'template_id' = '{tpl_id}' "
+                                 "group by action order by action")
+                acts = {r["action"]: int(r["c"]) for r in audit}
+                check("template create + apply both left audit rows",
+                      acts.get("role_template_created", 0) >= 1
+                      and acts.get("role_template_applied", 0) >= 1,
+                      f"got {acts}")
+            finally:
+                sql(ref, "delete from account_overrides "
+                         f"where teacher_id = '{demo_teacher}' "
+                         "and reason = 'authz template fixture'")
+                sql(ref, "delete from platform_audit_log "
+                         f"where target_teacher_id = '{demo_teacher}' "
+                         "and details->>'reason' = 'authz template fixture'")
+                if tpl_id:
+                    sql(ref, "delete from platform_audit_log "
+                             f"where details->>'template_id' = '{tpl_id}'")
+                    sql(ref, "delete from role_templates "
+                             f"where id = '{tpl_id}'")
+                sql(ref, "delete from auth.users "
+                         f"where id = '{tpl_admin_uid}'")
+                left = sql(ref, "select "
+                                "(select count(*) from role_templates "
+                                "where slug = 'authz-pilot') as tpl, "
+                                "(select count(*) from account_overrides "
+                                f"where teacher_id = '{demo_teacher}' "
+                                "and reason = 'authz template fixture') as ov, "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{tpl_admin_uid}') as pa")
+                check("0063 fixtures cleaned",
+                      left and int(left[0]["tpl"]) == 0
+                      and int(left[0]["ov"]) == 0
+                      and int(left[0]["pa"]) == 0, f"got {left}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد
