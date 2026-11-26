@@ -1,4 +1,4 @@
-/** نصوص لوحة أدمن المنصة (مهمة 17 — 0055): الأساس وصفحة النظرة العامة الأولية */
+/** نصوص لوحة أدمن المنصة (مهمة 17 — 0055 الأساس + 0061 اللوحة الكاملة) */
 export const platformAdmin = {
   pageTitle: 'لوحة أدمن المنصة',
   intro:
@@ -8,10 +8,117 @@ export const platformAdmin = {
   teachersActivated: 'حسابات مفعّلة',
   studentsTotal: 'إجمالي الطلاب',
   foundationNote:
-    'دي نسخة الأساس الأولى من اللوحة (الخطوة 1) — إدارة مساحات العمل والباقات والتجاوزات بتيجي في الخطوات الجاية من خطة الأدمن.',
+    'إعلانات المنصة وتذاكر الدعم بتيجي في الخطوة الجاية من خطة الأدمن — باقي أقسام الإدارة شغالة من هنا.',
   loadError: 'تعذّر تحميل أرقام المنصة — حاول تاني.',
   deniedTitle: 'الصفحة دي لإدارة المنصة بس',
   deniedHint:
     'حسابك مش حساب أدمن منصة، فالمحتوى ده مش متاح له. لو شايف إن ده خطأ، تواصل مع مدير المنصة.',
   backHome: 'رجوع للرئيسية',
+
+  // حالات الأقسام (0061): «قريباً» المصممة بدل أي خطأ خام
+  comingSoonTitle: 'قريباً',
+  comingSoonHint:
+    'القسم ده لسه مش مفعّل على المنصة — بيجهز وبيظهر هنا أول ما يتفعّل.',
+  sectionLoadError: 'تعذّر تحميل القسم ده — حاول تاني.',
+  actionError: 'تعذّر تنفيذ الإجراء — حاول تاني.',
+  confirm: 'تأكيد',
+  cancel: 'إلغاء',
+  save: 'حفظ',
+
+  // مؤشرات المنصة (0061)
+  indicatorsTitle: 'مؤشرات المنصة',
+  teachersNew7d: 'مدرسون جدد (٧ أيام)',
+  teachersNew30d: 'مدرسون جدد (٣٠ يوم)',
+  expectedRevenue: 'الإيراد المتوقع',
+  revenueUnknown: '—',
+  revenueNote: 'الأسعار لم تُعتمد بعد — الرقم بيظهر أول ما تُعتمد.',
+  subscriptionsByPlan: 'الاشتراكات حسب الباقة',
+  planTrial: 'تجريبي',
+  planBasic: 'أساسي',
+  planPro: 'احترافي',
+  planPilot: 'باقة الطيار',
+
+  // مساحات العمل (0061)
+  workspacesTitle: 'مساحات العمل',
+  workspacesEmpty: 'لا توجد مساحات عمل لسه.',
+  colPlan: 'الباقة',
+  colStatus: 'الحالة',
+  colStudents: 'الطلاب',
+  colLastActivity: 'آخر نشاط',
+  statusActivated: 'مفعّل',
+  statusDeactivated: 'موقوف',
+  noActivity: 'لا نشاط بعد',
+  noPlan: 'بلا اشتراك',
+  trialEndsLabel: 'تنتهي التجربة',
+  activate: 'تفعيل الحساب',
+  deactivate: 'إيقاف الحساب',
+  reasonActivateLabel: 'سبب التفعيل (اختياري — بيتحفظ في سجل تدقيق المنصة)',
+  reasonDeactivateLabel: 'سبب الإيقاف (اختياري — بيتحفظ في سجل تدقيق المنصة)',
+  entitlements: 'الاستحقاقات الفعّالة',
+  entitlementsLimits: 'الحدود الفعّالة',
+  entitlementsFeatures: 'الخصائص المفعّلة',
+  noFeatures: 'لا خصائص مفعّلة',
+  overridesAppliedLabel: 'تجاوزات مطبّقة',
+  assignPlan: 'تعيين باقة',
+  planSelectLabel: 'الباقة',
+  trialEndsAtLabel: 'نهاية التجربة (اختياري)',
+  limitUnlimited: 'بلا حد',
+
+  // التجاوزات الفردية (0059 — إدارتها من اللوحة)
+  overridesTitle: 'التجاوزات الفردية',
+  overridesEmpty: 'لا تجاوزات لهذا الحساب.',
+  overrideKindFeature: 'خاصية',
+  overrideKindLimit: 'حد',
+  overrideKindLabel: 'النوع',
+  overrideKeyLabel: 'المفتاح',
+  overrideValueLabel: 'القيمة',
+  overrideReasonLabel: 'السبب (إلزامي)',
+  overrideExpiresLabel: 'الانتهاء (اختياري)',
+  overrideAdd: 'إضافة تجاوز',
+  overrideRevoke: 'إلغاء التجاوز',
+  overrideReasonRequired: 'السبب إلزامي — التجاوز بلا سبب لا يُحفظ.',
+  overrideValueInvalid:
+    'قيمة الحد لازم تكون عدداً صحيحاً صفر أو أكبر، أو فاضية = بلا حد.',
+  manage: 'إدارة',
+  manageWorkspace: 'إدارة مساحة العمل',
+  overrideActive: 'نشط',
+  overrideExpired: 'منتهٍ',
+  overrideValueOn: 'مفعّل',
+  overrideValueOff: 'مقفول',
+  featureWhatsappAuto: 'واتساب التلقائي',
+  featureAiAssistant: 'مساعد الذكاء',
+  featureTeamAccounts: 'حسابات الفريق',
+  featureOnlinePayments: 'الدفع الأونلاين',
+  featureVerificationRequired: 'التأكيد الإلزامي',
+  featureVerificationChannelEmail: 'قناة تأكيد: إيميل',
+  featureVerificationChannelWhatsapp: 'قناة تأكيد: واتساب',
+  featureVerificationChannelSms: 'قناة تأكيد: رسائل نصية',
+  limitMaxStudents: 'حد الطلاب',
+  limitMaxMessagesMonth: 'حد الرسائل شهرياً',
+  limitMaxStorageMb: 'حد التخزين (م.ب)',
+  limitMaxTeamMembers: 'حد أعضاء الفريق',
+  limitMaxAiMessagesMonth: 'حد رسائل الذكاء شهرياً',
+
+  // قائمة السماح والتسجيل (0057 — إدارتها من اللوحة)
+  allowlistTitle: 'قائمة السماح والتسجيل',
+  registrationOpenLabel: 'التسجيل العام',
+  registrationOpen: 'مفتوح',
+  registrationClosed: 'مقفول (بالدعوة فقط)',
+  registrationToggleNote:
+    'هنا عرض للحالة الحالية بس — قلب القفل بيتم من إدارة المنصة الخادمية.',
+  allowlistEmailLabel: 'الإيميل',
+  allowlistPhoneLabel: 'الموبايل',
+  allowlistNoteLabel: 'ملحوظة',
+  allowlistAdd: 'إضافة للقائمة',
+  allowlistRemove: 'حذف',
+  allowlistEmpty:
+    'القائمة فاضية — مع قفل التسجيل محدش هيقدر يكمّل إنشاء حساب جديد.',
+  allowlistContactRequired: 'لازم إيميل أو موبايل على الأقل.',
+  allowlistAddedAt: 'أُضيف',
+
+  // إعدادات واتساب المنصة — حالة «قريباً» المصممة (لا رقم منصة بعد)
+  whatsappTitle: 'إعدادات واتساب المنصة',
+  whatsappComingSoon: 'قريباً — لا يوجد رقم واتساب للمنصة بعد',
+  whatsappComingSoonHint:
+    'التسجيل الأول لأي رقم بيتم عند Meta، وبعدها الإدارة اليومية من هنا: الرقم النشط وتبديله، تفعيل القناة لكل سنتر، سقوف الصرف والحصص، واستهلاك الرسائل لكل سنتر. عدّادات الاستهلاك بتوصل مع خطوة الإنفاذ — مفيش أرقام هنا قبل ما يبقى لها مصدر حقيقي.',
 }

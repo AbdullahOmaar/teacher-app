@@ -2181,6 +2181,137 @@ def main():
                       left and int(left[0]["ov"]) == 0
                       and int(left[0]["pa"]) == 0, f"got {left}")
 
+        # ---------- PLATFORM PANEL (0061 — T17 الخطوة 7) ----------
+        # ⚠️ المهاجرة 0061 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الدوال أولاً: إن
+        # غابت يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: دوال اللوحة للأدمن فقط (قوائم ومؤشرات وأفعال) — المدرس
+        # والمجهول مرفوضان، وقلب التفعيل يكتب سطر تدقيق، والإيراد المتوقع
+        # null (لا أسعار معتمدة — قرار مالك م1). حالة الديمو (التفعيل +
+        # الباقة) تُقرأ قبل أي لمس وتُستعاد حرفياً في finally.
+        print("PLATFORM PANEL (0061):")
+        panel_probe = sql(ref, "select to_regprocedure("
+                               "'public.platform_workspaces()') as f")
+        if not panel_probe or not panel_probe[0].get("f"):
+            print("  SKIP 0061 live section — migration 0061 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PLATFORM-ADMIN-PANEL.md)")
+        else:
+            pw_panel_admin = secrets.token_urlsafe(18)
+            panel_admin_uid = create_user_sql(
+                ref, "authz-panel-admin@teacher-app.test", pw_panel_admin)
+            orig = sql(ref, "select t.account_activated as act, "
+                            "s.plan_slug as plan from teachers t "
+                            "left join subscriptions s "
+                            "on s.teacher_id = t.id "
+                            f"where t.id = '{demo_teacher}'")
+            orig_act = bool(orig[0]["act"]) if orig else True
+            orig_plan = orig[0]["plan"] if orig else None
+            try:
+                panel_admin_jwt, _ = sign_in(
+                    url, anon, "authz-panel-admin@teacher-app.test",
+                    pw_panel_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{panel_admin_uid}', 'authz panel fixture')")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_workspaces",
+                            jwt=demo_jwt, body={})
+                check("a teacher cannot list platform workspaces",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_indicators",
+                            jwt=demo_jwt, body={})
+                check("a teacher cannot read platform indicators",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_set_account_activated",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_activated": False,
+                                  "p_reason": "authz spoof"})
+                check("a teacher cannot flip account activation",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_workspaces",
+                            jwt=None, body={})
+                check("anon cannot list platform workspaces",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_workspaces",
+                            jwt=panel_admin_jwt, body={})
+                demo_row = None
+                if s == 200 and isinstance(b, list):
+                    demo_row = next(
+                        (r for r in b
+                         if r.get("teacher_id") == demo_teacher), None)
+                check("admin lists workspaces incl. the demo teacher",
+                      demo_row is not None
+                      and demo_row.get("plan_slug") == orig_plan,
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_indicators",
+                            jwt=panel_admin_jwt, body={})
+                check("admin reads indicators; revenue stays null (no prices)",
+                      s == 200 and isinstance(b, dict)
+                      and int(b.get("teachers_total", 0)) >= 1
+                      and b.get("expected_revenue") is None
+                      and set((b.get("subscriptions_by_plan") or {}).keys())
+                      == {"trial", "basic", "pro", "pilot"},
+                      f"got {s} {str(b)[:200]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_set_account_activated",
+                            jwt=panel_admin_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_activated": not orig_act,
+                                  "p_reason": "authz flip"})
+                check("admin flips the demo activation flag",
+                      s == 200, f"got {s} {str(b)[:120]}")
+                flipped = sql(ref, "select account_activated as act "
+                                   "from teachers "
+                                   f"where id = '{demo_teacher}'")
+                check("the flip landed in teachers.account_activated",
+                      flipped and bool(flipped[0]["act"]) == (not orig_act),
+                      f"got {flipped}")
+                audit = sql(ref, "select count(*) as c "
+                                 "from platform_audit_log "
+                                 f"where target_teacher_id = '{demo_teacher}' "
+                                 "and action in ('account_activated', "
+                                 "'account_deactivated')")
+                check("the flip wrote a platform audit row",
+                      audit and int(audit[0]["c"]) >= 1, f"got {audit}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_set_subscription_plan",
+                            jwt=panel_admin_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_plan_slug": "no-such-plan"})
+                check("assigning an unknown plan is rejected",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+            finally:
+                sql(ref, "update teachers set account_activated = "
+                         f"{'true' if orig_act else 'false'} "
+                         f"where id = '{demo_teacher}'")
+                if orig_plan:
+                    sql(ref, "update subscriptions set plan_slug = "
+                             f"'{orig_plan}' where teacher_id = "
+                             f"'{demo_teacher}'")
+                sql(ref, "delete from platform_audit_log "
+                         f"where target_teacher_id = '{demo_teacher}' "
+                         "and action in ('account_activated', "
+                         "'account_deactivated', "
+                         "'subscription_plan_changed')")
+                sql(ref, "delete from auth.users "
+                         f"where id = '{panel_admin_uid}'")
+                left = sql(ref, "select "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{panel_admin_uid}') as pa, "
+                                "(select account_activated from teachers "
+                                f"where id = '{demo_teacher}') as act")
+                check("0061 fixtures cleaned + demo state restored",
+                      left and int(left[0]["pa"]) == 0
+                      and bool(left[0]["act"]) == orig_act, f"got {left}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد
