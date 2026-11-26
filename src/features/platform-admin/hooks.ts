@@ -1,6 +1,20 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchIsPlatformAdmin, fetchPlatformOverview } from './api'
 import { fetchEffectiveEntitlements } from './entitlements'
+import {
+  addAllowlistEntry,
+  fetchAccountOverrides,
+  fetchAllowlist,
+  fetchPlatformIndicators,
+  fetchPlatformWorkspaces,
+  fetchRegistrationOpen,
+  removeAllowlistEntry,
+  revokeAccountOverride,
+  setAccountActivated,
+  setAccountOverride,
+  setSubscriptionPlan,
+  type PlanSlug,
+} from './panel'
 import { fetchMySubscription } from './subscription'
 
 export const PLATFORM_ADMIN = 'platform-admin'
@@ -56,5 +70,137 @@ export function useEffectiveEntitlements(
     queryKey: [PLATFORM_ADMIN, 'entitlements', teacherId],
     enabled: enabled && Boolean(teacherId),
     queryFn: () => fetchEffectiveEntitlements(teacherId as string),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// لوحة الأدمن الكاملة (مهمة 17 — 0061، الخطوة 7): مؤشرات + مساحات عمل
+// + قائمة سماح + تجاوزات حساب. كل استعلام يرجع null قبل تطبيق
+// مهاجراته فتعرض الأقسام حالة «قريباً» المصممة — لا خطأ خام أبداً.
+// ---------------------------------------------------------------------------
+
+/** مؤشرات المنصة (0061) — تُفعَّل بعد ثبوت صفة الأدمن فقط */
+export function usePlatformIndicators(enabled: boolean) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'indicators'],
+    enabled,
+    queryFn: fetchPlatformIndicators,
+  })
+}
+
+/** قائمة مساحات العمل (0061) */
+export function usePlatformWorkspaces(enabled: boolean) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'workspaces'],
+    enabled,
+    queryFn: fetchPlatformWorkspaces,
+  })
+}
+
+/** صفوف قائمة السماح (سياسات أدمن 0057) */
+export function useAllowlist(enabled: boolean) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'allowlist'],
+    enabled,
+    queryFn: fetchAllowlist,
+  })
+}
+
+/** قيمة قفل التسجيل الحالية — عرض فقط (0057) */
+export function useRegistrationOpen(enabled: boolean) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'registration-open'],
+    enabled,
+    queryFn: fetchRegistrationOpen,
+  })
+}
+
+/** تجاوزات حساب بعينه (قراءة أدمن 0059) — تُفعَّل عند اختيار الحساب */
+export function useAccountOverrides(
+  teacherId: string | undefined,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'overrides', teacherId],
+    enabled: enabled && Boolean(teacherId),
+    queryFn: () => fetchAccountOverrides(teacherId as string),
+  })
+}
+
+/** إبطال كل كاش اللوحة بعد أي فعل إدارة (الوحدة مغلقة على نفسها) */
+function useInvalidatePanel() {
+  const queryClient = useQueryClient()
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: [PLATFORM_ADMIN] })
+  }
+}
+
+/** تفعيل/إيقاف حساب (0061) */
+export function useSetAccountActivated() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (input: {
+      teacherId: string
+      activated: boolean
+      reason: string
+    }) => setAccountActivated(input.teacherId, input.activated, input.reason),
+    onSuccess: invalidate,
+  })
+}
+
+/** تعيين باقة اشتراك (0061) */
+export function useSetSubscriptionPlan() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (input: {
+      teacherId: string
+      planSlug: PlanSlug
+      trialEndsAt: string | null
+    }) => setSubscriptionPlan(input.teacherId, input.planSlug, input.trialEndsAt),
+    onSuccess: invalidate,
+  })
+}
+
+/** إعداد تجاوز فردي (0059) */
+export function useSetAccountOverride() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (input: {
+      teacherId: string
+      kind: 'feature' | 'limit'
+      key: string
+      value: boolean | number | null
+      reason: string
+      expiresAt: string | null
+    }) => setAccountOverride(input),
+    onSuccess: invalidate,
+  })
+}
+
+/** إلغاء تجاوز فردي (0059) */
+export function useRevokeAccountOverride() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (overrideId: string) => revokeAccountOverride(overrideId),
+    onSuccess: invalidate,
+  })
+}
+
+/** إضافة صف لقائمة السماح (0057) */
+export function useAddAllowlistEntry() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (input: { email: string; phone: string; note: string }) =>
+      addAllowlistEntry(input),
+    onSuccess: invalidate,
+  })
+}
+
+/** حذف صف من قائمة السماح (0057) */
+export function useRemoveAllowlistEntry() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (id: string) => removeAllowlistEntry(id),
+    onSuccess: invalidate,
   })
 }

@@ -3179,7 +3179,31 @@ export type Database = {
           }
           Returns: boolean
         }
+      platform_indicators: {
+          Args: Record<PropertyKey, never>
+          Returns: Json
+        }
       platform_overview: {
+          Args: Record<PropertyKey, never>
+          Returns: Json
+        }
+      platform_set_account_activated: {
+          Args: {
+            p_teacher_id: string
+            p_activated: boolean
+            p_reason?: string
+          }
+          Returns: string
+        }
+      platform_set_subscription_plan: {
+          Args: {
+            p_teacher_id: string
+            p_plan_slug: string
+            p_trial_ends_at?: string
+          }
+          Returns: string
+        }
+      platform_workspaces: {
           Args: Record<PropertyKey, never>
           Returns: Json
         }
