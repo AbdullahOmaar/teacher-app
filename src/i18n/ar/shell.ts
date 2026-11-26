@@ -33,4 +33,10 @@ export const shell = {
     students: 'الطلاب',
     more: 'المزيد',
   },
+  updateAlert: {
+    title: 'فيه تحديث جديد للتطبيق',
+    body: 'حدّث دلوقتي عشان تكمل بأحدث نسخة',
+    action: 'تحديث التطبيق',
+    updating: 'جارٍ التحديث…',
+  },
 } as const
