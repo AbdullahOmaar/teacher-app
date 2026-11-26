@@ -1872,6 +1872,122 @@ def main():
                       left and int(left[0]["pa"]) == 0
                       and int(left[0]["al"]) == 0, f"got {left}")
 
+        # ---------- REGISTRATION LOCK + ALLOWLIST (0057 — T17 الخطوة 2) ----------
+        # ⚠️ المهاجرة 0057 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن
+        # غاب يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: البوابة قبل التسجيل (can_self_register — بلا جلسة) +
+        # نقطة الإنفاذ الحقيقية (create_teacher_profile_for_self ببريد
+        # JWT نفسه) — المرفوض لا يتحول لملف مدرس، والمسموح يولد غير
+        # مفعّل حتى يفعّله الأدمن. ملحوظة: القفل يُختبر هنا بإغلاقه
+        # مؤقتاً ثم إرجاعه مفتوحاً في الـ finally — أي فشل وسط القسم
+        # يترك التسجيل مقفولاً، لذلك الإرجاع في finally لا في نهاية
+        # المسار العادي.
+        print("REGISTRATION LOCK + ALLOWLIST (0057):")
+        al_probe = sql(ref, "select to_regclass('public.teacher_allowlist') as t")
+        if not al_probe or not al_probe[0].get("t"):
+            print("  SKIP 0057 live section — migration 0057 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PLATFORM-ADMIN-ALLOWLIST.md)")
+        else:
+            pw_allowed = secrets.token_urlsafe(18)
+            pw_blocked = secrets.token_urlsafe(18)
+            allowed_uid = create_user_sql(
+                ref, "authz-allowed@teacher-app.test", pw_allowed)
+            blocked_uid = create_user_sql(
+                ref, "authz-blocked@teacher-app.test", pw_blocked)
+            try:
+                sql(ref, "insert into teacher_allowlist (email, note) values "
+                         "('authz-allowed@teacher-app.test', 'authz fixture')")
+                sql(ref, "update platform_settings set value = 'false'::jsonb "
+                         "where key = 'registration_open'")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/can_self_register",
+                            body={"p_email": "authz-allowed@teacher-app.test",
+                                  "p_phone": None})
+                check("allowlisted email passes the gate while locked",
+                      s == 200 and b is True, f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/can_self_register",
+                            body={"p_email": "authz-blocked@teacher-app.test",
+                                  "p_phone": None})
+                check("non-allowlisted email is refused while locked",
+                      s == 200 and b is False, f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST", "/rest/v1/rpc/can_self_register",
+                            body={"p_email": "AUTHZ-ALLOWED@teacher-app.test",
+                                  "p_phone": None})
+                check("allowlist email match is case-insensitive",
+                      s == 200 and b is True, f"got {s} {str(b)[:80]}")
+                blocked_jwt, _ = sign_in(
+                    url, anon, "authz-blocked@teacher-app.test", pw_blocked)
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/create_teacher_profile_for_self",
+                            jwt=blocked_jwt,
+                            body={"p_display_name": "مرفوض",
+                                  "p_phone": None})
+                check("blocked user cannot create a teacher profile",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                allowed_jwt, _ = sign_in(
+                    url, anon, "authz-allowed@teacher-app.test", pw_allowed)
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/create_teacher_profile_for_self",
+                            jwt=allowed_jwt,
+                            body={"p_display_name": "مسموح",
+                                  "p_phone": None})
+                check("allowlisted user creates a profile",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("id") == allowed_uid,
+                      f"got {s} {str(b)[:120]}")
+                row = sql(ref, "select account_activated from teachers "
+                               f"where id = '{allowed_uid}'")
+                check("new self-registered profile starts non-activated",
+                      row and row[0]["account_activated"] is False,
+                      f"got {row}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/create_teacher_profile_for_self",
+                            jwt=allowed_jwt,
+                            body={"p_display_name": "مسموح",
+                                  "p_phone": None})
+                check("profile creation is idempotent (existing row returned)",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("id") == allowed_uid,
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/teacher_allowlist?select=id",
+                            jwt=demo_jwt)
+                check("a teacher cannot read the allowlist",
+                      s in (401, 403, 404) or (s == 200 and b == []),
+                      f"got {s} {str(b)[:80]}")
+                # بلا سياسة UPDATE يرجع PostgREST ‏204 بلا أي صف معدَّل —
+                # الحكم هنا من القاعدة نفسها (القيمة ما زالت false)، لا
+                # من كود الحالة (نفس نمط فحص append-only في قسم 0055).
+                s, b = rest(url, anon, "PATCH",
+                            "/rest/v1/platform_settings?key=eq.registration_open",
+                            jwt=demo_jwt, body={"value": True})
+                val = sql(ref, "select value from platform_settings "
+                               "where key = 'registration_open'")
+                check("a teacher cannot flip the registration lock",
+                      val and val[0]["value"] is False,
+                      f"got {s} {val}")
+            finally:
+                sql(ref, "update platform_settings set value = 'true'::jsonb "
+                         "where key = 'registration_open'")
+                sql(ref, "delete from teacher_allowlist "
+                         "where email = 'authz-allowed@teacher-app.test'")
+                sql(ref, "delete from auth.users "
+                         f"where id in ('{allowed_uid}', '{blocked_uid}')")
+                left = sql(ref, "select "
+                                "(select count(*) from teacher_allowlist "
+                                "where email = 'authz-allowed@teacher-app.test') as al, "
+                                "(select count(*) from teachers "
+                                f"where id in ('{allowed_uid}', '{blocked_uid}')) as t, "
+                                "(select value from platform_settings "
+                                "where key = 'registration_open') as open")
+                check("0057 fixtures cleaned + registration reopened",
+                      left and int(left[0]["al"]) == 0
+                      and int(left[0]["t"]) == 0
+                      and left[0]["open"] is True, f"got {left}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد
