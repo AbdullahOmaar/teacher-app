@@ -1,0 +1,259 @@
+# خريطة الموديولز واللوجك — مستر (Modules & Logic Map)
+
+> **حزمة المرجع — المستند 3 من 5 (3A-907).** وثيقة **حية**: تُحدَّث
+> مع كل فيتشر أو نشر، و**لا تُقفل أي فيتشر جديدة دون تحديث
+> [سجل الفيتشرز](REFERENCE-FEATURES.md) والمرجع** (أمر مالك
+> 2026-11-26 ~18:29 EET). رفاقها: [مرجع
+> الأعمال](REFERENCE-BUSINESS.md) (لماذا ولمن) ·
+> [سجل الفيتشرز](REFERENCE-FEATURES.md) (حالة كل فيتشر) ·
+> [مرجع الاختبار](REFERENCE-TESTING.md) · [سجل
+> الإصدارات](REFERENCE-RELEASES.md).
+>
+> **آخر تحديث:** 2026-11-26 — كُتب من الكود مباشرة: `src/features`
+> (25 موديولاً) + `src/lib` + المهاجرات (60 ملفاً) + دوال Edge
+> السبع + خريطة الاستيرادات الفعلية، لا من الذاكرة.
+
+---
+
+## 1) الصورة الكبيرة — الطبقات وتدفق البيانات
+
+```
+متصفح/هاتف (PWA — React 19 + TanStack Query)
+   │  supabase-js بالمفتاح القابل للنشر (publishable) فقط
+   ├─► PostgREST ──► جداول بسياسات RLS (قراءة/كتابة مباشرة حيث تسمح السياسة)
+   ├─► RPCs ‏(security definer + search_path مثبّت + حرّاس داخلية)
+   ├─► GoTrue Auth (بريد/كلمة سر للمدرّس) — جلسات البوابة آلة منفصلة (§4-6)
+   ├─► Storage (دلاء خاصة: إثباتات الدفع + شعارات — بادئة ملكية 0016)
+   └─► Edge Functions (أسرار/أطراف خارجية فقط — §6)
+            ├─► Meta Graph API (واتساب المدرّس نفسه)
+            ├─► خدمات Web Push (VAPID)
+            ├─► مزوّدو ذكاء بمفتاح المدرّس (BYOK — عند التفعيل)
+            └─► GoTrue Hook (إرسال SMS ← واتساب OTP)
+قاعدة البيانات نفسها ترسل: مشغّلات push ‏(0014/0015/0050) ← pg_net ← send-push
+```
+
+قاعدتان حاكمتان لكل شيء تحت: (أ) **لا قراءة/كتابة تعبر حدود سنتر
+إلا عبر RLS أو RPC بحارس** — لا مقارنة مباشرة بين `teacher_id`
+و`auth.uid()` في أي سياسة؛ (ب) **التوكنات العامة تُخزَّن hash فقط**
+(SHA-256) في كل طبقة (روابط البوابات/الامتحان/الحجز).
+
+## 2) موديولز العميل (`src/features` — 25)
+
+نمط موحّد في أغلبها: `api.ts` (طبقة البيانات فوق supabase-js) +
+`hooks.ts` (TanStack Query + إبطال مفاتيح) + صفحات/مكوّنات +
+اختبارات وحدة ملاصقة (`*.test.ts`) حيث يوجد منطق نقي.
+
+| الموديول | المسؤولية | منطق حاكم يملكه |
+|---|---|---|
+| `auth` | الدخول/التسجيل/الاسترداد/الهاتف/إكمال الحساب + بوابات الجلسة (`RequireAuth`) | ترجمة أخطاء المصادقة لعربية مهذبة (لا نص خادم خام يصل للمستخدم)؛ إكمال أول جلسة (مطالبة دعوات + إنشاء ملف المدرّس) |
+| `home` | الرئيسية + «ابدأ هنا» + تجميعات اليوم | **مصدر مساعدات مشتركة**: `monthStartStr`/`todayStr`/`fetchSessionsInRange` تستوردها `analytics` و`atrisk` و`attendance` من `home/api` (الاعتمادية الجانبية الوحيدة الموثقة §7) |
+| `students` | الطلاب: قائمة/بحث/ملف كامل/استيراد | توليد `public_code` (8 أحرف — هوية للمسح لا تصريح) |
+| `groups` | المجموعات والأعضاء وقوائم الانتظار والأرشفة | نجوم التشجيع (`starCheer` نقي مختبَر) |
+| `schedule` | الجدول الأسبوعي + توليد الحصص | التوليد نفسه خادمي (RPC ‏0022/0001 — §4-2)؛ الموديول يعرض ويحرّر الجدول |
+| `attendance` | تسجيل الحضور الجماعي + مسح QR | **طابور الكتابة دون اتصال الوحيد في التطبيق** (`offlineQueue` + `SyncBridge`)؛ أخطاء الحفظ مترجمة (`saveErrors`) |
+| `homework` | الواجبات ومتابعة التسليم | — |
+| `grades` | التقييمات والأسئلة والدرجات + طباعة الامتحان | الدرجات في `scores` **مصدّرة المصدر** (يدوي/امتحان إلكتروني)؛ المقالي لا يدخل الامتحان الإلكتروني (0010) |
+| `exams` | الامتحان الإلكتروني العام برابط/كود | البدء/التسليم عبر RPC بخنق (0024/0025)؛ التصحيح الآلي للاختياري فوري داخل `exam_submit_attempt` |
+| `atrisk` | الطلاب المعرّضون + متابعات «اطمن عليه» (0018) | قواعد الظهور تُحسب من الغياب/المتابعة كما في `api.ts` |
+| `analytics` | مؤشرات السنتر | تجميعات قراءة فقط |
+| `activity` | سجل نشاط السنتر (0009) | كتابة السجل من مسارات الأفعال نفسها |
+| `invoices` | الفواتير والمدفوعات والمتأخرات + طباعة الإيصال | ترقيم الإيصالات خادمي (`next_receipt_no`)؛ الماليات للمالك في RLS |
+| `money` | الخزينة والإغلاق اليومي + دفتر السنتر + «تدقيق اليوم» | `ledgerCalc.ts` نقي مختبَر (حسابات الدفتر)؛ إغلاق يومي بفروقات موثّقة؛ التدقيق 4 نقاط قراءة-فقط |
+| `payment-proofs` | إثباتات الدفع: مراجعة/اعتماد/رفض + Extract-1 | الاعتماد يُنشئ الدفع؛ الاستخراج (`extract.ts`) اقتراح لا يكتب شيئاً أبداً |
+| `portal` | بوابة ولي الأمر + إدارة حسابات البوابة + روابطها | دورة حياة الرابط (`tokenLifecycle.ts` — سطح أمني: hash/TTL/حالة)؛ الرابط للدخول الأول فقط (0044/0056) |
+| `student-portal` | بوابة الطالب للقراءة برابط موقّع | قراءة فقط عبر RPCs بالرمز |
+| `enrol` | صفحة الحجز العامة `/book` + بطاقة رابط الحجز | سقف إرسال 150/يوم (0024)؛ الطلب يهبط قائمة انتظار بمصدر موثّق |
+| `centre` | صفحة السنتر التعريفية `/centre` | نفس رمز الحجز + RPC 0019؛ بلا سطح بيانات جديد |
+| `notifications` | مركز إشعارات المدرّس + إعدادات الدفع | السلم نفسه خادمي (0050 — §4-4) |
+| `assistant` | محادثة المساعد + اقتراح/تأكيد | العميل يعرض فقط؛ آلة التأكيد الخمسية خادمية (0048 — §4-5) |
+| `feedback` | ملاحظات المدرّس للمنصة (0052) | الإرسال RPC فقط؛ القائمة تتدهور بأدب قبل تطبيق المهاجرة (PR #34) |
+| `settings` | كل بطاقات الإعدادات (هوية/قنوات/باقة/أخطاء/حذف…) | `apiShared.ts` فيه نسخة `SETTINGS_COLS` الثانية (تحذير 0054 في سجل الفيتشرز)؛ حذف الحساب عبر `deleteAccount.ts` |
+| `platform-admin` | لوحة الأدمن `/admin` خارج قشرة المدرّس | `entitlements.ts` نقي مختبَر: حلّ الاستحقاق الفعّال (§4-3)؛ `subscription.ts` قراءة الباقة؛ `panel.ts` أقسام اللوحة (0061) |
+| `notfound` | بوابة 404 المصممة | — |
+
+### الطبقة المشتركة (`src/lib` + `src/hooks` + `src/components` + `src/types`)
+- `lib/supabase.ts` العميل الوحيد؛ `lib/supabaseErrors.ts` ترجمة
+  أخطاء قاعدة البيانات؛ `lib/phone.ts` تطبيع الهاتف المصري (سطح
+  أمني — بوابة OTP)؛ `lib/push.ts` اشتراكات دفع الويب؛
+  `lib/errorReporter.ts` بلاغات أخطاء مجرّدة ← `report_client_error`
+  (0053 — صامت بلا جدول)؛ `lib/buildInfo.ts` سطر الإصدار من بيانات
+  البناء (`__APP_VERSION__`/`__BUILD_TIME__` محقونان في
+  `vite.config.ts`)؛ `lib/invalidate.ts` إبطال مفاتيح الاستعلامات؛
+  `lib/printFonts.ts` خطوط الطباعة (0054)؛ `lib/format.ts` تنسيقات
+  عربية؛ `lib/versionGuard.ts` + حارس النسخة القديمة **قيد
+  التطوير** (PR #36 عند QA — 3A-903 وقت كتابة هذا السطر).
+- القشرة: `src/main.tsx` يسجّل Service Worker (`public/sw.js` v2:
+  تنقّل network-first + أصول stale-while-revalidate +
+  skipWaiting/claim — في PROD فقط) وبوابة `ErrorBoundary` المصممة.
+
+## 3) القواعد والحسابات الحاكمة (كما ينفّذها الكود)
+
+### 3-1) المال
+- الفاتورة بنود ومجاميع في `invoices`؛ الدفع يُسجَّل أو يُولَّد من
+  اعتماد إثبات (0005)؛ المتأخرات = فواتير غير مغطاة بالمدفوعات —
+  تُحسب في استعلامات `invoices/api` لا تُخزَّن كرقم مستقل.
+- دفتر السنتر (0051): مشتريات/مبيعات بدفعات إلحاقية فقط
+  (append-only payments) وعرض شهري `monthly_centre_finance`؛
+  الحساب النقي في `money/ledgerCalc.ts`.
+- الخزينة: إغلاق يومي يقارن المتوقع بالمعدود ويوثّق الفرق (0004).
+- **الماليات للمالك فقط في RLS** — العضو لا يراها بلا
+  `can_view_money`، والمساعد خارجها بقرار موثّق (مرجع الأعمال §3).
+
+### 3-2) توليد الحصص
+`generate_group_sessions` (0001، حُرّست في 0020) تولّد حصص مجموعة
+من جدولها الأسبوعي، و`generate_teacher_sessions` (0022) توليد جماعي
+لكل مجموعات المدرّس — خادمياً بالكامل حتى لا تختلف النتائج بين
+الأجهزة؛ الحضور يُسجَّل على حصص مولّدة لا على الجدول نفسه.
+
+### 3-3) الاستحقاقات (الباقات ⊕ التجاوزات)
+`effective_entitlements(teacher_id)` (0059) = حدود/مفاتيح الباقة
+(0058: أربع باقات، `null` = بلا حد، **لا أسعار**) ⊕ التجاوزات
+النشطة غير المنتهية؛ مفاتيح التأكيد الأربع من 0060 تُشتق قنواتها
+كمجموعة من ثلاثي مفاتيح منطقية. العميل يحلّها نقياً في
+`platform-admin/entitlements.ts` للعرض، والخادم هو مرجع الإنفاذ.
+
+### 3-4) سلم إشعارات ولي الأمر (0050)
+`guardian_notification_ladder` عند الغياب وإصدار الفاتورة، بترتيب
+ثابت: **داخل البوابة** (صف في `guardian_notifications`) ← **دفع
+ويب** عبر `push_on_guardian_notification` ← pg_net ← `send-push`
+← **واتساب «جاهزية فقط»**: تُسجَّل المحاولة في
+`guardian_notification_deliveries` بحالة queued/skipped — **لا
+إرسال تلقائي** حتى قرار Q4. الإرسال الذاتي اليدوي للمدرّس مسار
+مستقل حي (§6).
+
+### 3-5) آلة تأكيد المساعد (0048)
+خمس خطوات مربوطة ببصمة الحمولة: `assistant_create_proposal` ←
+`assistant_confirm_proposal` (البصمة يجب أن تطابق) ← تنفيذ عبر
+`assistant_begin_read`/الإجراءات المعتمدة ← `assistant_complete_run`
+أو `assistant_cancel_run` — وكل تشغيل في `assistant_runs` قابل
+للتدقيق. مفاتيح المزوّد (0049) مشفّرة AES-GCM ولا تُقرأ راجعاً
+إلا خادمياً داخل `assistant-chat`.
+
+### 3-6) الهوية والجلسات
+- المدرّس: GoTrue (بريد/كلمة سر). `mailer_autoconfirm = true`
+  بقرار مالك 2026-11-26 (حالة إعداد خادمية موثّقة في مرجع
+  الأعمال §3-3).
+- البوابات: آلة مستقلة تماماً — روابط برموز hash-only
+  (`portal_validate_token`) تُستبدل عند أول مطالبة بحساب
+  (`portal_account_claim_*` 0041/0044) وجلسة بوابة
+  (`portal_issue_session` 0056)؛ عدّاد فشل وقفل في `portal_login`
+  (0041/0043)؛ دخول الطالب برقم موبايله عبر نفس الآلة (0056).
+- الأدمن: `is_platform_admin()` (0055) — لا سياسات عميل على
+  جداوله إطلاقاً؛ الوصول عبر RPCs بحارس + service role للبذرة.
+
+## 4) طبقة Supabase — المهاجرات والجداول
+
+- **60 ملف مهاجرة، تسلسل 0001–0061 بلا 0017** (يقفز 0016 ← 0018
+  — لا ملف مفقوداً، الرقم لم يُستعمل). ~61 جدولاً يُنشأ عبرها.
+- **المطبّق حياً: حتى 0050 فقط.** ‏0051–0061 كود فقط، تُطبَّق عند
+  بوابة تجميد فيز 2 + QA بترتيب إلزامي 0051←0052←…←0061 (امتد
+  الترتيب بمهاجرة اللوحة 0061 — PR #35).
+- نمط موثّق: `delete_my_teacher_account` تُعاد كتابتها في
+  0047–0053 لتتسلسل حذفها على الجداول الجديدة — أي جدول جديد
+  ببيانات مدرّس يجب أن يدخل هذا التسلسل.
+- من 0046 فصاعداً: أي جدول جديد يحتاج GRANT صريحاً (قاعدة Data
+  API الموثّقة في دراسة المهمة 2).
+
+### خريطة المهاجرات (ملف ← ما بناه)
+| الملفات | المحتوى |
+|---|---|
+| 0001–0009 | الأساس: سناتر/طلاب/مجموعات/حصص + RLS helpers ‏· إصلاحات البوابة · إغلاقات يومية · إثباتات الدفع · دعوات العضوية · أرشفة المجموعات · الهوية البيضاء · سجل النشاط |
+| 0010–0016 | الامتحان الإلكتروني · بوابة الطالب · إشعارات الوصول · دفع الويب (جداول) · دفع البوابات · دفع المدرّس · تعدد السناتر |
+| 0018–0029 | متابعات المعرّضين · الحجز العام · حارس التوليد · سياسة روابط الحجز · التوليد الجماعي · سحب الميت/الداخلي · خنق الامتحان وسقف الحجز · واتساب لكل مدرّس + منح داخلية · التمساح وظهوره في البوابات |
+| 0030–0039 | تصليب: initplan ‏· فهارس FK ‏· تثبيت search_path ‏· هوية المدرّس الذاتية (ادعاء/سحب/منح) · إعدادات وصول البوابة وإنفاذ أقسامها |
+| 0040–0049 | حسابات البوابة وجلساتها (5 ملفات) · واتساب الإرسال · حذف الحساب + يتامى التخزين · تشغيلات المساعد · مفاتيح BYOK |
+| 0050–0061 | سلم الإشعارات · دفتر السنتر · الملاحظات · سجل الأخطاء · خط الطباعة · أساس الأدمن · إكمال حسابات البوابة · قفل التسجيل/السماح · الباقات · التجاوزات · مفاتيح التأكيد · لوحة الأدمن |
+
+## 5) جرد الـ RPCs (من المهاجرات — الاسم/الغرض/من يناديه)
+
+### هوية وعضوية ومساعدات RLS
+| الدالة | الغرض | المستدعي |
+|---|---|---|
+| `is_teacher_owner` / `is_teacher_member` / `member_has_permission` | حرّاس سياسات RLS (الصلاحيات الخمس `can_*`) | داخلي (سياسات) |
+| `set_updated_at` / `generate_public_code` / `students_set_public_code` | مشغّلات صيانة + كود الطالب العام | داخلي |
+| `next_receipt_no` | ترقيم إيصالات تسلسلي لكل سنتر | مدرّس (عبر مسار الفواتير) |
+| `teacher_id_claimable` + منح/سحب 0033–0036 | ادعاء هوية مدرّس عند إكمال الحساب | authenticated فقط |
+| `claim_teacher_invites` (0006) | مطالبة دعوات عضوية معلّقة عند أول جلسة | المدرّس الجديد |
+| `owns_storage_prefix` (0016) | حارس بادئة التخزين لكل سنتر | داخلي (سياسات Storage) |
+
+### البوابات والحجز (برمز — anon مقيد بالرمز hash)
+| الدالة | الغرض |
+|---|---|
+| `portal_validate_token` / `portal_overview_by_token` / `portal_build_overview` | تحقق الرابط وبناء نظرة ولي الأمر |
+| `student_portal_resolve_token` / `student_portal_overview_by_token` / `student_portal_build_overview` | نظرة الطالب برمزه |
+| `portal_list_payment_proofs` / `portal_create_payment_proof` / `portal_confirm_payment_proof` / `portal_delete_payment_proof` + `payment_proof_upload_allowed` | إثباتات الدفع من البوابة (رفع/عرض/حذف) وإنفاذ أقسام البوابة (0039) |
+| `portal_list_guardian_notifications` / `portal_mark_notifications_read` | إشعارات ولي الأمر داخل البوابة |
+| `portal_push_status/subscribe/unsubscribe` + نظيراتها للطالب | اشتراكات دفع البوابات |
+| `enrolment_resolve_token` / `enrolment_page_by_token` / `enrolment_submit_by_token` | صفحة الحجز العامة وإرسال الطلب (سقف 0024) |
+
+### حسابات البوابة (0041–0044 + 0056)
+`portal_login` (بقفل فشل) · `portal_logout` · `portal_norm_phone` ·
+`portal_account_claim_guardian` / `portal_account_claim_student`
+(المطالبة تلغي الرابط) · `portal_issue_session` ·
+`portal_resolve_session_account` · `portal_session_students` ·
+`portal_account_upsert` / `portal_account_set_active` /
+`portal_account_revoke_sessions` (إدارة المدرّس) ·
+`portal_account_apply_password` / `portal_account_change_password`.
+
+### الامتحانات والحضور والإشعارات
+| الدالة | الغرض |
+|---|---|
+| `exam_resolve_token` / `exam_info_by_token` / `exam_start_attempt` / `exam_attempt_deadline` / `exam_submit_attempt` | دورة الامتحان العامة (خنق بدء 0024/0025؛ التسليم يصحّح الاختياري فوراً) |
+| `generate_group_sessions` / `generate_teacher_sessions` | توليد الحصص (§3-2) |
+| `guardian_notify_on_attendance` / `guardian_notify_on_invoice` / `guardian_notification_ladder` | مداخل السلم (0050) |
+| `push_dispatch` / `push_centre_name` / `push_on_payment` / `push_on_exam_submitted` / `push_on_guardian_notification` | إرسال الدفع خادمياً (pg_net ← send-push) |
+| `push_dispatch_teacher` / `push_teacher_on_payment_proof` / `push_teacher_on_exam_submitted` / `push_send_daily_digests` | دفع المدرّس + الملخص اليومي |
+
+### واتساب والمساعد والحساب
+| الدالة | الغرض | المستدعي |
+|---|---|---|
+| `set_teacher_whatsapp_token` / `get_teacher_whatsapp_token_internal` / `resolve_whatsapp_channel_internal` (0026/0027) | حفظ/قراءة سرّية لتهيئة واتساب المدرّس | الأخيرتان **داخلي فقط** (service role — تُسحب من الأدوار العامة 0023) |
+| `assistant_create_proposal` / `assistant_confirm_proposal` / `assistant_begin_read` / `assistant_complete_run` / `assistant_cancel_run` / `assistant_actor_role` | آلة التأكيد الخمسية (§3-5) | المدرّس عبر assistant-chat |
+| `assistant_save_provider_key` / `assistant_read_provider_key` / `assistant_delete_provider_key` / `assistant_provider_key_status` | مفاتيح BYOK المشفّرة | المدرّس (القراءة خادمية) |
+| `delete_my_teacher_account` (0046 + إعادة كتابة حتى 0053) | حذف الحساب المتسلسل + يتامى التخزين | المدرّس نفسه |
+| `submit_teacher_feedback` (0052) | إرسال ملاحظة (RPC فقط — لا كتابة جدول مباشرة) | المدرّس |
+| `report_client_error` (0053) | بلاغ خطأ عميل مجرّد | أي عميل (معدّل) |
+
+### المنصة (0055–0061)
+| الدالة | الغرض |
+|---|---|
+| `is_platform_admin` / `my_platform_admin` / `platform_overview` | الحارس + تجميعات المنصة |
+| `can_self_register` / `create_teacher_profile_for_self` | بوابة التسجيل ونقطة الإنفاذ (0057) |
+| `my_subscription` / `plan_limits` | قراءة باقة الحساب وحدودها |
+| `set_account_override` / `revoke_account_override` / `effective_entitlements` | التجاوزات والحلّ الفعّال (§3-3) |
+| `platform_workspaces` / `platform_indicators` / `platform_set_subscription_plan` / `platform_set_account_activated` | اللوحة (0061): مساحات + مؤشرات (الإيراد المتوقع `null` حتى اعتماد الأسعار) + أفعال الأدمن الموثّقة في سجل التدقيق |
+
+## 6) دوال Edge السبع (`supabase/functions`)
+
+| الدالة | المشغّل | نموذج المصادقة | الحالة وCORS |
+|---|---|---|---|
+| `assistant-chat` | مدرّس من التطبيق | `verify_jwt` مفعّل + JWT المدرّس؛ سرّ `ASSISTANT_ENABLED` غيابه = OFF ‏(503)؛ `ASSISTANT_PLANNER` خطاف المزوّد | منشورة v4؛ **CORS مُصلَح في الكود** (PR #26: OPTIONS ‏204 + ترويسات — النشر الحي مع دفعة الإنتاج) |
+| `send-whatsapp-message` | مدرّس من التطبيق | `verify_jwt` مفعّل؛ مفتاح قتل `WHATSAPP_MESSAGING_ENABLED` | حية؛ CORS مُصلَح في الكود (PR #26) |
+| `send-whatsapp-test` | مدرّس (اختبار تهيئته) | `verify_jwt` مفعّل؛ بوابة `WHATSAPP_OTP_ENABLED` | حية خلف العلم المقفول؛ CORS مُصلَح في الكود |
+| `send-push` | خادم-لخادم من `push_dispatch` (pg_net) | `verify_jwt` **معطّل عمداً** + سرّ داخلي `PUSH_INTERNAL_SECRET` لا يخرج من الخادم | حية؛ لها معالج CORS (يُستدعى من التطبيق أيضاً لاختبار الدفع) |
+| `send-whatsapp-otp` | GoTrue ‏Send SMS Hook | `verify_jwt` **معطّل عمداً** + توقيع الويب هوك بسرّ `SEND_SMS_HOOK_SECRET` داخل `core.ts`؛ قتل `WHATSAPP_OTP_ENABLED` | مبنية؛ القناة مطفأة بقرار — **لا CORS** (مستدعيها خادم لا متصفح) |
+| `receipt-extract` | مدرّس من شيت مراجعة الإثباتات | `verify_jwt` مفعّل + JWT؛ بوابة `RECEIPT_EXTRACT_ENABLED` | **غير منشورة** + **لا معالج CORS بعد** — إصلاحها ونشرها بند بوابة تجميد (واجهتها تعرض «لسه مش مفعّلة» بأدب) |
+| `whatsapp-webhook` | Meta (خادم-لخادم) | `verify_jwt` **معطّل عمداً**؛ تحقق GET ‏`hub.challenge` بـ `WHATSAPP_WEBHOOK_VERIFY_TOKEN` + توقيع `x-hub-signature-256` بـ `WHATSAPP_APP_SECRET` | حية؛ لا CORS (لا متصفح) |
+
+نمط موحّد: كل دالة تنقسم `index.ts` (ربط البيئة/الأسرار) +
+`core.ts` (منطق نقي قابل للمحاكاة بلا أسرار — أساس اختبارات
+العقود في [مرجع الاختبار](REFERENCE-TESTING.md)).
+
+## 7) خريطة الاعتماديات (من الاستيرادات الفعلية)
+
+- **الاتجاه الغالب: نزولاً فقط.** الموديولز تستورد من الطبقة
+  المشتركة (`components` ‏356 استيراداً · `lib` ‏199 ·
+  `types` ‏67 · `hooks` ‏45) — واستيراد موديول من موديول آخر
+  شبه معدوم.
+- **الاستثناءان الموثّقان:** `home/api` مصدر مساعدات تاريخ/حصص
+  لـ `analytics` و`atrisk` و`attendance`؛ و`home` يستورد من
+  `notifications`. حارس معماري معلوماتي (dependency-cruiser —
+  مرجع الاختبار §2) يرصد أي دوائر جديدة.
+- **اعتماديات خادمية:** مشغّلات الدفع ← `send-push`؛ السلم ←
+  مشغّلات الدفع؛ `assistant-chat` ← RPCs المساعد + قراءة المفتاح
+  الداخلية؛ دوال واتساب ← `*_internal` (service role)؛ حذف
+  الحساب ← كل جداول المدرّس (سبب نمط إعادة الكتابة §4).
+- **نقطة الضعف الموثّقة:** نسختا `SETTINGS_COLS` (في `auth` و
+  `settings/apiShared`) تطلبان `print_font` (0054) — أي نشر بناء
+  قبل تطبيقها يكسر القراءات حياً؛ الترتيب الإلزامي في
+  [سجل الإصدارات](REFERENCE-RELEASES.md) وبوابة التجميد.
