@@ -29,9 +29,52 @@ export const FEATURE_KEYS = [
   'ai_assistant',
   'team_accounts',
   'online_payments',
+  'verification_required',
+  'verification_channel_email',
+  'verification_channel_whatsapp',
+  'verification_channel_sms',
 ] as const
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number]
+
+/** قناة تأكيد (3A-905): المجموعة المفعّلة = اتحاد المفاتيح البوليانية */
+export const VERIFICATION_CHANNELS = ['email', 'whatsapp', 'sms'] as const
+
+export type VerificationChannel = (typeof VERIFICATION_CHANNELS)[number]
+
+/** مفتاح الخاصية البوليانية المقابل لكل قناة تأكيد */
+export const VERIFICATION_CHANNEL_KEYS: Record<
+  VerificationChannel,
+  FeatureKey
+> = {
+  email: 'verification_channel_email',
+  whatsapp: 'verification_channel_whatsapp',
+  sms: 'verification_channel_sms',
+} as const
+
+/** إعدادات التأكيد الفعّالة كما تشتق من خريطة الخصائص */
+export interface VerificationSettings {
+  /** التأكيد مطلوب (إلزامي عند التفعيل، بلا تخطٍ) — false = النظام مقفول */
+  required: boolean
+  /** القنوات المفعّلة — فارغة = لا قناة، أي النظام مقفول عملياً */
+  channels: VerificationChannel[]
+}
+
+/**
+ * اشتقاق خالص لإعدادات التأكيد من خريطة الخصائص الفعّالة: مفتاح
+ * غائب أو false = مطفأ؛ قناة مفعّلة = مفتاحها البولياني true.
+ * الافتراضي بلا أي تجاوز: required=false وقنوات فارغة (مقفول).
+ */
+export function resolveVerificationSettings(
+  features: Partial<Record<FeatureKey, boolean>>,
+): VerificationSettings {
+  return {
+    required: features.verification_required === true,
+    channels: VERIFICATION_CHANNELS.filter(
+      (channel) => features[VERIFICATION_CHANNEL_KEYS[channel]] === true,
+    ),
+  }
+}
 
 /** تجاوز واحد كما يصل لدالة الدمج الخالصة (من أي مصدر) */
 export interface OverrideInput {
@@ -51,6 +94,8 @@ export interface EffectiveEntitlements {
   trialEndsAt: string | null
   limits: PlanLimits
   features: Partial<Record<FeatureKey, boolean>>
+  /** إعدادات التأكيد المشتقة من الخصائص (3A-905) — افتراضياً مقفولة */
+  verification: VerificationSettings
   overridesApplied: string[]
 }
 
@@ -144,6 +189,7 @@ export function parseEffectiveEntitlements(
         (x): x is string => typeof x === 'string',
       )
     : []
+  const features = parseFeatures(row.features)
   return {
     teacherId: row.teacher_id,
     planSlug: row.plan_slug,
@@ -153,7 +199,8 @@ export function parseEffectiveEntitlements(
         ? row.trial_ends_at
         : null,
     limits,
-    features: parseFeatures(row.features),
+    features,
+    verification: resolveVerificationSettings(features),
     overridesApplied: applied,
   }
 }
