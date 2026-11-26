@@ -734,5 +734,5 @@ function tplEntriesSummary(tpl: {
   for (const key of Object.keys(tpl.entitlements.settings)) {
     parts.push(overrideKeyLabel('setting', key))
   }
-  return parts.join('، ')
+  return parts.join(t('format.daysSeparator'))
 }

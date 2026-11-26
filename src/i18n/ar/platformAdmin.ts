@@ -127,7 +127,6 @@ export const platformAdmin = {
   templateNameRequired: 'اسم القالب إلزامي.',
   templateEmptyEntitlements:
     'القالب لازم يحمل إدخالاً واحداً على الأقل (خاصية أو حد أو قناة).',
-  templateEntriesLabel: 'الاستحقاقات',
   templateApplyTitle: 'تطبيق قالب جاهز',
   templateApplyLabel: 'القالب',
   templateApplySelectPlaceholder: 'اختر قالباً',
@@ -142,7 +141,6 @@ export const platformAdmin = {
   confirmationRequiredOff: 'مقفول',
   confirmationChannelLabel: 'القناة',
   overrideKindSetting: 'إعداد',
-  overrideSettingValueLabel: 'القيمة',
 
   // قائمة السماح والتسجيل (0057 — إدارتها من اللوحة)
   allowlistTitle: 'قائمة السماح والتسجيل',
