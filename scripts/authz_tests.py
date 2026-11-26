@@ -2312,6 +2312,175 @@ def main():
                       left and int(left[0]["pa"]) == 0
                       and bool(left[0]["act"]) == orig_act, f"got {left}")
 
+        # ---------- USAGE COUNTERS + ENFORCEMENT (0062 — T19 الخطوة 5) ----------
+        # ⚠️ المهاجرة 0062 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الدالة أولاً: إن
+        # غابت يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: ملخص الاستخدام للمالك/العضو/الأدمن فقط (المجهول
+        # مرفوض)، وعدّاد الرسائل بلا كتابة عميل، وإنفاذ حد الطلاب
+        # خادمياً: تجاوز max_students=0 يرفض إدراج طالب جديد، وسحب
+        # التجاوز يعيد الإدراج — ثم تنظيف كامل (حذف الطالب الاستكشافي
+        # + سحب التجاوز + حذف مستخدم الأدمن المؤقت).
+        print("USAGE COUNTERS (0062):")
+        usage_probe = sql(ref, "select to_regprocedure(\n"
+                               "'public.usage_summary(uuid)') as f")
+        if not usage_probe or not usage_probe[0].get("f"):
+            print("  SKIP 0062 live section — migration 0062 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate)")
+        else:
+            pw_usage_admin = secrets.token_urlsafe(18)
+            usage_admin_uid = create_user_sql(
+                ref, "authz-usage-admin@teacher-app.test", pw_usage_admin)
+            usage_override_id = None
+            try:
+                usage_admin_jwt, _ = sign_in(
+                    url, anon, "authz-usage-admin@teacher-app.test",
+                    pw_usage_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{usage_admin_uid}', 'authz usage fixture')")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/usage_counters",
+                            jwt=<redacted>
+                            body={"teacher_id": demo_teacher,
+                                  "period_month": "2026-11-01",
+                                  "counter_key": "messages_month",
+                                  "value": 1})
+                check("a teacher cannot insert into usage_counters",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/usage_summary",
+                            body={"p_teacher_id": demo_teacher})
+                check("anon cannot call usage_summary",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/usage_summary",
+                            jwt=<redacted>
+                            body={"p_teacher_id": demo_teacher})
+                summary_ok = (
+                    s == 200 and isinstance(b, dict)
+                    and str(b.get("period_month", ""))[:7]
+                    == time.strftime("%Y-%m", time.gmtime())
+                    and all(
+                        isinstance(b.get(k), dict)
+                        and isinstance(b[k].get("used"), int)
+                        and b[k].get("used") >= 0
+                        and isinstance(b[k].get("at_limit"), bool)
+                        for k in ("students", "messages_month", "storage_mb",
+                                  "team_members", "ai_messages_month")))
+                summary_body = b if summary_ok else None
+                check("owner reads own usage summary (5 keys, used >= 0)",
+                      summary_ok, f"got {s} {str(b)[:200]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/check_usage_limit",
+                            jwt=<redacted>
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_key": "max_students"})
+                check("check_usage_limit agrees with the summary",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("key") == "max_students"
+                      and isinstance(b.get("allowed"), bool)
+                      and (summary_body is None
+                           or b.get("allowed")
+                           == (not summary_body["students"]["at_limit"])),
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/check_usage_limit",
+                            jwt=<redacted>
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_key": "no_such_key"})
+                check("an unknown usage key is rejected",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                # حد مضبوط على صفر عبر تجاوز أدمن: الملخص والفحص
+                # يرفضان، وإدراج طالب جديد يرفضه التريجر، وسحب التجاوز
+                # يعيد الإدراج.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/set_account_override",
+                            jwt=<redacted>
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "limit",
+                                  "p_key": "max_students",
+                                  "p_value": 0,
+                                  "p_reason": "authz limit probe"})
+                usage_override_id = b if isinstance(b, str) else None
+                check("admin sets a max_students=0 override",
+                      s == 200 and usage_override_id,
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/usage_summary",
+                            jwt=<redacted>
+                            body={"p_teacher_id": demo_teacher})
+                check("the override flows into the summary (limit 0)",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("students", {}).get("limit") == 0
+                      and b.get("students", {}).get("at_limit") is True,
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/check_usage_limit",
+                            jwt=<redacted>
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_key": "max_students"})
+                check("the override makes check_usage_limit refuse",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("allowed") is False
+                      and b.get("limit") == 0,
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/students",
+                            jwt=<redacted>
+                            body={"teacher_id": demo_teacher,
+                                  "name": "authz-limit-probe"})
+                check("the student-limit trigger rejects the insert",
+                      s >= 400, f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/revoke_account_override",
+                            jwt=<redacted>
+                            body={"p_override_id": usage_override_id})
+                check("admin revokes the override",
+                      s == 200, f"got {s} {str(b)[:120]}")
+                usage_override_id = None
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/students",
+                            jwt=<redacted>
+                            body={"teacher_id": demo_teacher,
+                                  "name": "authz-limit-probe"})
+                check("the insert works again after the revoke",
+                      s in (200, 201) and isinstance(b, dict)
+                      and b.get("name") == "authz-limit-probe",
+                      f"got {s} {str(b)[:160]}")
+            finally:
+                if usage_override_id:
+                    sql(ref, "delete from account_overrides "
+                             f"where id = '{usage_override_id}'")
+                sql(ref, "delete from students "
+                         f"where teacher_id = '{demo_teacher}' "
+                         "and name = 'authz-limit-probe'")
+                # بلا حذف من usage_counters: محاولة الإدراج المرفوضة لا
+                # تترك صفاً أصلاً، وحذف صف بعدّاد حقيقي (قيمة 1) كان
+                # سيفسد بيانات استخدام فعلية.
+                sql(ref, "delete from platform_audit_log "
+                         f"where target_teacher_id = '{demo_teacher}' "
+                         "and action in ('override_set', 'override_revoked')")
+                sql(ref, "delete from auth.users "
+                         f"where id = '{usage_admin_uid}'")
+                left = sql(ref, "select "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{usage_admin_uid}') as pa, "
+                                "(select count(*) from account_overrides "
+                                f"where teacher_id = '{demo_teacher}' "
+                                "and key = 'max_students' "
+                                "and (expires_at is null "
+                                "or expires_at > now())) as ov, "
+                                "(select count(*) from students "
+                                f"where teacher_id = '{demo_teacher}' "
+                                "and name = 'authz-limit-probe') as st")
+                check("0062 fixtures cleaned + demo state restored",
+                      left and int(left[0]["pa"]) == 0
+                      and int(left[0]["ov"]) == 0
+                      and int(left[0]["st"]) == 0, f"got {left}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد
