@@ -18,9 +18,11 @@
 -- • بلا اشتراك/حد (effective_entitlements ترجع null أو الحد null) لا
 --   إنفاذ — متسامح عمداً، نفس نمط تريجر الطلاب في 0062.
 -- • الإيقاف/التفعيل: تحديث status عبر العميل بسياسة المالك القائمة +
---   سجل نشاط (member_suspended / member_reactivated) — لا مهاجرة
---   إضافية: سياسات المساعد تشترط status='active' فالإيقاف يقطع
---   الوصول خادمياً فوراً، بلا أي تغيير في سياسات RLS.
+--   سجل نشاط (member_suspended / member_reactivated) — سياسات المساعد
+--   تشترط status='active' فالإيقاف يقطع الوصول خادمياً فوراً، بلا
+--   أي تغيير في سياسات RLS؛ لكن قيد CHECK على activity_log.event_type
+--   (0009) يعدّد القيم، فالحدثان الجديدان يُمدّدان في القسم 2 هنا
+--   وإلا رفضت قاعدة البيانات إدراج سجل النشاط نفسه.
 -- • خاصية team_accounts نفسها لا تُفرض هنا عمداً: الباقات لا تزرع
 --   مفاتيح خصائص (0059: الخريطة features تبدأ فارغة وتُملأ من
 --   التجاوزات وحدها)، ففرضها كان سيكسر ميزة الفريق الحيّة القائمة؛
@@ -92,11 +94,35 @@ create trigger team_limit_trg
   before insert on public.teacher_members
   for each row execute function public.enforce_team_limit();
 
+-- ---------------------------------------------------------------------------
+-- 2) تمديد قيد CHECK على activity_log.event_type (0009) بقيمتي حدثي
+--    الإيقاف/التفعيل — القيد يعدّد القيم حرفياً، وبلا هذا التمديد ترفض
+--    قاعدة البيانات إدراج سجل النشاط عند كل إيقاف/تفعيل.
+--    الاستبدال في نفس المعاملة: إسقاط ثم إعادة بنفس الاسم الافتراضي.
+-- ---------------------------------------------------------------------------
+alter table public.activity_log
+  drop constraint activity_log_event_type_check;
+alter table public.activity_log
+  add constraint activity_log_event_type_check
+  check (event_type in (
+    'payment_created', 'payment_voided',
+    'invoice_created', 'invoices_generated',
+    'attendance_saved',
+    'member_invited', 'member_joined', 'member_removed',
+    'member_invite_cancelled', 'member_permissions_updated',
+    'member_suspended', 'member_reactivated',
+    'proof_approved', 'proof_rejected',
+    'student_deleted', 'student_archived', 'student_unarchived',
+    'group_deleted', 'group_archived', 'group_unarchived',
+    'cashbox_closed'
+  ));
+
 commit;
 
 -- ============================================================================
--- نهاية 0064 — دوال: enforce_team_limit | تريجر: team_limit_trg.
--- ترتيب التطبيق بعد 0058 و0059.
+-- نهاية 0064 — دوال: enforce_team_limit | تريجر: team_limit_trg
+-- + تمديد قيد activity_log_event_type_check بقيمتي member_suspended /
+-- member_reactivated. ترتيب التطبيق بعد 0058 و0059.
 -- ⚠️ غير مطبّقة على الإنتاج — التطبيق عند تجميد فيز 2 + بوابة QA فقط.
 -- ⚠️ الإنفاذ الخادمي (تريجر الحد) لا يعمل قبل التطبيق؛ فحص العميل
 --    المسبق متسامح مع غياب الدوال (يتخطى).

@@ -79,7 +79,11 @@ describe('resolveTeamLimitState — حلّ الحدّ', () => {
   })
 
   it('حدّ صفر: أي عضو يعني بلوغ الحدّ', () => {
-    expect(resolveTeamLimitState(entitlementsStub(0), 0).atLimit).toBe(true)
+    expect(resolveTeamLimitState(entitlementsStub(0), 0)).toEqual({
+      used: 0,
+      limit: 0,
+      atLimit: true,
+    })
   })
 })
 

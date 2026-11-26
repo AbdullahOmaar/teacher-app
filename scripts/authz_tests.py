@@ -2452,6 +2452,25 @@ def main():
                                   "status": "active"})
                 check("the insert is still rejected at the trial limit",
                       s >= 400, f"got {s} {str(b)[:160]}")
+                # قيد CHECK على activity_log يقبل حدث الإيقاف الجديد
+                # (0064 §2): بلا التمديد يفشل هذا الإدراج ويرفع sql()
+                # خطأً صريحاً — إثبات حيّ أن سجل النشاط يقبل الحدثين.
+                sql(ref, "insert into activity_log "
+                         f"(teacher_id, actor_id, actor_role, event_type, "
+                         f"entity_type, entity_id, details) values "
+                         f"('{demo_teacher}', '{demo_uid}', 'owner', "
+                         f"'member_suspended', 'member', "
+                         f"'{team_member_row['id']}', '{{}}'::jsonb)")
+                probe = sql(ref, "select count(*) as n from activity_log "
+                                 f"where teacher_id = '{demo_teacher}' "
+                                 f"and event_type = 'member_suspended' "
+                                 f"and entity_id = '{team_member_row['id']}'")
+                check("the activity_log CHECK accepts member_suspended",
+                      probe and probe[0].get("n", 0) >= 1, f"got {probe}")
+                sql(ref, "delete from activity_log "
+                         f"where teacher_id = '{demo_teacher}' "
+                         f"and event_type = 'member_suspended' "
+                         f"and entity_id = '{team_member_row['id']}'")
             finally:
                 if team_override_id:
                     sql(ref, "delete from account_overrides "

@@ -11,6 +11,8 @@ export const activity = {
     member_removed: 'إزالة مساعد',
     member_invite_cancelled: 'إلغاء دعوة مساعد',
     member_permissions_updated: 'تعديل صلاحيات مساعد',
+    member_suspended: 'إيقاف مساعد مؤقتاً',
+    member_reactivated: 'إعادة تفعيل مساعد',
     proof_approved: 'اعتماد إثبات دفع',
     proof_rejected: 'رفض إثبات دفع',
     student_deleted: 'حذف طالب',
