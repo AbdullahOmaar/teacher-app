@@ -8,7 +8,7 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { copyText } from '../../lib/clipboard'
 import { t } from '../../i18n'
 import { useTeacherSettings } from '../settings/hooks'
-import { enrolShareWaUrl } from './api'
+import { buildCentreLink, enrolShareWaUrl } from './api'
 import {
   useEnrolmentLink,
   useGenerateEnrolmentLink,
@@ -41,6 +41,10 @@ export function EnrolLinkCard() {
   const [confirmRegen, setConfirmRegen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [copiedCentre, setCopiedCentre] = useState(false)
+
+  /** رابط صفحة السنتر العامة مشتق من رابط الحجز الخام (نفس الرمز) */
+  const centreLink = rawLink ? buildCentreLink(rawLink) : null
 
   if (!isOwner || !teacherId) return null
 
@@ -66,6 +70,16 @@ export function EnrolLinkCard() {
     if (await copyText(rawLink)) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    } else {
+      setError(t('enrol.cardCopyError'))
+    }
+  }
+
+  const copyCentreLink = async () => {
+    if (!centreLink) return
+    if (await copyText(centreLink)) {
+      setCopiedCentre(true)
+      setTimeout(() => setCopiedCentre(false), 2000)
     } else {
       setError(t('enrol.cardCopyError'))
     }
@@ -150,6 +164,25 @@ export function EnrolLinkCard() {
                   {t('enrol.cardShareWhatsapp')}
                 </a>
               </div>
+              {centreLink && (
+                <>
+                  <p className="text-muted text-[13.5px] mt-0 mb-2">
+                    {t('enrol.cardCentreLinkNote')}
+                  </p>
+                  <div
+                    className="border border-border rounded-xl px-3 py-2.5 mb-2 text-[13.5px] break-all bg-soft"
+                    dir="ltr"
+                  >
+                    {centreLink}
+                  </div>
+                  <div className="flex gap-2 flex-wrap mb-3">
+                    <Button variant="soft" onClick={() => void copyCentreLink()}>
+                      {copiedCentre ? <Check size={17} /> : <Copy size={17} />}
+                      {copiedCentre ? t('enrol.cardCopied') : t('enrol.cardCopyCentreLink')}
+                    </Button>
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <p className="text-muted text-[13.5px] border border-border rounded-xl px-3 py-2.5 bg-soft">

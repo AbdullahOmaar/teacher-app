@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EG_MOBILE_RE, normalizeEgPhone } from './api'
+import { buildCentreLink, buildEnrolLink, EG_MOBILE_RE, normalizeEgPhone } from './api'
 
 describe('normalizeEgPhone — توحيد صيغة الموبايل المصري (بلا تحقق)', () => {
   it('يحذف المسافات والشرطات من رقم صالح', () => {
@@ -31,5 +31,35 @@ describe('normalizeEgPhone — توحيد صيغة الموبايل المصري
     expect(EG_MOBILE_RE.test(normalizeEgPhone('0100 123 4567'))).toBe(true)
     expect(EG_MOBILE_RE.test(normalizeEgPhone('011-1234-5678'))).toBe(true)
     expect(EG_MOBILE_RE.test(normalizeEgPhone('02 1234 5678'))).toBe(false)
+  })
+})
+
+describe('buildEnrolLink / buildCentreLink (مهمة 12 — ج10-4)', () => {
+  it('يبني رابط الحجز بترميز الرمز', () => {
+    expect(buildEnrolLink('https://app.example', 'tok en/1')).toBe(
+      'https://app.example/book?t=tok%20en%2F1',
+    )
+  })
+
+  it('يشتق رابط صفحة السنتر من رابط الحجز بنفس الرمز', () => {
+    expect(buildCentreLink('https://app.example/book?t=abc123')).toBe(
+      'https://app.example/centre?t=abc123',
+    )
+  })
+
+  it('يحافظ على بقية الاستعلام كما هو', () => {
+    expect(buildCentreLink('https://app.example/book?t=x&utm=fb')).toBe(
+      'https://app.example/centre?t=x&utm=fb',
+    )
+  })
+
+  it('يرفض رابطاً ليس رابط حجز', () => {
+    expect(buildCentreLink('https://app.example/portal?t=abc')).toBeNull()
+    expect(buildCentreLink('https://app.example/bookish?t=abc')).toBeNull()
+  })
+
+  it('يرفض نصاً ليس رابطاً', () => {
+    expect(buildCentreLink('مش رابط')).toBeNull()
+    expect(buildCentreLink('')).toBeNull()
   })
 })

@@ -32,6 +32,23 @@ export function buildEnrolLink(origin: string, rawToken: string): string {
   return `${origin}/book?t=${encodeURIComponent(rawToken)}`
 }
 
+/**
+ * رابط صفحة السنتر العامة (مهمة 12 — ج10-4): نفس رمز رابط الحجز ونفس
+ * الـRPC، بمسار /centre بدل /book. يُشتق من رابط الحجز الكامل لأن الرمز
+ * الخام لا يظهر إلا لحظة الإنشاء/التجديد (القاعدة تخزن بصمته فقط).
+ * null إن لم يكن الرابط رابط حجز صالح البنية.
+ */
+export function buildCentreLink(bookUrl: string): string | null {
+  try {
+    const u = new URL(bookUrl)
+    if (!u.pathname.endsWith('/book')) return null
+    u.pathname = u.pathname.replace(/\/book$/, '/centre')
+    return u.toString()
+  } catch {
+    return null
+  }
+}
+
 // ---------------------------------------------------------------------------
 // جهة المدرس (جلسة مصادقة — سياسة المالك فقط على enrolment_links)
 // ---------------------------------------------------------------------------
