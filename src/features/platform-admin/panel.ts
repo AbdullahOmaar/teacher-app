@@ -237,12 +237,12 @@ export async function setSubscriptionPlan(
   if (error) throw error
 }
 
-/** إعداد تجاوز فردي (RPC 0059 كما هو — لا تكرار) */
+/** إعداد تجاوز فردي (RPC 0059 كما هو — لا تكرار؛ 0063 تضيف النوع 'setting') */
 export async function setAccountOverride(input: {
   teacherId: string
-  kind: 'feature' | 'limit'
+  kind: 'feature' | 'limit' | 'setting'
   key: string
-  value: boolean | number | null
+  value: boolean | number | string | null
   reason: string
   expiresAt: string | null
 }): Promise<void> {
@@ -272,13 +272,20 @@ export function parseAccountOverrideRow(
   if (typeof data !== 'object' || data === null) return null
   const row = data as Record<string, unknown>
   if (typeof row.id !== 'string' || row.id === '') return null
-  if (row.kind !== 'feature' && row.kind !== 'limit') return null
+  if (
+    row.kind !== 'feature' &&
+    row.kind !== 'limit' &&
+    row.kind !== 'setting'
+  ) {
+    return null
+  }
   if (typeof row.key !== 'string' || row.key === '') return null
   const value = row.value
   if (
     value !== null &&
     typeof value !== 'boolean' &&
-    typeof value !== 'number'
+    typeof value !== 'number' &&
+    typeof value !== 'string'
   ) {
     return null
   }

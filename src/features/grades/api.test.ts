@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fmtScore, passPctOf, pctOf, pctTone, scoreWaUrl } from './api'
+import { fmtScore, passPctOf, pctOf, pctTone, scoreWaUrl, validateScoreEntries } from './api'
 import type { RosterStudent } from '../attendance/api'
 
 describe('نسب الدرجات', () => {
@@ -64,5 +64,48 @@ describe('scoreWaUrl — رابط درجة واتساب (PAT-4أ)', () => {
     expect(textOf(scoreWaUrl(student, undefined, { title: 'اختبار', max_score: 0 }, 0))).toContain(
       '(0%)',
     )
+  })
+})
+
+describe('validateScoreEntries — حد النهائية (3A-913)', () => {
+  it('درجات داخل الحد + مسح (null) تمر', () => {
+    expect(
+      validateScoreEntries(
+        [
+          { studentId: 'a', score: 20 },
+          { studentId: 'b', score: 0 },
+          { studentId: 'c', score: 12.5 },
+          { studentId: 'd', score: null },
+        ],
+        20,
+      ),
+    ).toBeNull()
+  })
+  it('30/20 تُرفض — أول مخالف يُعاد', () => {
+    expect(
+      validateScoreEntries(
+        [
+          { studentId: 'a', score: 15 },
+          { studentId: 'b', score: 30 },
+        ],
+        20,
+      ),
+    ).toEqual({ studentId: 'b', score: 30 })
+  })
+  it('25/20 تُرفض (الحالة المرصودة: عرض 125٪)', () => {
+    expect(validateScoreEntries([{ studentId: 'a', score: 25 }], 20)).toEqual({
+      studentId: 'a',
+      score: 25,
+    })
+  })
+  it('سالب وNaN مرفوضان', () => {
+    expect(validateScoreEntries([{ studentId: 'a', score: -1 }], 20)).toEqual({
+      studentId: 'a',
+      score: -1,
+    })
+    expect(validateScoreEntries([{ studentId: 'a', score: Number.NaN }], 20)).toEqual({
+      studentId: 'a',
+      score: Number.NaN,
+    })
   })
 })

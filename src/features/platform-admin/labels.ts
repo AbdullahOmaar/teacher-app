@@ -1,9 +1,13 @@
 import { t } from '../../i18n'
 import {
+  CONFIRMATION_CHANNELS,
   FEATURE_KEYS,
   LIMIT_KEYS,
+  SETTING_KEYS,
+  type ConfirmationChannel,
   type FeatureKey,
   type LimitKey,
+  type SettingKey,
 } from './entitlements'
 
 /**
@@ -44,7 +48,36 @@ export function featureKeyLabel(key: FeatureKey): string {
       return t('platformAdmin.featureVerificationChannelWhatsapp')
     case 'verification_channel_sms':
       return t('platformAdmin.featureVerificationChannelSms')
+    case 'confirmation_required':
+      return t('platformAdmin.featureConfirmationRequired')
   }
+}
+
+/** اسم عرض مفتاح إعداد (0063 — النوع 'setting') */
+export function settingKeyLabel(key: SettingKey): string {
+  switch (key) {
+    case 'confirmation_channel':
+      return t('platformAdmin.settingConfirmationChannel')
+  }
+}
+
+/** اسم عرض قناة التأكيد الواحدة (تصحيح المالك 17:19) */
+export function confirmationChannelLabel(channel: ConfirmationChannel): string {
+  switch (channel) {
+    case 'mobile':
+      return t('platformAdmin.confirmationChannelMobile')
+    case 'whatsapp':
+      return t('platformAdmin.confirmationChannelWhatsapp')
+    case 'email':
+      return t('platformAdmin.confirmationChannelEmail')
+  }
+}
+
+/** هل القيمة قناة تأكيد صالحة؟ */
+export function isConfirmationChannelValue(
+  value: string,
+): value is ConfirmationChannel {
+  return (CONFIRMATION_CHANNELS as readonly string[]).includes(value)
 }
 
 export function limitKeyLabel(key: LimitKey): string {
@@ -62,11 +95,19 @@ export function limitKeyLabel(key: LimitKey): string {
   }
 }
 
-/** اسم عرض أي مفتاح تجاوز (خاصية أو حد) — المجهول يرجع كما هو */
-export function overrideKeyLabel(kind: 'feature' | 'limit', key: string): string {
+/** اسم عرض أي مفتاح تجاوز (خاصية أو حد أو إعداد) — المجهول يرجع كما هو */
+export function overrideKeyLabel(
+  kind: 'feature' | 'limit' | 'setting',
+  key: string,
+): string {
   if (kind === 'feature') {
     return (FEATURE_KEYS as readonly string[]).includes(key)
       ? featureKeyLabel(key as FeatureKey)
+      : key
+  }
+  if (kind === 'setting') {
+    return (SETTING_KEYS as readonly string[]).includes(key)
+      ? settingKeyLabel(key as SettingKey)
       : key
   }
   return (LIMIT_KEYS as readonly string[]).includes(key)

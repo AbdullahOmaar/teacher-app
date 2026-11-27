@@ -3,6 +3,7 @@ import {
   fetchEffectiveEntitlements,
   mergeEntitlements,
   parseEffectiveEntitlements,
+  resolveConfirmationSettings,
   resolveVerificationSettings,
   type OverrideInput,
 } from './entitlements'
@@ -165,9 +166,43 @@ describe('parseEffectiveEntitlements — تحويل حمولة RPC بأمان', 
         maxAiMessagesMonth: 100,
       },
       features: { whatsapp_auto: true },
+      settings: {},
       verification: { required: false, channels: [] },
+      confirmation: { required: false, channel: null },
       overridesApplied: ['limit:max_students', 'feature:whatsapp_auto'],
     })
+  })
+
+  it('يحوّل حمولة فيها خريطة settings (0063) ويشتق التأكيد الإلزامي', () => {
+    const out = parseEffectiveEntitlements({
+      teacher_id: 't-1',
+      plan_slug: 'pro',
+      status: 'active',
+      trial_ends_at: null,
+      limits: { max_students: 1000, max_messages_month: 10000, max_storage_mb: 10240, max_team_members: 10, max_ai_messages_month: 5000 },
+      features: { confirmation_required: true },
+      settings: { confirmation_channel: 'whatsapp' },
+      overrides_applied: [
+        'feature:confirmation_required',
+        'setting:confirmation_channel',
+      ],
+    })
+    expect(out?.settings).toEqual({ confirmation_channel: 'whatsapp' })
+    expect(out?.confirmation).toEqual({ required: true, channel: 'whatsapp' })
+  })
+
+  it('حمولة بلا settings (الشكل القديم قبل 0063) تسقط إلى فارغة بلا كسر', () => {
+    const out = parseEffectiveEntitlements({
+      teacher_id: 't-1',
+      plan_slug: 'trial',
+      status: 'trial',
+      trial_ends_at: null,
+      limits: { max_students: 50, max_messages_month: 500, max_storage_mb: 500, max_team_members: 1, max_ai_messages_month: 100 },
+      features: {},
+      overrides_applied: [],
+    })
+    expect(out?.settings).toEqual({})
+    expect(out?.confirmation).toEqual({ required: false, channel: null })
   })
 
   it('يشتق إعدادات التأكيد من خصائص الحمولة', () => {
@@ -273,6 +308,110 @@ describe('resolveVerificationSettings — اشتقاق إعدادات التأك
     )
     expect(merged.applied).toEqual(['feature:verification_required'])
     expect(resolveVerificationSettings(merged.features).required).toBe(true)
+  })
+})
+
+describe('resolveConfirmationSettings — اشتقاق التأكيد الإلزامي (تصحيح المالك 17:19)', () => {
+  it('الافتراضي بلا أي تجاوز: النظام مقفول', () => {
+    expect(resolveConfirmationSettings({}, {})).toEqual({
+      required: false,
+      channel: null,
+    })
+  })
+
+  it('مطلوب + قناة واحدة؛ قناة غير صالحة تسقط إلى null', () => {
+    expect(
+      resolveConfirmationSettings(
+        { confirmation_required: true },
+        { confirmation_channel: 'whatsapp' },
+      ),
+    ).toEqual({ required: true, channel: 'whatsapp' })
+    expect(
+      resolveConfirmationSettings(
+        { confirmation_required: true },
+        { confirmation_channel: 'pigeon' },
+      ),
+    ).toEqual({ required: true, channel: null })
+  })
+
+  it('قناة بلا إلزام: القناة تُشتق وحدها وrequired يبقى false', () => {
+    expect(
+      resolveConfirmationSettings({}, { confirmation_channel: 'email' }),
+    ).toEqual({ required: false, channel: 'email' })
+  })
+
+  it('تجاوز منتهٍ لا يفعّل التأكيد — الدمج أولاً ثم الاشتقاق', () => {
+    const merged = mergeEntitlements(
+      BASE_LIMITS,
+      [
+        {
+          kind: 'feature',
+          key: 'confirmation_required',
+          value: true,
+          expiresAt: '2026-11-20T00:00:00Z',
+        },
+        {
+          kind: 'setting',
+          key: 'confirmation_channel',
+          value: 'mobile',
+          expiresAt: null,
+        },
+      ],
+      NOW,
+    )
+    expect(merged.applied).toEqual(['setting:confirmation_channel'])
+    expect(resolveConfirmationSettings(merged.features, merged.settings)).toEqual({
+      required: false,
+      channel: 'mobile',
+    })
+  })
+})
+
+describe('mergeEntitlements — النوع setting (0063)', () => {
+  it('تجاوز إعداد يحلّ في خريطة settings ويُسجَّل في applied', () => {
+    const out = mergeEntitlements(
+      BASE_LIMITS,
+      [
+        {
+          kind: 'setting',
+          key: 'confirmation_channel',
+          value: 'email',
+          expiresAt: null,
+        },
+      ],
+      NOW,
+    )
+    expect(out.settings).toEqual({ confirmation_channel: 'email' })
+    expect(out.applied).toEqual(['setting:confirmation_channel'])
+  })
+
+  it('قيمة قناة غير صالحة ومفتاح إعداد غريب يُتجاهلان', () => {
+    const out = mergeEntitlements(
+      BASE_LIMITS,
+      [
+        {
+          kind: 'setting',
+          key: 'confirmation_channel',
+          value: 'pigeon',
+          expiresAt: null,
+        },
+        {
+          kind: 'setting',
+          key: 'not_a_setting',
+          value: 'mobile',
+          expiresAt: null,
+        },
+        {
+          kind: 'setting',
+          key: 'confirmation_channel',
+          value: 7 as never,
+          expiresAt: null,
+        },
+      ],
+      NOW,
+    )
+    expect(out.settings).toEqual({})
+    expect(out.applied).toEqual([])
   })
 })
 

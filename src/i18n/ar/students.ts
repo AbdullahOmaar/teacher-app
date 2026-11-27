@@ -88,6 +88,8 @@ export const students = {
   formNameLabel: 'الاسم *',
   formNamePlaceholder: 'اسم الطالب',
   formNameRequired: 'اسم الطالب إلزامي',
+  formPhoneError: 'موبايل الطالب لازم يكون رقم مصري صحيح (010/011/012/015)',
+  formGuardianPhoneError: 'موبايل ولي الأمر لازم يكون رقم مصري صحيح (010/011/012/015)',
   formGradePlaceholder: 'مثال: 3 ثانوي',
   formLevelNoteLabel: 'ملاحظات المستوى',
   formGroupsTitle: 'التسجيل في المجموعات',
@@ -180,6 +182,10 @@ export const students = {
   impReasonPhoneExists: 'موبايل الطالب {phone} مسجل لطالب موجود بالفعل',
   impReasonDupCodeInFile: 'مكرر داخل الملف — نفس كود الصف رقم {row}',
   impReasonDupPhoneInFile: 'مكرر داخل الملف — نفس موبايل الصف رقم {row}',
+  impReasonNameExists:
+    'الاسم «{name}» موجود لطالب بالفعل — بدون كود أو موبايل للمقارنة',
+  impReasonDupNameInFile:
+    'مكرر داخل الملف — نفس اسم الصف رقم {row} (بدون كود أو موبايل للمقارنة)',
   impFileTooLarge: 'الملف أكبر من 5 ميجا — قسّمه على دفعتين وجرّب تاني.',
   impFileUnsupported: 'صيغة الملف غير مدعومة — اختر ملف Excel ‏(xlsx) أو CSV.',
   impFileUnreadable: 'تعذّرت قراءة الملف — اتأكد إنه ملف Excel/CSV سليم.',

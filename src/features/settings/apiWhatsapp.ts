@@ -1,6 +1,7 @@
 import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
 import { friendlyDbError } from '../../lib/supabaseErrors'
+import { checkUsageLimit } from '../platform-admin/usage'
 import type {
   TeacherWhatsappConfigRow,
   TeacherWhatsappTemplateRow,
@@ -211,6 +212,13 @@ export async function sendWhatsappMessage(
   toPhone: string,
   params: string[],
 ): Promise<void> {
+  // فحص مسبق ودود لحد رسائل الشهر (0062 — الخطوة 5): عند بلوغ الحد
+  // يُرفض برسالة ترقية عربية قبل أي نداء. الدالة غائبة قبل تطبيق
+  // 0062 فيُتخطى الفحص (null) — ودالة Edge تحرس خادمياً بعد التطبيق.
+  const check = await checkUsageLimit(teacherId, 'max_messages_month')
+  if (check && !check.allowed) {
+    throw new Error(t('settings.usageLimitMessagesReached'))
+  }
   const { error } = await db().functions.invoke('send-whatsapp-message', {
     body: { teacher_id: teacherId, kind, to: toPhone, params },
   })
@@ -222,6 +230,11 @@ export async function sendWhatsappMessage(
     status = invokeErr.context.status
     // استهلاك جسم الرد يمنع تسريب اتصال معلّق في بعض المتصفحات
     responseBody = await invokeErr.context.text().catch(() => '')
+  }
+  // حد رسائل الشهر من دالة Edge (429 + limit_reached) — نفس رسالة
+  // الترقية العربية بدل خطأ الإرسال العام.
+  if (status === 429 && responseBody.includes('limit_reached')) {
+    throw new Error(t('settings.usageLimitMessagesReached'))
   }
   if (status === 503) throw new Error(t('settings.waMsgTestPlatformDisabled'))
   if (status === 422 && responseBody.includes('template_not_ready')) {
