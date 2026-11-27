@@ -11,9 +11,10 @@ import { Fab } from '../../components/ui/Fab'
 import { Chip, ChipRow } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
-import { BILLING_LABELS, daysLabel, formatMoney, formatTime12 } from '../../lib/format'
+import { BILLING_LABELS, DAY_NAMES, formatMoney, formatTime12 } from '../../lib/format'
 import { SG, useEnrollments } from '../students/hooks'
 import { countByGroup } from './api'
+import { groupSlotsOf } from './slots'
 import { useGroups } from './hooks'
 import { GroupFormSheet } from './GroupFormSheet'
 
@@ -128,7 +129,12 @@ export function GroupsPage() {
                     كلها مدموجة في سطر واحد مع الأيام. */}
                 <div className="text-muted text-[13.5px] mt-1">
                   {BILLING_LABELS[g.billing_type]} · {formatMoney(g.price)} ·{' '}
-                  {formatTime12(g.start_time)} {t('groups.listDuration', { minutes: g.duration_minutes })}
+                  {groupSlotsOf(g)
+                    .map(
+                      (s) =>
+                        `${DAY_NAMES[s.day]} ${formatTime12(s.start_time)} ${t('groups.listDuration', { minutes: s.duration_minutes })}`,
+                    )
+                    .join(' · ')}
                   {g.room ? (
                     <>
                       {' · '}
@@ -138,7 +144,6 @@ export function GroupsPage() {
                     ''
                   )}
                 </div>
-                <div className="text-muted text-[13.5px] mt-0.5">{daysLabel(g.days)}</div>
                 {g.capacity != null && pct != null ? (
                   <div className="mt-2">
                     <div className="flex justify-between text-[13.5px] text-muted mb-1">
