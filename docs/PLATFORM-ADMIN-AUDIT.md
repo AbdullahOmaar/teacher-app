@@ -1,4 +1,4 @@
-# سجل تدقيق المنصة — التكامل الكامل (0063، الخطوة 6 — T23/3A-898)
+# سجل تدقيق المنصة — التكامل الكامل (0066، الخطوة 6 — T23/3A-898)
 
 السجل نفسه موجود من 0055 (`platform_audit_log` — append-only: قراءة
 للأدمن فقط، إدراج للأدمن باسمه قسراً، ولا UPDATE/DELETE من أي جلسة
@@ -12,8 +12,8 @@
 | `override_set` / `override_revoked` | RPCs 0059 (`set_account_override` / `revoke_account_override`) | ✅ موثّق من الخطوة 4 |
 | `account_activated` / `account_deactivated` | RPC 0061 (`platform_set_account_activated`) | ✅ موثّق من الخطوة 7 |
 | `subscription_plan_changed` | RPC 0061 (`platform_set_subscription_plan`) | ✅ موثّق من الخطوة 7 |
-| `allowlist_added` / `allowlist_removed` | RPCs 0063 (`platform_allowlist_add` / `platform_allowlist_remove`) | ✅ سدّته هذه الخطوة — كان كتابة جدول مباشرة بلا أثر |
-| `registration_open_changed` | RPC 0063 (`platform_set_registration_open`) | ✅ سدّته هذه الخطوة — لم يوجد له مسار موثّق أصلاً |
+| `allowlist_added` / `allowlist_removed` | RPCs 0066 (`platform_allowlist_add` / `platform_allowlist_remove`) | ✅ سدّته هذه الخطوة — كان كتابة جدول مباشرة بلا أثر |
+| `registration_open_changed` | RPC 0066 (`platform_set_registration_open`) | ✅ سدّته هذه الخطوة — لم يوجد له مسار موثّق أصلاً |
 | مفاتيح التأكيد الأربعة (0060) | عبر `set_account_override` — تُوثَّق كـ `override_set` | ✅ تلقائياً، بلا RPC خاص |
 
 ## بلا تدقيق بالتصميم
@@ -30,7 +30,7 @@
   `docs/PLATFORM-ADMIN-FOUNDATION.md` يسجّل المنح يدوياً في ملاحظة
   البذرة نفسها.
 
-## ما بنته 0063
+## ما بنته 0066
 
 - `log_platform_audit(p_action, p_target_teacher_id, p_details)` —
   مسار الكتابة القانوني: SECURITY DEFINER بحارس أدمن، يدرج باسمه
@@ -55,14 +55,14 @@
 
 - مرشّحا الحساب (من مساحات العمل) والفعل (الأفعال الثمانية
   المعروفة)، وترقيم بـ«عرض المزيد» (20 سطراً في الصفحة).
-- غياب 0063 يعرض حالة «قريباً» المصممة كباقي الأقسام — لا خطأ خام
+- غياب 0066 يعرض حالة «قريباً» المصممة كباقي الأقسام — لا خطأ خام
   (قاعدة مالك 2026-11-26).
 - تسمية الفعل المجهول تظهر كما هي بلا اختراع.
 
 ## قائمة تحقق بوابة التجميد
 
-1. تطبيق 0055→0063 بالترتيب على الإنتاج.
-2. تشغيل `npm run test:authz` — قسم 0063 يعمل كاملاً تلقائياً
+1. تطبيق 0055→0066 بالترتيب على الإنتاج.
+2. تشغيل `npm run test:authz` — قسم 0066 يعمل كاملاً تلقائياً
    (إضافة/حذف سماح بسطر تدقيق لكل فعل، قلب القفل بسطره واستعادة
    حالته، مرشّح الفعل، رفض التزوير باسم أدمن آخر).
 3. فتح `/admin` بحساب أدمن والتحقق أن قسم السجل يعرض أفعال

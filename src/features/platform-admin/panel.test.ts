@@ -13,7 +13,7 @@ import {
 
 /**
  * اختبارات لوحة أدمن المنصة (مهمة 17 — 0061، الخطوة 7 + سجل
- * التدقيق 0063، الخطوة 6): عقد طبقة بيانات اللوحة — المحلّلات
+ * التدقيق 0066، الخطوة 6): عقد طبقة بيانات اللوحة — المحلّلات
  * الآمنة لحمولات jsonb، وقرارات حالة الأقسام النقية («قريباً» قبل
  * الخطأ — قاعدة مالك 2026-11-26: لا خطأ خام لخاصية غير مُطلقة)،
  * ودلالة انتهاء التجاوز، وتحليل صفحات سجل التدقيق.
@@ -200,7 +200,7 @@ describe('parseAccountOverrideRow — شكل صف التجاوز', () => {
     expect(parseAccountOverrideRow(null)).toBeNull()
   })
 
-  it('يحوّل صف إعداد (0063) بقيمة نصية', () => {
+  it('يحوّل صف إعداد (0066) بقيمة نصية', () => {
     expect(
       parseAccountOverrideRow({
         id: 'o5',
@@ -220,7 +220,7 @@ describe('parseAccountOverrideRow — شكل صف التجاوز', () => {
   })
 })
 
-describe('parseAuditLogRow / parseAuditLogPage — سجل التدقيق (0063)', () => {
+describe('parseAuditLogRow / parseAuditLogPage — سجل التدقيق (0066)', () => {
   const row = {
     id: 'a1',
     admin_user_id: 'u1',
@@ -271,7 +271,7 @@ describe('parseAuditLogRow / parseAuditLogPage — سجل التدقيق (0063)'
     expect(parseAuditLogPage({})).toEqual({ total: 0, rows: [] })
   })
 
-  it('قائمة الأفعال المعروفة تغطي كل فعل تدقيق موثّق في 0059/0061/0063', () => {
+  it('قائمة الأفعال المعروفة تغطي كل فعل تدقيق موثّق في 0059/0061/0066', () => {
     for (const action of [
       'override_set',
       'override_revoked',

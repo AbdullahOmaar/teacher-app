@@ -187,7 +187,7 @@ export function useSetSubscriptionPlan() {
   })
 }
 
-/** إعداد تجاوز فردي (0059؛ 0063 تضيف النوع 'setting') */
+/** إعداد تجاوز فردي (0059؛ 0066 تضيف النوع 'setting') */
 export function useSetAccountOverride() {
   const invalidate = useInvalidatePanel()
   return useMutation({
@@ -222,7 +222,7 @@ export function useAddAllowlistEntry() {
   })
 }
 
-/** حذف صف من قائمة السماح (0063 — RPC موثّق) */
+/** حذف صف من قائمة السماح (0066 — RPC موثّق) */
 export function useRemoveAllowlistEntry() {
   const invalidate = useInvalidatePanel()
   return useMutation({

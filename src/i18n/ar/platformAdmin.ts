@@ -152,7 +152,7 @@ export const platformAdmin = {
   registrationOpenAction: 'فتح التسجيل',
   registrationCloseAction: 'قفل التسجيل',
 
-  // سجل تدقيق المنصة (0063 — الخطوة 6)
+  // سجل تدقيق المنصة (0066 — الخطوة 6)
   auditTitle: 'سجل تدقيق المنصة',
   auditEmpty: 'لا توجد أفعال مسجلة بالمرشّحات دي لسه.',
   auditTeacherFilter: 'كل الحسابات',

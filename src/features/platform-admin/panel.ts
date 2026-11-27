@@ -3,16 +3,16 @@ import { isMissingRpcFunction } from '../auth/api'
 import type { OverrideInput } from './entitlements'
 
 // ---------------------------------------------------------------------------
-// لوحة أدمن المنصة (مهمة 17 — 0061، الخطوة 7 + سجل التدقيق 0063،
+// لوحة أدمن المنصة (مهمة 17 — 0061، الخطوة 7 + سجل التدقيق 0066،
 // الخطوة 6): سطح القراءة والأفعال الذي تقف عليه الواجهة. القراءات
 // التجميعية عبر RPCs بحارس أدمن خادمي (platform_workspaces /
 // platform_indicators) — لا يقرأ العميل أي صف مدرس تشغيلي؛ والأفعال
 // عبر RPCs الأدمن (تفعيل الحساب / تعيين الباقة من 0061، والتجاوزات
 // من 0059 كما هي بلا تكرار)، وقائمة السماح وقلب قفل التسجيل عبر
-// RPCs موثّقة من 0063 (platform_allowlist_add/remove و
+// RPCs موثّقة من 0066 (platform_allowlist_add/remove و
 // platform_set_registration_open — الكتابة المباشرة للجدول من
-// العميل متوقفة منذ 0063 حتى يُوثَّق كل فعل)، وقراءة سجل التدقيق
-// عبر platform_audit_log_list (0063).
+// العميل متوقفة منذ 0066 حتى يُوثَّق كل فعل)، وقراءة سجل التدقيق
+// عبر platform_audit_log_list (0066).
 //
 // قاعدة التسامح (دروس الخطوات 1–4): أي دالة/جدول غائب قبل تطبيق
 // مهاجراته عند بوابة التجميد يرجع null هنا فتُعرض حالة «قريباً»
@@ -85,7 +85,7 @@ export interface AccountOverrideRow extends OverrideInput {
   createdAt: string
 }
 
-/** سطر تدقيق واحد كما يرجع من platform_audit_log_list (0063) */
+/** سطر تدقيق واحد كما يرجع من platform_audit_log_list (0066) */
 export interface AuditLogRow {
   id: string
   adminUserId: string | null
@@ -273,7 +273,7 @@ export async function setSubscriptionPlan(
   if (error) throw error
 }
 
-/** إعداد تجاوز فردي (RPC 0059 كما هو — لا تكرار؛ 0063 تضيف النوع 'setting') */
+/** إعداد تجاوز فردي (RPC 0059 كما هو — لا تكرار؛ 0066 تضيف النوع 'setting') */
 export async function setAccountOverride(input: {
   teacherId: string
   kind: 'feature' | 'limit' | 'setting'
@@ -378,8 +378,8 @@ export async function fetchAllowlist(): Promise<AllowlistEntry[] | null> {
 
 /**
  * إضافة صف سماح (بريد و/أو هاتف — واحد منهما على الأقل) — عبر RPC
- * 0063 الموثّق وحده: الكتابة المباشرة للجدول من العميل متوقفة منذ
- * 0063 حتى يكتب كل فعل سطر allowlist_added في سجل التدقيق. بلا
+ * 0066 الموثّق وحده: الكتابة المباشرة للجدول من العميل متوقفة منذ
+ * 0066 حتى يكتب كل فعل سطر allowlist_added في سجل التدقيق. بلا
  * رجوع متسامح عمداً: غياب الدالة يفشل بخطأ مصمم لا بإضافة بلا أثر.
  */
 export async function addAllowlistEntry(input: {
@@ -396,7 +396,7 @@ export async function addAllowlistEntry(input: {
 }
 
 /**
- * حذف صف سماح عبر RPC 0063 الموثّق وحده (سطر allowlist_removed) —
+ * حذف صف سماح عبر RPC 0066 الموثّق وحده (سطر allowlist_removed) —
  * لا سياسة UPDATE في 0057، والتعديل حذف + إدراج كما كان.
  */
 export async function removeAllowlistEntry(id: string): Promise<void> {
@@ -407,7 +407,7 @@ export async function removeAllowlistEntry(id: string): Promise<void> {
 }
 
 /**
- * قلب قفل التسجيل عبر RPC 0063 الموثّق (سطر registration_open_changed)
+ * قلب قفل التسجيل عبر RPC 0066 الموثّق (سطر registration_open_changed)
  * — أول مسار موثّق لهذا الفعل؛ قبله كان القلب فعل service role /
  * SQL بلا أثر. بلا رجوع متسامح: غياب الدالة يفشل بخطأ مصمم.
  */
@@ -458,7 +458,7 @@ export function parseAuditLogPage(data: unknown): AuditLogPage {
 }
 
 /**
- * قراءة سجل التدقيق — null عند غياب 0063 (قسم «قريباً»)؛ أي خطأ
+ * قراءة سجل التدقيق — null عند غياب 0066 (قسم «قريباً»)؛ أي خطأ
  * آخر يصعد. المرشّحان اختياريان (حساب/فعل) والترقيم بالصفحة.
  */
 export async function fetchAuditLog(input: {

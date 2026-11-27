@@ -2832,8 +2832,8 @@ def main():
                       and int(left[0]["ov"]) == 0
                       and int(left[0]["tm"]) == 0, f"got {left}")
 
-        # ---------- AUDIT INTEGRATION (0063 — T23 الخطوة 6) ----------
-        # ⚠️ المهاجرة 0063 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # ---------- AUDIT INTEGRATION (0066 — T23 الخطوة 6) ----------
+        # ⚠️ المهاجرة 0066 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
         # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
         # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الدوال أولاً: إن
         # غابت يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
@@ -2843,11 +2843,11 @@ def main():
         # بمرشّحاتها، والتزوير باسم أدمن آخر مرفوض (الإدراج المباشر
         # باسمه غير اسمه). حالة التسجيل (مفتوح/مقفول) تُقرأ قبل أي لمس
         # وتُستعاد حرفياً في finally؛ صفوف السماح الاستكشافية تُحذف.
-        print("AUDIT INTEGRATION (0063):")
+        print("AUDIT INTEGRATION (0066):")
         audit_probe = sql(ref, "select to_regprocedure("
                                "'public.platform_audit_log_list(int, int, uuid, text)') as f")
         if not audit_probe or not audit_probe[0].get("f"):
-            print("  SKIP 0063 live section — migration 0063 is written but NOT "
+            print("  SKIP 0066 live section — migration 0066 is written but NOT "
                   "applied (phase-freeze rule 2026-11-25: application deferred "
                   "to the Phase-2 freeze + QA gate — docs/PLATFORM-ADMIN-AUDIT.md)")
         else:
@@ -2981,7 +2981,7 @@ def main():
                                 "where email = 'authz-audit@teacher-app.test') as al, "
                                 "(select (value)::text = 'true' from platform_settings "
                                 "where key = 'registration_open') as open")
-                check("0063 fixtures cleaned + registration lock restored",
+                check("0066 fixtures cleaned + registration lock restored",
                       left and int(left[0]["pa"]) == 0
                       and int(left[0]["al"]) == 0
                       and bool(left[0]["open"]) == orig_open_val,
