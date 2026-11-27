@@ -3238,6 +3238,14 @@ export type Database = {
           }
           Returns: boolean
         }
+      log_platform_audit: {
+          Args: {
+            p_action: string
+            p_target_teacher_id?: string | null
+            p_details?: Json
+          }
+          Returns: string
+        }
       member_has_permission: {
           Args: {
             p_teacher_id: string
@@ -3280,6 +3288,29 @@ export type Database = {
           }
           Returns: boolean
         }
+      platform_allowlist_add: {
+          Args: {
+            p_email?: string | null
+            p_phone?: string | null
+            p_note?: string | null
+          }
+          Returns: string
+        }
+      platform_allowlist_remove: {
+          Args: {
+            p_allowlist_id: string
+          }
+          Returns: string
+        }
+      platform_audit_log_list: {
+          Args: {
+            p_limit?: number
+            p_offset?: number
+            p_teacher_id?: string | null
+            p_action?: string | null
+          }
+          Returns: Json
+        }
       platform_indicators: {
           Args: Record<PropertyKey, never>
           Returns: Json
@@ -3295,6 +3326,13 @@ export type Database = {
             p_reason?: string
           }
           Returns: string
+        }
+      platform_set_registration_open: {
+          Args: {
+            p_open: boolean
+            p_reason?: string | null
+          }
+          Returns: boolean
         }
       platform_set_subscription_plan: {
           Args: {
