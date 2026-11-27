@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   AssistantError,
+  fetchAssistantGroups,
   fetchAssistantPermissions,
   fetchAssistantStatus,
   statusErrorKind,
@@ -8,11 +9,13 @@ import {
 
 /**
  * محاكاة استدعاء الدالة: invoke ترجع الحمولة المضبوطة في h.result،
- * وتسجّل فعل كل نداء في h.calls.
+ * وتسجّل فعل كل نداء في h.calls. وسلسلة from() ترجع h.groupRows عند
+ * order() (لاختبار قراءة المجموعات الخفيفة).
  */
 const h = vi.hoisted(() => ({
   result: { data: null as unknown, error: null as unknown },
   calls: [] as string[],
+  groupRows: [] as { id: string; name: string }[],
 }))
 
 vi.mock('../../lib/supabase', () => ({
@@ -22,6 +25,14 @@ vi.mock('../../lib/supabase', () => ({
         h.calls.push(String(opts.body.action ?? ''))
         return Promise.resolve(h.result)
       },
+    },
+    from: (_table: string) => {
+      const chain: Record<string, unknown> = {}
+      chain.select = () => chain
+      chain.eq = () => chain
+      chain.is = () => chain
+      chain.order = () => Promise.resolve({ data: h.groupRows })
+      return chain
     },
   }),
 }))
@@ -82,6 +93,38 @@ describe('fetchAssistantStatus — key_source', () => {
     const status = await fetchAssistantStatus('t-1')
     expect(status.key_source).toBe(null)
     expect(status.has_key).toBe(false)
+  })
+
+  it('deterministic mode → needs_key false + planner_mode deterministic (3A-924)', async () => {
+    setInvoke({
+      enabled: true, has_key: false, provider: null, key_source: null,
+      needs_key: false, planner_mode: 'deterministic',
+    })
+    const status = await fetchAssistantStatus('t-1')
+    expect(status.needs_key).toBe(false)
+    expect(status.planner_mode).toBe('deterministic')
+    expect(status.has_key).toBe(false)
+  })
+
+  it('absent needs_key/planner_mode (older function deploy) → safe defaults', async () => {
+    setInvoke({ enabled: true, has_key: true, provider: 'openai', key_source: 'byok' })
+    const status = await fetchAssistantStatus('t-1')
+    expect(status.needs_key).toBe(true)
+    expect(status.planner_mode).toBe('provider')
+  })
+})
+
+describe('fetchAssistantGroups — quick-actions group picker (3A-924)', () => {
+  it('maps rows to id/name pairs', async () => {
+    h.groupRows = [
+      { id: 'g-1', name: 'مجموعة السبت' },
+      { id: 'g-2', name: 'مجموعة الاثنين' },
+    ]
+    const groups = await fetchAssistantGroups('t-1')
+    expect(groups).toEqual([
+      { id: 'g-1', name: 'مجموعة السبت' },
+      { id: 'g-2', name: 'مجموعة الاثنين' },
+    ])
   })
 })
 

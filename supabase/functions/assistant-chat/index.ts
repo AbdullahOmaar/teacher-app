@@ -18,7 +18,9 @@
 //   (التكلفة والاشتراكات) — لا يُضبط في هذا التكليف إطلاقاً، والمفاتيح
 //   المستخدمة هنا للاختبار فقط.
 // • ASSISTANT_PLANNER — 'test' يركّب المخطط الاختباري الحتمي (للطيار
-//   والتحقق الوظيفي فقط)؛ أي قيمة أخرى/غيابه = مخطط المزوّد الحقيقي.
+//   والتحقق الوظيفي فقط)؛ 'deterministic' يركّب المخطط الحتمي الإنتاجي
+//   (3A-924 — قواعد ثابتة بلا نموذج ولا مفتاح)؛ أي قيمة أخرى/غيابه =
+//   مخطط المزوّد الحقيقي. ضبطه الحي قرار منصة يركب نشر تجميد المرحلة.
 // • SUPABASE_URL + مفتاح المنصة المحقون SUPABASE_PUBLISHABLE_KEYS
 //   لعميل المستدعي (مدخل default — وبرجوع للمحفوظ القديم حتى يُعطَّل،
 //   نمط ترحيل المفاتيح 3A-695).
@@ -32,6 +34,7 @@
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import {
+  DeterministicPlanner,
   DeterministicTestPlanner,
   PlannerError,
   ProviderPlanner,
@@ -482,6 +485,24 @@ function makeDeps(req: Request): AssistantDeps {
 const PROVIDER_IDS: ProviderId[] = ['openai', 'anthropic', 'gemini', 'openai_compatible']
 
 /**
+ * مجموعات السنتر (اسم + معرّف، غير المؤرشفة) بعميل المستدعي — اعتماد
+ * مشترك بين مخطط المزوّد (سياق النموذج) والمخطط الحتمي (حلّ الاسم).
+ */
+function makeLoadGroups(
+  req: Request,
+): (teacherId: string) => Promise<{ id: string; name: string }[]> {
+  return async (teacherId) => {
+    const { data, error } = await callerClient(req)
+      .from('groups')
+      .select('id, name')
+      .eq('teacher_id', teacherId)
+      .is('archived_at', null)
+    if (error) throw new Error(`groups fetch failed: ${error.message}`)
+    return (data ?? []).map((r) => ({ id: String(r.id), name: String(r.name) }))
+  }
+}
+
+/**
  * مخطط المزوّد الحقيقي: مفتاح المدرّس يُقرأ مشفّراً عبر RPC (بهوية
  * المستدعي) ويُفكّ هنا في الذاكرة فقط — لا يُسجَّل ولا يخرج في رد.
  * ترتيب الحلّ (مهمة 22): BYOK أولاً، وعند غيابه مفتاح المنصة المركزي
@@ -537,28 +558,27 @@ function makeProviderPlanner(req: Request): ProviderPlanner {
         source: 'byok',
       }
     },
-    loadGroups: async (teacherId) => {
-      const { data, error } = await db()
-        .from('groups')
-        .select('id, name')
-        .eq('teacher_id', teacherId)
-        .is('archived_at', null)
-      if (error) throw new Error(`groups fetch failed: ${error.message}`)
-      return (data ?? []).map((r) => ({ id: String(r.id), name: String(r.name) }))
-    },
+    loadGroups: makeLoadGroups(req),
   })
 }
 
 Deno.serve((req: Request) => {
+  const plannerMode = Deno.env.get('ASSISTANT_PLANNER')
   const env: AssistantEnv = {
     ASSISTANT_ENABLED: Deno.env.get('ASSISTANT_ENABLED'),
+    ASSISTANT_PLANNER: plannerMode,
   }
   // الافتراضي: مخطط المزوّد الحقيقي بمفتاح المدرّس (BYOK — ق5).
   // ASSISTANT_PLANNER=test يركّب البديل الاختباري الحتمي — للطيار
   // والتحقق الوظيفي فقط، وبقرار منصة صريح (علم بيئة) لا من العميل.
+  // ASSISTANT_PLANNER=deterministic يركّب المخطط الحتمي الإنتاجي
+  // (3A-924): قواعد ثابتة فوق سطح التنفيذ نفسه — بلا نموذج ولا مفتاح،
+  // ومسار المزوّد يبقى كما هو اختيارياً لمن أضاف مفتاحه.
   const planner =
-    Deno.env.get('ASSISTANT_PLANNER') === 'test'
+    plannerMode === 'test'
       ? new DeterministicTestPlanner()
-      : makeProviderPlanner(req)
+      : plannerMode === 'deterministic'
+        ? new DeterministicPlanner({ loadGroups: makeLoadGroups(req) })
+        : makeProviderPlanner(req)
   return handleAssistantChat(req, env, makeDeps(req), planner, (msg) => console.log(msg))
 })

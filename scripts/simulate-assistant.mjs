@@ -18,20 +18,27 @@
 // بـ HTTP مُحاكى (نداء أداة OpenAI، غياب المفتاح 422 بلا أي نداء، تنقية
 // خطأ المزوّد من المفتاح نفسه، إجابة نصية Anthropic مُدقَّقة، مقترح
 // Gemini يُنفَّذ بالتأكيد)، وأدوات الواجب/الحصص (قاعدة الصف الفارغ +
-// توليد حصص لا يتكرر).
+// توليد حصص لا يتكرر). والمخطط الحتمي الإنتاجي (3A-924): تطبيع عربي،
+// نيّات منمّطة للقراءات الخمس والإجراءات (اقتراح ← تأكيد)، توضيحات
+// الغموض بالقوائم، رد مصمم للإدخال غير المفهوم، وحالة needs_key=false
+// في الوضع الحتمي.
 //
 // التشغيل: node scripts/simulate-assistant.mjs
 // ============================================================================
 import {
+  DeterministicPlanner,
   DeterministicTestPlanner,
+  PlannerError,
   ProviderPlanner,
   buildPermissionMatrix,
   computeAbsence,
   computeCollection,
   computeHomeworkSummary,
   computeUnpaid,
+  extractAddedStudentName,
   handleAssistantChat,
   hashPayload,
+  normalizeArabicText,
   resolvePlatformKeyConfig,
 } from '../supabase/functions/assistant-chat/core.ts'
 
@@ -776,6 +783,207 @@ console.log('PLATFORM KEY + PERMISSION MATRIX (T22):')
     req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'unpaid' }),
     ON, deps, planner, quiet)
   check('limit dep absent → message flows normally', free.status === 200)
+}
+
+// --- المخطط الحتمي الإنتاجي (3A-924 — أساس المساعد من غير API) ------------------
+console.log('DETERMINISTIC PLANNER (3A-924):')
+{
+  const { world, deps } = makeWorld()
+  const det = new DeterministicPlanner({
+    loadGroups: async () => world.groups,
+    now: () => NOW, // 2026-11-25
+  })
+  const plan = (message) => det.plan({ message, teacherId: TEACHER, history: [] })
+
+  // تطبيع: تشكيل + همزات + أرقام عربية
+  check('normalize: diacritics/hamza/Arabic-Indic digits',
+    normalizeArabicText('المُتأخِّرينَ ٥ مرات') === 'المتاخرين 5 مرات',
+    normalizeArabicText('المُتأخِّرينَ ٥ مرات'))
+
+  // القراءات بالعربية المنمّطة
+  const unpaid = await plan('مين عليه متأخرات؟')
+  check('«مين عليه متأخرات؟» → read unpaid_students',
+    unpaid.type === 'read' && unpaid.tool === 'unpaid_students', JSON.stringify(unpaid))
+  const absence5 = await plan('مين غاب أكتر من ٥ مرات؟')
+  check('«غاب أكتر من ٥» → absence_summary min 5 (Arabic-Indic digit)',
+    absence5.type === 'read' && absence5.tool === 'absence_summary'
+      && absence5.args.min_absences === 5, JSON.stringify(absence5))
+  const absenceDefault = await plan('مين غاب كتير؟')
+  check('«مين غاب كتير؟» → absence_summary min 3 (default)',
+    absenceDefault.type === 'read' && absenceDefault.args.min_absences === 3,
+    JSON.stringify(absenceDefault))
+  const collMonth = await plan('حصّلت كام الشهر ده؟')
+  check('«حصّلت كام الشهر ده؟» → collection 2026-11 full month',
+    collMonth.type === 'read' && collMonth.tool === 'collection_summary'
+      && collMonth.args.from === '2026-11-01' && collMonth.args.to === '2026-11-30',
+    JSON.stringify(collMonth))
+  const collPrev = await plan('حصّلت كام الشهر اللي فات؟')
+  check('«الشهر اللي فات» → collection 2026-10 full month',
+    collPrev.type === 'read' && collPrev.args.from === '2026-10-01'
+      && collPrev.args.to === '2026-10-31', JSON.stringify(collPrev))
+  const collRange = await plan('التحصيل من 1/11/2026 إلى 20/11/2026')
+  check('explicit «من .. إلى ..» range (DD/MM/YYYY) → collection range',
+    collRange.type === 'read' && collRange.tool === 'collection_summary'
+      && collRange.args.from === '2026-11-01' && collRange.args.to === '2026-11-20',
+    JSON.stringify(collRange))
+  const hw = await plan('واجب مجموعة السبت')
+  check('«واجب مجموعة السبت» → homework_summary for the named group',
+    hw.type === 'read' && hw.tool === 'homework_summary' && hw.args.group_id === GROUP,
+    JSON.stringify(hw))
+  const hwBare = await plan('الواجب')
+  check('«الواجب» with a single group in the centre → that group (no ambiguity)',
+    hwBare.type === 'read' && hwBare.tool === 'homework_summary'
+      && hwBare.args.group_id === GROUP, JSON.stringify(hwBare))
+  const sessNamed = await plan('حصص مجموعة السبت شهر ديسمبر')
+  check('«حصص .. شهر ديسمبر» → sessions_overview 2026-12',
+    sessNamed.type === 'read' && sessNamed.tool === 'sessions_overview'
+      && sessNamed.args.group_id === GROUP && sessNamed.args.month === '2026-12',
+    JSON.stringify(sessNamed))
+  const sessDefault = await plan('حصص مجموعة السبت')
+  check('«حصص ..» without a month → current month 2026-11',
+    sessDefault.type === 'read' && sessDefault.args.month === '2026-11',
+    JSON.stringify(sessDefault))
+
+  // الإجراءات بالعربية المنمّطة → اقتراحات (لا تنفيذ مباشر أبداً)
+  const gen = await plan('ولّد حصص مجموعة السبت الشهر الجاي')
+  check('«ولّد حصص .. الشهر الجاي» → action generate_sessions 2026-12',
+    gen.type === 'action' && gen.tool === 'generate_sessions'
+      && gen.payload.group_id === GROUP && gen.payload.month === '2026-12',
+    JSON.stringify(gen))
+  const genNoMonth = await plan('ولّد حصص مجموعة السبت')
+  check('generate without a month → clarification answer (no guess)',
+    genNoMonth.type === 'answer' && genNoMonth.text.includes('لأي شهر'),
+    JSON.stringify(genNoMonth))
+  const add = await plan('أضف طالب كريم سامي في مجموعة السبت')
+  check('«أضف طالب ..» → action add_student, raw name preserved',
+    add.type === 'action' && add.tool === 'add_student'
+      && add.payload.name === 'كريم سامي' && add.payload.group_id === GROUP
+      && !('phone' in add.payload), JSON.stringify(add))
+  const addPhone = await plan('أضف طالبة فاطمة علي في مجموعة السبت 01001234567')
+  check('«أضف طالبة .. <phone>» → name keeps ة + phone extracted',
+    addPhone.type === 'action' && addPhone.payload.name === 'فاطمة علي'
+      && addPhone.payload.phone === '01001234567', JSON.stringify(addPhone))
+  check('extractAddedStudentName: طالباً tanween is not part of the name',
+    extractAddedStudentName('أضف طالباً كريم سامي في مجموعة السبت') === 'كريم سامي',
+    extractAddedStudentName('أضف طالباً كريم سامي في مجموعة السبت'))
+
+  // التوضيحات والردود المصممة — لا خطأ خام ولا فهم مزيّف
+  const detTwo = new DeterministicPlanner({
+    loadGroups: async () => [
+      { id: 'g-sat', name: 'مجموعة السبت' },
+      { id: 'g-sat-tue', name: 'مجموعة السبت والثلاثاء' },
+    ],
+    now: () => NOW,
+  })
+  const ambiguous = await detTwo.plan({
+    message: 'واجب مجموعة السبت والثلاثاء', teacherId: TEACHER, history: [],
+  })
+  check('name matching two groups → clarification listing both (no guess)',
+    ambiguous.type === 'answer' && ambiguous.text.includes('بيطابق أكتر من مجموعة')
+      && ambiguous.text.includes('مجموعة السبت والثلاثاء'), JSON.stringify(ambiguous))
+  const detNoName = new DeterministicPlanner({
+    loadGroups: async () => [
+      { id: 'g-sat', name: 'مجموعة السبت' },
+      { id: 'g-mon', name: 'مجموعة الاثنين' },
+    ],
+    now: () => NOW,
+  })
+  const noName = await detNoName.plan({ message: 'الواجب', teacherId: TEACHER, history: [] })
+  check('group intent without a name (2 groups) → clarification listing groups',
+    noName.type === 'answer' && noName.text.includes('محتاج اسم المجموعة')
+      && noName.text.includes('مجموعة الاثنين'), JSON.stringify(noName))
+  const help = await plan('مساعدة')
+  check('«مساعدة» → capabilities answer built from the tool registry',
+    help.type === 'answer' && help.text.includes('مساعد إجراءات سريع')
+      && help.text.includes('المتأخرون'), JSON.stringify(help).slice(0, 200))
+  const unknown = await plan('إيه أخبار الطقس النهاردة؟')
+  check('unknown input → designed fallback answer (never a throw, never fake understanding)',
+    unknown.type === 'answer' && unknown.text.includes('مش فاهم الصياغة دي')
+      && unknown.text.includes('بطاقة تأكيد'), JSON.stringify(unknown).slice(0, 200))
+  const setHw = await plan('علّم واجب أحمد')
+  check('natural set-homework → honest patterned-form hint (no execution)',
+    setHw.type === 'answer' && setHw.text.includes('set-homework:'),
+    JSON.stringify(setHw).slice(0, 200))
+
+  // النحو الحرفي يبقى كما هو داخل المخطط الحتمي
+  const strict = await plan('unpaid')
+  check('strict «unpaid» still routes via the deterministic planner',
+    strict.type === 'read' && strict.tool === 'unpaid_students', JSON.stringify(strict))
+  let strictErr = null
+  try {
+    await plan('collect:bad:dates')
+  } catch (e) {
+    strictErr = e
+  }
+  check('malformed strict command → explicit PlannerError (designed, not silent)',
+    strictErr instanceof PlannerError, String(strictErr))
+
+  // التوجيه عبر المعالج الكامل: الحالة بلا مفتاح + قراءة تُنفَّذ +
+  // إجراء يُقترح بلا كتابة ثم يُنفَّذ بالتأكيد + عضو بلا صلاحية مال 403
+  const DET_ON = { ASSISTANT_ENABLED: 'true', ASSISTANT_PLANNER: 'deterministic' }
+  const stDet = await handleAssistantChat(
+    req('owner-token', { action: 'status', teacher_id: TEACHER }),
+    DET_ON, deps, det, quiet)
+  const stDetBody = await stDet.json()
+  check('status in deterministic mode → needs_key false + planner_mode deterministic',
+    stDet.status === 200 && stDetBody.needs_key === false
+      && stDetBody.planner_mode === 'deterministic' && stDetBody.has_key === false,
+    JSON.stringify(stDetBody).slice(0, 200))
+  const stProv = await handleAssistantChat(
+    req('owner-token', { action: 'status', teacher_id: TEACHER }),
+    ON, deps, det, quiet)
+  const stProvBody = await stProv.json()
+  check('status without deterministic mode → needs_key true (provider default)',
+    stProv.status === 200 && stProvBody.needs_key === true
+      && stProvBody.planner_mode === 'provider', JSON.stringify(stProvBody).slice(0, 200))
+
+  const readMsg = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'مين عليه متأخرات؟' }),
+    DET_ON, deps, det, quiet)
+  const readBody = await readMsg.json()
+  check('handler: Arabic unpaid read executes → 200 answered unpaid_students',
+    readMsg.status === 200 && readBody.status === 'answered'
+      && readBody.tool === 'unpaid_students', JSON.stringify(readBody).slice(0, 200))
+  const hwMsg = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'واجب مجموعة السبت' }),
+    DET_ON, deps, det, quiet)
+  const hwBody = await hwMsg.json()
+  check('handler: Arabic homework read executes → 200 answered homework_summary',
+    hwMsg.status === 200 && hwBody.status === 'answered'
+      && hwBody.tool === 'homework_summary', JSON.stringify(hwBody).slice(0, 200))
+  const unkMsg = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'كلام مش مفهوم خالص' }),
+    DET_ON, deps, det, quiet)
+  const unkBody = await unkMsg.json()
+  check('handler: unknown input → 200 answered assistant_answer with the fallback text',
+    unkMsg.status === 200 && unkBody.status === 'answered'
+      && unkBody.tool === 'assistant_answer'
+      && unkBody.result.text.includes('مش فاهم الصياغة دي'),
+    JSON.stringify(unkBody).slice(0, 200))
+  const memberMsg = await handleAssistantChat(
+    req('member-token', { action: 'message', teacher_id: TEACHER, message: 'مين عليه متأخرات؟' }),
+    DET_ON, deps, det, quiet)
+  check('handler: member without can_view_money → 403 on the Arabic money read',
+    memberMsg.status === 403, String(memberMsg.status))
+
+  const addMsg = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'أضف طالب كريم سامي في مجموعة السبت' }),
+    DET_ON, deps, det, quiet)
+  const addBody = await addMsg.json()
+  check('handler: Arabic add-student → proposal only, zero business writes',
+    addMsg.status === 200 && addBody.status === 'proposed'
+      && addBody.tool === 'add_student' && world.insertedStudents.length === 0,
+    JSON.stringify(addBody).slice(0, 200))
+  const addConfirm = await handleAssistantChat(
+    req('owner-token', {
+      action: 'confirm', teacher_id: TEACHER,
+      run_id: addBody.run_id, payload_hash: addBody.payload_hash,
+    }),
+    DET_ON, deps, det, quiet)
+  check('handler: confirming the Arabic proposal executes exactly once',
+    addConfirm.status === 200 && world.insertedStudents.length === 1
+      && world.insertedStudents[0].name === 'كريم سامي',
+    JSON.stringify(world.insertedStudents))
 }
 
 console.log(failures === 0 ? '\nALL SIMULATION CHECKS PASSED' : `\n${failures} SIMULATION CHECK(S) FAILED`)
