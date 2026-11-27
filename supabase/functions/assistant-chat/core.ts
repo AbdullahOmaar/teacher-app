@@ -213,6 +213,21 @@ export interface AssistantDeps {
   deleteProviderKey: (teacherId: string) => Promise<boolean>
   /** RPC ‏assistant_read_provider_key — النص المشفّر فقط (للمخطط/الحالة) */
   readProviderKeyRow: (teacherId: string) => Promise<StoredKeyRow | null>
+  /**
+   * هل مفتاح المنصة المركزي مضبوط (بلا قيمة السر) — اختياري: غيابه =
+   * غير مضبوط. يُنفَّذ في index.ts من متغيرات البيئة فقط.
+   */
+  platformKeyStatus?: () => { configured: boolean; provider: string | null; model: string | null }
+  /**
+   * فحص حد رسائل الذكاء (0062 ‏check_usage_limit) — اختياري: غيابه أو
+   * أي خطأ فيه = بلا حد (يُسمح). الحد قاعدة أعمال لا حدود أمنية،
+   * والملكية فُحصت قبل الوصول هنا (نمط الخطوة 5 في واتساب).
+   */
+  checkAiLimit?: (teacherId: string) => Promise<{
+    allowed: boolean
+    limit: number | null
+    used: number
+  } | null>
   now: () => number
 }
 
@@ -368,6 +383,37 @@ export interface ProviderKeyConfig {
   model: string | null
   base_url: string | null
   api_key: string
+  /** مصدر المفتاح: مفتاح المدرس (BYOK) أو مفتاح المنصة المركزي */
+  source?: 'byok' | 'platform'
+}
+
+/**
+ * حلّ مفتاح المنصة المركزي من متغيرات بيئة الدالة (أسماء فقط — بلا قيم
+ * في الكود): ASSISTANT_PLATFORM_API_KEY (+ PROVIDER/MODEL/BASE_URL).
+ * دالة نقية تُختبر مباشرة. غياب المفتاح = null (المسار نائم — التفعيل
+ * الحي قرار مالك تجاري، لا يُضبط هنا أبداً). مزوّد غير مدعوم = null.
+ */
+export interface PlatformKeyEnv {
+  apiKey?: string
+  provider?: string
+  model?: string | null
+  baseUrl?: string | null
+}
+
+export function resolvePlatformKeyConfig(env: PlatformKeyEnv): ProviderKeyConfig | null {
+  const apiKey = (env.apiKey ?? '').trim()
+  if (!apiKey) return null
+  const provider = (env.provider ?? 'openai').trim()
+  if (!['openai', 'anthropic', 'gemini', 'openai_compatible'].includes(provider)) {
+    return null
+  }
+  return {
+    provider: provider as ProviderId,
+    model: env.model ?? null,
+    base_url: env.baseUrl ?? null,
+    api_key: apiKey,
+    source: 'platform',
+  }
 }
 
 export interface ProviderPlannerDeps {
@@ -795,6 +841,48 @@ export const ASSISTANT_TOOLS: Record<string, ToolSpec> = {
   generate_sessions: { kind: 'action', permission: 'can_manage_groups' },
 }
 
+// ----------------------------------------------------------------------------
+// مصفوفة الصلاحيات المعلنة (مهمة 22): تُشتق من سجل الأدوات نفسه فلا
+// تنحرف عنه أبداً — القراءات تُنفَّذ مباشرة، والإجراءات تُقترح أولاً
+// وتحتاج تأكيد المدرس. تُنشر للمدرس عبر فعل 'permissions' (بلا علم
+// القتل — معلومة لا تشغيل).
+// ----------------------------------------------------------------------------
+export type MatrixExecution = 'direct' | 'confirm'
+
+export interface PermissionMatrixEntry {
+  tool: string
+  description: string
+  kind: 'read' | 'action'
+  execution: MatrixExecution
+}
+
+export interface AssistantPermissionMatrix {
+  /** ماذا يقرأ المساعد من بيانات السنتر */
+  reads: PermissionMatrixEntry[]
+  /** ماذا ينفّذ لوحده فوراً (القراءات — بلا تأكيد) */
+  direct: PermissionMatrixEntry[]
+  /** ماذا يحتاج تأكيدك قبل تنفيذه */
+  confirm: PermissionMatrixEntry[]
+}
+
+export function buildPermissionMatrix(): AssistantPermissionMatrix {
+  const byName = new Map(ASSISTANT_TOOL_SCHEMAS.map((s) => [s.name, s.description]))
+  const entries: PermissionMatrixEntry[] = Object.entries(ASSISTANT_TOOLS).map(
+    ([tool, spec]) => ({
+      tool,
+      description: byName.get(tool) ?? tool,
+      kind: spec.kind,
+      execution: spec.kind === 'read' ? 'direct' : 'confirm',
+    }),
+  )
+  const reads = entries.filter((e) => e.kind === 'read')
+  return {
+    reads,
+    direct: reads,
+    confirm: entries.filter((e) => e.kind === 'action'),
+  }
+}
+
 function hasToolPermission(ctx: CallerContext, spec: ToolSpec): boolean {
   return ctx.role === 'owner' || ctx.permissions[spec.permission] === true
 }
@@ -1119,12 +1207,26 @@ export async function handleAssistantChat(
     } catch {
       return jsonError(500, 'assistant status check failed')
     }
+    // مصدر المفتاح الفعّال: BYOK أولاً، ثم مفتاح المنصة المركزي —
+    // نفس ترتيب الحلّ في المخطط (مهمة 22). غياب الدالة الاختيارية =
+    // غير مضبوط (محاكاة/عقود قديمة).
+    const platform = deps.platformKeyStatus?.() ?? {
+      configured: false,
+      provider: null,
+      model: null,
+    }
     return json(200, {
       status: 'ok',
       enabled: env.ASSISTANT_ENABLED === 'true',
-      has_key: row !== null,
-      provider: row?.provider ?? null,
+      has_key: row !== null || platform.configured,
+      provider: row?.provider ?? platform.provider,
+      key_source: row !== null ? 'byok' : platform.configured ? 'platform' : null,
     })
+  }
+  if (action === 'permissions') {
+    // مصفوفة الصلاحيات المعلنة (مهمة 22): معلومة منشورة لا تشغيل —
+    // خارج علم القتل كالحالة، فيراها المدرس والمساعد مطفأ.
+    return json(200, { status: 'ok', matrix: buildPermissionMatrix() })
   }
   if (action === 'message') {
     return handleMessage(body, teacherId, ctx, deps, planner, log)
@@ -1236,6 +1338,21 @@ async function handleMessage(
 ): Promise<Response> {
   const message = typeof body.message === 'string' ? body.message : ''
   if (!message.trim()) return jsonError(400, 'message is required')
+
+  // حد رسائل الذكاء للباقة (مهمة 22 + 0062): قبل أي نداء نموذج —
+  // فالرسالة المرفوضة لا تستهلك شيئاً. غياب الدالة أو أي خطأ فيها =
+  // بلا حد (يُسمح) — الحد قاعدة أعمال لا حدود أمنية (نمط الخطوة 5).
+  if (deps.checkAiLimit) {
+    let check: { allowed: boolean; limit: number | null; used: number } | null = null
+    try {
+      check = await deps.checkAiLimit(teacherId)
+    } catch {
+      check = null
+    }
+    if (check && !check.allowed) {
+      return jsonError(429, 'ai usage limit reached', 'limit_reached')
+    }
+  }
 
   let step: PlannedStep
   try {
