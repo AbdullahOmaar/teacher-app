@@ -3642,7 +3642,6 @@ export type Database = {
           }
           Returns: Json
         }
-        }
     }
     Enums: {
       assessment_type: "exam" | "homework"
