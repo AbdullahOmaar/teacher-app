@@ -88,6 +88,17 @@ function makeDeps() {
     loadConfig: async () => state.config,
     loadTemplate: async () => state.template,
     getToken: async () => state.token,
+    // حد رسائل الشهر (0062 — الخطوة 5): state.limitReached يحاكي
+    // بلوغ الحد؛ وغياب القيمة (undefined) يحاكي غياب النظام قبل
+    // تطبيق المهاجرة (يُسمح).
+    checkMessageLimit: async () =>
+      state.limitReached === undefined
+        ? null
+        : {
+            allowed: !state.limitReached,
+            limit: 500,
+            used: state.limitReached ? 500 : 0,
+          },
     insertLog: async (row) => {
       if (!state.insertLogOk) return null
       const id = `log-${++logSeq}`
@@ -205,6 +216,18 @@ state.token = null
 {
   const res = await handleSendWhatsappMessage(sendReq(GOOD_BODY), ON_ENV, makeDeps())
   check('vault token missing → 422', res.status === 422, `got ${res.status}`)
+}
+
+// حد رسائل الشهر (0062 — الخطوة 5): بلوغ الحد يرفض قبل أي سجل أو
+// إرسال؛ وغياب النظام (limitReached غير مضبوط في باقي السيناريوهات)
+// يُسمح — الإنفاذ يبدأ مع تطبيق المهاجرة لا قبلها.
+state = freshState()
+state.limitReached = true
+{
+  const res = await handleSendWhatsappMessage(sendReq(GOOD_BODY), ON_ENV, makeDeps())
+  const body = await res.json()
+  check('monthly limit reached → 429 limit_reached', res.status === 429 && body.error?.code === 'limit_reached', `got ${res.status}`)
+  check('limit reached → no log row, no graph call', logRows.size === 0 && graphCalls.length === 0)
 }
 
 state = freshState()

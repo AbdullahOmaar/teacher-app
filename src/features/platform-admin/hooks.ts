@@ -16,6 +16,14 @@ import {
   type PlanSlug,
 } from './panel'
 import { fetchMySubscription } from './subscription'
+import {
+  applyRoleTemplate,
+  createRoleTemplate,
+  fetchRoleTemplates,
+  updateRoleTemplate,
+  type TemplateEntitlements,
+} from './templates'
+import { fetchUsageSummary } from './usage'
 
 export const PLATFORM_ADMIN = 'platform-admin'
 
@@ -70,6 +78,22 @@ export function useEffectiveEntitlements(
     queryKey: [PLATFORM_ADMIN, 'entitlements', teacherId],
     enabled: enabled && Boolean(teacherId),
     queryFn: () => fetchEffectiveEntitlements(teacherId as string),
+  })
+}
+
+/**
+ * ملخص استخدام مساحة العمل (مهمة 19 — 0062، الخطوة 5): عدّادات
+ * الشهر الحالي مقابل الحدود الفعّالة. حتى تطبيق 0062 ترجع الدالة
+ * ‏null فيُخفى عرض الاستخدام — تدهور معلن ومقصود: لا أرقام مخترعة.
+ */
+export function useUsageSummary(
+  teacherId: string | undefined,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'usage', teacherId],
+    enabled: enabled && Boolean(teacherId),
+    queryFn: () => fetchUsageSummary(teacherId as string),
   })
 }
 
@@ -161,15 +185,15 @@ export function useSetSubscriptionPlan() {
   })
 }
 
-/** إعداد تجاوز فردي (0059) */
+/** إعداد تجاوز فردي (0059؛ 0063 تضيف النوع 'setting') */
 export function useSetAccountOverride() {
   const invalidate = useInvalidatePanel()
   return useMutation({
     mutationFn: (input: {
       teacherId: string
-      kind: 'feature' | 'limit'
+      kind: 'feature' | 'limit' | 'setting'
       key: string
-      value: boolean | number | null
+      value: boolean | number | string | null
       reason: string
       expiresAt: string | null
     }) => setAccountOverride(input),
@@ -201,6 +225,64 @@ export function useRemoveAllowlistEntry() {
   const invalidate = useInvalidatePanel()
   return useMutation({
     mutationFn: (id: string) => removeAllowlistEntry(id),
+    onSuccess: invalidate,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// قوالب الأدوار الجاهزة (مهمة 18 — 0063): قراءة مباشرة من الجدول
+// (سياسة أدمن) + أفعال RPC. غياب الجدول قبل 0063 يرجع null فتعرض
+// الأقسام «قريباً» — لا خطأ خام أبداً.
+// ---------------------------------------------------------------------------
+
+/** قوالب الأدوار (0063) */
+export function useRoleTemplates(enabled: boolean) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'role-templates'],
+    enabled,
+    queryFn: fetchRoleTemplates,
+  })
+}
+
+/** إنشاء قالب دور (0063) */
+export function useCreateRoleTemplate() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (input: {
+      slug: string
+      name: string
+      description: string
+      entitlements: TemplateEntitlements
+    }) => createRoleTemplate(input),
+    onSuccess: invalidate,
+  })
+}
+
+/** تعديل قالب دور (0063) — استبدال كامل + تفعيل/تعطيل */
+export function useUpdateRoleTemplate() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (input: {
+      templateId: string
+      name: string
+      description: string
+      entitlements: TemplateEntitlements
+      isActive: boolean
+    }) => updateRoleTemplate(input),
+    onSuccess: invalidate,
+  })
+}
+
+/** تطبيق قالب على حساب (0063) — يكتب تجاوزاً لكل إدخال فيه */
+export function useApplyRoleTemplate() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (input: {
+      templateId: string
+      teacherId: string
+      reason: string
+      expiresAt: string | null
+    }) => applyRoleTemplate(input),
     onSuccess: invalidate,
   })
 }

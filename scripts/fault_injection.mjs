@@ -69,6 +69,10 @@ console.log('fault injection: send-whatsapp-message provider failures')
     loadConfig: async () => ({ enabled: true, phoneNumberId: '123456', tokenPresent: true }),
     loadTemplate: async () => ({ status: 'ready', templateName: 'arrival_notice_v1' }),
     getToken: async () => 'token',
+    // حد رسائل الشهر (0062 — الخطوة 5): null = نظام الحدود غائب (قبل
+    // تطبيق المهاجرة) فيُسمح — نفس دلالة الإنتاج (index.ts)؛ بدونه
+    // ينهار السيناريو عند البوابة قبل أن يصل لعطل المزوّد المُحاكى.
+    checkMessageLimit: async () => null,
     insertLog: async () => 'log-1',
     updateLog: async (id, patch) => {
       updates.push(patch)

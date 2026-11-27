@@ -239,6 +239,9 @@ console.log('contract: send-whatsapp-message')
     }),
     loadTemplate: async () => ({ status: 'ready', templateName: 'arrival_notice_v1' }),
     getToken: async () => 'token',
+    // حد رسائل الشهر (0062 — الخطوة 5): null = نظام الحدود غائب (قبل
+    // تطبيق المهاجرة) فيُسمح — نفس دلالة الإنتاج (index.ts) والمحاكي.
+    checkMessageLimit: async () => null,
     insertLog: async () => 'log-1',
     updateLog: async () => {},
     fetchFn: async () =>
@@ -288,6 +291,26 @@ console.log('contract: send-whatsapp-message')
       check('message success: message_id from provider', body.message_id === 'wamid.1')
     },
   )
+  // حد رسائل الشهر (0062 — الخطوة 5): بلوغ الحد يرفض بـ 429 قبل أي
+  // سجل أو إرسال، مع كود limit_reached في المغلف.
+  {
+    const res = await handleSendWhatsappMessage(postReq(goodBody), envOn, {
+      ...depsBase,
+      checkMessageLimit: async () => ({ allowed: false, limit: 500, used: 500 }),
+    })
+    check('message monthly limit reached: status 429', res.status === 429, `got ${res.status}`)
+    const body = await res.json()
+    check(
+      'message monthly limit reached: error code limit_reached',
+      body?.error?.code === 'limit_reached',
+      JSON.stringify(body).slice(0, 200),
+    )
+    check(
+      'message monthly limit reached: limit/used echoed',
+      body?.error?.limit === 500 && body?.error?.used === 500,
+      JSON.stringify(body).slice(0, 200),
+    )
+  }
 }
 
 // ============================================================================

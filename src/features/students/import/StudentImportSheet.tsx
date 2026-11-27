@@ -64,7 +64,7 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
     const rows = rowsToStudents(parsed.rawRows, mapping)
     const base = classifyRows(
       rows,
-      students.map((s) => ({ public_code: s.public_code, phone: s.phone })),
+      students.map((s) => ({ name: s.name, public_code: s.public_code, phone: s.phone })),
     )
     // صف مثال القالب لا يُستورد أبداً إن رُفع كما هو
     return base.map((c) =>

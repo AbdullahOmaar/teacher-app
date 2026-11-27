@@ -114,6 +114,25 @@ const deps: WhatsappMessageDeps = {
     if (error || typeof data !== 'string' || !data) return null
     return data
   },
+  // حد رسائل الشهر (0062 — الخطوة 5): RPC ‏check_usage_limit عبر
+  // عميل الإدارة. غياب الدالة (قبل تطبيق المهاجرة) أو أي خطأ في
+  // الاستدعاء → null فيُسمح: الحد قاعدة أعمال لا حدود أمنية (الملكية
+  // فُحصت فوق)، والعدّاد في السجل يسجّل المحاولة أصلاً فيُعاد
+  // الفحص عند الإرسال التالي.
+  checkMessageLimit: async (teacherId) => {
+    const { data, error } = await serviceClient().rpc('check_usage_limit', {
+      p_teacher_id: teacherId,
+      p_key: 'max_messages_month',
+    })
+    if (error || typeof data !== 'object' || data === null) return null
+    const row = data as Record<string, unknown>
+    if (typeof row.allowed !== 'boolean') return null
+    return {
+      allowed: row.allowed,
+      limit: typeof row.limit === 'number' ? row.limit : null,
+      used: typeof row.used === 'number' ? row.used : 0,
+    }
+  },
   insertLog: async (row) => {
     const { data, error } = await serviceClient()
       .from('whatsapp_message_log')
