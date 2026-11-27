@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeftRight, CalendarDays, CalendarX2, ChevronDown, Undo2 } from 'lucide-react'
+import { ArrowLeftRight, CalendarDays, CalendarPlus, CalendarX2, ChevronDown, Undo2 } from 'lucide-react'
 import { Card } from '../../../components/ui/Card'
 import { Button } from '../../../components/ui/Button'
 import { Chip } from '../../../components/ui/form'
@@ -36,6 +36,7 @@ export function SessionPickerCard({
   cancelled,
   onToggleSessionStatus,
   statusPending,
+  onAddExtra,
 }: {
   date: string
   dateInputRef: RefObject<HTMLInputElement | null>
@@ -55,6 +56,8 @@ export function SessionPickerCard({
   cancelled: boolean
   onToggleSessionStatus: () => void
   statusPending: boolean
+  /** إضافة حصة إضافية لليوم المختار (3A-911) — اختياري */
+  onAddExtra?: () => void
 }) {
   return (
     <Card className="rise-in">
@@ -115,6 +118,11 @@ export function SessionPickerCard({
             icon={CalendarX2}
             title={t('attendance.noSessionsTitle')}
             hint={t('attendance.noSessionsHint')}
+            action={
+              onAddExtra
+                ? { label: t('attendance.addExtraAction'), onClick: onAddExtra, icon: CalendarPlus }
+                : undefined
+            }
           />
         </div>
       ) : (

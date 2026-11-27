@@ -208,6 +208,8 @@ interface ExtraSessionSheetProps {
   teacherId: string
   onClose: () => void
   onDone: (msg: string) => void
+  /** تاريخ ابتدائي (من شاشة الحضور 3A-911) — الافتراضي اليوم */
+  initialDate?: string
 }
 
 export function ExtraSessionSheet({
@@ -216,9 +218,10 @@ export function ExtraSessionSheet({
   teacherId,
   onClose,
   onDone,
+  initialDate,
 }: ExtraSessionSheetProps) {
   const [groupId, setGroupId] = useState(groups[0]?.id ?? '')
-  const [date, setDate] = useState(() => todayStr())
+  const [date, setDate] = useState(() => initialDate ?? todayStr())
   const [time, setTime] = useState('15:00')
   const [duration, setDuration] = useState('60')
   const [note, setNote] = useState('')
