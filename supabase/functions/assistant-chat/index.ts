@@ -12,6 +12,11 @@
 // • ASSISTANT_KEY_ENCRYPTION_KEY — مفتاح تشفير AES-GCM (32 بايت base64)
 //   لمفاتيح المزوّدات: التشفير/الفك خادمي هنا فقط، والمفاتيح الصريحة
 //   لا تُسجَّل ولا تخرج في أي رد.
+// • ASSISTANT_PLATFORM_API_KEY (+ ASSISTANT_PLATFORM_PROVIDER/MODEL/
+//   BASE_URL) — مفتاح المنصة المركزي (مهمة 22): يُحلّ بعد BYOK فقط
+//   عند غيابه. غيابه = المسار نائم. ضبط قيمة حيّة له قرار مالك تجاري
+//   (التكلفة والاشتراكات) — لا يُضبط في هذا التكليف إطلاقاً، والمفاتيح
+//   المستخدمة هنا للاختبار فقط.
 // • ASSISTANT_PLANNER — 'test' يركّب المخطط الاختباري الحتمي (للطيار
 //   والتحقق الوظيفي فقط)؛ أي قيمة أخرى/غيابه = مخطط المزوّد الحقيقي.
 // • SUPABASE_URL + مفتاح المنصة المحقون SUPABASE_PUBLISHABLE_KEYS
@@ -34,6 +39,7 @@ import {
   aesGcmEncrypt,
   handleAssistantChat,
   parseEncryptionKey,
+  resolvePlatformKeyConfig,
   type AddStudentPayload,
   type AssistantDeps,
   type AssistantEnv,
@@ -441,6 +447,34 @@ function makeDeps(req: Request): AssistantDeps {
       return !error
     },
     readProviderKeyRow: async (teacherId) => readKeyRow(db, teacherId),
+    // مفتاح المنصة المركزي (مهمة 22): أسماء بيئة فقط — القيمة لا تُقرأ
+    // هنا إلا للتحقق من وجودها، ولا تخرج في أي رد.
+    platformKeyStatus: () => {
+      const configured = Boolean((Deno.env.get('ASSISTANT_PLATFORM_API_KEY') ?? '').trim())
+      return {
+        configured,
+        provider: configured ? (Deno.env.get('ASSISTANT_PLATFORM_PROVIDER') ?? 'openai') : null,
+        model: configured ? (Deno.env.get('ASSISTANT_PLATFORM_MODEL') ?? null) : null,
+      }
+    },
+    // حد رسائل الذكاء (0062 — مهمة 19): RPC ‏check_usage_limit عبر
+    // عميل المستدعي. غياب الدالة (قبل تطبيق المهاجرة) أو أي خطأ في
+    // الاستدعاء → null فيُسمح: الحد قاعدة أعمال لا حدود أمنية (الملكية
+    // فُحصت فوق)، والعدّاد في السجل يسجّل المحاولة أصلاً فيُعاد
+    // الفحص عند الرسالة التالية (نمط الخطوة 5 في واتساب).
+    checkAiLimit: async (teacherId) => {
+      const { data, error } = await db().rpc('check_usage_limit', {
+        p_teacher_id: teacherId,
+        p_key: 'max_ai_messages_month',
+      })
+      if (error || !isRecord(data)) return null
+      if (typeof data.allowed !== 'boolean') return null
+      return {
+        allowed: data.allowed,
+        limit: typeof data.limit === 'number' ? data.limit : null,
+        used: typeof data.used === 'number' ? data.used : 0,
+      }
+    },
     now: () => Date.now(),
   }
 }
@@ -450,13 +484,22 @@ const PROVIDER_IDS: ProviderId[] = ['openai', 'anthropic', 'gemini', 'openai_com
 /**
  * مخطط المزوّد الحقيقي: مفتاح المدرّس يُقرأ مشفّراً عبر RPC (بهوية
  * المستدعي) ويُفكّ هنا في الذاكرة فقط — لا يُسجَّل ولا يخرج في رد.
+ * ترتيب الحلّ (مهمة 22): BYOK أولاً، وعند غيابه مفتاح المنصة المركزي
+ * من متغيرات البيئة — بلا مفتاح حيّ مضبوط اليوم فيبقى المسار نائماً.
  */
 function makeProviderPlanner(req: Request): ProviderPlanner {
   const db = () => callerClient(req)
   return new ProviderPlanner({
     resolveKey: async (teacherId): Promise<ProviderKeyConfig | null> => {
       const row = await readKeyRow(db, teacherId)
-      if (!row) return null
+      if (!row) {
+        return resolvePlatformKeyConfig({
+          apiKey: Deno.env.get('ASSISTANT_PLATFORM_API_KEY'),
+          provider: Deno.env.get('ASSISTANT_PLATFORM_PROVIDER'),
+          model: Deno.env.get('ASSISTANT_PLATFORM_MODEL') ?? null,
+          baseUrl: Deno.env.get('ASSISTANT_PLATFORM_BASE_URL') ?? null,
+        })
+      }
       if (!PROVIDER_IDS.includes(row.provider as ProviderId)) {
         throw new PlannerError(
           'the stored provider is not supported',
@@ -491,6 +534,7 @@ function makeProviderPlanner(req: Request): ProviderPlanner {
         model: row.model,
         base_url: row.base_url,
         api_key: apiKey,
+        source: 'byok',
       }
     },
     loadGroups: async (teacherId) => {

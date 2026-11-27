@@ -489,6 +489,29 @@ console.log('contract: assistant-chat')
       check('assistant read: run_id from audit write', body.run_id === 'run-1')
     },
   )
+  // مهمة 22: مصفوفة الصلاحيات متاحة والمساعد مطفأ، بلا اعتماديات اختيارية
+  await expectOk(
+    'assistant permissions matrix while disabled',
+    await handleAssistantChat(
+      postReq({ teacher_id: TEACHER_ID, action: 'permissions' }),
+      {},
+      depsBase,
+      planner,
+      log,
+    ),
+    (body) => {
+      check('permissions: status ok', body.status === 'ok')
+      check(
+        'permissions: matrix shape 5 reads / 3 confirm',
+        Array.isArray(body.matrix?.reads) && body.matrix.reads.length === 5
+          && Array.isArray(body.matrix?.confirm) && body.matrix.confirm.length === 3,
+      )
+      check(
+        'permissions: confirm tools are the action tools only',
+        body.matrix.confirm.map((e) => e.tool).join(',') === 'add_student,set_homework,generate_sessions',
+      )
+    },
+  )
 }
 
 console.log(`\ncontract tests: ${checks - failures}/${checks} passed`)

@@ -65,7 +65,7 @@
 | `enrol` | صفحة الحجز العامة `/book` + بطاقة رابط الحجز | سقف إرسال 150/يوم (0024)؛ الطلب يهبط قائمة انتظار بمصدر موثّق |
 | `centre` | صفحة السنتر التعريفية `/centre` | نفس رمز الحجز + RPC 0019؛ بلا سطح بيانات جديد |
 | `notifications` | مركز إشعارات المدرّس + إعدادات الدفع | السلم نفسه خادمي (0050 — §4-4) |
-| `assistant` | محادثة المساعد + اقتراح/تأكيد | العميل يعرض فقط؛ آلة التأكيد الخمسية خادمية (0048 — §4-5) |
+| `assistant` | محادثة المساعد + اقتراح/تأكيد | العميل يعرض فقط؛ آلة التأكيد الخمسية خادمية (0048 — §4-5)؛ مفتاح منصة احتياطي + مصفوفة صلاحيات معلنة + حد رسائل شهري (مهمة 22 — قيد البناء) |
 | `feedback` | ملاحظات المدرّس للمنصة (0052) | الإرسال RPC فقط؛ القائمة تتدهور بأدب قبل تطبيق المهاجرة (PR #34) |
 | `settings` | كل بطاقات الإعدادات (هوية/قنوات/باقة/أخطاء/حذف…) | `apiShared.ts` فيه نسخة `SETTINGS_COLS` الثانية (تحذير 0054 في سجل الفيتشرز)؛ حذف الحساب عبر `deleteAccount.ts` |
 | `platform-admin` | لوحة الأدمن `/admin` خارج قشرة المدرّس | `entitlements.ts` نقي مختبَر: حلّ الاستحقاق الفعّال (§4-3)؛ `subscription.ts` قراءة الباقة؛ `panel.ts` أقسام اللوحة (0061)؛ `usage.ts` + `UsageBarrier.tsx` عدّادات الاستخدام والإنفاذ (§3-7)؛ `templates.ts` قوالب الأدوار (0063) |
@@ -246,6 +246,7 @@ apply_role_template` — تطبيق القالب يكتب تجاوزاً فرد�
 | `set_teacher_whatsapp_token` / `get_teacher_whatsapp_token_internal` / `resolve_whatsapp_channel_internal` (0026/0027) | حفظ/قراءة سرّية لتهيئة واتساب المدرّس | الأخيرتان **داخلي فقط** (service role — تُسحب من الأدوار العامة 0023) |
 | `assistant_create_proposal` / `assistant_confirm_proposal` / `assistant_begin_read` / `assistant_complete_run` / `assistant_cancel_run` / `assistant_actor_role` | آلة التأكيد الخمسية (§3-5) | المدرّس عبر assistant-chat |
 | `assistant_save_provider_key` / `assistant_read_provider_key` / `assistant_delete_provider_key` / `assistant_provider_key_status` | مفاتيح BYOK المشفّرة | المدرّس (القراءة خادمية) |
+| `usage_summary` / `check_usage_limit` (0062 — PR #45، لم تُدمج بعد) | ملخص استخدام الحساب الشهري + فحص حد واحد (`max_ai_messages_month` للمساعد) — العميل يقرأ بتسامح (غياب الدالة = بلا حد) | المدرّس عبر assistant-chat (بوابة حد الذكاء — مهمة 22) + بطاقة الاستخدام |
 | `delete_my_teacher_account` (0046 + إعادة كتابة حتى 0053) | حذف الحساب المتسلسل + يتامى التخزين | المدرّس نفسه |
 | `submit_teacher_feedback` (0052) | إرسال ملاحظة (RPC فقط — لا كتابة جدول مباشرة) | المدرّس |
 | `report_client_error` (0053) | بلاغ خطأ عميل مجرّد | أي عميل (معدّل) |
@@ -265,7 +266,7 @@ apply_role_template` — تطبيق القالب يكتب تجاوزاً فرد�
 
 | الدالة | المشغّل | نموذج المصادقة | الحالة وCORS |
 |---|---|---|---|
-| `assistant-chat` | مدرّس من التطبيق | `verify_jwt` مفعّل + JWT المدرّس؛ سرّ `ASSISTANT_ENABLED` غيابه = OFF ‏(503)؛ `ASSISTANT_PLANNER` خطاف المزوّد | منشورة v4؛ **CORS مُصلَح في الكود** (PR #26: OPTIONS ‏204 + ترويسات — النشر الحي مع دفعة الإنتاج) |
+| `assistant-chat` | مدرّس من التطبيق | `verify_jwt` مفعّل + JWT المدرّس؛ سرّ `ASSISTANT_ENABLED` غيابه = OFF ‏(503)؛ `ASSISTANT_PLANNER` خطاف المزوّد؛ مفتاح المنصة `ASSISTANT_PLATFORM_API_KEY` احتياطي بعد BYOK (مهمة 22 — نائم بلا قيمة)؛ فعلا `status`/`permissions` يتجاوزان العلم (معلومة لا تشغيل) | منشورة v4؛ **CORS مُصلَح في الكود** (PR #26: OPTIONS ‏204 + ترويسات — النشر الحي مع دفعة الإنتاج) |
 | `send-whatsapp-message` | مدرّس من التطبيق | `verify_jwt` مفعّل؛ مفتاح قتل `WHATSAPP_MESSAGING_ENABLED` | حية؛ CORS مُصلَح في الكود (PR #26) |
 | `send-whatsapp-test` | مدرّس (اختبار تهيئته) | `verify_jwt` مفعّل؛ بوابة `WHATSAPP_OTP_ENABLED` | حية خلف العلم المقفول؛ CORS مُصلَح في الكود |
 | `send-push` | خادم-لخادم من `push_dispatch` (pg_net) | `verify_jwt` **معطّل عمداً** + سرّ داخلي `PUSH_INTERNAL_SECRET` لا يخرج من الخادم | حية؛ لها معالج CORS (يُستدعى من التطبيق أيضاً لاختبار الدفع) |
