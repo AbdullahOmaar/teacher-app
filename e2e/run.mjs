@@ -430,13 +430,15 @@ const tests = [
       await page.goto(BASE + '/assistant', { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
       await waitBodyText(page, 'المساعد الذكي');
       // الحالة الصادقة واحدة من المعروفة (حسب علم المنصة ومفتاح الديمو
-      // وقت التشغيل): مطفأ من المنصة / بلا مفتاح / جاهز بإدخال مفتوح /
+      // وقت التشغيل): مطفأ من المنصة / بلا مفتاح / الوضع الحتمي المفعّل
+      // (3A-924 — يعمل بلا مفتاح) / جاهز بإدخال مفتوح /
       // خطأ اتصال صريح — أيٌّ منها يثبت أن السلسلة تعمل طرفاً لطرف
       // بلا شاشة فارغة صامتة.
       await page.waitForFunction(
         () =>
           document.body.innerText.includes('المساعد مطفأ حالياً') ||
           document.body.innerText.includes('لسه ما أضفتش مفتاح مزوّد') ||
+          document.body.innerText.includes('الوضع الحتمي') ||
           document.body.innerText.includes('اكتب طلبك هنا') ||
           document.body.innerText.includes('حصلت مشكلة'),
         { timeout: WAIT_TIMEOUT },
