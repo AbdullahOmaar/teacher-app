@@ -10,6 +10,7 @@ import {
   useUpdateStudent,
   useUpsertEnrollment,
 } from './hooks'
+import { validateStudentPhones } from './api'
 import { t } from '../../i18n'
 
 interface StudentFormSheetProps {
@@ -96,6 +97,9 @@ export function StudentFormSheet({
       level_note: emptyToNull(levelNote),
       paused: initial?.paused ?? false,
     }
+    // تحقق فوري قبل أي طلب شبكة — نفس قاعدة واجهة الحفظ البرمجية.
+    const phoneError = validateStudentPhones(input)
+    if (phoneError) return setError(phoneError)
     setSaving(true)
     try {
       const student = initial

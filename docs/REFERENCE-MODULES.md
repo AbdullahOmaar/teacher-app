@@ -68,7 +68,7 @@
 | `assistant` | محادثة المساعد + اقتراح/تأكيد | العميل يعرض فقط؛ آلة التأكيد الخمسية خادمية (0048 — §4-5) |
 | `feedback` | ملاحظات المدرّس للمنصة (0052) | الإرسال RPC فقط؛ القائمة تتدهور بأدب قبل تطبيق المهاجرة (PR #34) |
 | `settings` | كل بطاقات الإعدادات (هوية/قنوات/باقة/أخطاء/حذف…) | `apiShared.ts` فيه نسخة `SETTINGS_COLS` الثانية (تحذير 0054 في سجل الفيتشرز)؛ حذف الحساب عبر `deleteAccount.ts` |
-| `platform-admin` | لوحة الأدمن `/admin` خارج قشرة المدرّس | `entitlements.ts` نقي مختبَر: حلّ الاستحقاق الفعّال (§4-3)؛ `subscription.ts` قراءة الباقة؛ `panel.ts` أقسام اللوحة (0061)؛ `templates.ts` قوالب الأدوار (0063) |
+| `platform-admin` | لوحة الأدمن `/admin` خارج قشرة المدرّس | `entitlements.ts` نقي مختبَر: حلّ الاستحقاق الفعّال (§4-3)؛ `subscription.ts` قراءة الباقة؛ `panel.ts` أقسام اللوحة (0061)؛ `usage.ts` + `UsageBarrier.tsx` عدّادات الاستخدام والإنفاذ (§3-7)؛ `templates.ts` قوالب الأدوار (0063) |
 | `notfound` | بوابة 404 المصممة | — |
 
 ### الطبقة المشتركة (`src/lib` + `src/hooks` + `src/components` + `src/types`)
@@ -147,6 +147,19 @@ apply_role_template` — تطبيق القالب يكتب تجاوزاً فرد�
   (0041/0043)؛ دخول الطالب برقم موبايله عبر نفس الآلة (0056).
 - الأدمن: `is_platform_admin()` (0055) — لا سياسات عميل على
   جداوله إطلاقاً؛ الوصول عبر RPCs بحارس + service role للبذرة.
+
+### 3-7) عدّادات الاستخدام والإنفاذ (0062 — الخطوة 5)
+`usage_counters` يخزّن رسائل واتساب الشهر فقط (تريجر عند كل
+محاولة إرسال مسجّلة؛ محاولة مرفوضة لا تُحتسب)؛ الطلاب والتخزين
+والفريق والذكاء **تُحسب حياً** في `usage_summary(teacher_id)`
+(حارس: مالك أو عضو نشط أو أدمن) فلا انجراف عدّادات. الحدود من
+`effective_entitlements()` (§3-3) — بلا اشتراك كلها `null`
+(بلا حد). الإنفاذ طبقتان: فحص عميل مسبق بخطأ عربي ودود
+(`check_usage_limit` + `UsageBarrier` عند زر الإضافة) + ظهر
+خادمي: تريجر `students_limit_trg` يرفض الإدراج فوق الحد، وبوابة
+429 في `send-whatsapp-message` قبل أي سجل أو إرسال. فحصان
+متزامنان قد يتجاوزا الحد بواحد (بلا قفل استشاري — موثّق في
+المهاجرة). مساعدا التريجر مسحوبا التنفيذ المباشر (نمط 0023).
 
 ## 4) طبقة Supabase — المهاجرات والجداول
 
@@ -230,6 +243,7 @@ apply_role_template` — تطبيق القالب يكتب تجاوزاً فرد�
 | `my_subscription` / `plan_limits` | قراءة باقة الحساب وحدودها |
 | `set_account_override` / `revoke_account_override` / `effective_entitlements` | التجاوزات والحلّ الفعّال (§3-3) — 0063 تضيف النوع `'setting'` وخريطة `settings` |
 | `create_role_template` / `update_role_template` / `apply_role_template` | قوالب الأدوار (0063): إنشاء/تعديل/تطبيق — التطبيق يكتب تجاوزاً لكل إدخال عبر `set_account_override` + سطر `role_template_applied` في التدقيق |
+| `usage_summary` / `check_usage_limit` | ملخص الاستخدام + فحص مفتاح واحد (§3-7) — حارس مالك/عضو/أدمن |
 | `platform_workspaces` / `platform_indicators` / `platform_set_subscription_plan` / `platform_set_account_activated` | اللوحة (0061): مساحات + مؤشرات (الإيراد المتوقع `null` حتى اعتماد الأسعار) + أفعال الأدمن الموثّقة في سجل التدقيق |
 
 ## 6) دوال Edge السبع (`supabase/functions`)

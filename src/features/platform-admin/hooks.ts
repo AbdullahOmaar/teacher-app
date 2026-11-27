@@ -23,6 +23,7 @@ import {
   updateRoleTemplate,
   type TemplateEntitlements,
 } from './templates'
+import { fetchUsageSummary } from './usage'
 
 export const PLATFORM_ADMIN = 'platform-admin'
 
@@ -77,6 +78,22 @@ export function useEffectiveEntitlements(
     queryKey: [PLATFORM_ADMIN, 'entitlements', teacherId],
     enabled: enabled && Boolean(teacherId),
     queryFn: () => fetchEffectiveEntitlements(teacherId as string),
+  })
+}
+
+/**
+ * ملخص استخدام مساحة العمل (مهمة 19 — 0062، الخطوة 5): عدّادات
+ * الشهر الحالي مقابل الحدود الفعّالة. حتى تطبيق 0062 ترجع الدالة
+ * ‏null فيُخفى عرض الاستخدام — تدهور معلن ومقصود: لا أرقام مخترعة.
+ */
+export function useUsageSummary(
+  teacherId: string | undefined,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'usage', teacherId],
+    enabled: enabled && Boolean(teacherId),
+    queryFn: () => fetchUsageSummary(teacherId as string),
   })
 }
 

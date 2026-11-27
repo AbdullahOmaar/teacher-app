@@ -274,6 +274,22 @@ export interface ScoreEntry {
   score: number | null
 }
 
+/**
+ * تحقق نقي من درجات قبل الحفظ (3A-913): الدرجة لازم تكون رقماً محدوداً
+ * بين 0 والنهائية — بلا حد أعلى كان 30/20 يتقبل ويتعرض 125%.
+ * يعيد أول مدخل مخالف أو null إن كانت كلها سليمة.
+ */
+export function validateScoreEntries(
+  entries: ScoreEntry[],
+  maxScore: number,
+): ScoreEntry | null {
+  for (const e of entries) {
+    if (e.score == null) continue
+    if (!Number.isFinite(e.score) || e.score < 0 || e.score > maxScore) return e
+  }
+  return null
+}
+
 /** حفظ جماعي: upsert واحد للدرجات المدخلة + حذف صفوف الدرجات الممسوحة */
 export async function saveScores(
   teacherId: string,
@@ -281,6 +297,21 @@ export async function saveScores(
   entries: ScoreEntry[],
 ): Promise<void> {
   const supa = db()
+  // النهائية هي الحاكم: أي درجة فوقها تُرفض قبل أي كتابة — القيد في
+  // المخطط (scores.score >= 0) لا يمنع تجاوز النهائية.
+  const { data: assess, error: assessErr } = await supa
+    .from('assessments')
+    .select('max_score')
+    .eq('teacher_id', teacherId)
+    .eq('id', assessmentId)
+    .maybeSingle()
+  if (assessErr) throw friendlyDbError(assessErr, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+  if (assess) {
+    const bad = validateScoreEntries(entries, Number(assess.max_score) || 0)
+    if (bad) {
+      throw new Error(t('grades.scoreAboveMax', { max: fmtScore(Number(assess.max_score) || 0) }))
+    }
+  }
   const upserts = entries
     .filter((e): e is { studentId: string; score: number } => e.score != null)
     .map((e) => ({

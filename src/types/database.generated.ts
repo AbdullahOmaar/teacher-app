@@ -3021,6 +3021,38 @@ export type Database = {
         }
         Relationships: []
       }
+      usage_counters: {
+        Row: {
+          teacher_id: string
+          period_month: string
+          counter_key: string
+          value: number
+          updated_at: string
+        }
+        Insert: {
+          teacher_id: string
+          period_month: string
+          counter_key: string
+          value?: number
+          updated_at?: string
+        }
+        Update: {
+          teacher_id?: string
+          period_month?: string
+          counter_key?: string
+          value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_counters_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       apply_role_template: {
@@ -3038,6 +3070,13 @@ export type Database = {
             p_phone: string
           }
           Returns: boolean
+        }
+      check_usage_limit: {
+          Args: {
+            p_teacher_id: string
+            p_key: string
+          }
+          Returns: Json
         }
       claim_teacher_invites: {
           Args: Record<PropertyKey, never>
@@ -3596,6 +3635,13 @@ export type Database = {
             p_is_active: boolean
           }
           Returns: string
+        }
+      usage_summary: {
+          Args: {
+            p_teacher_id: string
+          }
+          Returns: Json
+        }
         }
     }
     Enums: {
