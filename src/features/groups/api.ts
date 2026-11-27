@@ -13,7 +13,7 @@ import type {
 } from '../../types/database'
 
 const GROUP_COLS =
-  'id, teacher_id, name, billing_type, price, days, start_time, duration_minutes, room, capacity, assistant_name, links, archived_at, created_at, updated_at'
+  'id, teacher_id, name, billing_type, price, days, start_time, duration_minutes, slots, room, capacity, assistant_name, links, archived_at, created_at, updated_at'
 const ENROLLMENT_COLS = 'id, teacher_id, student_id, group_id, price_override, prepaid_sessions, created_at'
 const WAITLIST_COLS = 'id, teacher_id, group_id, name, phone, note, source, wants_trial, created_at'
 
@@ -47,10 +47,26 @@ export async function fetchGroup(teacherId: string, groupId: string): Promise<Gr
   return data ?? null
 }
 
+/**
+ * حمولة حفظ مجموعة: المواعيد تُكتب ككائنات JSON صريحة (العمود jsonb) —
+ * والمرايا القديمة (days/start_time/duration_minutes) تأتي جاهزة في
+ * GroupInput مشتقة من المواعيد نفسها (slotsToMirrors عند النموذج).
+ */
+function groupPayload(input: GroupInput) {
+  return {
+    ...input,
+    slots: input.slots.map((s) => ({
+      day: s.day,
+      start_time: s.start_time,
+      duration_minutes: s.duration_minutes,
+    })),
+  }
+}
+
 export async function createGroup(teacherId: string, input: GroupInput): Promise<GroupRow> {
   const { data, error } = await db()
     .from('groups')
-    .insert({ teacher_id: teacherId, ...input })
+    .insert({ teacher_id: teacherId, ...groupPayload(input) })
     .select(GROUP_COLS)
     .single()
   if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
@@ -64,7 +80,7 @@ export async function updateGroup(
 ): Promise<GroupRow> {
   const { data, error } = await db()
     .from('groups')
-    .update(input)
+    .update(groupPayload(input))
     .eq('teacher_id', teacherId)
     .eq('id', groupId)
     .select(GROUP_COLS)

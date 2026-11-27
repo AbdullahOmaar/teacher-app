@@ -91,6 +91,12 @@ export const groups = {
   formBillingLabel: 'نظام الدفع',
   formPriceLabel: 'السعر (ج)',
   formDaysLabel: 'أيام الجدول *',
+  /** مواعيد أسبوعية متعددة (3A-926): صف موعد داخل نموذج المجموعة */
+  formSlotTitle: 'الموعد {n}',
+  formSlotDayLabel: 'اليوم',
+  formAddSlot: 'إضافة موعد آخر',
+  formRemoveSlot: 'حذف الموعد',
+  formSlotTimeRequired: 'اختار وقت بداية لكل موعد',
   /** فاصل أسماء الأيام المشتركة في سطر التعارض */
   daysSeparator: '، ',
   formStartLabel: 'وقت البدء',
