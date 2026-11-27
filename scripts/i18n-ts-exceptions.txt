@@ -7,3 +7,6 @@
 src/features/students/import/logic.ts
 # اسم ورقة العمل وأسماء ملفات القالب — تُكتب على القرص حرفياً.
 src/features/students/import/parseFile.ts
+# بدائل ترويسات استيراد قائمة السماح (بريد/هاتف/ملاحظة) — بيانات صيغة
+# ملفات: تُطابَق بها ترويسات ملفات Excel/CSV للمستخدمين، وليست نص عرض.
+src/features/platform-admin/excel.ts

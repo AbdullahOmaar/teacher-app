@@ -34,6 +34,7 @@ import {
   useAuditLog,
   useCreateRoleTemplate,
   useDeleteAnnouncement,
+  useInvalidatePanel,
   usePlatformIndicators,
   usePlatformOverview,
   usePlatformWorkspaces,
@@ -48,6 +49,16 @@ import {
   useTrustAdminDevice,
   useUpdateRoleTemplate,
 } from './hooks'
+import {
+  autoMapAllowlistHeaders,
+  downloadAllowlistTemplateXlsx,
+  downloadWorkspacesXlsx,
+  logExcelAudit,
+  parseAllowlistFile,
+  runAllowlistImport,
+  type AllowlistImportSummary,
+  type ParsedAllowlistFile,
+} from './excel'
 import {
   confirmationChannelLabel,
   featureKeyLabel,
@@ -126,6 +137,7 @@ export function PlatformAdminPage() {
         <AnnouncementsSection />
         <TicketsSection />
         <AuditLogSection />
+        <ExcelSection />
         <WhatsappSection />
 
         <Card>
@@ -864,6 +876,236 @@ function AllowlistSection() {
           <Button size="sm" disabled={addM.isPending} onClick={submit}>
             {t('platformAdmin.allowlistAdd')}
           </Button>
+        </Card>
+      </div>
+    </PanelSection>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// استيراد/تصدير Excel (مهمة 23 — بلا مهاجرة جديدة): تصدير مساحات العمل
+// .xlsx + استيراد جماعي لقائمة السماح من .xlsx/.csv. القسم «قريباً»
+// عندما تغيب 0061 أو 0057 (بياناته null) — لا خطأ خام أبداً.
+// ---------------------------------------------------------------------------
+
+function excelReasonText(
+  reason: AllowlistImportSummary['details'][number]['reason'],
+): string {
+  switch (reason) {
+    case 'no-contact':
+      return t('platformAdmin.excelReasonNoContact')
+    case 'bad-email':
+      return t('platformAdmin.excelReasonBadEmail')
+    case 'bad-phone':
+      return t('platformAdmin.excelReasonBadPhone')
+    case 'duplicate':
+      return t('platformAdmin.excelReasonDuplicate')
+    case 'failed':
+      return t('platformAdmin.excelReasonFailed')
+    default:
+      return t('platformAdmin.excelReasonFailed')
+  }
+}
+
+function ExcelSection() {
+  const workspacesQ = usePlatformWorkspaces(true)
+  const allowlistQ = useAllowlist(true)
+  const invalidate = useInvalidatePanel()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [parsed, setParsed] = useState<ParsedAllowlistFile | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [summary, setSummary] = useState<AllowlistImportSummary | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+
+  const state = panelSectionState({
+    pending: workspacesQ.isPending || allowlistQ.isPending,
+    failed: workspacesQ.isError || allowlistQ.isError,
+    missing: workspacesQ.data === null || allowlistQ.data === null,
+  })
+  const workspaces = workspacesQ.data ?? []
+  const entries = allowlistQ.data ?? []
+
+  async function exportWorkspaces() {
+    setExportError(null)
+    setExporting(true)
+    try {
+      await downloadWorkspacesXlsx(workspaces)
+      await logExcelAudit('workspaces_exported', { rows: workspaces.length })
+    } catch {
+      setExportError(t('platformAdmin.excelExportError'))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function downloadTemplate() {
+    setFileError(null)
+    try {
+      await downloadAllowlistTemplateXlsx()
+    } catch {
+      setFileError(t('platformAdmin.excelFileUnreadable'))
+    }
+  }
+
+  async function onFileChosen(file: File | undefined) {
+    setFileError(null)
+    setSummary(null)
+    setParsed(null)
+    if (!file) return
+    try {
+      const parsedFile = await parseAllowlistFile(file)
+      const mapping = autoMapAllowlistHeaders(parsedFile.headers)
+      if (!mapping.includes('email') && !mapping.includes('phone')) {
+        setFileError(t('platformAdmin.excelNoColumns'))
+        return
+      }
+      setParsed(parsedFile)
+    } catch (error) {
+      setFileError(
+        error instanceof Error
+          ? error.message
+          : t('platformAdmin.excelFileUnreadable'),
+      )
+    }
+  }
+
+  async function runImport() {
+    if (!parsed || importing) return
+    setImporting(true)
+    try {
+      const result = await runAllowlistImport(parsed, entries)
+      setSummary(result)
+      await logExcelAudit('allowlist_imported', {
+        file: parsed.fileName,
+        added: result.added,
+        duplicates: result.duplicates,
+        invalid: result.invalid,
+        failed: result.failed,
+      })
+      invalidate()
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <PanelSection
+      title={t('platformAdmin.excelTitle')}
+      state={state}
+      onRetry={() => {
+        void workspacesQ.refetch()
+        void allowlistQ.refetch()
+      }}
+    >
+      <div className="space-y-3">
+        <p className="text-muted type-secondary mb-0">
+          {t('platformAdmin.excelIntro')}
+        </p>
+
+        <Card>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="font-semibold text-[15px]">
+              {t('platformAdmin.excelExportTitle')}
+            </span>
+            <Button
+              size="sm"
+              disabled={workspaces.length === 0 || exporting}
+              onClick={() => void exportWorkspaces()}
+            >
+              {t('platformAdmin.excelExportButton')}
+            </Button>
+          </div>
+          {workspaces.length === 0 && (
+            <p className="text-muted type-secondary mb-0 mt-1">
+              {t('platformAdmin.excelExportEmpty')}
+            </p>
+          )}
+          {exportError && <FormError message={exportError} />}
+        </Card>
+
+        <Card>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="font-semibold text-[15px]">
+              {t('platformAdmin.excelImportTitle')}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void downloadTemplate()}
+              >
+                {t('platformAdmin.excelTemplateButton')}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {t('platformAdmin.excelChooseFile')}
+              </Button>
+            </div>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.csv"
+            className="hidden"
+            aria-hidden="true"
+            tabIndex={-1}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              void onFileChosen(file)
+            }}
+          />
+          {parsed && (
+            <p className="text-muted type-secondary mt-2 mb-0">
+              {t('platformAdmin.excelFileChosen', {
+                name: parsed.fileName,
+                rows: parsed.rawRows.length,
+              })}
+            </p>
+          )}
+          {fileError && <FormError message={fileError} />}
+          {parsed && !summary && (
+            <Button
+              size="sm"
+              disabled={importing}
+              onClick={() => void runImport()}
+            >
+              {importing
+                ? t('platformAdmin.excelImporting')
+                : t('platformAdmin.excelImportRun')}
+            </Button>
+          )}
+          {summary && (
+            <div className="mt-3 space-y-2">
+              <p className="font-semibold text-[14px] mb-0">
+                {t('platformAdmin.excelSummaryTitle')}
+              </p>
+              <p className="text-muted type-secondary mb-0">
+                {t('platformAdmin.excelSummaryAdded', { count: summary.added })}
+                {' · '}
+                {t('platformAdmin.excelSummaryDuplicates', {
+                  count: summary.duplicates,
+                })}
+                {' · '}
+                {t('platformAdmin.excelSummaryInvalid', { count: summary.invalid })}
+                {' · '}
+                {t('platformAdmin.excelSummaryFailed', { count: summary.failed })}
+              </p>
+              {summary.details.length > 0 && (
+                <div className="space-y-1">
+                  {summary.details.map((d) => (
+                    <p key={d.row} className="text-muted type-secondary mb-0">
+                      {t('platformAdmin.excelRowLabel', { row: d.row })}: {excelReasonText(d.reason)}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </Card>
       </div>
     </PanelSection>
