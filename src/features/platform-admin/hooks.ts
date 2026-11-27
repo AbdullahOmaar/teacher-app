@@ -15,6 +15,7 @@ import {
   addAllowlistEntry,
   fetchAccountOverrides,
   fetchAllowlist,
+  fetchAuditLog,
   fetchPlatformIndicators,
   fetchPlatformWorkspaces,
   fetchRegistrationOpen,
@@ -22,6 +23,7 @@ import {
   revokeAccountOverride,
   setAccountActivated,
   setAccountOverride,
+  setRegistrationOpen,
   setSubscriptionPlan,
   type PlanSlug,
 } from './panel'
@@ -195,7 +197,7 @@ export function useSetSubscriptionPlan() {
   })
 }
 
-/** إعداد تجاوز فردي (0059؛ 0063 تضيف النوع 'setting') */
+/** إعداد تجاوز فردي (0059؛ 0066 تضيف النوع 'setting') */
 export function useSetAccountOverride() {
   const invalidate = useInvalidatePanel()
   return useMutation({
@@ -230,7 +232,7 @@ export function useAddAllowlistEntry() {
   })
 }
 
-/** حذف صف من قائمة السماح (0057) */
+/** حذف صف من قائمة السماح (0066 — RPC موثّق) */
 export function useRemoveAllowlistEntry() {
   const invalidate = useInvalidatePanel()
   return useMutation({
@@ -364,5 +366,35 @@ export function useAdminReplyToTicket() {
     mutationFn: (input: { ticketId: string; body: string }) =>
       replyToTicket(input.ticketId, input.body),
     onSuccess: invalidate,
+/** قلب قفل التسجيل (0066 — RPC موثّق) */
+export function useSetRegistrationOpen() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (open: boolean) => setRegistrationOpen(open),
+    onSuccess: invalidate,
+  })
+}
+
+/** صفحة من سجل التدقيق (0066) — مرشّحا الحساب/الفعل اختياريان */
+export function useAuditLog(
+  input: {
+    limit: number
+    offset: number
+    teacherId?: string | null
+    action?: string | null
+  },
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [
+      PLATFORM_ADMIN,
+      'audit-log',
+      input.limit,
+      input.offset,
+      input.teacherId ?? null,
+      input.action ?? null,
+    ],
+    enabled,
+    queryFn: () => fetchAuditLog(input),
   })
 }

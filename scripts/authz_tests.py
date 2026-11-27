@@ -2989,6 +2989,161 @@ def main():
                       and int(left[0]["tk"]) == 0
                       and int(left[0]["pa"]) == 0, f"got {left}")
 
+        # ---------- AUDIT INTEGRATION (0066 — T23 الخطوة 6) ----------
+        # ⚠️ المهاجرة 0066 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الدوال أولاً: إن
+        # غابت يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: سجل التدقيق كامل — إضافة/حذف السماح وقلب قفل التسجيل
+        # عبر RPCs موثّقة تكتب سطراً لكل فعل، وقراءة السجل للأدمن فقط
+        # بمرشّحاتها، والتزوير باسم أدمن آخر مرفوض (الإدراج المباشر
+        # باسمه غير اسمه). حالة التسجيل (مفتوح/مقفول) تُقرأ قبل أي لمس
+        # وتُستعاد حرفياً في finally؛ صفوف السماح الاستكشافية تُحذف.
+        print("AUDIT INTEGRATION (0066):")
+        audit_probe = sql(ref, "select to_regprocedure("
+                               "'public.platform_audit_log_list(int, int, uuid, text)') as f")
+        if not audit_probe or not audit_probe[0].get("f"):
+            print("  SKIP 0066 live section — migration 0066 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PLATFORM-ADMIN-AUDIT.md)")
+        else:
+            pw_audit_admin = secrets.token_urlsafe(18)
+            audit_admin_uid = create_user_sql(
+                ref, "authz-audit-admin@teacher-app.test", pw_audit_admin)
+            orig_open = sql(ref, "select (value)::text = 'true' as open "
+                                 "from platform_settings "
+                                 "where key = 'registration_open'")
+            orig_open_val = bool(orig_open[0]["open"]) if orig_open else True
+            try:
+                audit_admin_jwt, _ = sign_in(
+                    url, anon, "authz-audit-admin@teacher-app.test", pw_audit_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{audit_admin_uid}', 'authz audit fixture')")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_audit_log_list",
+                            jwt=demo_jwt,
+                            body={})
+                check("a teacher cannot list the platform audit log",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_audit_log_list",
+                            jwt=audit_admin_jwt,
+                            body={})
+                check("admin lists the audit log (object with rows+total)",
+                      s == 200 and isinstance(b, dict)
+                      and isinstance(b.get("rows"), list)
+                      and isinstance(b.get("total"), int),
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_allowlist_add",
+                            jwt=demo_jwt,
+                            body={"p_email": "authz-audit@teacher-app.test"})
+                check("a teacher cannot add an allowlist entry",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_allowlist_add",
+                            jwt=audit_admin_jwt,
+                            body={"p_email": "authz-audit@teacher-app.test",
+                                  "p_note": "authz fixture"})
+                allow_id = b if isinstance(b, str) and b else None
+                check("admin adds an allowlist entry via the audited RPC",
+                      s == 200 and allow_id, f"got {s} {str(b)[:120]}")
+                audit = sql(ref, "select count(*) as c "
+                                 "from platform_audit_log "
+                                 "where action = 'allowlist_added' "
+                                 "and details ->> 'email' = "
+                                 "'authz-audit@teacher-app.test'")
+                check("the allowlist add wrote one audit row",
+                      audit and int(audit[0]["c"]) == 1, f"got {audit}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_set_registration_open",
+                            jwt=demo_jwt,
+                            body={"p_open": not orig_open_val})
+                check("a teacher cannot flip the registration lock",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_set_registration_open",
+                            jwt=audit_admin_jwt,
+                            body={"p_open": not orig_open_val,
+                                  "p_reason": "authz fixture"})
+                check("admin flips the registration lock",
+                      s == 200 and b == (not orig_open_val),
+                      f"got {s} {str(b)[:120]}")
+                flipped = sql(ref, "select (value)::text = 'true' as open "
+                                   "from platform_settings "
+                                   "where key = 'registration_open'")
+                check("the flip landed in platform_settings",
+                      flipped and bool(flipped[0]["open"]) == (not orig_open_val),
+                      f"got {flipped}")
+                audit = sql(ref, "select count(*) as c "
+                                 "from platform_audit_log "
+                                 "where action = 'registration_open_changed'")
+                check("the flip wrote a platform audit row",
+                      audit and int(audit[0]["c"]) >= 1, f"got {audit}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_audit_log_list",
+                            jwt=audit_admin_jwt,
+                            body={"p_action": "allowlist_added"})
+                check("audit list filters by action",
+                      s == 200 and isinstance(b, dict)
+                      and all(r.get("action") == "allowlist_added"
+                              for r in (b.get("rows") or [])),
+                      f"got {s} {str(b)[:160]}")
+                # تزوير: إدراج مباشر في السجل باسم أدمن آخر (admin_user_id
+                # ≠ auth.uid()) — سياسة الإدراج ترفضه، فلا سطر بلا فاعل.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/platform_audit_log",
+                            jwt=audit_admin_jwt,
+                            body={"admin_user_id": demo_teacher,
+                                  "action": "spoofed",
+                                  "details": {}})
+                check("a spoofed audit insert under another admin is rejected",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                if allow_id:
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/platform_allowlist_remove",
+                                jwt=audit_admin_jwt,
+                                body={"p_allowlist_id": allow_id})
+                    check("admin removes the allowlist entry via the audited RPC",
+                          s == 200 and b == allow_id,
+                          f"got {s} {str(b)[:120]}")
+                    audit = sql(ref, "select count(*) as c "
+                                     "from platform_audit_log "
+                                     "where action = 'allowlist_removed' "
+                                     "and details ->> 'allowlist_id' = "
+                                     f"'{allow_id}'")
+                    check("the allowlist remove wrote one audit row",
+                          audit and int(audit[0]["c"]) == 1, f"got {audit}")
+            finally:
+                sql(ref, "update platform_settings set value = "
+                         f"'{str(orig_open_val).lower()}'::jsonb, "
+                         "updated_at = now() where key = 'registration_open'")
+                sql(ref, "delete from teacher_allowlist "
+                         "where email = 'authz-audit@teacher-app.test'")
+                sql(ref, "delete from platform_audit_log "
+                         "where action in ('allowlist_added', "
+                         "'allowlist_removed', 'registration_open_changed') "
+                         "and details ->> 'email' = "
+                         "'authz-audit@teacher-app.test'")
+                sql(ref, "delete from platform_audit_log "
+                         "where action = 'registration_open_changed' "
+                         "and details ->> 'reason' = 'authz fixture'")
+                sql(ref, "delete from auth.users "
+                         f"where id = '{audit_admin_uid}'")
+                left = sql(ref, "select "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{audit_admin_uid}') as pa, "
+                                "(select count(*) from teacher_allowlist "
+                                "where email = 'authz-audit@teacher-app.test') as al, "
+                                "(select (value)::text = 'true' from platform_settings "
+                                "where key = 'registration_open') as open")
+                check("0066 fixtures cleaned + registration lock restored",
+                      left and int(left[0]["pa"]) == 0
+                      and int(left[0]["al"]) == 0
+                      and bool(left[0]["open"]) == orig_open_val,
+                      f"got {left}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد
