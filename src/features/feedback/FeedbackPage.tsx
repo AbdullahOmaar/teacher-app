@@ -157,12 +157,14 @@ export function FeedbackPage() {
                 />
               </Card>
             ) : (
-              items.map((row, i) => {
+              /* شبكة بطاقات عند الديسكتوب (3A-930) */
+              <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-3 lg:items-stretch">
+              {items.map((row, i) => {
                 const busy = setStatus.isPending && setStatus.variables?.id === row.id
                 return (
                   <Card
                     key={row.id}
-                    className="rise-in mb-3"
+                    className="rise-in mb-3 lg:mb-0 lg:h-full"
                     style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
                   >
                     <div className="flex items-center gap-2 mb-2">
@@ -214,7 +216,8 @@ export function FeedbackPage() {
                     </div>
                   </Card>
                 )
-              })
+              })}
+              </div>
             )}
           </>
         ) : (
