@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateStudentPhones } from './api'
+import { isGroupFull, validateStudentPhones } from './api'
 import { t } from '../../i18n'
 
 describe('validateStudentPhones — موبايل مصري إلزامي الصيغة (3A-913)', () => {
@@ -33,5 +33,21 @@ describe('validateStudentPhones — موبايل مصري إلزامي الصي�
     expect(validateStudentPhones({ phone: '+447911123456', guardian_phone: null })).toBe(
       t('students.formPhoneError'),
     )
+  })
+})
+
+describe('isGroupFull — حارس سعة المجموعة (3A-925 بند ١)', () => {
+  it('بلا سعة (null) لا تمتلئ أبداً مهما كبر العدد', () => {
+    expect(isGroupFull(null, 0)).toBe(false)
+    expect(isGroupFull(null, 500)).toBe(false)
+  })
+  it('أقل من السعة = مكان متاح', () => {
+    expect(isGroupFull(10, 0)).toBe(false)
+    expect(isGroupFull(10, 9)).toBe(false)
+  })
+  it('عند السعة أو فوقها = ممتلئة (حالة المالك: سعة 1 وطالب ثانٍ)', () => {
+    expect(isGroupFull(1, 1)).toBe(true)
+    expect(isGroupFull(10, 10)).toBe(true)
+    expect(isGroupFull(10, 11)).toBe(true)
   })
 })
