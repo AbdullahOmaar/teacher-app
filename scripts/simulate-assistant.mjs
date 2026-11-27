@@ -25,12 +25,14 @@
 import {
   DeterministicTestPlanner,
   ProviderPlanner,
+  buildPermissionMatrix,
   computeAbsence,
   computeCollection,
   computeHomeworkSummary,
   computeUnpaid,
   handleAssistantChat,
   hashPayload,
+  resolvePlatformKeyConfig,
 } from '../supabase/functions/assistant-chat/core.ts'
 
 const OWNER = '11111111-1111-4111-8111-111111111111'
@@ -701,6 +703,79 @@ console.log('HOMEWORK + SESSIONS TOOLS:')
   const gc2Body = await gc2.json()
   check('re-generating the same month creates zero (idempotent RPC)',
     gc2.status === 200 && gc2Body.result.created === 0, JSON.stringify(gc2Body).slice(0, 200))
+}
+
+// --- خدمة المنصة ومصفوفة الصلاحيات (مهمة 22) ------------------------------------
+console.log('PLATFORM KEY + PERMISSION MATRIX (T22):')
+{
+  // resolvePlatformKeyConfig: دالة نقية — بلا مفتاح/بمزود غير مدعوم → null
+  check('no platform key → null',
+    resolvePlatformKeyConfig({ apiKey: '' }) === null
+      && resolvePlatformKeyConfig({}) === null)
+  check('unsupported provider → null',
+    resolvePlatformKeyConfig({ apiKey: 'sk-x', provider: 'nope' }) === null)
+  const plat = resolvePlatformKeyConfig({ apiKey: 'sk-platform-test', provider: 'gemini', model: 'gemini-2.0-flash' })
+  check('key + provider → platform config (source platform)',
+    plat !== null && plat.source === 'platform' && plat.provider === 'gemini'
+      && plat.model === 'gemini-2.0-flash' && plat.api_key === 'sk-platform-test')
+
+  // buildPermissionMatrix: مشتقة من سجل الأدوات نفسه — لا قوائم مكررة
+  const matrix = buildPermissionMatrix()
+  check('matrix derives reads/direct/confirm from the tool registry',
+    matrix.reads.length === 5 && matrix.direct.length === 5 && matrix.confirm.length === 3
+      && matrix.reads.every((e) => e.tool && e.description)
+      && matrix.confirm.map((e) => e.tool).join(',') === 'add_student,set_homework,generate_sessions',
+    JSON.stringify(matrix))
+
+  const { world, deps } = makeWorld()
+  // فعل permissions متاح والمساعد مطفأ — معلومة منشورة لا تشغيل
+  const perm = await handleAssistantChat(
+    req('owner-token', { action: 'permissions', teacher_id: TEACHER }),
+    {}, deps, planner, quiet)
+  const permBody = await perm.json()
+  check('permissions action works while disabled → 200 + full matrix',
+    perm.status === 200 && permBody.status === 'ok'
+      && permBody.matrix.reads.length === 5 && permBody.matrix.confirm.length === 3,
+    JSON.stringify(permBody).slice(0, 300))
+
+  // status: مفتاح المنصة وحده → key_source platform
+  const platDeps = { ...deps, platformKeyStatus: () => ({ configured: true, provider: 'openai', model: 'gpt-4o-mini' }) }
+  const stPlat = await handleAssistantChat(
+    req('owner-token', { action: 'status', teacher_id: TEACHER }),
+    {}, platDeps, planner, quiet)
+  const stPlatBody = await stPlat.json()
+  check('status key_source platform with platform key and no BYOK',
+    stPlat.status === 200 && stPlatBody.key_source === 'platform' && stPlatBody.has_key === true,
+    JSON.stringify(stPlatBody).slice(0, 200))
+
+  // status: صف BYOK موجود → BYOK يفوز
+  world.keyRow = {
+    provider: 'gemini', model: 'gemini-2.0-flash', base_url: null,
+    key_ciphertext: 'fake-enc(dGVzdA==)', key_iv: 'aXYtdGVzdA==', updated_at: '2026-11-27T00:00:00Z',
+  }
+  const stByok = await handleAssistantChat(
+    req('owner-token', { action: 'status', teacher_id: TEACHER }),
+    {}, platDeps, planner, quiet)
+  const stByokBody = await stByok.json()
+  check('BYOK wins over the platform key in status',
+    stByok.status === 200 && stByokBody.key_source === 'byok' && stByokBody.provider === 'gemini',
+    JSON.stringify(stByokBody).slice(0, 200))
+
+  // بوابة الحد: تجاوز الحد → 429 limit_reached بلا آثار جانبية
+  const limitedDeps = { ...deps, checkAiLimit: async () => ({ allowed: false, limit: 100, used: 100 }) }
+  const blocked = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'unpaid' }),
+    ON, limitedDeps, planner, quiet)
+  const blockedBody = await blocked.json()
+  check('over-limit message → 429 limit_reached, zero side effects',
+    blocked.status === 429 && blockedBody.error.code === 'limit_reached' && world.runs.length === 0,
+    JSON.stringify(blockedBody).slice(0, 200))
+
+  // لا دالة حد (قبل 0062) → الرسالة تمر عادياً (مسار متسامح)
+  const free = await handleAssistantChat(
+    req('owner-token', { action: 'message', teacher_id: TEACHER, message: 'unpaid' }),
+    ON, deps, planner, quiet)
+  check('limit dep absent → message flows normally', free.status === 200)
 }
 
 console.log(failures === 0 ? '\nALL SIMULATION CHECKS PASSED' : `\n${failures} SIMULATION CHECK(S) FAILED`)
