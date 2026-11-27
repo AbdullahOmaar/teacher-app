@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Check } from 'lucide-react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Check, Loader2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
 import { t } from '../../i18n'
@@ -43,6 +43,20 @@ export function CodeEntry({
 }: CodeEntryProps) {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
+  // حارس إرسال مكرر (3A-914) — نفس نمط شاشات المصادقة: الـref يُقفل
+  // متزامناً داخل المعالج (التحقق وإعادة الإرسال يتشاركان القفل فلا
+  // يتداخلان)، والإفراج دائماً من finally.
+  const busyRef = useRef(false)
+  const beginBusy = () => {
+    if (busyRef.current) return false
+    busyRef.current = true
+    setBusy(true)
+    return true
+  }
+  const endBusy = () => {
+    busyRef.current = false
+    setBusy(false)
+  }
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [resendIn, setResendIn] = useState(RESEND_SECONDS)
@@ -62,20 +76,20 @@ export function CodeEntry({
       setError(t('auth.errCodeLength'))
       return
     }
-    setBusy(true)
+    if (!beginBusy()) return
     try {
       await onVerify(code.trim())
       // النجاح يغيّر الجلسة/الشاشة عند المتصل — لا حالة محلية هنا
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.errOtpInvalid'))
     } finally {
-      setBusy(false)
+      endBusy()
     }
   }
 
   const handleResend = async () => {
+    if (!beginBusy()) return
     setError(null)
-    setBusy(true)
     try {
       await onResend()
       setCode('')
@@ -84,7 +98,7 @@ export function CodeEntry({
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.resendFailed'))
     } finally {
-      setBusy(false)
+      endBusy()
     }
   }
 
@@ -118,8 +132,8 @@ export function CodeEntry({
             required
           />
         </Field>
-        <Button full type="submit" disabled={busy}>
-          <Check size={18} />
+        <Button full type="submit" disabled={busy} aria-busy={busy}>
+          {busy ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
           {busy ? t('auth.verifying') : verifyLabel}
         </Button>
         <div className="flex items-center justify-between mt-3">

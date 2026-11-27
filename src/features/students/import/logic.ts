@@ -11,6 +11,14 @@
  *      موبايل ولي الأمر ليس مفتاح تكرار وحده (إخوة يتشاركونه شرعياً).
  *   3) داخل الملف نفسه: نفس الكود أو نفس موبايل الطالب لصف سابق ⇒ تكرار
  *      (يُشار لرقم أول صف).
+ *   4) الاسم بديلاً أخيراً (3A-913): صف بلا كود ولا موبايل لا مفتاح له
+ *      أصلاً — فمطابقة الاسم المُطبَّع (قصّ + مسافات موحدة + لاتيني
+ *      صغير) وحدها تكفي: ضد طالب حالي بنفس الاسم، أو ضد صف سابق بلا
+ *      مفتاح بنفس الاسم. بدون هذه القاعدة كان ملف أسماء فقط (أو صفوف
+ *      بلا كود/موبايل) يستورد المكرر فعلاً رغم وعد الواجهة «المكرر
+ *      هيتخطى تلقائياً». الإيجاب الكاذب ممكن (اسمان متطابقان لطالبين
+ *      مختلفين بلا مفاتيح) — والمعاينة تعرض السبب صراحة والمدرس يضمّ
+ *      الصف بنقرة واحدة إن كان طالباً مختلفاً فعلاً.
  * • أخطاء تمنع الحفظ: غياب الاسم، سعر خاص غير رقمي/سالب، أو موبايل
  *   موجود لكن أرقامه خارج 7–15 رقماً.
  * أعمدة القالب هي نفس أسماء أعمدة تصدير الطلاب في وحدة الإعدادات
@@ -158,6 +166,11 @@ function normalizeCode(raw: unknown): string {
     .toUpperCase()
 }
 
+/** تطبيع اسم للمقارنة (قاعدة 4): قصّ + مسافات داخلية موحدة + لاتيني صغير */
+function normalizeName(raw: string): string {
+  return raw.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
 function cellText(v: unknown): string {
   if (v == null) return ''
   return String(v).trim()
@@ -235,22 +248,26 @@ function isPlausiblePhone(normalized: string): boolean {
 
 /**
  * تصنيف كل صف: خطأ ← تكرار (قاعدة بيانات ثم داخل الملف) ← جاهز.
- * existing: طلاب المدرس الحاليون (نحتاج الكود والموبايل فقط).
+ * existing: طلاب المدرس الحاليون (نحتاج الاسم والكود والموبايل).
  */
 export function classifyRows(
   rows: ParsedStudentRow[],
-  existing: { public_code: string; phone: string | null }[],
+  existing: { name: string; public_code: string; phone: string | null }[],
 ): ClassifiedRow[] {
   const existingByCode = new Map<string, string>()
   const existingByPhone = new Map<string, string>()
+  const existingByName = new Map<string, string>()
   for (const s of existing) {
     const code = normalizeCode(s.public_code)
     if (code) existingByCode.set(code, s.public_code)
     const phone = normalizePhone(s.phone)
     if (phone) existingByPhone.set(phone, phone)
+    const name = normalizeName(s.name)
+    if (name) existingByName.set(name, s.name)
   }
   const seenCodes = new Map<string, number>()
   const seenPhones = new Map<string, number>()
+  const seenNames = new Map<string, number>()
 
   return rows.map((row) => {
     // — أخطاء بنيوية أولاً
@@ -321,6 +338,32 @@ export function classifyRows(
     }
     if (code) seenCodes.set(code, row.rowNumber)
     if (phone) seenPhones.set(phone, row.rowNumber)
+
+    // — قاعدة 4: صف بلا كود ولا موبايل — الاسم وحده هو المفتاح.
+    // ضد قاعدة البيانات أولاً، ثم ضد صف سابق بلا مفتاح بنفس الاسم.
+    // صف بمفتاح (كود/موبايل) لا يدخل هذه المقارنة إطلاقاً ولا يُسجَّل
+    // فيها — حتى لا يُعلَّم طالب مختلف بنفس الاسم لمجرد تشابهه مع صف
+    // سابق له مفتاح.
+    if (!code && !phone) {
+      const name = normalizeName(row.name)
+      if (name && existingByName.has(name)) {
+        return {
+          row,
+          status: 'duplicate' as RowStatus,
+          reason: t('students.impReasonNameExists', { name: row.name }),
+          price_override: price,
+        }
+      }
+      if (name && seenNames.has(name)) {
+        return {
+          row,
+          status: 'duplicate' as RowStatus,
+          reason: t('students.impReasonDupNameInFile', { row: seenNames.get(name) ?? 0 }),
+          price_override: price,
+        }
+      }
+      if (name) seenNames.set(name, row.rowNumber)
+    }
 
     return { row, status: 'ready' as RowStatus, reason: '', price_override: price }
   })
