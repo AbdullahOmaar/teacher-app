@@ -1050,7 +1050,7 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 - **السيناريو:** «assistant data fetch fails: explicit throw (no fake empty answer)» — **الخطوات:** جلب الأرصدة يرمي «db unreachable» — **المتوقع:** رمي صريح يصعد — لا إجابة فارغة مزيّفة.
 - **السيناريو:** «webhook unknown id» — **الخطوات:** حدث حالة موقّع لمعرّف رسالة غير معروف (wamid.unknown) — **المتوقع:** فحصان: 200 + {ok:true, updated:0} (المعالج لا يسقط على معرّفات غريبة).
 
-### 6.16 مجموعة التفويض الحية (authz) — الأقسام العشرون
+### 6.16 مجموعة التفويض الحية (authz) — الأقسام الأحد والعشرون
 
 **الملف:** `scripts/authz_tests.py` — الحالة: أوتوماتيك بتشغيل محلي يدوي (تتخطى نفسها في CI — §4)؛ كل قسم يبني fixturesه وينظّفها ويرجع بخط الأساس. أسماء الفحوص كما هي في السكربت؛ «المتوقع» لكل فحص = أن يتحقق الشرط في اسمه (رفض/فراغ/نجاح كما هو مكتوب). الأقسام المرتبطة بمهاجرات 0051–0061 تتخطى نفسها بنعومة حتى تُطبَّق مهاجراتها.
 
@@ -1066,6 +1066,7 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 - **القسم: PORTAL ACCOUNTS (0040/0041/0042 — حسابات البوابة)** — الفحوص: «anon reads no portal accounts» · «anon reads no portal sessions» · «other teacher reads no portal accounts» · «assistant reads no portal accounts (owner-only)» · «anon cannot execute portal_account_upsert» · «anon cannot execute the internal phone normalizer» · «other teacher cannot upsert an account for demo (RPC guard)» · «owner upserts a guardian account with server-derived username» · «owner upserts a student account (username = public code)» · «login with a wrong password is rejected generically» · «guardian login returns a session for his linked students» · «guardian session opens the overview (unified validator)» · «guardian session is rejected for an unlinked student» · «a pre-existing link token still works (backward compat)» · «guardian claims a password from inside the portal via his link» · «login works with the claimed password» · «hidden money section: balance never leaves the server» · «student login by public code (case-insensitive) works» · «student session opens the student overview» · «logout revokes the session immediately» · «account locks after 8 failed attempts (correct pw still rejected)» · «owner can disable a portal account» · «disabled account cannot log in» · «disabling kills the account's live sessions» · «portal account fixtures cleaned» — **المتوقع:** دورة حياة الحساب كاملة (إنشاء خادمي الاسم ← دخول ← جلسة ← قفل/تعطيل/خروج) بعزل كامل، والرصيد لا يغادر الخادم عند إخفاء قسم المال.
 - **القسم: PORTAL ACCOUNTS COMPLETION (0056 — دخول الموبايل والمطالبة)** — الفحوص: «0056: owner upserts the student account» · «0056: phone login rejects a wrong password generically» · «0056: student logs in by his registered mobile number» · «0056: the phone-login session opens the student overview» · «0056: an unregistered phone gets the same generic error» · «0056: guardian claim returns an open account session» · «0056: the claim session opens the guardian overview» · «0056: the claimed guardian link is dead (first entry only)» · «0056: guardian logs in with the claimed password» · «0056: student claim returns an open account session» · «0056: the claimed student link is dead (first entry only)» · «0056: the student claim session opens the overview» · «0056 fixtures cleaned» — **المتوقع:** الدخول بالموبايل يعمل، والرابط يموت عند أول مطالبة، والأخطاء عامة لا تسرّب وجود الرقم.
 - **القسم: GUARDIAN NOTIFICATIONS LADDER (0050 — سلم إشعارات ولي الأمر)** — الفحوص: «absence generates exactly one portal notification» · «ladder rows recorded for the absence notification» · «re-saving absence does not duplicate the notification» · «invoice issue generates exactly one portal notification» · «ladder rows recorded for the invoice notification» · «with an active subscription the push rung is attempted» · «anon reads no delivery log rows (RLS owner-only)» · «other teacher reads none of demo's delivery log» · «assistant member reads no delivery log (owner-only)» · «owner reads his delivery log» · «even the owner cannot insert delivery rows directly» · «guardian token lists his student's new notifications» · «guardian token is rejected for an unlinked student» · «another guardian's token cannot list this student» · «a bogus token lists nothing» · «another guardian cannot mark this student's rows read» · «the guardian marks his own notification read» · «read state persisted on the notification row» · «0050 fixtures cleaned (counts restored)» — **المتوقع:** إشعار واحد لكل حدث بلا تكرار عند إعادة الحفظ، وسجل توصيل مالك-فقط، وقراءة ولي الأمر مقيدة بأبنائه.
+- **القسم: WHATSAPP AUTO-SEND + FEATURE SEEN (0073 — الإرسال الآلي + «جديد»)** — الفحوص: «0073 platform auto-send gate defaults to false» · «0073 centre auto-send defaults (off, quota 100)» · «0073 anon reads no feature-seen rows» · «0073 anon cannot call whatsapp_auto_dispatch» · «0073 even the owner cannot call whatsapp_auto_dispatch (internal only)» · «0073 owner stamps a feature seen» · «0073 owner reads his stamp back» · «0073 fixtures cleaned» — **المتوقع:** كل البوابات مطفأة/افتراضية كما صُممت، ودالة الإرسال الداخلي مسحوبة من كل العملاء (المالك ضمناً)، وختم «شوهدت» للمالك فقط. **القسم يتخطى نفسه بنعومة حتى تُطبَّق 0073 عند بوابة التجميد** (نفس نمط أقسام 0055–0061).
 - **القسم: CENTRE LEDGER (0051 — دفتر السنتر)** — الفحوص: «anon reads no suppliers (no grant)» · «assistant reads no suppliers (finance is owner-only)» · «assistant reads no purchases» · «assistant reads no sales» · «owner creates a supplier» · «other teacher reads none of demo's suppliers» · «assistant cannot create a purchase (owner-only RPC)» · «a stranger cannot create a purchase for demo's centre» · «owner creates a purchase via RPC (total computed server-side)» · «owner records a purchase payment (ledger insert)» · «purchase_payments are immutable — no update path (RLS)» · «purchase_payments cannot be deleted (ledger)» · «owner reads purchase_balances (paid 100 of 250 → 150)» · «owner creates a sale via RPC (paid ≤ total enforced)» · «sale with amount_paid above the total is rejected» · «owner reads supplier_payables (remaining 150)» · «other teacher reads none of demo's monthly centre finance» · «0051 fixtures cleaned» — **المتوقع:** دفتر مالي مالك-فقط، إجماليات محسوبة خادمياً، ودفعات غير قابلة للتعديل/الحذف.
 - **القسم: TEACHER FEEDBACK (0052 — قناة ملاحظات المدرس)** — الفحوص: «anon reads no teacher feedback (no grant)» · «active assistant member submits feedback via RPC» · «assistant reads no feedback list (owner-only RLS)» · «owner reads his centre's feedback» · «other teacher reads none of demo's feedback» · «a stranger cannot submit feedback for demo's centre» · «invalid feedback kind is rejected by the RPC» · «even the owner cannot insert feedback directly (RPC only)» · «owner marks feedback read (status persisted)» · «unread count query returns zero after marking read» · «0052 fixtures cleaned».
 - **القسم: ERROR REPORTS (0053 — سجل أخطاء الإنتاج)** — الفحوص: «anonymous pre-login error intake works (no context)» · «anonymous report cannot claim a teacher context» · «a stranger cannot report under demo's teacher context» · «invalid error kind is rejected by the intake RPC» · «owner reports an error under his own context» · «server truncates stored message to 2000 chars» · «owner reads exactly his own context's reports» · «assistant reads no error reports (owner-only RLS)» · «anon reads no error reports (no grant)» · «even the owner cannot insert error rows directly (RPC only)» · «0053 fixtures cleaned».
@@ -1183,11 +1184,12 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 | وحدات الإعدادات (§6.10) | 4 | 31 | أوتوماتيك — CI |
 | وحدات أدمن المنصة (§6.11) | 5 | 51 | أوتوماتيك — CI |
 | وحدات lib + i18n (§6.12) | 13 | 110 مسمّاة + 33 صف it.each = 143 تشغيلاً | أوتوماتيك — CI |
-| **مجموع الوحدات** | **58 ملفاً** | **551 مسمّاة / 584 تشغيلاً** | |
+| وحدات نظام «جديد» (§6.24) | 2 | 10 | أوتوماتيك — CI |
+| **مجموع الوحدات** | **60 ملفاً** | **561 مسمّاة / 594 تشغيلاً** | |
 | عقود الدوال الحدّية (§6.13) | 1 | 30 سيناريو (~85 فحصاً) | أوتوماتيك — CI |
 | حدود المعدّل (§6.14) | 1 | 12 فحصاً | أوتوماتيك — CI |
 | حقن الأعطال (§6.15) | 1 | 9 سيناريوهات | أوتوماتيك — CI |
-| التفويض الحي authz (§6.16) | 1 | 20 قسماً + فحص ختام (آخر عدّ موثّق 127/127 على المهاجرات المطبّقة؛ أقسام 0055–0061 تنضم عند تطبيقها) | أوتوماتيك — تشغيل محلي solo |
+| التفويض الحي authz (§6.16) | 1 | 21 قسماً + فحص ختام (آخر عدّ موثّق 127/127 على المهاجرات المطبّقة؛ أقسام 0055–0061 تنضم عند تطبيقها، وقسم 0073 ينضم عند تطبيقه) | أوتوماتيك — تشغيل محلي solo |
 | حذف الحساب الحي (§6.17) | 1 | 14 فحصاً (منها حلقة الجداول) | أوتوماتيك — تشغيل محلي |
 | اعتراض البريد (§6.18) | 1 | 6 فحوص | أوتوماتيك — CI |
 | E2E دخاني (§6.19) | 1 | 8 تدفقات | أوتوماتيك — CI حاجب |
@@ -1195,6 +1197,26 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 | يدوية (§6.21) | — | 8 إجراءات (أحدها مجدول لم يُنفَّذ) | يدوية |
 | فجوات (§6.22) | — | 15 بنداً | **لسه ما اتكتبتش** |
 | سيناريوهات القبول الدائمة (§7) | — | 8 | يدوية/حية عند كل نشر |
+
+### 6.24 نظام «جديد» + النمط الداخلي للإرسال الآلي (مهمة 24 — 3A-900)
+
+**الملف:** `src/features/newFeatures/registry.test.ts` — الحالة: أوتوماتيك (5 حالات)
+
+- **السيناريو:** «every seeded feature has a well-formed id, path and 2.0 version» — **الخطوات:** فحص بذرة السجل الأربع — **المتوقع:** معرّفات بصيغة kebab ومسارات مطلقة وإصدار «2.0».
+- **السيناريو:** «feature ids and paths are unique» — **الخطوات:** عدّ المعرّفات والمسارات مقابل حجم السجل — **المتوقع:** لا تكرار.
+- **السيناريو:** «featureForPath resolves entry points and ignores query strings» — **الخطوات:** حلّ مسارات بصيغ مختلفة — **المتوقع:** المسار المسجل يُحلّ، والمجهول null.
+- **السيناريو:** «unseenFeatures returns only registered features missing from the seen set» — **الخطوات:** مجموعة «شوهدت» جزئية + معرّف مجهول داخلها — **المتوقع:** غير المشاهدة المسجلة فقط، والمجهول لا يكسر شيئاً.
+- **السيناريو:** «an empty seen set marks every seeded feature unseen» — **الخطوات:** مجموعة فارغة — **المتوقع:** الكل غير مشاهد.
+
+**الملف:** `src/features/newFeatures/FeatureIntro.test.tsx` — الحالة: أوتوماتيك (5 حالات)
+
+- **السيناريو:** «shows the intro card once for an unseen feature» — **الخطوات:** خاصية غير مختومة — **المتوقع:** البطاقة تظهر بعنوانها ونصها من القاموس.
+- **السيناريو:** «renders nothing when the feature is already seen» — **الخطوات:** معرّف موجود في مجموعة المشاهدة — **المتوقع:** لا بطاقة.
+- **السيناريو:** «renders nothing for an unregistered feature id» — **الخطوات:** معرّف خارج السجل — **المتوقع:** لا بطاقة.
+- **السيناريو:** «fails closed (no card) while the seen table is unavailable» — **الخطوات:** فشل قراءة حالة المشاهدة (ما قبل تطبيق 0073) — **المتوقع:** لا بطاقة ولا خطأ خام (التدهور الصامت الموثّق).
+- **السيناريو:** «dismiss stamps the feature seen and hides the card immediately» — **الخطوات:** ضغط زر الإقرار — **المتوقع:** البطاقة تختفي فوراً و`markFeatureSeen` يُستدعى بمعرّفات المدرّس والخاصية والمستخدم.
+
+**محاكاة الدالة (`scripts/simulate-whatsapp-messaging.mjs` — على نفس `core.ts` الإنتاجي):** قسم النمط الداخلي (مهمة 24) — 12 فحصاً جديداً (المحاكاة كاملة: 49 فحصاً، كلها خضراء محلياً): نمط داخلي بسرّ صحيح بلا JWT/مالك ← 200 وسجل بمصدر «آلي»؛ سرّ خاطئ أو علم بلا ترويسة ← سقوط لمسار JWT (401)؛ مفتاح الإيقاف العام يعلو النمط الداخلي (503)؛ فاتورة داخلية ← المبلغ يُحقن من `invoice_balances` كوسيط أول؛ إجمالي غير نهائي ← 422 بلا سجل وبلا نداء Graph؛ طلب يدوي يحمل invoice_id ← وسائطه لا تُمسّ ومصدره «يدوي».
 
 ---
 
