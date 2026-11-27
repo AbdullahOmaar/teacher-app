@@ -18,19 +18,29 @@ import {
   Field,
   FormError,
   Select,
+  TextArea,
   TextInput,
 } from '../../components/ui/form'
 import { ErrorState, LoadingState } from '../../components/ui/states'
 import {
   useAddAllowlistEntry,
+  useAdminReplyToTicket,
+  useAdminTickets,
+  useAdminTicketThread,
   useAllowlist,
+  useAnnouncementsAdmin,
+  useAuditLog,
   useCreateRoleTemplate,
+  useDeleteAnnouncement,
   usePlatformIndicators,
   usePlatformOverview,
   usePlatformWorkspaces,
+  usePublishAnnouncement,
   useRegistrationOpen,
   useRemoveAllowlistEntry,
   useRoleTemplates,
+  useSetTicketStatus,
+  useSetRegistrationOpen,
   useUpdateRoleTemplate,
 } from './hooks'
 import {
@@ -41,11 +51,21 @@ import {
   planLabel,
 } from './labels'
 import {
+  announcementKindLabel,
+  ticketStatusLabel,
+  ANNOUNCEMENT_KINDS,
+  TICKET_STATUSES,
+  type AnnouncementKind,
+} from './announcements'
+import {
+  AUDIT_ACTIONS,
   panelSectionState,
   PLAN_SLUGS,
   whatsappSectionState,
+  type AuditLogRow,
   type PlatformWorkspace,
 } from './panel'
+import type { TicketStatus } from '../support/api'
 import { ComingSoonCard, PanelSection } from './PanelSection'
 import { MfaSection } from './MfaScreens'
 import {
@@ -65,11 +85,13 @@ import {
 
 /**
  * لوحة أدمن المنصة (مهمة 17 — الأساس 0055 + اللوحة الكاملة 0061،
- * الخطوة 7): نظرة عامة ومؤشرات تجميعية + مساحات عمل بإجراءات إدارة
- * (تفعيل/باقة/تجاوزات) + قائمة سماح + قسم واتساب نائم بحالة «قريباً»
- * مصممة. الصفحة لا تُرسم إلا خلف RequirePlatformAdmin، وكل RPC
- * بحارس أدمن خادمي — الدفاع مزدوج (بوابة + قاعدة).
- * قاعدة مالك 2026-11-26: أي قسم مهاجراته غير مطبّقة بعد يعرض
+ * الخطوة 7 + سجل التدقيق 0066، الخطوة 6 + الإعلانات والتذاكر
+ * 0065، الخطوة 8): نظرة عامة ومؤشرات تجميعية + مساحات عمل
+ * بإجراءات إدارة (تفعيل/باقة/تجاوزات) + قائمة سماح وقلب قفل
+ * التسجيل + سجل تدقيق المنصة + إعلانات المنصة وتذاكر الدعم +
+ * قسم واتساب نائم بحالة «قريباً» مصممة. الصفحة لا تُرسم إلا
+ * خلف RequirePlatformAdmin، وكل RPC بحارس أدمن خادمي — الدفاع
+ * مزدوج (بوابة + قاعدة).
  * «قريباً» مصممة — لا خطأ خام أبداً؛ والإيراد المتوقع «—» حتى
  * اعتماد الأسعار (قرار مالك م1) — لا رقم مخترع.
  */
@@ -93,6 +115,9 @@ export function PlatformAdminPage() {
         <WorkspacesSection />
         <TemplatesSection />
         <AllowlistSection />
+        <AnnouncementsSection />
+        <TicketsSection />
+        <AuditLogSection />
         <WhatsappSection />
 
         <Card>
@@ -680,6 +705,7 @@ function AllowlistSection() {
   const registrationQ = useRegistrationOpen(true)
   const addM = useAddAllowlistEntry()
   const removeM = useRemoveAllowlistEntry()
+  const toggleM = useSetRegistrationOpen()
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [note, setNote] = useState('')
@@ -733,6 +759,25 @@ function AllowlistSection() {
           <p className="text-muted type-secondary mb-0 mt-1">
             {t('platformAdmin.registrationToggleNote')}
           </p>
+          {registrationQ.data !== null &&
+            registrationQ.data !== undefined && (
+              <div className="mt-3">
+                <Button
+                  size="sm"
+                  disabled={toggleM.isPending}
+                  onClick={() =>
+                    toggleM.mutate(!registrationQ.data)
+                  }
+                >
+                  {registrationQ.data
+                    ? t('platformAdmin.registrationCloseAction')
+                    : t('platformAdmin.registrationOpenAction')}
+                </Button>
+                {toggleM.isError && (
+                  <FormError message={t('platformAdmin.actionError')} />
+                )}
+              </div>
+            )}
         </Card>
 
         {entries.length === 0 ? (
@@ -812,6 +857,527 @@ function AllowlistSection() {
             {t('platformAdmin.allowlistAdd')}
           </Button>
         </Card>
+      </div>
+    </PanelSection>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// سجل تدقيق المنصة (0066 — الخطوة 6): كل فعل أدمن بفاعله وهدفه ووقته،
+// بمرشّحي حساب وفعل. غياب 0066 يعرض «قريباً» المصممة كأي قسم.
+// ---------------------------------------------------------------------------
+
+/** تسمية فعل التدقيق — الفعل المجهول يظهر كما هو بلا اختراع */
+function auditActionLabel(action: string): string {
+  switch (action) {
+    case 'override_set':
+      return t('platformAdmin.auditActionOverrideSet')
+    case 'override_revoked':
+      return t('platformAdmin.auditActionOverrideRevoked')
+    case 'account_activated':
+      return t('platformAdmin.auditActionAccountActivated')
+    case 'account_deactivated':
+      return t('platformAdmin.auditActionAccountDeactivated')
+    case 'subscription_plan_changed':
+      return t('platformAdmin.auditActionSubscriptionPlanChanged')
+    case 'allowlist_added':
+      return t('platformAdmin.auditActionAllowlistAdded')
+    case 'allowlist_removed':
+      return t('platformAdmin.auditActionAllowlistRemoved')
+    case 'registration_open_changed':
+      return t('platformAdmin.auditActionRegistrationOpenChanged')
+    default:
+      return action
+  }
+}
+
+function AuditLogSection() {
+  const [teacherId, setTeacherId] = useState('')
+  const [action, setAction] = useState('')
+  const [limit, setLimit] = useState(20)
+  const workspacesQ = usePlatformWorkspaces(true)
+  const auditQ = useAuditLog(
+    {
+      limit,
+      offset: 0,
+      teacherId: teacherId === '' ? null : teacherId,
+      action: action === '' ? null : action,
+    },
+    true,
+  )
+
+  const state = panelSectionState({
+    pending: auditQ.isPending,
+    failed: auditQ.isError,
+    missing: auditQ.data === null,
+  })
+  const rows = auditQ.data?.rows ?? []
+  const total = auditQ.data?.total ?? 0
+  const workspaces = workspacesQ.data ?? []
+
+  return (
+    <PanelSection
+      title={t('platformAdmin.auditTitle')}
+      state={state}
+      onRetry={() => void auditQ.refetch()}
+    >
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-[13px] text-muted">
+              {t('platformAdmin.auditTeacherFilter')}
+            </span>
+            <select
+              className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[14px]"
+              value={teacherId}
+              onChange={(e) => {
+                setTeacherId(e.target.value)
+                setLimit(20)
+              }}
+            >
+              <option value="">{t('platformAdmin.auditAllTeachers')}</option>
+              {workspaces.map((w) => (
+                <option key={w.teacherId} value={w.teacherId}>
+                  {w.displayName || w.ownerEmail}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-[13px] text-muted">
+              {t('platformAdmin.auditActionFilter')}
+            </span>
+            <select
+              className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[14px]"
+              value={action}
+              onChange={(e) => {
+                setAction(e.target.value)
+                setLimit(20)
+              }}
+            >
+              <option value="">{t('platformAdmin.auditAllActions')}</option>
+              {AUDIT_ACTIONS.map((a) => (
+                <option key={a} value={a}>
+                  {auditActionLabel(a)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {rows.length === 0 ? (
+          <Card>
+            <p className="text-muted type-secondary mb-0">
+              {t('platformAdmin.auditEmpty')}
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {rows.map((row: AuditLogRow) => (
+              <Card key={row.id}>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <span className="font-semibold text-[14px]">
+                    {auditActionLabel(row.action)}
+                  </span>
+                  <span className="text-muted text-[12.5px]">
+                    {new Date(row.createdAt).toLocaleString('ar-EG')}
+                  </span>
+                </div>
+                <div className="text-[13.5px] text-muted mt-1">
+                  {row.adminLabel ?? t('platformAdmin.auditUnknownAdmin')}
+                  {row.targetLabel ? (
+                    <span> → {row.targetLabel}</span>
+                  ) : row.targetTeacherId ? (
+                    <span> → {t('platformAdmin.auditUnknownTeacher')}</span>
+                  ) : null}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {total > rows.length && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={auditQ.isFetching}
+            onClick={() => setLimit((l) => l + 20)}
+          >
+            {t('platformAdmin.auditShowMore')}
+          </Button>
+        )}
+      </div>
+    </PanelSection>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// إعلانات المنصة (0065 — النشر والحذف من اللوحة)
+// ---------------------------------------------------------------------------
+
+function AnnouncementsSection() {
+  const listQ = useAnnouncementsAdmin(true)
+  const publishM = usePublishAnnouncement()
+  const deleteM = useDeleteAnnouncement()
+  const [title, setTitle] = useState('')
+  const [body, setBody] = useState('')
+  const [kind, setKind] = useState<AnnouncementKind>('general')
+  const [scheduledAt, setScheduledAt] = useState('')
+  const [titleError, setTitleError] = useState<string | null>(null)
+  const [bodyError, setBodyError] = useState<string | null>(null)
+
+  const state = panelSectionState({
+    pending: listQ.isPending,
+    failed: listQ.isError,
+    missing: listQ.data === null,
+  })
+  const items = listQ.data ?? []
+
+  function submit() {
+    const trimmedTitle = title.trim()
+    const b = body.trim()
+    setTitleError(
+      trimmedTitle === ''
+        ? t('platformAdmin.announcementTitleRequired')
+        : null,
+    )
+    setBodyError(b === '' ? t('platformAdmin.announcementBodyRequired') : null)
+    if (trimmedTitle === '' || b === '') return
+    publishM.mutate(
+      {
+        title: trimmedTitle,
+        body: b,
+        kind,
+        scheduledAt: scheduledAt === '' ? null : scheduledAt,
+      },
+      {
+        onSuccess: () => {
+          setTitle('')
+          setBody('')
+          setScheduledAt('')
+        },
+      },
+    )
+  }
+
+  return (
+    <PanelSection
+      title={t('platformAdmin.announcementsTitle')}
+      state={state}
+      onRetry={() => void listQ.refetch()}
+    >
+      <div className="space-y-3">
+        {items.length === 0 ? (
+          <Card>
+            <p className="text-muted type-secondary mb-0">
+              {t('platformAdmin.announcementsEmpty')}
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {items.map((a) => (
+              <Card key={a.id} className="space-y-2">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <span className="font-semibold text-[15px]">{a.title}</span>
+                  <span className="text-[12.5px] font-bold bg-soft text-text rounded-full px-2.5 py-0.5">
+                    {announcementKindLabel(a.kind)}
+                  </span>
+                </div>
+                <p className="text-[14px] leading-[1.8] mb-0 whitespace-pre-wrap">
+                  {a.body}
+                </p>
+                <div className="text-muted text-[12.5px]">
+                  {t('platformAdmin.announcementPublishedAt')}:{' '}
+                  {new Date(a.publishedAt).toLocaleDateString('ar-EG')}
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={deleteM.isPending}
+                  onClick={() => deleteM.mutate(a.id)}
+                >
+                  {t('platformAdmin.announcementDelete')}
+                </Button>
+              </Card>
+            ))}
+          </div>
+        )}
+        {deleteM.isError && (
+          <FormError message={t('platformAdmin.actionError')} />
+        )}
+
+        <Card>
+          <div className="space-y-3">
+            <Field
+              label={t('platformAdmin.announcementTitleLabel')}
+              error={titleError}
+            >
+              <TextInput
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={200}
+              />
+            </Field>
+            <Field
+              label={t('platformAdmin.announcementBodyLabel')}
+              error={bodyError}
+            >
+              <TextArea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                maxLength={4000}
+                rows={4}
+              />
+            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label={t('platformAdmin.announcementKindLabel')}>
+                <Select
+                  value={kind}
+                  onChange={(e) =>
+                    setKind(e.target.value as AnnouncementKind)
+                  }
+                >
+                  {ANNOUNCEMENT_KINDS.map((k) => (
+                    <option key={k} value={k}>
+                      {announcementKindLabel(k)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label={t('platformAdmin.announcementScheduledLabel')}>
+                <TextInput
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                />
+              </Field>
+            </div>
+          </div>
+          {publishM.isError && (
+            <FormError message={t('platformAdmin.actionError')} />
+          )}
+          <Button
+            size="sm"
+            disabled={publishM.isPending}
+            onClick={submit}
+          >
+            {t('platformAdmin.announcementPublish')}
+          </Button>
+        </Card>
+      </div>
+    </PanelSection>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// تذاكر الدعم (0065 — القائمة والرد وتغيير الحالة من اللوحة)
+// ---------------------------------------------------------------------------
+
+function TicketsSection() {
+  const [filter, setFilter] = useState<TicketStatus | null>(null)
+  const [openTicketId, setOpenTicketId] = useState<string | null>(null)
+  const [reply, setReply] = useState('')
+  const [replyError, setReplyError] = useState<string | null>(null)
+
+  const listQ = useAdminTickets(filter, true)
+  const threadQ = useAdminTicketThread(
+    openTicketId ?? undefined,
+    openTicketId !== null,
+  )
+  const replyM = useAdminReplyToTicket()
+  const statusM = useSetTicketStatus()
+
+  const state = panelSectionState({
+    pending: listQ.isPending,
+    failed: listQ.isError,
+    missing: listQ.data === null,
+  })
+  const items = listQ.data ?? []
+  const thread = threadQ.data
+
+  function onReply() {
+    if (!openTicketId) return
+    const text = reply.trim()
+    if (text === '') {
+      setReplyError(t('platformAdmin.ticketReplyRequired'))
+      return
+    }
+    setReplyError(null)
+    replyM.mutate(
+      { ticketId: openTicketId, body: text },
+      { onSuccess: () => setReply('') },
+    )
+  }
+
+  return (
+    <PanelSection
+      title={t('platformAdmin.ticketsTitle')}
+      state={state}
+      onRetry={() => void listQ.refetch()}
+    >
+      <div className="space-y-3">
+        <Card>
+          <Field label={t('platformAdmin.ticketFilterLabel')}>
+            <Select
+              value={filter ?? 'all'}
+              onChange={(e) =>
+                setFilter(
+                  e.target.value === 'all'
+                    ? null
+                    : (e.target.value as TicketStatus),
+                )
+              }
+            >
+              <option value="all">{t('platformAdmin.ticketFilterAll')}</option>
+              {TICKET_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {ticketStatusLabel(s)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </Card>
+
+        {items.length === 0 ? (
+          <Card>
+            <p className="text-muted type-secondary mb-0">
+              {t('platformAdmin.ticketsEmpty')}
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {items.map((row) => {
+              const open = openTicketId === row.id
+              return (
+                <Card key={row.id} className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setOpenTicketId(open ? null : row.id)}
+                    className="w-full bg-transparent border-0 cursor-pointer text-start p-0 text-text"
+                  >
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-semibold text-[15px] flex-1">
+                        {row.subject}
+                      </span>
+                      <span className="text-[12.5px] font-bold bg-soft text-text rounded-full px-2.5 py-0.5">
+                        {ticketStatusLabel(row.status)}
+                      </span>
+                    </div>
+                    <div className="text-muted text-[12.5px]">
+                      {t('platformAdmin.ticketTeacherLabel')}:{' '}
+                      {row.teacherName ??
+                        t('platformAdmin.ticketUnknownTeacher')}{' '}
+                      — {new Date(row.createdAt).toLocaleDateString('ar-EG')}
+                    </div>
+                  </button>
+
+                  {open && (
+                    <div className="pt-3 border-t border-border space-y-3">
+                      {threadQ.isPending ? (
+                        <LoadingState />
+                      ) : threadQ.isError || !thread ? (
+                        <ErrorState
+                          message={t('platformAdmin.sectionLoadError')}
+                          onRetry={() => void threadQ.refetch()}
+                        />
+                      ) : (
+                        <>
+                          {thread.messages.length === 0 ? (
+                            <p className="text-muted type-secondary mb-0">
+                              {t('platformAdmin.ticketNoMessages')}
+                            </p>
+                          ) : (
+                            thread.messages.map((m) => (
+                              <div
+                                key={m.id}
+                                className={`rounded-xl px-3 py-2 text-[14px] leading-[1.8] ${
+                                  m.authorKind === 'admin'
+                                    ? 'bg-soft'
+                                    : 'bg-ok-soft'
+                                }`}
+                              >
+                                <div className="text-[12.5px] font-bold mb-1">
+                                  {m.authorKind === 'admin'
+                                    ? t('platformAdmin.ticketAuthorAdmin')
+                                    : t('platformAdmin.ticketAuthorTeacher')}{' '}
+                                  <span className="text-muted font-normal">
+                                    —{' '}
+                                    {new Date(m.createdAt).toLocaleDateString(
+                                      'ar-EG',
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="whitespace-pre-wrap">
+                                  {m.body}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                          {thread.status === 'closed' ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={statusM.isPending}
+                              onClick={() =>
+                                statusM.mutate({
+                                  ticketId: thread.id,
+                                  status: 'in_progress',
+                                })
+                              }
+                            >
+                              {t('platformAdmin.ticketReopen')}
+                            </Button>
+                          ) : (
+                            <>
+                              <Field
+                                label={t('platformAdmin.ticketReplyLabel')}
+                                error={replyError}
+                              >
+                                <TextArea
+                                  value={reply}
+                                  onChange={(e) => setReply(e.target.value)}
+                                  maxLength={4000}
+                                  rows={3}
+                                />
+                              </Field>
+                              <div className="flex gap-2 flex-wrap">
+                                <Button
+                                  size="sm"
+                                  onClick={onReply}
+                                  disabled={replyM.isPending}
+                                >
+                                  {t('platformAdmin.ticketReplySend')}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={statusM.isPending}
+                                  onClick={() =>
+                                    statusM.mutate({
+                                      ticketId: thread.id,
+                                      status: 'closed',
+                                    })
+                                  }
+                                >
+                                  {t('platformAdmin.ticketClose')}
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                          {(replyM.isError || statusM.isError) && (
+                            <FormError
+                              message={t('platformAdmin.actionError')}
+                            />
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              )
+            })}
+          </div>
+        )}
       </div>
     </PanelSection>
   )

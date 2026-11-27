@@ -39,6 +39,14 @@ const AssistantPage = lazy(() =>
 const FeedbackPage = lazy(() =>
   import('./features/feedback/FeedbackPage').then((m) => ({ default: m.FeedbackPage })),
 )
+const SupportPage = lazy(() =>
+  import('./features/support/SupportPage').then((m) => ({ default: m.SupportPage })),
+)
+const AnnouncementsPage = lazy(() =>
+  import('./features/support/AnnouncementsPage').then((m) => ({
+    default: m.AnnouncementsPage,
+  })),
+)
 const PlatformAdminPage = lazy(() =>
   import('./features/platform-admin/PlatformAdminPage').then((m) => ({
     default: m.PlatformAdminPage,
@@ -138,6 +146,8 @@ registerRouteLoaders({
   '/homework': () => import('./features/homework/HomeworkPage'),
   '/assistant': () => import('./features/assistant/AssistantPage'),
   '/feedback': () => import('./features/feedback/FeedbackPage'),
+  '/support': () => import('./features/support/SupportPage'),
+  '/announcements': () => import('./features/support/AnnouncementsPage'),
   '/students': () => import('./features/students/StudentsPage'),
   '/groups': () => import('./features/groups/GroupsPage'),
   '/invoices': () => import('./features/invoices/InvoicesPage'),
@@ -313,6 +323,22 @@ export default function App() {
                 element={
                   <LazyRoute>
                     <FeedbackPage />
+                  </LazyRoute>
+                }
+              />
+              <Route
+                path="support"
+                element={
+                  <LazyRoute>
+                    <SupportPage />
+                  </LazyRoute>
+                }
+              />
+              <Route
+                path="announcements"
+                element={
+                  <LazyRoute>
+                    <AnnouncementsPage />
                   </LazyRoute>
                 }
               />
