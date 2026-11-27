@@ -451,7 +451,7 @@ export function ExamSheetSheet({
       </ChipRow>
 
       <div
-        className="print-area bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3"
+        className="print-area bg-card text-text border border-dashed border-border rounded-xl p-4 mb-3"
         style={printFontStyle(printFont)}
       >
         <PrintBrandHeader
@@ -459,10 +459,10 @@ export function ExamSheetSheet({
           fallbackTitle={teacherNameQ.data ? teacherNameQ.data : t('grades.examSheet')}
           logoAlt={t('grades.sheetLogoAlt')}
         >
-          <div className="text-[13.5px] text-slate-600">
+          <div className="text-[13.5px] text-muted">
             {assessment.title} · {groupName}
           </div>
-          <div className="text-[13.5px] text-slate-500">
+          <div className="text-[13.5px] text-muted">
             {t('grades.sheetMeta', { max: fmtScore(assessment.max_score), date: formatDateLabel(assessment.assess_date) })}
           </div>
         </PrintBrandHeader>

@@ -346,7 +346,40 @@ export function ReceiptSheet({
   const state = payStateOf(invoice)
 
   return (
-    <Sheet open title={t('invoices.sheetReceiptTitle', { receiptNo: payment.receipt_no })} onClose={onClose}>
+    <Sheet
+      open
+      // العنوان: الرقم عنصر LTR لا ينكسر ولا يُقصّ أبداً (3A-925 بند ٧)
+      title={
+        <>
+          {t('invoices.sheetReceiptTitleWord')}{' '}
+          <span dir="ltr" className="whitespace-nowrap">
+            {payment.receipt_no}
+          </span>
+        </>
+      }
+      onClose={onClose}
+      // شريط إجراءات مثبت أسفل النافذة (3A-925 بند ٨): الطباعة/واتساب/الإغلاق
+      // ظاهرة دائماً ولا تنزلق تحت شريط التنقل السفلي مهما طال المحتوى
+      footer={
+        <div className="flex gap-2">
+          <Button className="flex-1" onClick={() => window.print()}>
+            <Printer size={20} />
+            {t('invoices.sheetReceiptPrint')}
+          </Button>
+          {waUrl && (
+            <a href={waUrl} target="_blank" rel="noreferrer" className="flex-1 no-underline">
+              <Button variant="soft" className="w-full" type="button">
+                <MessageCircle size={20} />
+                {t('invoices.sheetReceiptSendWa')}
+              </Button>
+            </a>
+          )}
+          <Button variant="ghost" onClick={onClose}>
+            {t('common.close')}
+          </Button>
+        </div>
+      }
+    >
       {/* احتفال دُفّي بنجاح تسجيل الدفعة (MASCOT-PLAN §٤/§٦ — الورقة دي
           لا تُفتح إلا من مسار نجاح الدفع مباشرة). خارج منطقة الطباعة
           (print-area) تماماً فلا يصل للإيصال الورقي أبداً. جملة النجاح
@@ -366,8 +399,11 @@ export function ReceiptSheet({
         </Chip>
       </ChipRow>
 
+      {/* منطقة المعاينة تتبع مظهر التطبيق كباقي النافذة (3A-925 بند ١٠):
+          لا كتلة بيضاء داخل نافذة غامقة — والطباعة نفسها تُجبَر على ورق
+          أبيض ونص داكن بقواعد @media print في index.css */}
       <div
-        className={`print-area ${paper === 'thermal' ? 'paper-thermal' : ''} bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3`}
+        className={`print-area ${paper === 'thermal' ? 'paper-thermal' : ''} bg-card text-text border border-dashed border-border rounded-xl p-4 mb-3`}
         style={printFontStyle(printFont)}
       >
         <PrintBrandHeader
@@ -377,10 +413,14 @@ export function ReceiptSheet({
           fallbackLogo={<Logo size={44} />}
           className="mb-2"
         >
-          <div className="text-[12px] text-slate-500">
-            {t('invoices.sheetReceiptNoLabel')} <span dir="ltr" className="font-bold text-slate-800">{payment.receipt_no}</span>
-            {' · '}
-            {payment.paid_on}
+          <div className="text-[12px] text-muted flex flex-wrap gap-x-1.5">
+            <span>
+              {t('invoices.sheetReceiptNoLabel')}{' '}
+              <span dir="ltr" className="font-bold whitespace-nowrap">
+                {payment.receipt_no}
+              </span>
+            </span>
+            <span>· {payment.paid_on}</span>
           </div>
         </PrintBrandHeader>
         <div className="text-[13.5px] space-y-1">
@@ -400,16 +440,16 @@ export function ReceiptSheet({
             {t('invoices.sheetReceiptMonth')} <b>{periodLabel(invoice.period_month)}</b> (<span dir="ltr">{periodYm(invoice.period_month)}</span>)
           </div>
         </div>
-        <table className="w-full text-[13.5px] mt-3 border-t border-slate-200">
+        <table className="w-full text-[13.5px] mt-3 border-t border-border">
           <tbody>
             {lines.map((l) => (
-              <tr key={l.id} className="border-b border-slate-100">
+              <tr key={l.id} className="border-b border-border">
                 <td className="py-1.5">
                   {l.description}
-                  {l.reason && <div className="text-[12px] text-slate-500">{l.reason}</div>}
+                  {l.reason && <div className="text-[12px] text-muted">{l.reason}</div>}
                 </td>
                 <td
-                  className={`py-1.5 text-left font-bold ${l.amount < 0 ? 'text-red-600' : ''}`}
+                  className={`py-1.5 text-left font-bold ${l.amount < 0 ? 'text-bad-text' : ''}`}
                   dir="ltr"
                 >
                   {formatMoney(l.amount)}
@@ -431,14 +471,14 @@ export function ReceiptSheet({
             <span>{t('invoices.sheetReceiptTotalPaid')}</span>
             <span dir="ltr">{formatMoney(invoice.paid)}</span>
           </div>
-          <div className="flex justify-between border-t border-slate-200 pt-1.5 font-extrabold">
+          <div className="flex justify-between border-t border-border pt-1.5 font-extrabold">
             <span>{t('invoices.remaining')}</span>
             <span dir="ltr">
               {state === 'paid' ? t('invoices.paidInFull') : formatMoney(invoice.balance)}
             </span>
           </div>
         </div>
-        <div className="text-center text-[12px] text-slate-500 mt-3">{t('invoices.sheetReceiptThanks')}</div>
+        <div className="text-center text-[12px] text-muted mt-3">{t('invoices.sheetReceiptThanks')}</div>
       </div>
 
       <Field label={t('invoices.sheetReceiptWaLabel')}>
@@ -449,23 +489,6 @@ export function ReceiptSheet({
           placeholder={t('invoices.sheetReceiptWaPlaceholder')}
         />
       </Field>
-      <div className="flex gap-2">
-        <Button className="flex-1" onClick={() => window.print()}>
-          <Printer size={20} />
-          {t('invoices.sheetReceiptPrint')}
-        </Button>
-        {waUrl && (
-          <a href={waUrl} target="_blank" rel="noreferrer" className="flex-1 no-underline">
-            <Button variant="soft" className="w-full" type="button">
-              <MessageCircle size={20} />
-              {t('invoices.sheetReceiptSendWa')}
-            </Button>
-          </a>
-        )}
-      </div>
-      <Button full variant="ghost" onClick={onClose} className="mt-2">
-        {t('common.close')}
-      </Button>
     </Sheet>
   )
 }

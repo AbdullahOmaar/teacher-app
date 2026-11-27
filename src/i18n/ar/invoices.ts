@@ -112,6 +112,8 @@ export const invoices = {
   sheetPayOverWarn: 'المبلغ أكبر من المتبقي — الفاتورة هتتقفل والفرق هيظهر كرصيد مدفوع زيادة.',
   guardianFallback: 'ولي الأمر',
   sheetReceiptTitle: 'إيصال {receiptNo}',
+  /** كلمة «إيصال» وحدها — العنوان يُبنى بعنصر رقم لا ينكسر (3A-925 بند ٧) */
+  sheetReceiptTitleWord: 'إيصال',
   sheetPaperA4: 'ورق A4',
   sheetPaperThermal: 'حراري 80mm',
   sheetCentreLogoAlt: 'شعار السنتر',
