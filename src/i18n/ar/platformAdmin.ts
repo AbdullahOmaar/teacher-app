@@ -8,7 +8,7 @@ export const platformAdmin = {
   teachersActivated: 'حسابات مفعّلة',
   studentsTotal: 'إجمالي الطلاب',
   foundationNote:
-    'إعلانات المنصة وتذاكر الدعم بتيجي في الخطوة الجاية من خطة الأدمن — باقي أقسام الإدارة شغالة من هنا.',
+    'إعلانات المنصة وتذاكر الدعم شغالة من هنا دلوقتي — باقي أقسام الإدارة شغالة من هنا.',
   loadError: 'تعذّر تحميل أرقام المنصة — حاول تاني.',
   deniedTitle: 'الصفحة دي لإدارة المنصة بس',
   deniedHint:
@@ -226,9 +226,86 @@ export const platformAdmin = {
   excelTemplateColPhone: 'الموبايل',
   excelTemplateColNote: 'ملاحظة',
 
+  // إعلانات المنصة (0065 — النشر والحذف من اللوحة)
+  announcementsTitle: 'إعلانات المنصة',
+  announcementsEmpty: 'لا توجد إعلانات منشورة لسه.',
+  announcementTitleLabel: 'عنوان الإعلان',
+  announcementBodyLabel: 'نص الإعلان',
+  announcementKindLabel: 'النوع',
+  announcementKindUpdate: 'تحديث',
+  announcementKindMaintenance: 'صيانة',
+  announcementKindGeneral: 'عام',
+  announcementScheduledLabel: 'موعد الصيانة (اختياري)',
+  announcementPublish: 'نشر الإعلان',
+  announcementDelete: 'حذف الإعلان',
+  announcementPublishedToast: 'اتنشر الإعلان لكل المدرسين.',
+  announcementTitleRequired: 'اكتب عنواناً للإعلان الأول.',
+  announcementBodyRequired: 'اكتب نص الإعلان الأول.',
+  announcementPublishedAt: 'نُشر',
+
+  // تذاكر الدعم (0065 — القائمة والرد وتغيير الحالة من اللوحة)
+  ticketsTitle: 'تذاكر الدعم',
+  ticketsEmpty: 'لا توجد تذاكر دعم لسه.',
+  ticketStatusNew: 'جديدة',
+  ticketStatusInProgress: 'قيد المعالجة',
+  ticketStatusWaitingTeacher: 'بانتظار رد المدرس',
+  ticketStatusClosed: 'مغلقة',
+  ticketFilterAll: 'كل الحالات',
+  ticketFilterLabel: 'الحالة',
+  ticketClose: 'إغلاق التذكرة',
+  ticketReopen: 'إعادة فتح التذكرة',
+  ticketReplyLabel: 'اكتب ردك للمدرس',
+  ticketReplySend: 'إرسال الرد',
+  ticketReplyRequired: 'اكتب الرد الأول.',
+  ticketTeacherLabel: 'المدرس',
+  ticketUnknownTeacher: 'حساب محذوف',
+  ticketAuthorAdmin: 'إدارة المنصة',
+  ticketAuthorTeacher: 'المدرس',
+  ticketNoMessages: 'لا توجد رسائل في التذكرة دي لسه.',
+
   // إعدادات واتساب المنصة — حالة «قريباً» المصممة (لا رقم منصة بعد)
   whatsappTitle: 'إعدادات واتساب المنصة',
   whatsappComingSoon: 'قريباً — لا يوجد رقم واتساب للمنصة بعد',
   whatsappComingSoonHint:
     'التسجيل الأول لأي رقم بيتم عند Meta، وبعدها الإدارة اليومية من هنا: الرقم النشط وتبديله، تفعيل القناة لكل سنتر، سقوف الصرف والحصص، واستهلاك الرسائل لكل سنتر. عدّادات الاستهلاك بتوصل مع خطوة الإنفاذ — مفيش أرقام هنا قبل ما يبقى لها مصدر حقيقي.',
+
+  // التحقق بخطوتين TOTP لأدمن المنصة (0067 — مهمة 23)
+  mfaFactorName: 'Mister — أدمن المنصة',
+  mfaSessionMissing: 'لا توجد جلسة — سجّل دخولك تاني.',
+  mfaEnrollBadResponse: 'تعذّر بدء التسجيل — حاول تاني.',
+  mfaEnrollTitle: 'فعّل التحقق بخطوتين',
+  mfaEnrollIntro:
+    'حسابك أدمن منصة، فالدخول للوحة مشروط بخطوة تانية: امسح الرمز بتطبيق Authenticator (Google أو Microsoft أو أي تطبيق TOTP)، وبعدين اكتب الكود اللي يظهر لك.',
+  mfaEnrollQrAlt: 'رمز QR لتسجيل التحقق بخطوتين',
+  mfaSecretLabel: 'السر — للإدخال اليدوي لو مش قادر تمسح الرمز',
+  mfaCopySecret: 'نسخ السر',
+  mfaSecretCopied: 'اتنسخ السر.',
+  mfaCodeLabel: 'الكود من التطبيق (٦ أرقام)',
+  mfaCodePlaceholder: '123456',
+  mfaVerifyEnroll: 'تأكيد وتفعيل',
+  mfaVerifying: 'جارٍ التأكيد…',
+  mfaEnrollError:
+    'الكود غلط أو انتهت صلاحيته — اكتب الكود الحالي من التطبيق وحاول تاني.',
+  mfaResumeHint:
+    'في تسجيل بدأ ومكملش — لو حفظت السر، كمّل بالكود؛ ولو ضاع منك الرمز، أعد الإنشاء وابدأ من جديد.',
+  mfaRestartEnroll: 'إعادة الإنشاء',
+  mfaChallengeTitle: 'اكتب كود التحقق',
+  mfaChallengeIntro:
+    'حسابك محمي بالتحقق بخطوتين — افتح تطبيق Authenticator واكتب الكود الحالي.',
+  mfaChallengeError: 'الكود غلط — اكتب الكود الحالي من التطبيق وحاول تاني.',
+  mfaChallengeVerify: 'دخول اللوحة',
+  mfaUnavailableTitle: 'التحقق بخطوتين غير مفعّل',
+  mfaUnavailableHint:
+    'التحقق بخطوتين مش مفعّل في إعدادات مشروع Supabase — فعّله من لوحة Supabase (Authentication ثم MFA) وبعدين ارجع هنا. لو مش عارف توصله، كلّم مدير المنصة.',
+  mfaStatusError: 'تعذّر فحص حالة التحقق بخطوتين — حاول تاني.',
+  mfaRetry: 'إعادة المحاولة',
+  mfaSignOut: 'تسجيل خروج',
+  mfaStatusTitle: 'التحقق بخطوتين',
+  mfaStatusOn: 'مفعّل — دخول اللوحة بيطلب كود من تطبيقك.',
+  mfaStatusOff: 'مش مفعّل.',
+  mfaUnenroll: 'إلغاء التحقق بخطوتين',
+  mfaUnenrollConfirm:
+    'لو ألغيته، الدخول للوحة هيطلب تسجيل جديد — متأكد؟',
+  mfaUnenrollDone: 'اتلغى التحقق بخطوتين — هتحتاج تسجيل جديد للدخول للوحة.',
+  mfaUnenrollError: 'تعذّر الإلغاء — حاول تاني.',
 }
