@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Building2,
   CheckCircle2,
   GraduationCap,
   MessageCircle,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   TrendingUp,
   UserPlus,
@@ -24,6 +25,7 @@ import {
 import { ErrorState, LoadingState } from '../../components/ui/states'
 import {
   useAddAllowlistEntry,
+  useAdminDevices,
   useAdminReplyToTicket,
   useAdminTickets,
   useAdminTicketThread,
@@ -36,11 +38,14 @@ import {
   usePlatformOverview,
   usePlatformWorkspaces,
   usePublishAnnouncement,
+  useRegisterCurrentDevice,
   useRegistrationOpen,
   useRemoveAllowlistEntry,
+  useRevokeAdminDevice,
   useRoleTemplates,
-  useSetTicketStatus,
   useSetRegistrationOpen,
+  useSetTicketStatus,
+  useTrustAdminDevice,
   useUpdateRoleTemplate,
 } from './hooks'
 import {
@@ -74,6 +79,7 @@ import {
   type RoleTemplate,
 } from './templates'
 import { WorkspaceManager } from './WorkspaceManager'
+import { deviceLabelText, hasUntrustedDevice } from './devices'
 import {
   CONFIRMATION_CHANNELS,
   FEATURE_KEYS,
@@ -109,12 +115,14 @@ export function PlatformAdminPage() {
           </div>
         </header>
 
+        <NewDeviceBanner />
         <OverviewSection />
         <MfaSection />
         <IndicatorsSection />
         <WorkspacesSection />
         <TemplatesSection />
         <AllowlistSection />
+        <DevicesSection />
         <AnnouncementsSection />
         <TicketsSection />
         <AuditLogSection />
@@ -1405,5 +1413,164 @@ function WhatsappSection() {
       </h2>
       {state === 'coming-soon' && <ComingSoonCard hint={hint} />}
     </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// تنبيه جهاز جديد (0068 — مهمة 23): يسجّل الجهاز الحالي عند كل دخول
+// للوحة، ويظهر الشريط ما دام يوجد جهاز غير موثوق — بلا زر تجاهل:
+// يختفي بالتوثيق أو الإلغاء فقط. التسجيل best-effort في الخلفية
+// (فشله لا يكسر اللوحة ولا يظهر خطأ خاماً).
+// ---------------------------------------------------------------------------
+
+function NewDeviceBanner() {
+  const registerM = useRegisterCurrentDevice()
+  const devicesQ = useAdminDevices(true)
+  const trustM = useTrustAdminDevice()
+  const registeredRef = useRef(false)
+
+  useEffect(() => {
+    if (registeredRef.current) return
+    registeredRef.current = true
+    registerM.mutate()
+  }, [])
+
+  const devices = devicesQ.data ?? []
+  if (!hasUntrustedDevice(devices)) return null
+  const first = devices.find((d) => !d.trusted)
+  if (!first) return null
+
+  return (
+    <Card className="border-warn">
+      <div className="flex items-start gap-3">
+        <span className="w-10 h-10 shrink-0 rounded-full bg-warn/15 text-warn-text flex items-center justify-center">
+          <Smartphone size={20} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-[15px]">
+            {t('platformAdmin.deviceNewTitle')}
+          </div>
+          <p className="text-muted type-secondary mb-0">
+            {t('platformAdmin.deviceNewHint')}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          disabled={trustM.isPending}
+          onClick={() => trustM.mutate(first.id)}
+        >
+          {t('platformAdmin.deviceTrust')}
+        </Button>
+      </div>
+      {trustM.isError && (
+        <FormError message={t('platformAdmin.actionError')} />
+      )}
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// الأجهزة (0068): قائمة أجهزة الأدمن (الأحدث أولاً) + توثيق/إلغاء.
+// قبل تطبيق 0068 يعرض القسم «قريباً» (بيانات null) — لا خطأ خام.
+// الإلغاء يحذف الصف فقط ولا يفصل الجلسات (حدّ موثّق في الوثيقة).
+// ---------------------------------------------------------------------------
+
+function DevicesSection() {
+  const devicesQ = useAdminDevices(true)
+  const trustM = useTrustAdminDevice()
+  const revokeM = useRevokeAdminDevice()
+  const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null)
+
+  const state = panelSectionState({
+    pending: devicesQ.isPending,
+    failed: devicesQ.isError,
+    missing: devicesQ.data === null,
+  })
+  const devices = devicesQ.data ?? []
+
+  return (
+    <PanelSection
+      title={t('platformAdmin.devicesTitle')}
+      state={state}
+      onRetry={() => void devicesQ.refetch()}
+    >
+      <div className="space-y-2">
+        {devices.length === 0 ? (
+          <Card>
+            <p className="text-muted type-secondary mb-0">
+              {t('platformAdmin.devicesEmpty')}
+            </p>
+          </Card>
+        ) : (
+          devices.map((d) => (
+            <Card
+              key={d.id}
+              className="flex items-center justify-between gap-3 flex-wrap"
+            >
+              <div className="text-[14px]">
+                <span className="font-bold">{deviceLabelText(d.label)}</span>{' '}
+                <span className="font-semibold">
+                  {d.trusted
+                    ? t('platformAdmin.deviceTrusted')
+                    : t('platformAdmin.deviceUntrusted')}
+                </span>
+                <div className="text-muted text-[12.5px] mt-0.5">
+                  {t('platformAdmin.deviceFirstSeen')}:{' '}
+                  {new Date(d.firstSeenAt).toLocaleDateString('ar-EG')}
+                  {' · '}
+                  {t('platformAdmin.deviceLastSeen')}:{' '}
+                  {new Date(d.lastSeenAt).toLocaleDateString('ar-EG')}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {!d.trusted && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={trustM.isPending}
+                    onClick={() => trustM.mutate(d.id)}
+                  >
+                    {t('platformAdmin.deviceTrust')}
+                  </Button>
+                )}
+                {confirmRevokeId === d.id ? (
+                  <>
+                    <Button
+                      size="sm"
+                      disabled={revokeM.isPending}
+                      onClick={() => {
+                        setConfirmRevokeId(null)
+                        revokeM.mutate(d.id)
+                      }}
+                    >
+                      {t('platformAdmin.confirm')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setConfirmRevokeId(null)}
+                    >
+                      {t('platformAdmin.cancel')}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={revokeM.isPending}
+                    onClick={() => setConfirmRevokeId(d.id)}
+                  >
+                    {t('platformAdmin.deviceRevoke')}
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))
+        )}
+        {(trustM.isError || revokeM.isError) && (
+          <FormError message={t('platformAdmin.actionError')} />
+        )}
+      </div>
+    </PanelSection>
   )
 }
