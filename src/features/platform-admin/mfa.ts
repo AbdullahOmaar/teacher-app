@@ -142,7 +142,7 @@ export async function fetchMfaStatus(): Promise<MfaStatus> {
 export async function enrollTotp(): Promise<TotpEnrollment> {
   const { data, error } = await db().auth.mfa.enroll({
     factorType: 'totp',
-    friendlyName: 'Mister — أدمن المنصة',
+    friendlyName: t('platformAdmin.mfaFactorName'),
   })
   if (error) throw error
   const totp = data?.totp
