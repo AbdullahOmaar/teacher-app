@@ -242,7 +242,7 @@ export function InvoicesPage() {
 
   return (
     <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [INV])}>
-    <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-5 lg:items-start">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_440px] lg:gap-5 lg:items-start">
       <div className="min-w-0">
       {/* شريط الأدوات الموحّد (W3 — R-10): بحث + رقائق حالة + عدّاد */}
       <PageToolBar

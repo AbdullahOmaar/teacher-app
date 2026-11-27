@@ -91,13 +91,16 @@ export function GroupsPage() {
           }
         />
       ) : (
-        groups.map((g, i) => {
+        /* شبكة بطاقات عند الديسكتوب (3A-930): عمودان عند lg وثلاثة
+           عند xl؛ على الموبايل تبقى البطاقات مكدّسة كما هي */
+        <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-3 lg:items-stretch">
+        {groups.map((g, i) => {
           const cnt = counts.get(g.id) ?? 0
           const pct = g.capacity ? Math.min(100, Math.round((cnt / g.capacity) * 100)) : null
           return (
-            <Link key={g.id} to={`/groups/${g.id}`} className="block no-underline text-text">
+            <Link key={g.id} to={`/groups/${g.id}`} className="block no-underline text-text lg:h-full">
               <Card
-                className={`rise-in ${g.archived_at != null ? 'opacity-70' : ''}`}
+                className={`rise-in lg:h-full lg:mb-0 ${g.archived_at != null ? 'opacity-70' : ''}`}
                 style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
               >
                 {/* (مراجعة المالك الحية 2026-11-28 — تخطيط كارت المجموعة،
@@ -165,7 +168,8 @@ export function GroupsPage() {
               </Card>
             </Link>
           )
-        })
+        })}
+        </div>
       )}
 
       <Fab onClick={() => setFormOpen(true)} ariaLabel={t('groups.fabAria')} label={t('groups.formCreateTitle')} />
