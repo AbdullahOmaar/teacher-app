@@ -152,6 +152,7 @@ export const invoices = {
   apiDiscountDesc: 'خصم ({note})',
   apiDiscountFallback: 'خصم خاص',
   apiErrorPaymentAmount: 'مبلغ الدفعة لازم يكون أكبر من صفر',
+  apiErrorPaymentExceedsBalance: 'مبلغ الدفعة أكبر من المتبقي على الفاتورة (المتبقي {balance} ج)',
   apiReceiptLabel: 'إيصال {receiptNo}',
   apiErrorAdjustmentReason: 'سبب التسوية إلزامي',
   apiAdjustmentDesc: 'تسوية حصة {date}',

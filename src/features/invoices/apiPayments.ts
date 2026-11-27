@@ -27,6 +27,25 @@ export async function createPayment(
   input: { amount: number; method: PaymentMethod; paid_on: string },
 ): Promise<PaymentRow> {
   if (!(input.amount > 0)) throw new Error(t('invoices.apiErrorPaymentAmount'))
+  // حارس الدفع الزائد (3A-910): المبلغ لا يتجاوز الرصيد الحي للفاتورة من
+  // view ‏invoice_balances — يُفحص قبل حجز رقم الإيصال حتى لا يحترق رقم
+  // على رفض تحقق. المقارنة بالقرش (تقريب لرقمين عشريين) تفادياً لضوضاء
+  // الفاصلة العائمة عند المساواة التامة. غياب صف الـview (فاتورة لا تخص
+  // هذا المدرس) = رصيد صفر = رفض مغلق الاتجاه.
+  // حدّ موثّق: هذا فحص من جهة العميل — دفعتان متزامنتان على نفس الفاتورة
+  // قد تقرآن نفس الرصيد وتتجاوزانه معاً؛ الضمان الصلب يحتاج قيداً
+  // خادمياً (مهاجرة) وهو متابعة موثقة منفصلة، لا جزء من هذا الإصلاح.
+  const { data: balRow, error: balErr } = await db()
+    .from('invoice_balances')
+    .select('balance')
+    .eq('teacher_id', teacherId)
+    .eq('invoice_id', invoiceId)
+    .maybeSingle()
+  if (balErr) throw balErr
+  const balance = balRow ? Number(balRow.balance) || 0 : 0
+  if (Math.round(input.amount * 100) > Math.round(balance * 100)) {
+    throw new Error(t('invoices.apiErrorPaymentExceedsBalance', { balance }))
+  }
   const { data: receiptNo, error: rpcErr } = await db().rpc('next_receipt_no', {
     p_teacher_id: teacherId,
     p_date: input.paid_on,
