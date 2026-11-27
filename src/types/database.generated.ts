@@ -3525,6 +3525,12 @@ export type Database = {
           }
           Returns: boolean
         }
+      usage_summary: {
+          Args: {
+            p_teacher_id: string
+          }
+          Returns: Json
+        }
     }
     Enums: {
       assessment_type: "exam" | "homework"
