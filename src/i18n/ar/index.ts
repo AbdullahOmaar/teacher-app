@@ -25,6 +25,7 @@ import { paymentProofs } from './paymentProofs'
 import { assistant } from './assistant'
 import { feedback } from './feedback'
 import { platformAdmin } from './platformAdmin'
+import { support } from './support'
 import { errorLog } from './errorLog'
 import { format } from './format'
 import { mascot } from './mascot'
@@ -62,6 +63,7 @@ export const ar = {
   assistant,
   feedback,
   platformAdmin,
+  support,
   errorLog,
   format,
   mascot,
