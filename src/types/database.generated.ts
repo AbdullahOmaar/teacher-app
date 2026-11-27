@@ -1441,6 +1441,39 @@ export type Database = {
           },
         ]
       }
+      platform_announcements: {
+        Row: {
+          id: string
+          title: string
+          body: string
+          kind: string
+          scheduled_at: string | null
+          published_by: string | null
+          published_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          body: string
+          kind?: string
+          scheduled_at?: string | null
+          published_by?: string | null
+          published_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          body?: string
+          kind?: string
+          scheduled_at?: string | null
+          published_by?: string | null
+          published_at?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       platform_admins: {
         Row: {
           user_id: string
@@ -2493,6 +2526,79 @@ export type Database = {
           },
         ]
       }
+      support_ticket_messages: {
+        Row: {
+          id: string
+          ticket_id: string
+          author_id: string | null
+          author_kind: string
+          body: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ticket_id: string
+          author_id?: string | null
+          author_kind: string
+          body: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ticket_id?: string
+          author_id?: string | null
+          author_kind?: string
+          body?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          id: string
+          teacher_id: string
+          subject: string
+          status: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          subject: string
+          status?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          subject?: string
+          status?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_allowlist: {
         Row: {
           id: string
@@ -3238,6 +3344,14 @@ export type Database = {
           }
           Returns: boolean
         }
+      log_platform_audit: {
+          Args: {
+            p_action: string
+            p_target_teacher_id?: string | null
+            p_details?: Json
+          }
+          Returns: string
+        }
       member_has_permission: {
           Args: {
             p_teacher_id: string
@@ -3250,6 +3364,12 @@ export type Database = {
           Returns: boolean
         }
       my_subscription: {
+          Args: {
+            p_teacher_id: string
+          }
+          Returns: Json
+        }
+      my_support_tickets: {
           Args: {
             p_teacher_id: string
           }
@@ -3280,6 +3400,29 @@ export type Database = {
           }
           Returns: boolean
         }
+      platform_announcement_delete: {
+          Args: {
+            p_id: string
+          }
+          Returns: boolean
+        }
+      platform_announcement_publish: {
+          Args: {
+            p_title: string
+            p_body: string
+            p_kind?: string
+            p_scheduled_at?: string | null
+          }
+          Returns: string
+        }
+      platform_announcements_for_me: {
+          Args: Record<PropertyKey, never>
+          Returns: Json
+        }
+      platform_announcements_list: {
+          Args: Record<PropertyKey, never>
+          Returns: Json
+        }
       platform_indicators: {
           Args: Record<PropertyKey, never>
           Returns: Json
@@ -3303,6 +3446,12 @@ export type Database = {
             p_trial_ends_at?: string
           }
           Returns: string
+        }
+      platform_support_tickets: {
+          Args: {
+            p_status?: string | null
+          }
+          Returns: Json
         }
       platform_workspaces: {
           Args: Record<PropertyKey, never>
@@ -3519,6 +3668,13 @@ export type Database = {
           Args: Record<PropertyKey, never>
           Returns: number
         }
+      reply_support_ticket: {
+          Args: {
+            p_ticket_id: string
+            p_body: string
+          }
+          Returns: Json
+        }
       revoke_account_override: {
           Args: {
             p_override_id: string
@@ -3612,11 +3768,32 @@ export type Database = {
             student_id: string
           }[]
         }
+      set_ticket_status: {
+          Args: {
+            p_ticket_id: string
+            p_status: string
+          }
+          Returns: Json
+        }
+      submit_support_ticket: {
+          Args: {
+            p_teacher_id: string
+            p_subject: string
+            p_body: string
+          }
+          Returns: Json
+        }
       submit_teacher_feedback: {
           Args: {
             p_teacher_id: string
             p_kind: string
             p_body: string
+          }
+          Returns: Json
+        }
+      support_ticket_thread: {
+          Args: {
+            p_ticket_id: string
           }
           Returns: Json
         }

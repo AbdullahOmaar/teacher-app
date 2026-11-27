@@ -2831,6 +2831,163 @@ def main():
                       left and int(left[0]["pa"]) == 0
                       and int(left[0]["ov"]) == 0
                       and int(left[0]["tm"]) == 0, f"got {left}")
+        # ---------- ANNOUNCEMENTS + TICKETS (0065 — T17/T23 الخطوة 8) ----------
+        # ⚠️ المهاجرة 0065 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن
+        # غاب يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: الإعلان يُنشر من الأدمن ويُقرأ من أي مدرس عبر RPC
+        # وحده (بلا قراءة جدول مباشرة)؛ التذكرة ملك حسابها — مدرس آخر
+        # لا يراها ولا يرد عليها؛ الرد يقلب الحالة (أدمن →
+        # waiting_teacher، مدرس → in_progress)؛ والمغلقة ترفض أي رد.
+        # كل ما يُنشأ هنا يُلغى وينظَّف في finally؛ باقة الديمو نفسها
+        # لا تتغير إطلاقاً.
+        print("ANNOUNCEMENTS + TICKETS (0065):")
+        at_probe = sql(ref, "select to_regclass('public.support_tickets') as t")
+        if not at_probe or not at_probe[0].get("t"):
+            print("  SKIP 0065 live section — migration 0065 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PLATFORM-ADMIN-ANNOUNCEMENTS-TICKETS.md)")
+        else:
+            pw_at_admin = secrets.token_urlsafe(18)
+            at_admin_uid = create_user_sql(
+                ref, "authz-at-admin@teacher-app.test", pw_at_admin)
+            at_ann_id = None
+            at_ticket_id = None
+            try:
+                at_admin_jwt, _ = sign_in(
+                    url, anon, "authz-at-admin@teacher-app.test", pw_at_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{at_admin_uid}', 'authz announcements fixture')")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_announcement_publish",
+                            jwt=demo_jwt,
+                            body={"p_title": "authz spoof",
+                                  "p_body": "spoof",
+                                  "p_kind": "general"})
+                check("a teacher cannot publish an announcement",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_announcement_publish",
+                            jwt=at_admin_jwt,
+                            body={"p_title": "authz announcement",
+                                  "p_body": "authz fixture body",
+                                  "p_kind": "update"})
+                at_ann_id = b if isinstance(b, str) and b else None
+                check("admin publishes an announcement",
+                      s == 200 and at_ann_id, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_announcements_for_me",
+                            jwt=demo_jwt,
+                            body={})
+                check("a teacher reads the published announcement via RPC",
+                      s == 200 and isinstance(b, list)
+                      and any(isinstance(x, dict)
+                              and x.get("id") == at_ann_id for x in b),
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/platform_announcements?select=id",
+                            jwt=demo_jwt)
+                check("a teacher reads NO announcement rows directly",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/submit_support_ticket",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_subject": "authz ticket",
+                                  "p_body": "authz fixture body"})
+                at_ticket_id = (b.get("id") if isinstance(b, dict) else None)
+                check("a teacher opens a support ticket",
+                      s == 200 and at_ticket_id, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/support_ticket_thread",
+                            jwt=other_jwt,
+                            body={"p_ticket_id": at_ticket_id})
+                check("another teacher cannot read the ticket thread",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/reply_support_ticket",
+                            jwt=at_admin_jwt,
+                            body={"p_ticket_id": at_ticket_id,
+                                  "p_body": "admin reply"})
+                check("admin reply flips status to waiting_teacher",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("status") == "waiting_teacher"
+                      and b.get("author_kind") == "admin",
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/reply_support_ticket",
+                            jwt=demo_jwt,
+                            body={"p_ticket_id": at_ticket_id,
+                                  "p_body": "teacher reply"})
+                check("teacher reply flips status to in_progress",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("status") == "in_progress"
+                      and b.get("author_kind") == "teacher",
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/set_ticket_status",
+                            jwt=at_admin_jwt,
+                            body={"p_ticket_id": at_ticket_id,
+                                  "p_status": "closed"})
+                check("admin closes the ticket",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("status") == "closed",
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/reply_support_ticket",
+                            jwt=demo_jwt,
+                            body={"p_ticket_id": at_ticket_id,
+                                  "p_body": "too late"})
+                check("a reply to a closed ticket is rejected",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_announcement_delete",
+                            jwt=at_admin_jwt,
+                            body={"p_id": at_ann_id})
+                check("admin deletes the announcement",
+                      s == 200 and b is True, f"got {s} {str(b)[:120]}")
+                audit = sql(ref, "select action, count(*) as c "
+                                 "from platform_audit_log "
+                                 "where action in ('announcement_published', "
+                                 "'announcement_deleted', 'ticket_status_changed') "
+                                 "and (details->>'announcement_id' = "
+                                 f"'{at_ann_id}' or details->>'ticket_id' = "
+                                 f"'{at_ticket_id}') "
+                                 "group by action order by action")
+                acts = {r["action"]: int(r["c"]) for r in audit}
+                check("announcement publish/delete + ticket close left audit rows",
+                      acts.get("announcement_published", 0) >= 1
+                      and acts.get("announcement_deleted", 0) >= 1
+                      and acts.get("ticket_status_changed", 0) >= 1,
+                      f"got {acts}")
+            finally:
+                if at_ann_id:
+                    sql(ref, "delete from platform_announcements "
+                             f"where id = '{at_ann_id}'")
+                if at_ticket_id:
+                    sql(ref, "delete from support_tickets "
+                             f"where id = '{at_ticket_id}'")
+                sql(ref, "delete from platform_audit_log "
+                         "where action in ('announcement_published', "
+                         "'announcement_deleted', 'ticket_status_changed') "
+                         "and (details->>'announcement_id' = "
+                         f"'{at_ann_id}' or details->>'ticket_id' = "
+                         f"'{at_ticket_id}')")
+                sql(ref, "delete from auth.users "
+                         f"where id = '{at_admin_uid}'")
+                left = sql(ref, "select "
+                                "(select count(*) from platform_announcements "
+                                f"where id = '{at_ann_id}') as ann, "
+                                "(select count(*) from support_tickets "
+                                f"where id = '{at_ticket_id}') as tk, "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{at_admin_uid}') as pa")
+                check("0065 fixtures cleaned",
+                      left and int(left[0]["ann"]) == 0
+                      and int(left[0]["tk"]) == 0
+                      and int(left[0]["pa"]) == 0, f"got {left}")
 
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
