@@ -30,8 +30,11 @@ function memberStub(overrides: Partial<TeacherMemberRow>): TeacherMemberRow {
 function renderTeam(overrides: Record<string, unknown> = {}) {
   const cancelMutate = vi.fn()
   const removeMutate = vi.fn()
+  const suspendMutate = vi.fn()
+  const reactivateMutate = vi.fn()
   const setConfirmCancelId = vi.fn()
   const setConfirmRemoveId = vi.fn()
+  const setConfirmSuspendId = vi.fn()
   const stubMutation = (mutate: ReturnType<typeof vi.fn>) =>
     ({ mutate, isPending: false }) as unknown as never
   render(
@@ -55,6 +58,11 @@ function renderTeam(overrides: Record<string, unknown> = {}) {
         setConfirmRemoveId={setConfirmRemoveId}
         confirmCancelId={null}
         setConfirmCancelId={setConfirmCancelId}
+        confirmSuspendId={null}
+        setConfirmSuspendId={setConfirmSuspendId}
+        teamLimit={null}
+        suspendMember={stubMutation(suspendMutate)}
+        reactivateMember={stubMutation(reactivateMutate)}
         handleInvite={vi.fn()}
         handleEmailInvite={vi.fn()}
         invite={stubMutation(vi.fn())}
@@ -68,7 +76,7 @@ function renderTeam(overrides: Record<string, unknown> = {}) {
       </ToastProvider>
     </QueryClientProvider>,
   )
-  return { cancelMutate, removeMutate, setConfirmCancelId, setConfirmRemoveId }
+  return { cancelMutate, removeMutate, suspendMutate, reactivateMutate, setConfirmCancelId, setConfirmRemoveId, setConfirmSuspendId }
 }
 
 afterEach(() => {
@@ -127,5 +135,75 @@ describe('TeamSection — تغذية راجعة للطفرات (PAT-2)', () => {
       onSuccess()
     })
     expect(setConfirmRemoveId).toHaveBeenCalledWith(null)
+  })
+})
+
+describe('TeamSection — حدّ الفريق والإيقاف/التفعيل (T21)', () => {
+  it('سطر الحدّ يظهر المستخدم/الحد عندما يكون معروفاً', () => {
+    renderTeam({ teamLimit: { used: 2, limit: 3, atLimit: false } })
+    expect(
+      screen.getByText(t('settings.teamLimitLine', { used: 2, limit: 3 })),
+    ).toBeInTheDocument()
+  })
+
+  it('عند بلوغ الحدّ يظهر التحذير وتُعطَّل زرارا الدعوة', () => {
+    renderTeam({ teamLimit: { used: 3, limit: 3, atLimit: true } })
+    expect(
+      screen.getByText(t('settings.teamLimitReached', { limit: 3 })),
+    ).toBeInTheDocument()
+    expect(screen.getByText(t('settings.sendInvite')).closest('button')).toBeDisabled()
+    expect(screen.getByText(t('settings.addAssistant')).closest('button')).toBeDisabled()
+  })
+
+  it('بلا حدّ معروف (null) لا يظهر سطر الحدّ ولا تحذير', () => {
+    renderTeam({ teamLimit: null })
+    expect(screen.queryByText(/أعضاء الفريق: /)).not.toBeInTheDocument()
+  })
+
+  it('الضغط على «إيقاف العضو» يفتح وضع التأكيد بمعرّف العضو', () => {
+    const { setConfirmSuspendId } = renderTeam()
+    fireEvent.click(screen.getByText(t('settings.suspendMember')))
+    expect(setConfirmSuspendId).toHaveBeenCalledWith('m-1')
+  })
+
+  it('تأكيد الإيقاف يستدعي الطفرة بمعرّف العضو', () => {
+    const { suspendMutate } = renderTeam({ confirmSuspendId: 'm-1' })
+    fireEvent.click(screen.getByText(t('settings.confirmSuspendMember')))
+    expect(suspendMutate).toHaveBeenCalledWith(
+      'm-1',
+      expect.objectContaining({ onError: expect.any(Function) }),
+    )
+  })
+
+  it('فشل الإيقاف يعرض توست خطأ بالنص الصحيح', () => {
+    const { suspendMutate } = renderTeam({ confirmSuspendId: 'm-1' })
+    fireEvent.click(screen.getByText(t('settings.confirmSuspendMember')))
+    const onError = suspendMutate.mock.calls[0][1].onError as () => void
+    act(() => {
+      onError()
+    })
+    const toastText = screen.getByText(t('settings.suspendMemberFailedToast'))
+    expect(toastText).toBeInTheDocument()
+    expect(toastText.closest('div')).toHaveClass('bg-bad')
+  })
+
+  it('العضو الموقوف يظهر زر إعادة تفعيل بدل زر الإيقاف', () => {
+    const suspended = {
+      id: 'm-1',
+      teacher_id: 't-1',
+      user_id: '11111111-2222-3333-4444-555555555555',
+      member_user_id: '11111111-2222-3333-4444-555555555555',
+      invited_email: 'assistant@example.com',
+      status: 'suspended',
+      permissions: {},
+      created_at: '2026-11-22T00:00:00Z',
+    } as unknown as TeacherMemberRow
+    const { reactivateMutate } = renderTeam({ teamMembers: [suspended] })
+    expect(screen.queryByText(t('settings.suspendMember'))).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText(t('settings.reactivateMember')))
+    expect(reactivateMutate).toHaveBeenCalledWith(
+      'm-1',
+      expect.objectContaining({ onError: expect.any(Function) }),
+    )
   })
 })

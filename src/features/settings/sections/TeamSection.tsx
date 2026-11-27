@@ -17,11 +17,14 @@ import type {
   useCancelTeamInvite,
   useInviteAssistant,
   useInviteAssistantByEmail,
+  useReactivateTeamMember,
   useRemoveTeamMember,
+  useSuspendTeamMember,
   useTeamMembers,
   useUpdateMemberPermissions,
 } from '../../auth/hooks'
 import { TEAM_KEY } from '../../auth/hooks'
+import type { TeamLimitState } from '../teamLimits'
 import { PermChips } from './PermChips'
 import { shortId } from './helpers'
 import { t } from '../../../i18n'
@@ -45,6 +48,11 @@ export function TeamSection({
   setConfirmRemoveId,
   confirmCancelId,
   setConfirmCancelId,
+  confirmSuspendId,
+  setConfirmSuspendId,
+  teamLimit,
+  suspendMember,
+  reactivateMember,
   handleInvite,
   handleEmailInvite,
   invite,
@@ -71,6 +79,12 @@ export function TeamSection({
   setConfirmRemoveId: Dispatch<SetStateAction<string | null>>
   confirmCancelId: string | null
   setConfirmCancelId: Dispatch<SetStateAction<string | null>>
+  confirmSuspendId: string | null
+  setConfirmSuspendId: Dispatch<SetStateAction<string | null>>
+  /** حالة حدّ الفريق (T21) — null تعني الحدّ غير معروف (0059 غير مطبّقة) فيُخفى السطر */
+  teamLimit: TeamLimitState | null
+  suspendMember: ReturnType<typeof useSuspendTeamMember>
+  reactivateMember: ReturnType<typeof useReactivateTeamMember>
   handleInvite: (e: FormEvent) => void
   handleEmailInvite: (e: FormEvent) => void
   invite: ReturnType<typeof useInviteAssistant>
@@ -87,6 +101,22 @@ export function TeamSection({
       <p className="text-muted text-[13.5px] mt-0 mb-3">
         {t('settings.teamIntro')}
       </p>
+
+      {/* سطر حدّ الفريق (T21 — 3A-896): يُخفى كله عندما يكون الحدّ
+          غير معروف بعد (0059 غير مطبّقة) — لا أرقام مخترعة. */}
+      {teamLimit && teamLimit.limit != null && (
+        <p className="text-[13.5px] mt-0 mb-3">
+          {t('settings.teamLimitLine', {
+            used: teamLimit.used,
+            limit: teamLimit.limit,
+          })}
+        </p>
+      )}
+      {teamLimit?.atLimit && (
+        <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-1.5 mb-3 text-[13.5px] text-warn-text">
+          {t('settings.teamLimitReached', { limit: teamLimit.limit ?? 0 })}
+        </div>
+      )}
 
       {/* كل مسار إضافة في بطاقة فرعية مميزة بعنوان وأيقونة
           (3A-324): المساران كانا بلوكين متتاليين بنفس الشكل
@@ -130,7 +160,7 @@ export function TeamSection({
         {emailInviteMsg && (
           <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{emailInviteMsg}</p>
         )}
-        <Button full type="submit" disabled={inviteByEmail.isPending}>
+        <Button full type="submit" disabled={inviteByEmail.isPending || teamLimit?.atLimit === true}>
           <Send size={18} />
           {inviteByEmail.isPending ? t('settings.creatingInvite') : t('settings.sendInvite')}
         </Button>
@@ -229,7 +259,7 @@ export function TeamSection({
         {inviteMsg && (
           <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{inviteMsg}</p>
         )}
-        <Button full type="submit" disabled={invite.isPending}>
+        <Button full type="submit" disabled={invite.isPending || teamLimit?.atLimit === true}>
           <UserPlus size={18} />
           {invite.isPending ? t('settings.adding') : t('settings.addAssistant')}
         </Button>
@@ -269,10 +299,59 @@ export function TeamSection({
                     Object.keys(PERMISSION_LABELS).map((k) => [k, memberPerms[k] === true]),
                   )}
                   onToggle={(key) => toggleMemberPerm(m, key)}
-                  disabled={updatePerms.isPending}
+                  disabled={updatePerms.isPending || m.status === 'suspended'}
                   note={false}
                 />
               </div>
+              {/* إيقاف/تفعيل العضو (T21 — 3A-896): الإيقاف يقطع الوصول
+                  خادمياً فوراً (سياسات المساعد تشترط active)؛ والموقوف
+                  يبقى يشغل مقعداً في حدّ الفريق لأنه قابل للتفعيل. */}
+              {m.status === 'active' &&
+                (confirmSuspendId === m.id ? (
+                  <div className="flex gap-2 mb-2">
+                    <Button
+                      className="flex-1 min-h-[48px] text-[13.5px]"
+                      disabled={suspendMember.isPending}
+                      onClick={() =>
+                        suspendMember.mutate(m.id, {
+                          onSuccess: () => setConfirmSuspendId(null),
+                          onError: () => toast(t('settings.suspendMemberFailedToast'), 'error'),
+                        })
+                      }
+                    >
+                      {t('settings.confirmSuspendMember')}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="flex-1 min-h-[48px] text-[13.5px]"
+                      onClick={() => setConfirmSuspendId(null)}
+                    >
+                      {t('settings.cancel')}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    className="min-h-[48px] text-[13.5px] mb-2"
+                    onClick={() => setConfirmSuspendId(m.id)}
+                  >
+                    {t('settings.suspendMember')}
+                  </Button>
+                ))}
+              {m.status === 'suspended' && (
+                <Button
+                  variant="ghost"
+                  className="min-h-[48px] text-[13.5px] mb-2"
+                  disabled={reactivateMember.isPending}
+                  onClick={() =>
+                    reactivateMember.mutate(m.id, {
+                      onError: () => toast(t('settings.reactivateMemberFailedToast'), 'error'),
+                    })
+                  }
+                >
+                  {t('settings.reactivateMember')}
+                </Button>
+              )}
               {confirmRemoveId === m.id ? (
                 <div className="flex gap-2">
                   <Button

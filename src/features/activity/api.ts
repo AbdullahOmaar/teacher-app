@@ -269,6 +269,8 @@ export const EVENT_TYPE_LABELS: Record<ActivityEventType, string> = {
   member_removed: t('activity.event.member_removed'),
   member_invite_cancelled: t('activity.event.member_invite_cancelled'),
   member_permissions_updated: t('activity.event.member_permissions_updated'),
+  member_suspended: t('activity.event.member_suspended'),
+  member_reactivated: t('activity.event.member_reactivated'),
   proof_approved: t('activity.event.proof_approved'),
   proof_rejected: t('activity.event.proof_rejected'),
   student_deleted: t('activity.event.student_deleted'),

@@ -277,6 +277,8 @@ export type ActivityEventType =
   | 'member_removed'
   | 'member_invite_cancelled'
   | 'member_permissions_updated'
+  | 'member_suspended'
+  | 'member_reactivated'
   | 'proof_approved'
   | 'proof_rejected'
   | 'student_deleted'
