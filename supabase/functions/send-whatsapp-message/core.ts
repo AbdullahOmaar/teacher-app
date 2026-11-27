@@ -18,12 +18,28 @@
 // ← تسجيل «queued» في سجل الرسائل ← إرسال Graph ← تحديث السجل
 // (sent + wamid، أو failed + رمز/رسالة خطأ Meta). لا إرسال بلا سجل:
 // فشل كتابة السجل يوقف الإرسال نفسه (500) — الفشل ظاهر لا صامت.
+//
+// الوضع الداخلي (0073 — المهمة 24 / 3A-900): الإرسال الآلي الحدثي من
+// سلّم قاعدة البيانات (whatsapp_auto_dispatch عبر pg_net) لا يحمل JWT
+// مدرّس أصلاً — درس المهمة 15 §1.2: «مسار خادمي جديد بلا JWT مستخدم».
+// طلب يحمل ترويسة x-wa-internal-secret مطابقة لسرّ الدالة
+// WHATSAPP_AUTO_INTERNAL_SECRET (مقارنة ثابتة الزمن) + ‏internal:true
+// في الجسم يتخطى بوابتي JWT والملكية وحدهما — فالمستدعي هو القاعدة
+// نفسها بعد بوابات السلم (جاهزية + بوابة منصة + opt-in سنتر + opt-out
+// ولي + حصة يومية). كل ما عداهما يبقى حرفياً: Kill switch فوق الكل،
+// والإعداد/القالب/التوكن/حد الشهر (0062)/السجل-أولاً، والسجل يُختم
+// بـ source='auto'. وفي هذا الوضع وحده، مبلغ قالب الفاتورة يُحلّ
+// خادمياً لحظة التنفيذ من invoice_balances (deps.loadInvoiceAmountText)
+// — لا مبلغ وقت الحدث (درس المهمة 9)، وغياب مبلغ نهائي (> 0) يوقف
+// الإرسال بـ 422 قبل أي سجل.
 // ============================================================================
 
 export interface WhatsappMessageEnv {
   WHATSAPP_MESSAGING_ENABLED?: string
   WHATSAPP_GRAPH_VERSION?: string
   WHATSAPP_GRAPH_BASE_URL?: string
+  /** سرّ الوضع الداخلي (0073) — غيابه = الوضع الداخلي معطّل كلياً */
+  WHATSAPP_AUTO_INTERNAL_SECRET?: string
 }
 
 export type WhatsappKind =
@@ -68,6 +84,8 @@ export interface NewMessageLogRow {
   kind: WhatsappKind
   templateName: string
   recipientPhone: string
+  /** مصدر الإرسال (0073): يدوي من التطبيق أو آلي من السلم */
+  source: 'manual' | 'auto'
 }
 
 export interface MessageLogPatch {
@@ -98,6 +116,13 @@ export interface WhatsappMessageDeps {
   checkMessageLimit: (
     teacherId: string,
   ) => Promise<{ allowed: boolean; limit: number | null; used: number } | null>
+  /**
+   * مبلغ فاتورة نهائي كنص جاهز لمعامل القالب (0073 — الوضع الداخلي
+   * فقط): يُقرأ من invoice_balances لحظة التنفيذ؛ null = لا مبلغ
+   * نهائي (> 0) بعد فيُوقف الإرسال. اليدوي لا يستخدمه إطلاقاً —
+   * معاملاته تأتي من التطبيق كما هي.
+   */
+  loadInvoiceAmountText: (teacherId: string, invoiceId: string) => Promise<string | null>
   /** إدخال صف سجل بحالة queued — يرجع معرّفه أو null عند الفشل */
   insertLog: (row: NewMessageLogRow) => Promise<string | null>
   /** تحديث صف السجل بنتيجة الإرسال */
@@ -170,6 +195,14 @@ export function buildUtilityTemplatePayload(
 
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
 
+/** مقارنة أسرار ثابتة الزمن (نمط بوابة send-push الموثّق) */
+function secretsEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
 function isWhatsappKind(value: unknown): value is WhatsappKind {
   return typeof value === 'string' && (WHATSAPP_KINDS as readonly string[]).includes(value)
 }
@@ -189,19 +222,20 @@ export async function handleSendWhatsappMessage(
     return jsonError(503, 'whatsapp messaging not enabled at platform level yet')
   }
 
-  const userId = await deps.getUserId(req)
-  if (!userId) return jsonError(401, 'authentication required')
-
   let teacherId = ''
   let kind: WhatsappKind | null = null
   let recipient = ''
   let params: string[] = []
+  let internalFlag = false
+  let invoiceId = ''
   try {
     const body = (await req.json()) as {
       teacher_id?: unknown
       kind?: unknown
       to?: unknown
       params?: unknown
+      internal?: unknown
+      invoice_id?: unknown
     }
     teacherId = typeof body.teacher_id === 'string' ? body.teacher_id : ''
     if (isWhatsappKind(body.kind)) kind = body.kind
@@ -209,14 +243,48 @@ export async function handleSendWhatsappMessage(
     if (Array.isArray(body.params)) {
       params = body.params.map((p) => (typeof p === 'string' ? p.trim() : ''))
     }
+    internalFlag = body.internal === true
+    invoiceId = typeof body.invoice_id === 'string' ? body.invoice_id : ''
   } catch {
     return jsonError(400, 'invalid json')
   }
+
+  // الوضع الداخلي (0073): سرّ مشترك + علم صريح في الجسم — أي نقص في
+  // أيٍّ منهما يعيد الطلب لمسار JWT العادي حرفياً (لا بوابة خلفية
+  // بنصف شرط). Kill switch فوقُ فُحص قبل هذا الموضع ويبقى فوق الكل.
+  const internalSecret = req.headers.get('x-wa-internal-secret') ?? ''
+  const internal = Boolean(
+    internalFlag &&
+      env.WHATSAPP_AUTO_INTERNAL_SECRET &&
+      secretsEqual(internalSecret, env.WHATSAPP_AUTO_INTERNAL_SECRET),
+  )
+
+  let userId: string | null = null
+  if (!internal) {
+    userId = await deps.getUserId(req)
+    if (!userId) return jsonError(401, 'authentication required')
+  }
+
   if (!UUID_RE.test(teacherId)) return jsonError(400, 'teacher_id required')
   if (!kind) return jsonError(400, 'unknown message kind')
   if (recipient.length < 10 || recipient.length > 15) {
     return jsonError(400, 'invalid recipient phone')
   }
+
+  // مبلغ الفاتورة الآلي يُحلّ لحظة التنفيذ (0073): السلم يمرّر
+  // invoice_id ومعامل مبلغ فارغاً عمداً؛ غياب مبلغ نهائي يوقف الإرسال
+  // هنا قبل أي سجل أو نداء Graph — لا رسالة بمبلغ جزئي أبداً.
+  if (internal && kind === 'invoice_issued' && UUID_RE.test(invoiceId)) {
+    const amountText = await deps.loadInvoiceAmountText(teacherId, invoiceId)
+    if (!amountText) {
+      log(`send-whatsapp-message: auto invoice total not final (teacher ${teacherId})`)
+      return jsonError(422, 'invoice total is not final yet', {
+        code: 'invoice_total_unavailable',
+      })
+    }
+    params = [amountText, params[1] ?? '']
+  }
+
   if (
     params.length !== KIND_PARAM_COUNTS[kind] ||
     params.some((p) => !p || p.length > MAX_PARAM_LENGTH)
@@ -224,10 +292,12 @@ export async function handleSendWhatsappMessage(
     return jsonError(400, 'invalid template parameters')
   }
 
-  const owned = await deps.isOwner(teacherId, userId)
-  if (!owned) {
-    log(`send-whatsapp-message: not owner (teacher ${teacherId})`)
-    return jsonError(403, 'not the owner of this centre')
+  if (!internal) {
+    const owned = await deps.isOwner(teacherId, userId as string)
+    if (!owned) {
+      log(`send-whatsapp-message: not owner (teacher ${teacherId})`)
+      return jsonError(403, 'not the owner of this centre')
+    }
   }
 
   const config = await deps.loadConfig(teacherId)
@@ -270,6 +340,7 @@ export async function handleSendWhatsappMessage(
     kind,
     templateName: template.templateName,
     recipientPhone: recipient,
+    source: internal ? 'auto' : 'manual',
   })
   if (!logId) {
     log(`send-whatsapp-message: log insert failed (teacher ${teacherId})`)
