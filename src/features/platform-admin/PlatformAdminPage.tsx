@@ -24,6 +24,7 @@ import { ErrorState, LoadingState } from '../../components/ui/states'
 import {
   useAddAllowlistEntry,
   useAllowlist,
+  useAuditLog,
   useCreateRoleTemplate,
   useInvalidatePanel,
   usePlatformIndicators,
@@ -32,6 +33,7 @@ import {
   useRegistrationOpen,
   useRemoveAllowlistEntry,
   useRoleTemplates,
+  useSetRegistrationOpen,
   useUpdateRoleTemplate,
 } from './hooks'
 import {
@@ -52,9 +54,11 @@ import {
   planLabel,
 } from './labels'
 import {
+  AUDIT_ACTIONS,
   panelSectionState,
   PLAN_SLUGS,
   whatsappSectionState,
+  type AuditLogRow,
   type PlatformWorkspace,
 } from './panel'
 import { ComingSoonCard, PanelSection } from './PanelSection'
@@ -75,10 +79,12 @@ import {
 
 /**
  * لوحة أدمن المنصة (مهمة 17 — الأساس 0055 + اللوحة الكاملة 0061،
- * الخطوة 7): نظرة عامة ومؤشرات تجميعية + مساحات عمل بإجراءات إدارة
- * (تفعيل/باقة/تجاوزات) + قائمة سماح + قسم واتساب نائم بحالة «قريباً»
- * مصممة. الصفحة لا تُرسم إلا خلف RequirePlatformAdmin، وكل RPC
- * بحارس أدمن خادمي — الدفاع مزدوج (بوابة + قاعدة).
+ * الخطوة 7 + سجل التدقيق 0066، الخطوة 6): نظرة عامة ومؤشرات
+ * تجميعية + مساحات عمل بإجراءات إدارة (تفعيل/باقة/تجاوزات) +
+ * قائمة سماح وقلب قفل التسجيل + سجل تدقيق المنصة + قسم واتساب
+ * نائم بحالة «قريباً» مصممة. الصفحة لا تُرسم إلا خلف
+ * RequirePlatformAdmin، وكل RPC بحارس أدمن خادمي — الدفاع مزدوج
+ * (بوابة + قاعدة).
  * قاعدة مالك 2026-11-26: أي قسم مهاجراته غير مطبّقة بعد يعرض
  * «قريباً» مصممة — لا خطأ خام أبداً؛ والإيراد المتوقع «—» حتى
  * اعتماد الأسعار (قرار مالك م1) — لا رقم مخترع.
@@ -102,6 +108,7 @@ export function PlatformAdminPage() {
         <WorkspacesSection />
         <TemplatesSection />
         <AllowlistSection />
+        <AuditLogSection />
         <ExcelSection />
         <WhatsappSection />
 
@@ -690,6 +697,7 @@ function AllowlistSection() {
   const registrationQ = useRegistrationOpen(true)
   const addM = useAddAllowlistEntry()
   const removeM = useRemoveAllowlistEntry()
+  const toggleM = useSetRegistrationOpen()
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [note, setNote] = useState('')
@@ -743,6 +751,25 @@ function AllowlistSection() {
           <p className="text-muted type-secondary mb-0 mt-1">
             {t('platformAdmin.registrationToggleNote')}
           </p>
+          {registrationQ.data !== null &&
+            registrationQ.data !== undefined && (
+              <div className="mt-3">
+                <Button
+                  size="sm"
+                  disabled={toggleM.isPending}
+                  onClick={() =>
+                    toggleM.mutate(!registrationQ.data)
+                  }
+                >
+                  {registrationQ.data
+                    ? t('platformAdmin.registrationCloseAction')
+                    : t('platformAdmin.registrationOpenAction')}
+                </Button>
+                {toggleM.isError && (
+                  <FormError message={t('platformAdmin.actionError')} />
+                )}
+              </div>
+            )}
         </Card>
 
         {entries.length === 0 ? (
@@ -1052,6 +1079,155 @@ function ExcelSection() {
             </div>
           )}
         </Card>
+      </div>
+    </PanelSection>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// سجل تدقيق المنصة (0066 — الخطوة 6): كل فعل أدمن بفاعله وهدفه ووقته،
+// بمرشّحي حساب وفعل. غياب 0066 يعرض «قريباً» المصممة كأي قسم.
+// ---------------------------------------------------------------------------
+
+/** تسمية فعل التدقيق — الفعل المجهول يظهر كما هو بلا اختراع */
+function auditActionLabel(action: string): string {
+  switch (action) {
+    case 'override_set':
+      return t('platformAdmin.auditActionOverrideSet')
+    case 'override_revoked':
+      return t('platformAdmin.auditActionOverrideRevoked')
+    case 'account_activated':
+      return t('platformAdmin.auditActionAccountActivated')
+    case 'account_deactivated':
+      return t('platformAdmin.auditActionAccountDeactivated')
+    case 'subscription_plan_changed':
+      return t('platformAdmin.auditActionSubscriptionPlanChanged')
+    case 'allowlist_added':
+      return t('platformAdmin.auditActionAllowlistAdded')
+    case 'allowlist_removed':
+      return t('platformAdmin.auditActionAllowlistRemoved')
+    case 'registration_open_changed':
+      return t('platformAdmin.auditActionRegistrationOpenChanged')
+    default:
+      return action
+  }
+}
+
+function AuditLogSection() {
+  const [teacherId, setTeacherId] = useState('')
+  const [action, setAction] = useState('')
+  const [limit, setLimit] = useState(20)
+  const workspacesQ = usePlatformWorkspaces(true)
+  const auditQ = useAuditLog(
+    {
+      limit,
+      offset: 0,
+      teacherId: teacherId === '' ? null : teacherId,
+      action: action === '' ? null : action,
+    },
+    true,
+  )
+
+  const state = panelSectionState({
+    pending: auditQ.isPending,
+    failed: auditQ.isError,
+    missing: auditQ.data === null,
+  })
+  const rows = auditQ.data?.rows ?? []
+  const total = auditQ.data?.total ?? 0
+  const workspaces = workspacesQ.data ?? []
+
+  return (
+    <PanelSection
+      title={t('platformAdmin.auditTitle')}
+      state={state}
+      onRetry={() => void auditQ.refetch()}
+    >
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-[13px] text-muted">
+              {t('platformAdmin.auditTeacherFilter')}
+            </span>
+            <select
+              className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[14px]"
+              value={teacherId}
+              onChange={(e) => {
+                setTeacherId(e.target.value)
+                setLimit(20)
+              }}
+            >
+              <option value="">{t('platformAdmin.auditAllTeachers')}</option>
+              {workspaces.map((w) => (
+                <option key={w.teacherId} value={w.teacherId}>
+                  {w.displayName || w.ownerEmail}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-[13px] text-muted">
+              {t('platformAdmin.auditActionFilter')}
+            </span>
+            <select
+              className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[14px]"
+              value={action}
+              onChange={(e) => {
+                setAction(e.target.value)
+                setLimit(20)
+              }}
+            >
+              <option value="">{t('platformAdmin.auditAllActions')}</option>
+              {AUDIT_ACTIONS.map((a) => (
+                <option key={a} value={a}>
+                  {auditActionLabel(a)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {rows.length === 0 ? (
+          <Card>
+            <p className="text-muted type-secondary mb-0">
+              {t('platformAdmin.auditEmpty')}
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {rows.map((row: AuditLogRow) => (
+              <Card key={row.id}>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <span className="font-semibold text-[14px]">
+                    {auditActionLabel(row.action)}
+                  </span>
+                  <span className="text-muted text-[12.5px]">
+                    {new Date(row.createdAt).toLocaleString('ar-EG')}
+                  </span>
+                </div>
+                <div className="text-[13.5px] text-muted mt-1">
+                  {row.adminLabel ?? t('platformAdmin.auditUnknownAdmin')}
+                  {row.targetLabel ? (
+                    <span> → {row.targetLabel}</span>
+                  ) : row.targetTeacherId ? (
+                    <span> → {t('platformAdmin.auditUnknownTeacher')}</span>
+                  ) : null}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {total > rows.length && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={auditQ.isFetching}
+            onClick={() => setLimit((l) => l + 20)}
+          >
+            {t('platformAdmin.auditShowMore')}
+          </Button>
+        )}
       </div>
     </PanelSection>
   )
