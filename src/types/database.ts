@@ -265,6 +265,39 @@ export type SupplierPayableRow = Tables<'supplier_payables'>
 export type MonthlyCentreFinanceRow = NonNullRow<Tables<'monthly_centre_finance'>>
 
 // ---------------------------------------------------------------------------
+// صفحة المدرّس الشخصية العامة (migration ‏0074، 3A-929).
+// ⚠️ أنواع الجداول في database.generated.ts كُتبت يدوياً مطابقةً لملف
+// المهاجرة حرفياً لأن المهاجرة غير مطبّقة على القاعدة بعد (قاعدة
+// تجميد الفيز 2026-11-25) فلا يستطيع المولّد رؤيتها؛ عند تطبيقها عند
+// بوابة التجميد تُعاد التوليدة بـ scripts/gen_db_types.py للتحقق
+// النهائي — أي اختلاف يظهر هناك يُصحَّح لصالح المخطط الحي.
+// ---------------------------------------------------------------------------
+
+/** نوع محتوى الصفحة — قيد CHECK في المخطط (مقال نصي/كتاب/كورس/قائمة روابط) */
+export type ProfileContentKind = 'article' | 'book' | 'course' | 'playlist'
+
+/** نوع مقيّم الصفحة — قيد CHECK في المخطط (ولي أمر/طالب برابط حقيقي فقط) */
+export type ProfileReviewerKind = 'guardian' | 'student'
+
+/** صفحة المدرّس الشخصية — جدول teacher_profiles (ظهورها افتراضياً مطفأ) */
+export type TeacherProfileRow = Tables<'teacher_profiles'>
+
+/** منشور صفحة — جدول teacher_profile_posts */
+export type TeacherProfilePostRow = Tables<'teacher_profile_posts'>
+
+/** عنصر محتوى صفحة — ‏kind مقيد بقيد CHECK لوحدة ProfileContentKind */
+export type TeacherProfileContentRow = WithFields<
+  Tables<'teacher_profile_content'>,
+  { kind: ProfileContentKind }
+>
+
+/** تقييم صفحة — ‏reviewer_kind مقيد بقيد CHECK لوحدة ProfileReviewerKind */
+export type TeacherProfileRatingRow = WithFields<
+  Tables<'teacher_profile_ratings'>,
+  { reviewer_kind: ProfileReviewerKind }
+>
+
+// ---------------------------------------------------------------------------
 // سجل النشاط — جدول activity_log (migration ‏0009)
 // ---------------------------------------------------------------------------
 

@@ -2753,6 +2753,199 @@ export type Database = {
           },
         ]
       }
+      teacher_profile_content: {
+        Row: {
+          id: string
+          teacher_id: string
+          kind: string
+          title: string
+          description: string | null
+          body: string | null
+          external_url: string | null
+          is_published: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          kind: string
+          title: string
+          description?: string | null
+          body?: string | null
+          external_url?: string | null
+          is_published?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          kind?: string
+          title?: string
+          description?: string | null
+          body?: string | null
+          external_url?: string | null
+          is_published?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_profile_content_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_profile_posts: {
+        Row: {
+          id: string
+          teacher_id: string
+          title: string
+          body: string
+          is_published: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          title: string
+          body: string
+          is_published?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          title?: string
+          body?: string
+          is_published?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_profile_posts_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_profile_ratings: {
+        Row: {
+          id: string
+          teacher_id: string
+          student_id: string
+          reviewer_kind: string
+          guardian_id: string | null
+          stars: number
+          comment: string | null
+          is_hidden: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          student_id: string
+          reviewer_kind: string
+          guardian_id?: string | null
+          stars: number
+          comment?: string | null
+          is_hidden?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          student_id?: string
+          reviewer_kind?: string
+          guardian_id?: string | null
+          stars?: number
+          comment?: string | null
+          is_hidden?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_profile_ratings_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_profile_ratings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_profile_ratings_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_profiles: {
+        Row: {
+          teacher_id: string
+          slug: string
+          headline: string | null
+          bio: string | null
+          cover_image_url: string | null
+          is_public: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          teacher_id: string
+          slug: string
+          headline?: string | null
+          bio?: string | null
+          cover_image_url?: string | null
+          is_public?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          teacher_id?: string
+          slug?: string
+          headline?: string | null
+          bio?: string | null
+          cover_image_url?: string | null
+          is_public?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_profiles_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: true
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_settings: {
         Row: {
           teacher_id: string
@@ -3285,11 +3478,31 @@ export type Database = {
           }
           Returns: Json
         }
+      enrolment_page_by_profile: {
+          Args: {
+            p_slug: string
+          }
+          Returns: Json
+        }
       enrolment_page_by_token: {
           Args: {
             p_token: string
           }
           Returns: Json
+        }
+      enrolment_page_for_teacher: {
+          Args: {
+            p_teacher_id: string
+          }
+          Returns: Json
+        }
+      enrolment_resolve_profile: {
+          Args: {
+            p_slug: string
+          }
+          Returns: {
+            teacher_id: string
+          }[]
         }
       enrolment_resolve_token: {
           Args: {
@@ -3299,9 +3512,33 @@ export type Database = {
             teacher_id: string
           }[]
         }
+      enrolment_submit_by_profile: {
+          Args: {
+            p_slug: string
+            p_student_name: string
+            p_guardian_phone: string
+            p_group_id: string
+            p_wants_trial?: boolean
+            p_note?: string
+            p_honeypot?: string
+          }
+          Returns: Json
+        }
       enrolment_submit_by_token: {
           Args: {
             p_token: string
+            p_student_name: string
+            p_guardian_phone: string
+            p_group_id: string
+            p_wants_trial?: boolean
+            p_note?: string
+            p_honeypot?: string
+          }
+          Returns: Json
+        }
+      enrolment_submit_for_teacher: {
+          Args: {
+            p_teacher_id: string
             p_student_name: string
             p_guardian_phone: string
             p_group_id: string
@@ -3419,6 +3656,19 @@ export type Database = {
       my_platform_admin_aal2: {
           Args: Record<PropertyKey, never>
           Returns: boolean
+        }
+      my_teacher_rating_guardian: {
+          Args: {
+            p_token: string
+            p_student_id: string
+          }
+          Returns: Json
+        }
+      my_teacher_rating_student: {
+          Args: {
+            p_token: string
+          }
+          Returns: Json
         }
       my_subscription: {
           Args: {
@@ -3822,6 +4072,12 @@ export type Database = {
           }
           Returns: undefined
         }
+      teacher_has_personal_page: {
+          Args: {
+            p_teacher_id: string
+          }
+          Returns: boolean
+        }
       student_portal_build_overview: {
           Args: {
             p_student_id: string
@@ -3868,6 +4124,19 @@ export type Database = {
             student_id: string
           }[]
         }
+      public_teacher_profile: {
+          Args: {
+            p_slug: string
+          }
+          Returns: Json
+        }
+      set_teacher_rating_hidden: {
+          Args: {
+            p_rating_id: string
+            p_hidden: boolean
+          }
+          Returns: Json
+        }
       set_ticket_status: {
           Args: {
             p_ticket_id: string
@@ -3888,6 +4157,23 @@ export type Database = {
             p_teacher_id: string
             p_kind: string
             p_body: string
+          }
+          Returns: Json
+        }
+      submit_teacher_rating_guardian: {
+          Args: {
+            p_token: string
+            p_student_id: string
+            p_stars: number
+            p_comment?: string
+          }
+          Returns: Json
+        }
+      submit_teacher_rating_student: {
+          Args: {
+            p_token: string
+            p_stars: number
+            p_comment?: string
           }
           Returns: Json
         }

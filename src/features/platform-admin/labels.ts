@@ -40,6 +40,8 @@ export function featureKeyLabel(key: FeatureKey): string {
       return t('platformAdmin.featureTeamAccounts')
     case 'online_payments':
       return t('platformAdmin.featureOnlinePayments')
+    case 'personal_page':
+      return t('platformAdmin.featurePersonalPage')
     case 'verification_required':
       return t('platformAdmin.featureVerificationRequired')
     case 'verification_channel_email':
