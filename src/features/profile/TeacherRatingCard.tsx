@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Send } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
@@ -50,15 +50,14 @@ export function TeacherRatingCard({
     retry: false,
   })
 
-  useEffect(() => {
-    if (!hydrated && mineQ.data !== undefined) {
-      if (mineQ.data) {
-        setStars(mineQ.data.stars)
-        setComment(mineQ.data.comment ?? '')
-      }
-      setHydrated(true)
+  // تهيئة النجوم/التعليق من التقييم الحالي مرة واحدة (ضبط أثناء التصيير)
+  if (!hydrated && mineQ.data !== undefined) {
+    if (mineQ.data) {
+      setStars(mineQ.data.stars)
+      setComment(mineQ.data.comment ?? '')
     }
-  }, [mineQ.data, hydrated])
+    setHydrated(true)
+  }
 
   const submit = useMutation({
     mutationFn: () =>

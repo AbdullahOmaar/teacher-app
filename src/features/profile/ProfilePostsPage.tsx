@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Chip } from '../../components/ui/form'
 import { DangerConfirmSheet } from '../../components/ui/DangerConfirmSheet'
 import { Field, FormError, TextArea, TextInput } from '../../components/ui/form'
 import { Sheet } from '../../components/ui/Sheet'
@@ -78,7 +77,7 @@ function PostsManager({ teacherId }: { teacherId: string }) {
     }
     if (editing) {
       update.mutate(
-        { id: editing.id, input },
+        { id: editing.id, data: input },
         { onSuccess: done, onError: () => setError(t('profile.errSaveGeneric')) },
       )
     } else {
@@ -93,7 +92,7 @@ function PostsManager({ teacherId }: { teacherId: string }) {
     update.mutate(
       {
         id: post.id,
-        input: { title: post.title, body: post.body, isPublished: !post.is_published },
+        data: { title: post.title, body: post.body, isPublished: !post.is_published },
       },
       { onError: () => toast(t('profile.errSaveGeneric')) },
     )
@@ -117,7 +116,9 @@ function PostsManager({ teacherId }: { teacherId: string }) {
           <Card key={post.id}>
             <div className="flex items-start justify-between gap-2 mb-1">
               <div className="type-section">{post.title}</div>
-              <Chip>{post.is_published ? t('profile.publishedChip') : t('profile.draftChip')}</Chip>
+              <span className="text-[12px] font-bold bg-soft text-muted rounded-full px-2 py-0.5 shrink-0">
+                {post.is_published ? t('profile.publishedChip') : t('profile.draftChip')}
+              </span>
             </div>
             <p className="text-muted type-secondary mb-3 line-clamp-3 whitespace-pre-line">
               {post.body}

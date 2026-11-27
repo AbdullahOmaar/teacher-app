@@ -1,6 +1,5 @@
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Chip } from '../../components/ui/form'
 import { ErrorState, LoadingState } from '../../components/ui/states'
 import { useToast } from '../../components/ui/toast'
 import { t } from '../../i18n'
@@ -54,7 +53,11 @@ function RatingsManager({ teacherId }: { teacherId: string }) {
                   : t('profile.fromStudent', { name: nameOf(rating.student_id) })}
               </span>
               <span className="flex items-center gap-1.5 shrink-0">
-                {rating.is_hidden ? <Chip>{t('profile.hiddenChip')}</Chip> : null}
+                {rating.is_hidden ? (
+                  <span className="text-[12px] font-bold bg-soft text-muted rounded-full px-2 py-0.5">
+                    {t('profile.hiddenChip')}
+                  </span>
+                ) : null}
                 <StarsRow stars={rating.stars} size={14} />
               </span>
             </div>
@@ -67,7 +70,7 @@ function RatingsManager({ teacherId }: { teacherId: string }) {
               disabled={setHidden.isPending}
               onClick={() =>
                 setHidden.mutate(
-                  { ratingId: rating.id, hidden: !rating.is_hidden },
+                  { id: rating.id, hidden: !rating.is_hidden },
                   {
                     onSuccess: () => toast(t('profile.savedToast')),
                     onError: () => toast(t('profile.errSaveGeneric')),

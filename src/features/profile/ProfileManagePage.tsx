@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Copy, ExternalLink } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
@@ -38,17 +38,17 @@ function ProfileForm({ teacherId }: { teacherId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [hydrated, setHydrated] = useState(false)
 
-  useEffect(() => {
-    if (!hydrated && profileQ.data !== undefined) {
-      const p = profileQ.data
-      setSlug(p?.slug ?? '')
-      setHeadline(p?.headline ?? '')
-      setBio(p?.bio ?? '')
-      setCover(p?.cover_image_url ?? '')
-      setIsPublic(p?.is_public ?? false)
-      setHydrated(true)
-    }
-  }, [profileQ.data, hydrated])
+  // تهيئة الحقول من الصف المحمّل مرة واحدة (ضبط حالة أثناء التصيير —
+  // نمط DangerConfirmSheet)؛ بعدها الحقول ملك المستخدم حتى الحفظ
+  if (!hydrated && profileQ.data !== undefined) {
+    const p = profileQ.data
+    setSlug(p?.slug ?? '')
+    setHeadline(p?.headline ?? '')
+    setBio(p?.bio ?? '')
+    setCover(p?.cover_image_url ?? '')
+    setIsPublic(p?.is_public ?? false)
+    setHydrated(true)
+  }
 
   if (profileQ.isPending) return <LoadingState />
   if (profileQ.isError) {

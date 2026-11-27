@@ -438,7 +438,7 @@ export async function fetchMyContent(
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
   if (error) throw error
-  return data ?? []
+  return (data ?? []) as TeacherProfileContentRow[]
 }
 
 export async function createContent(
@@ -493,7 +493,7 @@ export async function fetchMyRatings(
     .eq('teacher_id', teacherId)
     .order('created_at', { ascending: false })
   if (error) throw error
-  return data ?? []
+  return (data ?? []) as TeacherProfileRatingRow[]
 }
 
 /** إخفاء/إظهار تقييم عبر الـ RPC — لا حذف ولا تعديل نص بالتصميم */

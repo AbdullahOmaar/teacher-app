@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
-import { Chip, Select } from '../../components/ui/form'
+import { Select } from '../../components/ui/form'
 import { DangerConfirmSheet } from '../../components/ui/DangerConfirmSheet'
 import { Field, FormError, TextArea, TextInput } from '../../components/ui/form'
 import { Sheet } from '../../components/ui/Sheet'
@@ -108,7 +108,7 @@ function ContentManager({ teacherId }: { teacherId: string }) {
     }
     if (editing) {
       update.mutate(
-        { id: editing.id, input: payload },
+        { id: editing.id, data: payload },
         { onSuccess: done, onError: () => setError(t('profile.errSaveGeneric')) },
       )
     } else {
@@ -123,7 +123,7 @@ function ContentManager({ teacherId }: { teacherId: string }) {
     update.mutate(
       {
         id: item.id,
-        input: {
+        data: {
           kind: item.kind,
           title: item.title,
           description: item.description,
@@ -155,12 +155,14 @@ function ContentManager({ teacherId }: { teacherId: string }) {
             <div className="flex items-start justify-between gap-2 mb-1">
               <div className="type-section">{item.title}</div>
               <span className="flex gap-1.5 shrink-0">
-                <Chip>{KIND_LABELS[item.kind]}</Chip>
-                <Chip>
+                <span className="text-[12px] font-bold bg-soft text-muted rounded-full px-2 py-0.5">
+                  {KIND_LABELS[item.kind]}
+                </span>
+                <span className="text-[12px] font-bold bg-soft text-muted rounded-full px-2 py-0.5">
                   {item.is_published
                     ? t('profile.publishedChip')
                     : t('profile.draftChip')}
-                </Chip>
+                </span>
               </span>
             </div>
             {item.description ? (
