@@ -195,4 +195,23 @@ describe('parseAccountOverrideRow — شكل صف التجاوز', () => {
     ).toBeNull()
     expect(parseAccountOverrideRow(null)).toBeNull()
   })
+
+  it('يحوّل صف إعداد (0063) بقيمة نصية', () => {
+    expect(
+      parseAccountOverrideRow({
+        id: 'o5',
+        kind: 'setting',
+        key: 'confirmation_channel',
+        value: 'whatsapp',
+        reason: 'قالب الطيار',
+        expires_at: null,
+        created_at: '2026-11-26T00:00:00Z',
+      }),
+    ).toMatchObject({
+      id: 'o5',
+      kind: 'setting',
+      key: 'confirmation_channel',
+      value: 'whatsapp',
+    })
+  })
 })

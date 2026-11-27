@@ -10,20 +10,32 @@ import {
 } from '../../components/ui/form'
 import { LoadingState } from '../../components/ui/states'
 import {
+  CONFIRMATION_CHANNELS,
   FEATURE_KEYS,
   LIMIT_KEYS,
+  SETTING_KEYS,
+  type ConfirmationChannel,
   type FeatureKey,
   type LimitKey,
 } from './entitlements'
 import {
   useAccountOverrides,
+  useApplyRoleTemplate,
   useEffectiveEntitlements,
   useRevokeAccountOverride,
+  useRoleTemplates,
   useSetAccountActivated,
   useSetAccountOverride,
   useSetSubscriptionPlan,
 } from './hooks'
-import { featureKeyLabel, limitKeyLabel, overrideKeyLabel, planLabel } from './labels'
+import {
+  confirmationChannelLabel,
+  featureKeyLabel,
+  isConfirmationChannelValue,
+  limitKeyLabel,
+  overrideKeyLabel,
+  planLabel,
+} from './labels'
 import {
   isOverrideActive,
   PLAN_SLUGS,
@@ -68,6 +80,7 @@ export function WorkspaceManager({ workspace }: { workspace: PlatformWorkspace }
       <PlanBlock workspace={workspace} />
       <EntitlementsBlock teacherId={workspace.teacherId} />
       <OverridesBlock teacherId={workspace.teacherId} />
+      <TemplateApplyBlock teacherId={workspace.teacherId} />
     </Card>
   )
 }
@@ -295,6 +308,23 @@ function EntitlementsBlock({ teacherId }: { teacherId: string }) {
               </div>
             )}
           </div>
+          <div>
+            <div className="text-muted text-[12.5px] mb-1">
+              {t('platformAdmin.entitlementsConfirmation')}
+            </div>
+            <div className="text-[15px] font-semibold">
+              {ent.confirmation.required
+                ? t('platformAdmin.confirmationRequiredOn')
+                : t('platformAdmin.confirmationRequiredOff')}
+              {ent.confirmation.channel !== null && (
+                <span className="text-muted font-normal">
+                  {' · '}
+                  {t('platformAdmin.confirmationChannelLabel')}:{' '}
+                  {confirmationChannelLabel(ent.confirmation.channel)}
+                </span>
+              )}
+            </div>
+          </div>
           {ent.overridesApplied.length > 0 && (
             <p className="text-muted type-secondary mb-0">
               {t('platformAdmin.overridesAppliedLabel')}:{' '}
@@ -302,7 +332,11 @@ function EntitlementsBlock({ teacherId }: { teacherId: string }) {
                 .map((entry) => {
                   const [kind, key] = entry.split(':')
                   return overrideKeyLabel(
-                    kind === 'limit' ? 'limit' : 'feature',
+                    kind === 'limit'
+                      ? 'limit'
+                      : kind === 'setting'
+                        ? 'setting'
+                        : 'feature',
                     key ?? '',
                   )
                 })
@@ -324,16 +358,25 @@ function OverridesBlock({ teacherId }: { teacherId: string }) {
   const revokeM = useRevokeAccountOverride()
   const setM = useSetAccountOverride()
 
-  const [kind, setKind] = useState<'feature' | 'limit'>('feature')
+  const [kind, setKind] = useState<'feature' | 'limit' | 'setting'>(
+    'feature',
+  )
   const [key, setKey] = useState<string>(FEATURE_KEYS[0])
   const [featureValue, setFeatureValue] = useState<'on' | 'off'>('on')
   const [limitValue, setLimitValue] = useState('')
+  const [channelValue, setChannelValue] =
+    useState<ConfirmationChannel>('mobile')
   const [reason, setReason] = useState('')
   const [expiresDate, setExpiresDate] = useState('')
   const [reasonError, setReasonError] = useState<string | null>(null)
   const [valueError, setValueError] = useState<string | null>(null)
 
-  const keyOptions = kind === 'feature' ? FEATURE_KEYS : LIMIT_KEYS
+  const keyOptions =
+    kind === 'feature'
+      ? FEATURE_KEYS
+      : kind === 'setting'
+        ? SETTING_KEYS
+        : LIMIT_KEYS
 
   function submit() {
     setReasonError(null)
@@ -342,9 +385,11 @@ function OverridesBlock({ teacherId }: { teacherId: string }) {
       setReasonError(t('platformAdmin.overrideReasonRequired'))
       return
     }
-    let value: boolean | number | null
+    let value: boolean | number | string | null
     if (kind === 'feature') {
       value = featureValue === 'on'
+    } else if (kind === 'setting') {
+      value = channelValue
     } else if (limitValue.trim() === '') {
       value = null
     } else {
@@ -412,9 +457,14 @@ function OverridesBlock({ teacherId }: { teacherId: string }) {
                     ? row.value === true
                       ? t('platformAdmin.overrideValueOn')
                       : t('platformAdmin.overrideValueOff')
-                    : formatLimit(
-                        typeof row.value === 'number' ? row.value : null,
-                      )}{' '}
+                    : row.kind === 'setting'
+                      ? typeof row.value === 'string' &&
+                        isConfirmationChannelValue(row.value)
+                        ? confirmationChannelLabel(row.value)
+                        : String(row.value ?? '')
+                      : formatLimit(
+                          typeof row.value === 'number' ? row.value : null,
+                        )}{' '}
                   <span className="text-muted">
                     ({row.reason}
                     {row.expiresAt
@@ -452,9 +502,15 @@ function OverridesBlock({ teacherId }: { teacherId: string }) {
           <Select
             value={kind}
             onChange={(e) => {
-              const next = e.target.value as 'feature' | 'limit'
+              const next = e.target.value as 'feature' | 'limit' | 'setting'
               setKind(next)
-              setKey(next === 'feature' ? FEATURE_KEYS[0] : LIMIT_KEYS[0])
+              setKey(
+                next === 'feature'
+                  ? FEATURE_KEYS[0]
+                  : next === 'setting'
+                    ? SETTING_KEYS[0]
+                    : LIMIT_KEYS[0],
+              )
             }}
           >
             <option value="feature">
@@ -462,6 +518,9 @@ function OverridesBlock({ teacherId }: { teacherId: string }) {
             </option>
             <option value="limit">
               {t('platformAdmin.overrideKindLimit')}
+            </option>
+            <option value="setting">
+              {t('platformAdmin.overrideKindSetting')}
             </option>
           </Select>
         </Field>
@@ -487,6 +546,19 @@ function OverridesBlock({ teacherId }: { teacherId: string }) {
             >
               <option value="on">{t('platformAdmin.overrideValueOn')}</option>
               <option value="off">{t('platformAdmin.overrideValueOff')}</option>
+            </Select>
+          ) : kind === 'setting' ? (
+            <Select
+              value={channelValue}
+              onChange={(e) =>
+                setChannelValue(e.target.value as ConfirmationChannel)
+              }
+            >
+              {CONFIRMATION_CHANNELS.map((c) => (
+                <option key={c} value={c}>
+                  {confirmationChannelLabel(c)}
+                </option>
+              ))}
             </Select>
           ) : (
             <TextInput
@@ -517,4 +589,150 @@ function OverridesBlock({ teacherId }: { teacherId: string }) {
       </Button>
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// تطبيق قالب جاهز على الحساب (0063) — تجاوز فردي لكل إدخال في القالب
+// ---------------------------------------------------------------------------
+
+function TemplateApplyBlock({ teacherId }: { teacherId: string }) {
+  const templatesQ = useRoleTemplates(true)
+  const applyM = useApplyRoleTemplate()
+
+  const [templateId, setTemplateId] = useState('')
+  const [reason, setReason] = useState('')
+  const [expiresDate, setExpiresDate] = useState('')
+  const [reasonError, setReasonError] = useState<string | null>(null)
+  const [appliedCount, setAppliedCount] = useState<number | null>(null)
+
+  const templates = (templatesQ.data ?? []).filter((tpl) => tpl.isActive)
+  const selected = templates.find((tpl) => tpl.id === templateId) ?? null
+
+  function submit() {
+    setReasonError(null)
+    setAppliedCount(null)
+    if (templateId === '') return
+    if (reason.trim() === '') {
+      setReasonError(t('platformAdmin.templateApplyReasonRequired'))
+      return
+    }
+    applyM.mutate(
+      {
+        templateId,
+        teacherId,
+        reason: reason.trim(),
+        expiresAt: expiresDate === '' ? null : dateInputToIso(expiresDate),
+      },
+      {
+        onSuccess: (ids) => {
+          setAppliedCount(ids === null ? 0 : ids.length)
+          setReason('')
+          setExpiresDate('')
+        },
+      },
+    )
+  }
+
+  return (
+    <div className="border-t border-border pt-4">
+      <h4 className="font-semibold text-[15px] mb-3">
+        {t('platformAdmin.templateApplyTitle')}
+      </h4>
+      {templatesQ.isPending ? (
+        <LoadingState />
+      ) : templatesQ.isError ? (
+        <p className="text-muted type-secondary">
+          {t('platformAdmin.sectionLoadError')}
+        </p>
+      ) : !templatesQ.data ? (
+        <p className="text-muted type-secondary">
+          {t('platformAdmin.comingSoonHint')}
+        </p>
+      ) : templates.length === 0 ? (
+        <p className="text-muted type-secondary">
+          {t('platformAdmin.templateApplyEmpty')}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          <Field label={t('platformAdmin.templateApplyLabel')}>
+            <Select
+              value={templateId}
+              onChange={(e) => {
+                setTemplateId(e.target.value)
+                setAppliedCount(null)
+              }}
+            >
+              <option value="">
+                {t('platformAdmin.templateApplySelectPlaceholder')}
+              </option>
+              {templates.map((tpl) => (
+                <option key={tpl.id} value={tpl.id}>
+                  {tpl.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {selected && (
+            <p className="text-muted type-secondary mb-0">
+              {selected.description !== '' ? selected.description : tplEntriesSummary(selected)}
+            </p>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field
+              label={t('platformAdmin.templateApplyReasonLabel')}
+              error={reasonError}
+            >
+              <TextInput
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
+            <Field label={t('platformAdmin.templateApplyExpiresLabel')}>
+              <TextInput
+                type="date"
+                value={expiresDate}
+                onChange={(e) => setExpiresDate(e.target.value)}
+              />
+            </Field>
+          </div>
+          {applyM.isError && (
+            <FormError message={t('platformAdmin.actionError')} />
+          )}
+          {appliedCount !== null && (
+            <p className="text-[14px] font-semibold mb-0">
+              {t('platformAdmin.templateApplied')} ({appliedCount})
+            </p>
+          )}
+          <Button
+            size="sm"
+            disabled={applyM.isPending || templateId === ''}
+            onClick={submit}
+          >
+            {t('platformAdmin.templateApply')}
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** ملخص إدخالات القالب للعرض: أسماء المفاتيح مفصولة بفاصلة عربية */
+function tplEntriesSummary(tpl: {
+  entitlements: {
+    features: Partial<Record<string, boolean>>
+    limits: Partial<Record<string, number | null>>
+    settings: Partial<Record<string, string>>
+  }
+}): string {
+  const parts: string[] = []
+  for (const key of Object.keys(tpl.entitlements.features)) {
+    parts.push(overrideKeyLabel('feature', key))
+  }
+  for (const key of Object.keys(tpl.entitlements.limits)) {
+    parts.push(overrideKeyLabel('limit', key))
+  }
+  for (const key of Object.keys(tpl.entitlements.settings)) {
+    parts.push(overrideKeyLabel('setting', key))
+  }
+  return parts.join(t('format.daysSeparator'))
 }

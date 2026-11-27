@@ -10,6 +10,9 @@ import { parsePlanLimits, type PlanLimits } from './subscription'
 // ولا إنفاذ حدود (الخطوة 5): هذا الملف قراءة + دالة دمج خالصة.
 // حتى تُطبَّق 0059 عند بوابة تجميد فيز 2 ترجع الدالة null فيُخفى
 // سطر التجاوز في البطاقة — لا قيم مخترعة.
+// 0063 تضيف النوع الثالث 'setting' (قناة التأكيد الواحدة) —
+// خريطة settings تُحلّ مع features/limits في نفس الدمج، وغيابها
+// في الشكل القديم يسقط إلى فارغة بلا كسر.
 // ---------------------------------------------------------------------------
 
 /** مفتاح حد من مفاتيح الباقة */
@@ -33,9 +36,50 @@ export const FEATURE_KEYS = [
   'verification_channel_email',
   'verification_channel_whatsapp',
   'verification_channel_sms',
+  'confirmation_required',
 ] as const
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number]
+
+/** مفتاح إعداد يضبطه التجاوز الفردي (0063 — النوع 'setting') */
+export const SETTING_KEYS = ['confirmation_channel'] as const
+
+export type SettingKey = (typeof SETTING_KEYS)[number]
+
+/** قناة التأكيد الواحدة (تصحيح المالك 17:19 — قيمة واحدة لا مجموعة) */
+export const CONFIRMATION_CHANNELS = ['mobile', 'whatsapp', 'email'] as const
+
+export type ConfirmationChannel = (typeof CONFIRMATION_CHANNELS)[number]
+
+/** إعدادات التأكيد الإلزامي كما تشتق من الخصائص + الإعدادات الفعّالة */
+export interface ConfirmationSettings {
+  /** التأكيد مطلوب (إلزامي عند التفعيل، بلا تخطٍ) — false = النظام مقفول */
+  required: boolean
+  /** قناة التأكيد الواحدة — null = بلا قناة، أي النظام مقفول عملياً */
+  channel: ConfirmationChannel | null
+}
+
+/**
+ * اشتقاق خالص لإعدادات التأكيد الإلزامي (تصحيح المالك 17:19):
+ * required من الخاصية confirmation_required، والقناة من إعداد
+ * confirmation_channel وحده. الافتراضي بلا أي تجاوز: required=false
+ * وقناة null (مقفول). تمييز موثّق عن نظام 3A-905 (verification_*):
+ * ذاك مجموعة قنوات من ثلاثي مفاتيح بوليانية، وهذا قناة واحدة.
+ */
+export function resolveConfirmationSettings(
+  features: Partial<Record<FeatureKey, boolean>>,
+  settings: Partial<Record<SettingKey, string>>,
+): ConfirmationSettings {
+  const channel = settings.confirmation_channel
+  return {
+    required: features.confirmation_required === true,
+    channel:
+      channel !== undefined &&
+      (CONFIRMATION_CHANNELS as readonly string[]).includes(channel)
+        ? (channel as ConfirmationChannel)
+        : null,
+  }
+}
 
 /** قناة تأكيد (3A-905): المجموعة المفعّلة = اتحاد المفاتيح البوليانية */
 export const VERIFICATION_CHANNELS = ['email', 'whatsapp', 'sms'] as const
@@ -78,10 +122,10 @@ export function resolveVerificationSettings(
 
 /** تجاوز واحد كما يصل لدالة الدمج الخالصة (من أي مصدر) */
 export interface OverrideInput {
-  kind: 'feature' | 'limit'
+  kind: 'feature' | 'limit' | 'setting'
   key: string
-  /** الخاصية: بوليان؛ الحد: عدد صحيح ≥ 0 أو null = بلا حد */
-  value: boolean | number | null
+  /** الخاصية: بوليان؛ الحد: عدد صحيح ≥ 0 أو null = بلا حد؛ الإعداد: نص من قائمته */
+  value: boolean | number | string | null
   /** تاريخ الانتهاء — null = دائم؛ المنتهي يُتجاهل في الدمج */
   expiresAt: string | null
 }
@@ -94,8 +138,12 @@ export interface EffectiveEntitlements {
   trialEndsAt: string | null
   limits: PlanLimits
   features: Partial<Record<FeatureKey, boolean>>
+  /** الإعدادات الفعّالة (0063) — خريطة فارغة قبل تطبيق المهاجرة */
+  settings: Partial<Record<SettingKey, string>>
   /** إعدادات التأكيد المشتقة من الخصائص (3A-905) — افتراضياً مقفولة */
   verification: VerificationSettings
+  /** إعدادات التأكيد الإلزامي المشتقة (تصحيح المالك 17:19) — افتراضياً مقفولة */
+  confirmation: ConfirmationSettings
   overridesApplied: string[]
 }
 
@@ -109,6 +157,14 @@ function isFeatureKey(key: string): key is FeatureKey {
   return (FEATURE_KEYS as readonly string[]).includes(key)
 }
 
+function isSettingKey(key: string): key is SettingKey {
+  return (SETTING_KEYS as readonly string[]).includes(key)
+}
+
+function isConfirmationChannel(value: string): value is ConfirmationChannel {
+  return (CONFIRMATION_CHANNELS as readonly string[]).includes(value)
+}
+
 /**
  * دمج خالص: حدود الباقة ⊕ التجاوزات النشطة وحدها — التجاوز يفوز
  * على الباقة دائماً، والمنتهي (expires_at ≤ الآن) يُتجاهل، والمفتاح
@@ -119,9 +175,15 @@ export function mergeEntitlements(
   planLimits: PlanLimits,
   overrides: OverrideInput[],
   now: Date = new Date(),
-): { limits: PlanLimits; features: Partial<Record<FeatureKey, boolean>>; applied: string[] } {
+): {
+  limits: PlanLimits
+  features: Partial<Record<FeatureKey, boolean>>
+  settings: Partial<Record<SettingKey, string>>
+  applied: string[]
+} {
   const limits: PlanLimits = { ...planLimits }
   const features: Partial<Record<FeatureKey, boolean>> = {}
+  const settings: Partial<Record<SettingKey, string>> = {}
   const applied: string[] = []
 
   for (const o of overrides) {
@@ -149,10 +211,15 @@ export function mergeEntitlements(
         features[o.key] = o.value
         applied.push(`feature:${o.key}`)
       }
+    } else if (o.kind === 'setting' && isSettingKey(o.key)) {
+      if (typeof o.value === 'string' && isConfirmationChannel(o.value)) {
+        settings[o.key] = o.value
+        applied.push(`setting:${o.key}`)
+      }
     }
   }
 
-  return { limits, features, applied }
+  return { limits, features, settings, applied }
 }
 
 function parseFeatures(data: unknown): Partial<Record<FeatureKey, boolean>> {
@@ -165,10 +232,26 @@ function parseFeatures(data: unknown): Partial<Record<FeatureKey, boolean>> {
   return out
 }
 
+function parseSettings(data: unknown): Partial<Record<SettingKey, string>> {
+  const out: Partial<Record<SettingKey, string>> = {}
+  if (typeof data !== 'object' || data === null) return out
+  const row = data as Record<string, unknown>
+  for (const key of SETTING_KEYS) {
+    if (
+      typeof row[key] === 'string' &&
+      isConfirmationChannel(row[key])
+    ) {
+      out[key] = row[key]
+    }
+  }
+  return out
+}
+
 /**
  * تحويل حمولة effective_entitlements الخام إلى شكل العميل — null عند
  * غياب الصف أو تشوّهه (فيُخفى سطر التجاوز)؛ حالة غير معروفة تسقط
- * إلى 'trial'.
+ * إلى 'trial'. خريطة settings غائبة في الشكل القديم (قبل 0063)
+ * فتسقط إلى فارغة بلا كسر.
  */
 export function parseEffectiveEntitlements(
   data: unknown,
@@ -190,6 +273,7 @@ export function parseEffectiveEntitlements(
       )
     : []
   const features = parseFeatures(row.features)
+  const settings = parseSettings(row.settings)
   return {
     teacherId: row.teacher_id,
     planSlug: row.plan_slug,
@@ -200,7 +284,9 @@ export function parseEffectiveEntitlements(
         : null,
     limits,
     features,
+    settings,
     verification: resolveVerificationSettings(features),
+    confirmation: resolveConfirmationSettings(features, settings),
     overridesApplied: applied,
   }
 }
