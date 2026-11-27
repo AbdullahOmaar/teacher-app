@@ -3421,6 +3421,8 @@ export type Database = {
         }
       platform_announcements_list: {
           Args: Record<PropertyKey, never>
+          Returns: Json
+        }
       platform_allowlist_add: {
           Args: {
             p_email?: string | null

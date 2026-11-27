@@ -366,6 +366,9 @@ export function useAdminReplyToTicket() {
     mutationFn: (input: { ticketId: string; body: string }) =>
       replyToTicket(input.ticketId, input.body),
     onSuccess: invalidate,
+  })
+}
+
 /** قلب قفل التسجيل (0066 — RPC موثّق) */
 export function useSetRegistrationOpen() {
   const invalidate = useInvalidatePanel()
