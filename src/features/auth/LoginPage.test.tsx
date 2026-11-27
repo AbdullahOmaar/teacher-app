@@ -41,6 +41,14 @@ const api = vi.hoisted(() => ({
   ensureTeacherProfile: vi.fn(),
   signUpNextStep: (hasSession: boolean, instantSignInOk: boolean): 'enter' | 'code' =>
     hasSession || instantSignInOk ? 'enter' : 'code',
+  // نفس عقد الدالة الحقيقية (3A-911): رسالة عربية أو null — النصوص
+  // هنا نسخة الاختبار من رسائل القاموس
+  validateEmailField: (raw: string): string | null => {
+    const email = raw.trim()
+    if (!email) return 'اكتب بريدك الإلكتروني الأول.'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'صيغة البريد الإلكتروني غير صحيحة.'
+    return null
+  },
 }))
 vi.mock('./api', () => api)
 
@@ -241,5 +249,56 @@ describe('LoginPage — حالة تحميل أزرار الإرسال (3A-914)',
     const idleBtn = screen.getByRole('button', { name: 'إرسال كود الاستعادة' }) as HTMLButtonElement
     expect(idleBtn.disabled).toBe(false)
     expect(screen.getByRole('alert').textContent).toContain('تعذّر إرسال رسالة الاستعادة')
+  })
+})
+
+describe('LoginPage — تحقق البريد بالعربية بدل فقاعات المتصفح (3A-911)', () => {
+  afterEach(() => {
+    cleanup()
+  })
+  beforeEach(() => {
+    api.signInWithEmail.mockReset()
+    api.requestPasswordReset.mockReset()
+  })
+
+  it('دخول بلا بريد: رسالة عربية ولا يُستدعى الدخول', () => {
+    renderLogin()
+    fireEvent.change(screen.getByLabelText('كلمة المرور'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'دخول' }))
+    expect(screen.getByRole('alert').textContent).toContain('اكتب بريدك الإلكتروني الأول')
+    expect(api.signInWithEmail.mock.calls.length).toBe(0)
+  })
+
+  it('دخول ببريد فاسد الصيغة: رسالة الصيغة ولا يُستدعى الدخول', () => {
+    renderLogin()
+    fireEvent.change(screen.getByLabelText('البريد الإلكتروني'), {
+      target: { value: 'not-an-email' },
+    })
+    fireEvent.change(screen.getByLabelText('كلمة المرور'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'دخول' }))
+    expect(screen.getByRole('alert').textContent).toContain('صيغة البريد الإلكتروني غير صحيحة')
+    expect(api.signInWithEmail.mock.calls.length).toBe(0)
+  })
+
+  it('دخول بلا كلمة مرور: رسالة عربية ولا يُستدعى الدخول', () => {
+    renderLogin()
+    fireEvent.change(screen.getByLabelText('البريد الإلكتروني'), {
+      target: { value: 'teacher@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'دخول' }))
+    expect(screen.getByRole('alert').textContent).toContain('اكتب كلمة المرور الأول')
+    expect(api.signInWithEmail.mock.calls.length).toBe(0)
+  })
+
+  it('نسيت كلمة المرور بلا بريد: رسالة عربية ولا يُطلب الكود', () => {
+    renderLogin()
+    fireEvent.click(screen.getByRole('button', { name: 'نسيت كلمة المرور؟' }))
+    fireEvent.click(screen.getByRole('button', { name: 'إرسال كود الاستعادة' }))
+    expect(screen.getByRole('alert').textContent).toContain('اكتب بريدك الإلكتروني الأول')
+    expect(api.requestPasswordReset.mock.calls.length).toBe(0)
   })
 })

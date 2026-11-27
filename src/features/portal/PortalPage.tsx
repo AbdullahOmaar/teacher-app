@@ -200,7 +200,7 @@ function PaymentProofSection({
           </p>
         )}
 
-        <form
+        <form noValidate
           onSubmit={(e) => {
             e.preventDefault()
             if (!file) return

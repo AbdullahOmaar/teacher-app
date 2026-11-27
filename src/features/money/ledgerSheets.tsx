@@ -193,7 +193,7 @@ export function PurchaseFormSheet({
         />
       }
     >
-      <form
+      <form noValidate
         id="purchase-form"
         onSubmit={(e) => {
           e.preventDefault()
@@ -288,7 +288,7 @@ export function SaleFormSheet({
         />
       }
     >
-      <form
+      <form noValidate
         id="sale-form"
         onSubmit={(e) => {
           e.preventDefault()
@@ -411,7 +411,7 @@ export function PurchasePaymentSheet({
           remaining: formatMoney(purchase.balance.remaining),
         })}
       </p>
-      <form
+      <form noValidate
         id="purchase-payment-form"
         onSubmit={(e) => {
           e.preventDefault()
@@ -513,7 +513,7 @@ export function SaleCollectSheet({
           remaining: formatMoney(sale.balance.remaining),
         })}
       </p>
-      <form
+      <form noValidate
         id="sale-collect-form"
         onSubmit={(e) => {
           e.preventDefault()
@@ -590,7 +590,7 @@ export function SupplierFormSheet({
         />
       }
     >
-      <form
+      <form noValidate
         id="supplier-form"
         onSubmit={(e) => {
           e.preventDefault()

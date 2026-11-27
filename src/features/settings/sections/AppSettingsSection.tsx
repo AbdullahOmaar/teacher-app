@@ -83,7 +83,7 @@ export function AppSettingsSection({
           }}
         />
       ) : (
-        <form onSubmit={handleSettingsSave}>
+        <form noValidate onSubmit={handleSettingsSave}>
           <Field label={t('settings.waTemplateLabel')}>
             <TextArea
               rows={3}

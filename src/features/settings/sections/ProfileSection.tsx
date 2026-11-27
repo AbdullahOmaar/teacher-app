@@ -33,7 +33,7 @@ export function ProfileSection({
   return (
     <>
       {profileMsg && <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 mb-3 mt-0">{profileMsg}</p>}
-      <form onSubmit={handleProfileSave}>
+      <form noValidate onSubmit={handleProfileSave}>
         <Field label={t('settings.teacherNameLabel')}>
           <TextInput
             value={profileName ?? managedCentre.display_name}

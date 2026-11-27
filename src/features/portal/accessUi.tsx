@@ -202,7 +202,7 @@ export function PortalAccountBlock({
             </div>
           )}
 
-          <form
+          <form noValidate
             onSubmit={(e) => {
               e.preventDefault()
               if (problem || !password) return
@@ -289,7 +289,7 @@ export function PortalLoginForm({
   const [error, setError] = useState<string | null>(null)
 
   return (
-    <form
+    <form noValidate
       onSubmit={(e) => {
         e.preventDefault()
         if (pending) return
@@ -384,7 +384,7 @@ export function ClaimPasswordCard({
   }
 
   return (
-    <form
+    <form noValidate
       onSubmit={(e) => {
         e.preventDefault()
         if (pending || problem || !password) return
@@ -452,7 +452,7 @@ export function SessionAccountCard({
       <div className="font-bold text-[15px] mb-1 flex items-center gap-2">
         <KeyRound size={20} className="text-primary" /> {t('portal.sessionTitle')}
       </div>
-      <form
+      <form noValidate
         onSubmit={(e) => {
           e.preventDefault()
           if (pending || problem || !oldPw || !newPw) return

@@ -125,7 +125,7 @@ export function PhoneAuth() {
       )}
 
       {step === 'phone' ? (
-        <form onSubmit={handleSend}>
+        <form noValidate onSubmit={handleSend}>
           <Field label={t('auth.phoneNumberLabel')}>
             <TextInput
               type="tel"
@@ -148,7 +148,7 @@ export function PhoneAuth() {
           </p>
         </form>
       ) : (
-        <form onSubmit={handleVerify}>
+        <form noValidate onSubmit={handleVerify}>
           <Field label={t('auth.codeLabel')}>
             <TextInput
               type="text"

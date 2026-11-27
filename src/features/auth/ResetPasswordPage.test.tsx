@@ -30,6 +30,13 @@ const api = vi.hoisted(() => ({
   requestPasswordReset: vi.fn(),
   confirmRecoveryWithCode: vi.fn(),
   updatePassword: vi.fn(),
+  // نفس عقد الدالة الحقيقية (3A-911): رسالة عربية أو null
+  validateEmailField: (raw: string): string | null => {
+    const email = raw.trim()
+    if (!email) return 'اكتب بريدك الإلكتروني الأول.'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'صيغة البريد الإلكتروني غير صحيحة.'
+    return null
+  },
 }))
 vi.mock('./api', () => api)
 
@@ -157,5 +164,35 @@ describe('ResetPasswordPage — حالة تحميل أزرار الإرسال (3
     expect(idleBtn.disabled).toBe(false)
     expect(idleBtn.querySelector('.animate-spin')).toBeNull()
     expect(screen.getByRole('alert').textContent).toContain('تعذّر تعيين كلمة المرور')
+  })
+})
+
+describe('ResetPasswordPage — تحقق البريد بالعربية بدل فقاعات المتصفح (3A-911)', () => {
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+  })
+  beforeEach(() => {
+    vi.useFakeTimers()
+    authState.session = null
+    authState.loading = false
+    api.requestPasswordReset.mockReset()
+  })
+
+  it('طلب الكود بلا بريد: رسالة عربية ولا يُطلب الكود', () => {
+    renderReset()
+    fireEvent.click(screen.getByRole('button', { name: 'إرسال كود الاستعادة' }))
+    expect(screen.getByRole('alert').textContent).toContain('اكتب بريدك الإلكتروني الأول')
+    expect(api.requestPasswordReset.mock.calls.length).toBe(0)
+  })
+
+  it('طلب الكود ببريد فاسد الصيغة: رسالة الصيغة ولا يُطلب الكود', () => {
+    renderReset()
+    fireEvent.change(screen.getByLabelText('البريد الإلكتروني'), {
+      target: { value: 'not-an-email' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'إرسال كود الاستعادة' }))
+    expect(screen.getByRole('alert').textContent).toContain('صيغة البريد الإلكتروني غير صحيحة')
+    expect(api.requestPasswordReset.mock.calls.length).toBe(0)
   })
 })
