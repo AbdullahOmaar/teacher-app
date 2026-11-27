@@ -22,6 +22,27 @@ export const assistant = {
   noKeyCta: 'أضف مفتاحك من الإعدادات',
   loadingStatus: 'جارٍ التحقق من حالة المساعد…',
 
+  // --- الوضع الحتمي والإجراءات السريعة (3A-924) ---
+  modeDeterministic:
+    'الوضع الحتمي: المساعد بيشتغل هنا بأوامر محددة وقواعد ثابتة — من غير نموذج لغوي ولا مفتاح.',
+  quickTitle: 'إجراءات سريعة',
+  quickUnpaid: 'المتأخرات',
+  quickUnpaidText: 'مين عليه متأخرات؟',
+  quickAbsence: 'الغياب المتكرر',
+  quickAbsenceText: 'مين غاب كتير؟',
+  quickCollection: 'تحصيل الشهر',
+  quickCollectionText: 'حصّلت كام الشهر ده؟',
+  quickHomework: 'واجب مجموعة',
+  quickHomeworkText: 'واجب {name}',
+  quickSessions: 'حصص مجموعة',
+  quickSessionsText: 'حصص {name} الشهر ده',
+  quickGenerate: 'توليد حصص',
+  quickGenerateText: 'ولّد حصص {name} الشهر ده',
+  quickAddStudent: 'إضافة طالب',
+  quickAddStudentPrefix: 'أضف طالب ',
+  quickPickGroup: 'اختار المجموعة:',
+  quickNoGroups: 'لسه مفيش مجموعات مسجلة.',
+
   // --- مصدر المفتاح واستخدام الذكاء (مهمة 22) ---
   keySourceLabel: 'المفتاح المستخدم',
   keySourceByok: 'مفتاحك الخاص',

@@ -27,6 +27,14 @@ export interface AssistantStatus {
   provider: string | null
   /** مصدر المفتاح الفعّال: مفتاح المدرس (BYOK) أو مفتاح المنصة — null بلا مفتاح */
   key_source: 'byok' | 'platform' | null
+  /**
+   * هل يحتاج المساعد مفتاحاً أصلاً؟ الوضع الحتمي (3A-924) يعمل بقواعد
+   * ثابتة بلا مفتاح → false. غياب الحقل (نشر دالة أقدم) = true — الافتراض
+   * الآمن الذي يُبقي بطاقة «أضف مفتاحك» كما هي.
+   */
+  needs_key: boolean
+  /** وضع المخطط على الخادم: مزوّد (افتراضي) / حتمي / اختباري */
+  planner_mode: 'provider' | 'deterministic' | 'test'
 }
 
 export interface ProviderKeyStatus {
@@ -151,6 +159,13 @@ export async function fetchAssistantStatus(teacherId: string): Promise<Assistant
     has_key: data.has_key === true,
     provider: typeof data.provider === 'string' ? data.provider : null,
     key_source: keySource,
+    needs_key: data.needs_key !== false,
+    planner_mode:
+      data.planner_mode === 'deterministic'
+        ? 'deterministic'
+        : data.planner_mode === 'test'
+          ? 'test'
+          : 'provider',
   }
 }
 
@@ -288,6 +303,22 @@ export async function deleteProviderKey(teacherId: string): Promise<void> {
 // ---------------------------------------------------------------------------
 // قراءات خفيفة لحل أسماء المعاينة في بطاقة الاقتراح (RLS تحكمها كأي قراءة)
 // ---------------------------------------------------------------------------
+
+/**
+ * مجموعات السنتر (غير المؤرشفة) لمنتقي الإجراءات السريعة (3A-924) —
+ * نفس مرشح قائمة الخادم (loadGroups) حتى تتطابق الأسماء مع حلّ المخطط.
+ */
+export async function fetchAssistantGroups(
+  teacherId: string,
+): Promise<{ id: string; name: string }[]> {
+  const { data } = await db()
+    .from('groups')
+    .select('id, name')
+    .eq('teacher_id', teacherId)
+    .is('archived_at', null)
+    .order('name')
+  return (data ?? []).map((g) => ({ id: String(g.id), name: String(g.name) }))
+}
 
 export async function fetchGroupName(
   teacherId: string,

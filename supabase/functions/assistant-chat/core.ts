@@ -28,6 +28,10 @@
 // خلف واجهة AssistantPlanner نفسها، والمخطط الاختباري الحتمي
 // DeterministicTestPlanner يبقى للاختبارات والطيار (يُختار بعلم بيئة
 // ASSISTANT_PLANNER=test في index.ts — افتراضياً المزوّد الحقيقي).
+// والمخطط الحتمي الإنتاجي DeterministicPlanner (3A-924 — أساس المساعد
+// من غير API: قواعد ثابتة فوق سطح التنفيذ نفسه، بلا نموذج ولا مفتاح)
+// يُختار بـ ASSISTANT_PLANNER=deterministic — تفعيله الحي يركب نشر
+// تجميد المرحلة الثانية كعلم ASSISTANT_ENABLED تماماً.
 // أفعال إدارة المفتاح (key_status/key_save/key_delete) ليست خاضعة لعلم
 // القتل: تهيئة المفتاح إعداد مالك، لا تشغيل مساعد — كإعدادات واتساب
 // التي تُحفَظ حتى والمنصة مطفأة. أفعال المحادثة وحدها خلف العلم.
@@ -35,6 +39,14 @@
 
 export interface AssistantEnv {
   ASSISTANT_ENABLED?: string
+  /**
+   * وضع المخطط المضبوط على المنصة (اسم فقط — يُمرَّر من index.ts):
+   * 'deterministic' = المخطط الحتمي الإنتاجي (3A-924 — قواعد ثابتة،
+   * بلا نموذج وبلا مفتاح)، 'test' = البديل الاختباري، وغيابه/أي قيمة
+   * أخرى = مخطط المزوّد (BYOK/منصة). الحالة تستخدمه لتقرير هل يلزم
+   * مفتاح أصلاً — الوضع الحتمي لا يحتاج مفتاحاً.
+   */
+  ASSISTANT_PLANNER?: string
 }
 
 export type AssistantRole = 'owner' | 'assistant'
@@ -285,9 +297,12 @@ export class PlannerError extends Error {
  *   gen-sessions:<groupId>:<YYYY-MM> → اقتراح توليد حصص شهر
  * أي رسالة أخرى تُرفض صراحةً — لا تخمين ولا فهم لغوي هنا.
  */
-export class DeterministicTestPlanner implements AssistantPlanner {
-  async plan(input: PlanInput): Promise<PlannedStep> {
-    const msg = input.message.trim()
+/**
+ * نحو الصيغ الحرفية المنمّطة نفسه — دالة نقية مشتركة: المخطط الاختباري
+ * أعلاه يرفض ما عداها، والمخطط الحتمي الإنتاجي (3A-924) يجرّبها أولاً
+ * ثم ينتقل للأوامر العربية المنمّطة. `msg` مُقلَّم مسبقاً.
+ */
+export function planStrictAssistantCommand(msg: string): PlannedStep {
     if (msg === 'unpaid') return { type: 'read', tool: 'unpaid_students', args: {} }
     if (msg === 'absence' || msg.startsWith('absence:')) {
       const raw = msg === 'absence' ? '' : msg.slice('absence:'.length)
@@ -363,6 +378,12 @@ export class DeterministicTestPlanner implements AssistantPlanner {
     throw new PlannerError(
       'unrecognized command (deterministic test planner — not a model)',
     )
+}
+
+/** البديل الاختباري: النحو الحرفي وحده — وما عداه رفض صريح بلا تخمين */
+export class DeterministicTestPlanner implements AssistantPlanner {
+  async plan(input: PlanInput): Promise<PlannedStep> {
+    return planStrictAssistantCommand(input.message.trim())
   }
 }
 
@@ -883,6 +904,390 @@ export function buildPermissionMatrix(): AssistantPermissionMatrix {
   }
 }
 
+// ----------------------------------------------------------------------------
+// المخطط الحتمي الإنتاجي (3A-924 — أساس المساعد من غير API): قواعد ثابتة
+// فوق سطح التنفيذ الحالي نفسه (5 قراءات + 3 إجراءات من سجل الأدوات) —
+// لا نداء نموذج ولا مفتاح مزوّد. طبقات الفهم بالترتيب:
+// ١) الصيغ الحرفية المنمّطة (نحو المخطط الاختباري نفسه عبر
+//    planStrictAssistantCommand) — وأخطاؤها الصريحة تصل كما هي.
+// ٢) أوامر عربية منمّطة: كلمات مفتاحية فوق نص مُطبَّع (تشكيل/تطويل/
+//    همزات/تاء مربوطة/أرقام عربية)، والكيانات تُحلّ حتمياً: المجموعة
+//    بالاسم من قائمة السنتر، والشهر بعبارات ثابتة أو اسم شهر أو YYYY-MM،
+//    والفترة الصريحة بصيغة «من <تاريخ> إلى <تاريخ>».
+// ٣) الغموض أو غياب كيان لازم = إجابة توضيحية بالقائمة (لا تخمين)،
+//    وأي إدخال آخر = إجابة مصممة بقائمة القدرات — لا خطأ خام ولا فهم
+//    مزيّف. الإجراءات تمرّ بآلة التأكيد نفسها (اقتراح ← هاش ← تأكيد).
+// ----------------------------------------------------------------------------
+
+export interface DeterministicPlannerDeps {
+  /** مجموعات السنتر (اسم + معرّف) لحلّ المجموعة بالاسم — فشلها = قائمة فارغة */
+  loadGroups: (teacherId: string) => Promise<{ id: string; name: string }[]>
+  /** ساعة قابلة للحقن (افتراضياً Date.now) لعبارات «الشهر ده/اللي فات/الجاي» */
+  now?: () => number
+}
+
+const ARABIC_INDIC_DIGITS = '٠١٢٣٤٥٦٧٨٩'
+const EASTERN_ARABIC_DIGITS = '۰۱۲۳۴۵۶۷۸۹'
+
+/**
+ * تطبيع نص عربي للمطابقة الحتمية: الأرقام العربية/المشرقية → لاتينية،
+ * حذف التشكيل والتطويل، توحيد الهمزات (إ/أ/آ→ا) والتاء المربوطة (ة→ه)
+ * والألف المقصورة (ى→ي) والهمزة على نبرة/واو (ئ→ي، ؤ→و). الكلمات
+ * المفتاحية في هذا المخطط مكتوبة بصورتها المُطبَّعة.
+ */
+export function normalizeArabicText(input: string): string {
+  return input
+    .replace(/[٠-٩]/g, (d) => String(ARABIC_INDIC_DIGITS.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String(EASTERN_ARABIC_DIGITS.indexOf(d)))
+    .replace(/[ً-ٰٟ]/g, '')
+    .replace(/ـ/g, '')
+    .replace(/[إأآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/ئ/g, 'ي')
+    .replace(/ؤ/g, 'و')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function includesAnyArabic(norm: string, keywords: string[]): boolean {
+  return keywords.some((k) => norm.includes(k))
+}
+
+/** نص القدرات المصمم — يُبنى من سجل أدوات المساعد نفسه فلا ينحرف عنه */
+export function deterministicCapabilitiesText(): string {
+  const lines = ASSISTANT_TOOL_SCHEMAS.map((s) => `• ${s.description}`)
+  return [
+    'أنا مساعد إجراءات سريع: بنفّذ أوامر محددة بقواعد ثابتة — من غير نموذج لغوي، فمش هفهم أي صياغة حرة. اللي أقدر أعمله:',
+    ...lines,
+    'أي إجراء بيغيّر بيانات بيظهر لك بطاقة تأكيد قبل التنفيذ — مفيش تنفيذ من غير موافقتك.',
+    'أمثلة: «مين عليه متأخرات؟» — «مين غاب كتير؟» — «حصّلت كام الشهر ده؟» — «واجب مجموعة السبت» — «حصص مجموعة السبت الشهر الجاي» — «أضف طالب كريم سامي في مجموعة السبت».',
+  ].join('\n')
+}
+
+/** رد الإدخال غير المفهوم: تصريح صريح + قائمة القدرات (لا فهم مزيّف) */
+export function deterministicFallbackText(): string {
+  return `مش فاهم الصياغة دي. ${deterministicCapabilitiesText()}`
+}
+
+const AR_MONTH_NAMES: Record<string, number> = {
+  يناير: 1,
+  فبراير: 2,
+  مارس: 3,
+  ابريل: 4,
+  مايو: 5,
+  يونيو: 6,
+  يوليو: 7,
+  اغسطس: 8,
+  سبتمبر: 9,
+  اكتوبر: 10,
+  نوفمبر: 11,
+  ديسمبر: 12,
+}
+
+function monthKeyOf(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, '0')}`
+}
+
+function currentMonthKey(nowMs: number): string {
+  const d = new Date(nowMs)
+  return monthKeyOf(d.getUTCFullYear(), d.getUTCMonth() + 1)
+}
+
+function shiftedMonthKey(year: number, month: number, delta: number): string {
+  const d = new Date(Date.UTC(year, month - 1 + delta, 1))
+  return monthKeyOf(d.getUTCFullYear(), d.getUTCMonth() + 1)
+}
+
+/**
+ * عبارة الشهر في النص المُطبَّع → 'YYYY-MM' أو null (لا عبارة شهر).
+ * الترتيب: صيغة YYYY-MM حرفية، عبارات نسبية (الجاي/اللي فات/ده)،
+ * «شهر <رقم>»، ثم اسم شهر عربي (بالسنة الحالية ما لم تُذكر سنة صريحة).
+ */
+export function resolveMonthPhrase(norm: string, nowMs: number): string | null {
+  const literal = norm.match(/(\d{4})-(\d{1,2})/)
+  if (literal) {
+    const m = Number(literal[2])
+    if (m >= 1 && m <= 12) return monthKeyOf(Number(literal[1]), m)
+  }
+  const now = new Date(nowMs)
+  const year = now.getUTCFullYear()
+  const month = now.getUTCMonth() + 1
+  if (/الشهر (الجاي|القادم|اللي جاي)/.test(norm)) return shiftedMonthKey(year, month, 1)
+  if (/الشهر (اللي فات|الماضي|السابق)/.test(norm)) return shiftedMonthKey(year, month, -1)
+  if (/الشهر (ده|الحالي)|هذا الشهر/.test(norm)) return monthKeyOf(year, month)
+  const yearMatch = norm.match(/\b(20\d{2})\b/)
+  const namedYear = yearMatch ? Number(yearMatch[1]) : year
+  const numeric = norm.match(/شهر\s+(\d{1,2})\b/)
+  if (numeric) {
+    const m = Number(numeric[1])
+    if (m >= 1 && m <= 12) return monthKeyOf(namedYear, m)
+  }
+  for (const [name, m] of Object.entries(AR_MONTH_NAMES)) {
+    if (norm.includes(name)) return monthKeyOf(namedYear, m)
+  }
+  return null
+}
+
+/** حدود شهر كاملة (أول يوم ← آخر يوم) لفترة التحصيل */
+function monthDateRange(month: string): { from: string; to: string } {
+  const [y, m] = month.split('-').map(Number)
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  return { from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, '0')}` }
+}
+
+function parseDateToken(token: string): string | null {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(token)) return isIsoDate(token) ? token : null
+  const m = token.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (!m) return null
+  const iso = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+  return isIsoDate(iso) ? iso : null
+}
+
+/** فترة صريحة «من <تاريخ> إلى <تاريخ>» (ISO أو DD/MM/YYYY) أو null */
+function parseExplicitDateRange(norm: string): { from: string; to: string } | null {
+  const m = norm.match(/من\s+(\S+)\s+(?:الي|الى|لحد|حتي)\s+(\S+)/)
+  if (!m) return null
+  const from = parseDateToken(m[1])
+  const to = parseDateToken(m[2])
+  if (!from || !to || from > to) return null
+  return { from, to }
+}
+
+function firstIntegerIn(norm: string): number | null {
+  const m = norm.match(/\d+/)
+  if (!m) return null
+  const n = Number(m[0])
+  return Number.isInteger(n) ? n : null
+}
+
+type GroupResolution =
+  | { status: 'one'; group: { id: string; name: string } }
+  | { status: 'none' }
+  | { status: 'many'; matches: { id: string; name: string }[] }
+
+/**
+ * حلّ المجموعة بالاسم داخل النص المُطبَّع: مطابقة الاسم الكامل (مُطبَّعاً)
+ * داخل الأمر. مجموعة واحدة في السنتر كله = هي المقصودة حتماً (لا بديل).
+ */
+function resolveGroupByName(
+  norm: string,
+  groups: { id: string; name: string }[],
+): GroupResolution {
+  const matches = groups.filter((g) => {
+    const name = normalizeArabicText(g.name)
+    return name.length > 0 && norm.includes(name)
+  })
+  if (matches.length === 1) return { status: 'one', group: matches[0] }
+  if (matches.length > 1) return { status: 'many', matches }
+  if (groups.length === 1) return { status: 'one', group: groups[0] }
+  return { status: 'none' }
+}
+
+/** سؤال التوضيح عند غياب/غموض المجموعة — بالقائمة، لا تخمين */
+function groupClarificationText(
+  example: string,
+  groups: { id: string; name: string }[],
+  res: GroupResolution,
+): string {
+  if (res.status === 'many') {
+    return [
+      'الاسم ده بيطابق أكتر من مجموعة — حدد واحدة باسمها الكامل:',
+      ...res.matches.map((g) => `• ${g.name}`),
+      `مثال: «${example}»`,
+    ].join('\n')
+  }
+  if (groups.length === 0) {
+    return 'مش لاقي مجموعات مسجلة للسنتر ده أقدر أشتغل عليها — راجع صفحة المجموعات الأول.'
+  }
+  return [
+    'محتاج اسم المجموعة في الأمر. المجموعات المتاحة:',
+    ...groups.map((g) => `• ${g.name}`),
+    `مثال: «${example}»`,
+  ].join('\n')
+}
+
+const EGYPTIAN_PHONE_PATTERN = /01[0125][0-9٠-٩]{8}/
+
+/** رقم موبايل مصري داخل النص الخام (أرقامه قد تكون عربية) أو null */
+function extractEgyptianPhone(raw: string): string | null {
+  const m = raw.match(EGYPTIAN_PHONE_PATTERN)
+  if (!m) return null
+  return normalizeArabicText(m[0])
+}
+
+/**
+ * اسم الطالب من النص الخام (لا المُطبَّع — الاسم يُخزَّن كما كتبه المدرّس):
+ * ما بعد «طالب/طالبة/طالباً» حتى علامة المجموعة («في/لـ/بـ مجموعة» أو
+ * «مجموعة»)، بلا رقم الموبايل إن وُجد.
+ */
+export function extractAddedStudentName(raw: string): string {
+  const idx = raw.indexOf('طالب')
+  if (idx < 0) return ''
+  let rest = raw.slice(idx + 'طالب'.length)
+  // ما يلتصق بـ«طالب» مباشرة (تاء طالبة/ألف تنوين طالباً) ليس من الاسم
+  if (rest.startsWith('ة')) rest = rest.slice(1)
+  else if (rest.startsWith('اً')) rest = rest.slice(2)
+  else if (/^ا\s/.test(rest)) rest = rest.slice(1)
+  for (const marker of [' في مجموعة', ' لمجموعة', ' بمجموعة', ' مجموعة']) {
+    const cut = rest.indexOf(marker)
+    if (cut > 0) {
+      rest = rest.slice(0, cut)
+      break
+    }
+  }
+  return rest
+    .replace(EGYPTIAN_PHONE_PATTERN, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[،,.\s]+|[،,.\s؟?]+$/g, '')
+    .trim()
+}
+
+const STRICT_COMMAND_PATTERN =
+  /^(?:unpaid|absence(?::.*)?|collect:.*|add-student:.*|homework:.*|sessions:.*|set-homework:.*|gen-sessions:.*)$/s
+
+export class DeterministicPlanner implements AssistantPlanner {
+  private deps: DeterministicPlannerDeps
+  constructor(deps: DeterministicPlannerDeps) {
+    this.deps = deps
+  }
+
+  async plan(input: PlanInput): Promise<PlannedStep> {
+    const raw = input.message.trim()
+    // ١) الصيغ الحرفية المنمّطة أولاً — نفس نحو المخطط الاختباري حرفياً
+    if (STRICT_COMMAND_PATTERN.test(raw)) return planStrictAssistantCommand(raw)
+
+    const norm = normalizeArabicText(raw)
+    if (!norm) return { type: 'answer', text: deterministicFallbackText() }
+    const now = this.deps.now ?? (() => Date.now())
+
+    let groupsCache: { id: string; name: string }[] | null = null
+    const loadGroupsOnce = async (): Promise<{ id: string; name: string }[]> => {
+      if (groupsCache === null) {
+        groupsCache = await this.deps.loadGroups(input.teacherId).catch(() => [])
+      }
+      return groupsCache
+    }
+    const answer = (text: string): PlannedStep => ({ type: 'answer', text })
+
+    // المساعدة/القدرات
+    if (
+      includesAnyArabic(norm, [
+        'مساعده',
+        'ساعدني',
+        'الاوامر',
+        'تقدر تعمل ايه',
+        'ايه اللي تقدر',
+      ])
+    ) {
+      return answer(deterministicCapabilitiesText())
+    }
+
+    // تعليم الواجب يحتاج معرّفات من نتيجة سابقة — لا صياغة حرة له:
+    // إرشاد صادق للصيغة المنمّطة بدل أي تنفيذ يُفهم خطأً.
+    if (norm.includes('واجب') && includesAnyArabic(norm, ['علم', 'سلم الواجب'])) {
+      return answer(
+        'تعليم الواجب بيحتاج معرّف الحصة والطالب من نتيجة سابقة: اطلب ملخص واجب المجموعة الأول، وبعدين استخدم الصيغة المنمّطة set-homework:<sessionId>:<studentId>:<1|0> — وهيظهر لك بطاقة تأكيد قبل أي تنفيذ.',
+      )
+    }
+
+    // توليد الحصص (إجراء) — قبل قراءة الحصص لأن صياغته تحمل «حصص»
+    if (
+      norm.includes('حصص') &&
+      includesAnyArabic(norm, ['ولد', 'انشي', 'جهز حصص', 'طلع حصص', 'اعمل حصص'])
+    ) {
+      const groups = await loadGroupsOnce()
+      const res = resolveGroupByName(norm, groups)
+      if (res.status !== 'one') {
+        return answer(groupClarificationText('ولّد حصص مجموعة السبت الشهر الجاي', groups, res))
+      }
+      const month = resolveMonthPhrase(norm, now())
+      if (!month) {
+        return answer(
+          'لأي شهر أولّد الحصص؟ اكتب الشهر في الأمر — «الشهر ده» أو «الشهر الجاي» أو اسم شهر (ديسمبر) أو صيغة 2026-12.',
+        )
+      }
+      return {
+        type: 'action',
+        tool: 'generate_sessions',
+        payload: { group_id: res.group.id, month },
+      }
+    }
+
+    // إضافة طالب (إجراء): الاسم من النص الخام، والمجموعة بالاسم، ورقم
+    // الموبايل اختياري. غياب الاسم أو المجموعة = توضيح لا اقتراح ناقص.
+    if (
+      norm.includes('طالب') &&
+      includesAnyArabic(norm, ['اضف', 'ضيف', 'زود', 'سجل', 'دخل'])
+    ) {
+      const groups = await loadGroupsOnce()
+      const res = resolveGroupByName(norm, groups)
+      const name = extractAddedStudentName(raw)
+      if (!name) {
+        return answer('اكتب اسم الطالب في الأمر — مثال: «أضف طالب كريم سامي في مجموعة السبت».')
+      }
+      if (res.status !== 'one') {
+        return answer(groupClarificationText('أضف طالب كريم سامي في مجموعة السبت', groups, res))
+      }
+      const payload: Record<string, unknown> = { name, group_id: res.group.id }
+      const phone = extractEgyptianPhone(raw)
+      if (phone) payload.phone = phone
+      return { type: 'action', tool: 'add_student', payload }
+    }
+
+    // المتأخرات (قراءة)
+    if (includesAnyArabic(norm, ['متاخر', 'مديون', 'عليه فلوس', 'المستحقات', 'دفعش'])) {
+      return { type: 'read', tool: 'unpaid_students', args: {} }
+    }
+
+    // الغياب (قراءة) — الحد من أول رقم في الأمر، وافتراضياً 3 كالنحو الحرفي
+    if (includesAnyArabic(norm, ['غياب', 'غاب', 'الغايبين', 'بيغيب'])) {
+      const n = firstIntegerIn(norm)
+      return {
+        type: 'read',
+        tool: 'absence_summary',
+        args: { min_absences: n !== null && n >= 1 ? n : 3 },
+      }
+    }
+
+    // التحصيل (قراءة): فترة صريحة، وإلا شهر العبارة، وإلا الشهر الحالي
+    if (includesAnyArabic(norm, ['تحصيل', 'حصلت', 'المحصل', 'جمعت', 'لميت'])) {
+      const explicit = parseExplicitDateRange(norm)
+      if (explicit) return { type: 'read', tool: 'collection_summary', args: explicit }
+      const month = resolveMonthPhrase(norm, now()) ?? currentMonthKey(now())
+      return { type: 'read', tool: 'collection_summary', args: monthDateRange(month) }
+    }
+
+    // الواجب (قراءة) — يحتاج مجموعة محددة
+    if (norm.includes('واجب')) {
+      const groups = await loadGroupsOnce()
+      const res = resolveGroupByName(norm, groups)
+      if (res.status !== 'one') {
+        return answer(groupClarificationText('واجب مجموعة السبت', groups, res))
+      }
+      return { type: 'read', tool: 'homework_summary', args: { group_id: res.group.id } }
+    }
+
+    // حصص مجموعة في شهر (قراءة) — الشهر افتراضياً الحالي
+    if (includesAnyArabic(norm, ['حصص', 'حصه'])) {
+      const groups = await loadGroupsOnce()
+      const res = resolveGroupByName(norm, groups)
+      if (res.status !== 'one') {
+        return answer(groupClarificationText('حصص مجموعة السبت الشهر ده', groups, res))
+      }
+      const month = resolveMonthPhrase(norm, now()) ?? currentMonthKey(now())
+      return {
+        type: 'read',
+        tool: 'sessions_overview',
+        args: { group_id: res.group.id, month },
+      }
+    }
+
+    // ٣) لا نية معروفة: الرد المصمم بقائمة القدرات
+    return answer(deterministicFallbackText())
+  }
+}
+
 function hasToolPermission(ctx: CallerContext, spec: ToolSpec): boolean {
   return ctx.role === 'owner' || ctx.permissions[spec.permission] === true
 }
@@ -1215,12 +1620,22 @@ export async function handleAssistantChat(
       provider: null,
       model: null,
     }
+    const deterministicMode = env.ASSISTANT_PLANNER === 'deterministic'
     return json(200, {
       status: 'ok',
       enabled: env.ASSISTANT_ENABLED === 'true',
       has_key: row !== null || platform.configured,
       provider: row?.provider ?? platform.provider,
       key_source: row !== null ? 'byok' : platform.configured ? 'platform' : null,
+      // الوضع الحتمي (3A-924) لا يحتاج مفتاحاً أصلاً: العميل يعرض
+      // المحادثة بلا بطاقة «أضف مفتاحك». نشر أقدم بلا الحقل = يحتاج
+      // مفتاحاً (الافتراض الآمن في العميل).
+      needs_key: !deterministicMode,
+      planner_mode: deterministicMode
+        ? 'deterministic'
+        : env.ASSISTANT_PLANNER === 'test'
+          ? 'test'
+          : 'provider',
     })
   }
   if (action === 'permissions') {
