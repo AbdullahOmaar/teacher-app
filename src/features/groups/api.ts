@@ -2,6 +2,7 @@ import { t } from '../../i18n'
 import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { logActivity } from '../activity/api'
+import { parseGroupSlots } from './slots'
 import type {
   EnrollmentRow,
   GroupInput,
@@ -14,6 +15,32 @@ import type {
 
 const GROUP_COLS =
   'id, teacher_id, name, billing_type, price, days, start_time, duration_minutes, slots, room, capacity, assistant_name, links, archived_at, created_at, updated_at'
+/** قائمة الأعمدة قبل مهاجرة 0070 — تُستخدم عند كشف غياب عمود slots (نمط #27) */
+const GROUP_COLS_LEGACY =
+  'id, teacher_id, name, billing_type, price, days, start_time, duration_minutes, room, capacity, assistant_name, links, archived_at, created_at, updated_at'
+
+/**
+ * قراءة متسامحة لعمود slots (مهاجرة 0070، بوابة التجميد — نمط #27):
+ * على قاعدة بلا المهاجرة يرفض PostgREST الـ select بـ PGRST204 —
+ * نرجع لقائمة الأعمدة القديمة ونشتق المواعيد من المرايا (parseGroupSlots)،
+ * فتبقى قراءة المجموعات وكتابتها شغالة حتى تطبيق 0070.
+ */
+export function isMissingSlotsColumn(error: {
+  code?: string
+  message?: string
+} | null): boolean {
+  if (!error) return false
+  return error.code === 'PGRST204' || (error.message ?? '').includes('slots')
+}
+
+/** إكمال صف مجموعة قديم (بلا slots) بالمواعيد المشتقة من مراياه */
+export function withSlotsFromLegacy(
+  row: Omit<GroupRow, 'slots'> & { slots?: unknown },
+): GroupRow {
+  // القيمة المشتقة مصفوفة JSON صالحة حرفياً (كائنات يوم/وقت/مدة) — الصب
+  // هنا جسر بين نوع GroupSlot الدقيق ونوع Json المولّد لا تغيير قيمة.
+  return { ...row, slots: parseGroupSlots(row.slots, row) as unknown as GroupRow['slots'] }
+}
 const ENROLLMENT_COLS = 'id, teacher_id, student_id, group_id, price_override, prepaid_sessions, created_at'
 const WAITLIST_COLS = 'id, teacher_id, group_id, name, phone, note, source, wants_trial, created_at'
 
@@ -32,7 +59,18 @@ export async function fetchGroups(teacherId: string): Promise<GroupRow[]> {
     .select(GROUP_COLS)
     .eq('teacher_id', teacherId)
     .order('created_at', { ascending: true })
-  if (error) throw error
+  if (error) {
+    if (isMissingSlotsColumn(error)) {
+      const retry = await db()
+        .from('groups')
+        .select(GROUP_COLS_LEGACY)
+        .eq('teacher_id', teacherId)
+        .order('created_at', { ascending: true })
+      if (retry.error) throw retry.error
+      return (retry.data ?? []).map(withSlotsFromLegacy)
+    }
+    throw error
+  }
   return data ?? []
 }
 
@@ -43,7 +81,19 @@ export async function fetchGroup(teacherId: string, groupId: string): Promise<Gr
     .eq('teacher_id', teacherId)
     .eq('id', groupId)
     .maybeSingle()
-  if (error) throw error
+  if (error) {
+    if (isMissingSlotsColumn(error)) {
+      const retry = await db()
+        .from('groups')
+        .select(GROUP_COLS_LEGACY)
+        .eq('teacher_id', teacherId)
+        .eq('id', groupId)
+        .maybeSingle()
+      if (retry.error) throw retry.error
+      return retry.data ? withSlotsFromLegacy(retry.data) : null
+    }
+    throw error
+  }
   return data ?? null
 }
 
@@ -64,12 +114,28 @@ function groupPayload(input: GroupInput) {
 }
 
 export async function createGroup(teacherId: string, input: GroupInput): Promise<GroupRow> {
+  const payload = groupPayload(input)
   const { data, error } = await db()
     .from('groups')
-    .insert({ teacher_id: teacherId, ...groupPayload(input) })
+    .insert({ teacher_id: teacherId, ...payload })
     .select(GROUP_COLS)
     .single()
-  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+  if (error) {
+    if (isMissingSlotsColumn(error)) {
+      // قاعدة بلا 0070: المرايا في الحمولة نفسها تكفي — نسقط slots ونعيد
+      const { slots: _dropped, ...withoutSlots } = payload
+      void _dropped
+      const retry = await db()
+        .from('groups')
+        .insert({ teacher_id: teacherId, ...withoutSlots })
+        .select(GROUP_COLS_LEGACY)
+        .single()
+      if (retry.error)
+        throw friendlyDbError(retry.error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+      return withSlotsFromLegacy(retry.data)
+    }
+    throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+  }
   return data
 }
 
@@ -78,14 +144,31 @@ export async function updateGroup(
   groupId: string,
   input: GroupInput,
 ): Promise<GroupRow> {
+  const payload = groupPayload(input)
   const { data, error } = await db()
     .from('groups')
-    .update(groupPayload(input))
+    .update(payload)
     .eq('teacher_id', teacherId)
     .eq('id', groupId)
     .select(GROUP_COLS)
     .single()
-  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+  if (error) {
+    if (isMissingSlotsColumn(error)) {
+      const { slots: _dropped, ...withoutSlots } = payload
+      void _dropped
+      const retry = await db()
+        .from('groups')
+        .update(withoutSlots)
+        .eq('teacher_id', teacherId)
+        .eq('id', groupId)
+        .select(GROUP_COLS_LEGACY)
+        .single()
+      if (retry.error)
+        throw friendlyDbError(retry.error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+      return withSlotsFromLegacy(retry.data)
+    }
+    throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+  }
   return data
 }
 
