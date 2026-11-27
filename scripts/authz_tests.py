@@ -2832,6 +2832,159 @@ def main():
                       and int(left[0]["ov"]) == 0
                       and int(left[0]["tm"]) == 0, f"got {left}")
 
+        # ---------- NEW-DEVICE ALERTS (0068 — T23 تنبيهات الأجهزة الجديدة) ----------
+        # ⚠️ المهاجرة 0068 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن
+        # غاب يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: تسجيل جهاز الأدمن ببصمة SHA-256 (upsert + is_new) +
+        # قائمة أجهزته + توثيق/إلغاء — كلها بحارس is_platform_admin().
+        print("NEW-DEVICE ALERTS (0068):")
+        dev_probe = sql(ref, "select to_regclass('public.platform_admin_devices') as t")
+        if not dev_probe or not dev_probe[0].get("t"):
+            print("  SKIP 0068 live section — migration 0068 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PLATFORM-ADMIN-DEVICE-ALERTS.md)")
+        else:
+            pw_dev_admin = secrets.token_urlsafe(18)
+            dev_admin_uid = create_user_sql(
+                ref, "authz-dev-admin@teacher-app.test", pw_dev_admin)
+            dev_id = None
+            try:
+                dev_admin_jwt, _ = sign_in(
+                    url, anon, "authz-dev-admin@teacher-app.test",
+                    pw_dev_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{dev_admin_uid}', 'authz devices fixture')")
+                dev_hash = "b" * 64
+                # سلبيات: المدرّس والمجهول لا يسجلان جهازاً ولا يقرآن قائمة
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/register_platform_device",
+                            jwt=demo_jwt,
+                            body={"p_device_hash": dev_hash, "p_label": "chrome / windows"})
+                check("a teacher cannot register a device",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/register_platform_device",
+                            body={"p_device_hash": dev_hash, "p_label": "chrome / windows"})
+                check("anon cannot register a device",
+                      s in (401, 403, 404), f"got {s}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/list_platform_devices",
+                            jwt=demo_jwt)
+                check("a teacher lists no devices (empty, not an error)",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                # هاش مشوه يُرفض من الضابط نفسه
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/register_platform_device",
+                            jwt=dev_admin_jwt,
+                            body={"p_device_hash": "not-a-hash", "p_label": "x"})
+                check("a malformed device hash is rejected",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                # إيجابية: أول تسجيل is_new=true، والثاني is_new=false
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/register_platform_device",
+                            jwt=dev_admin_jwt,
+                            body={"p_device_hash": dev_hash, "p_label": "chrome / windows"})
+                dev_row = b[0] if isinstance(b, list) and b else None
+                dev_id = dev_row.get("device_id") if dev_row else None
+                check("admin registers a device (is_new=true)",
+                      s == 200 and dev_row and dev_row.get("is_new") is True and dev_id,
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/register_platform_device",
+                            jwt=dev_admin_jwt,
+                            body={"p_device_hash": dev_hash, "p_label": "chrome / windows"})
+                check("re-registering the same device is not new",
+                      s == 200 and isinstance(b, list) and b
+                      and b[0].get("is_new") is False,
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/list_platform_devices",
+                            jwt=dev_admin_jwt)
+                check("admin lists exactly one device",
+                      s == 200 and isinstance(b, list) and len(b) == 1
+                      and b[0].get("device_hash") == dev_hash,
+                      f"got {s} {str(b)[:120]}")
+                # توثيق ثم إلغاء
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/trust_platform_device",
+                            jwt=dev_admin_jwt,
+                            body={"p_device_id": dev_id})
+                check("admin trusts the device",
+                      s == 200 and b is True, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/list_platform_devices",
+                            jwt=dev_admin_jwt)
+                check("the device shows trusted after trust",
+                      s == 200 and isinstance(b, list) and b
+                      and b[0].get("trusted") is True,
+                      f"got {s} {str(b)[:120]}")
+                # جهاز غير موجود: التوثيق يرجع null لا true
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/trust_platform_device",
+                            jwt=dev_admin_jwt,
+                            body={"p_device_id": str(uuid.uuid4())})
+                check("trusting an unknown device returns null, not true",
+                      s == 200 and b is None, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/revoke_platform_device",
+                            jwt=dev_admin_jwt,
+                            body={"p_device_id": dev_id})
+                check("admin revokes the device",
+                      s == 200 and b is True, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/list_platform_devices",
+                            jwt=dev_admin_jwt)
+                check("the device list is empty after revoke",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                dev_id = None
+                # التدقيق (0066): إن كانت log_platform_audit مطبّقة، فحدث
+                # device_new يصل سجل التدقيق عبر نفس النداء الذي تستخدمه
+                # الواجهة — وإلا يُتخطى بتوثيق (الترتيب عند البوابة 0066 ثم 0068).
+                audit_probe = sql(ref, "select to_regprocedure("
+                                       "'public.log_platform_audit(text, uuid, jsonb)') as f")
+                if not audit_probe or not audit_probe[0].get("f"):
+                    print("  SKIP 0068 audit check — log_platform_audit (0066) "
+                          "not applied yet (expected until the freeze gate)")
+                else:
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/log_platform_audit",
+                                jwt=dev_admin_jwt,
+                                body={"p_action": "device_new",
+                                      "p_target_teacher_id": None,
+                                      "p_details": {"device_label": "chrome / windows",
+                                                    "device_hash_prefix": "bbbbbbbb"}})
+                    check("device_new audit event lands via log_platform_audit",
+                          s == 200 and isinstance(b, str) and b,
+                          f"got {s} {str(b)[:120]}")
+                    audit = sql(ref, "select count(*) as c from platform_audit_log "
+                                     "where action = 'device_new' "
+                                     "and details->>'device_label' = 'chrome / windows'")
+                    check("the device_new row is in platform_audit_log",
+                          audit and int(audit[0]["c"]) >= 1, f"got {audit}")
+            finally:
+                sql(ref, "delete from platform_admin_devices "
+                         f"where user_id = '{dev_admin_uid}'")
+                sql(ref, "delete from platform_audit_log "
+                         "where action = 'device_new' "
+                         "and details->>'device_label' = 'chrome / windows'")
+                sql(ref, "delete from auth.users "
+                         f"where id = '{dev_admin_uid}'")
+                left = sql(ref, "select "
+                                "(select count(*) from platform_admin_devices "
+                                f"where user_id = '{dev_admin_uid}') as dv, "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{dev_admin_uid}') as pa, "
+                                "(select count(*) from platform_audit_log "
+                                "where action = 'device_new' "
+                                "and details->>'device_label' = 'chrome / windows') as au")
+                check("0068 fixtures cleaned",
+                      left and int(left[0]["dv"]) == 0
+                      and int(left[0]["pa"]) == 0
+                      and int(left[0]["au"]) == 0, f"got {left}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد
