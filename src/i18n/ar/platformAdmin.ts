@@ -164,4 +164,30 @@ export const platformAdmin = {
   whatsappComingSoon: 'قريباً — لا يوجد رقم واتساب للمنصة بعد',
   whatsappComingSoonHint:
     'التسجيل الأول لأي رقم بيتم عند Meta، وبعدها الإدارة اليومية من هنا: الرقم النشط وتبديله، تفعيل القناة لكل سنتر، سقوف الصرف والحصص، واستهلاك الرسائل لكل سنتر. عدّادات الاستهلاك بتوصل مع خطوة الإنفاذ — مفيش أرقام هنا قبل ما يبقى لها مصدر حقيقي.',
+
+  // تنبيهات الأجهزة الجديدة (0068 — مهمة 23)
+  devicesTitle: 'الأجهزة',
+  devicesEmpty:
+    'لا أجهزة مسجلة بعد — أول دخول للوحة من أي جهاز يسجله هنا تلقائياً.',
+  deviceNewTitle: 'جهاز جديد سجّل دخول',
+  deviceNewHint:
+    'جهاز غير موثوق ظهر على حسابك — راجع الأجهزة أدناه: وثّق الجهاز إن كان جهازك، أو ألغه إن لم تعرفه.',
+  deviceTrust: 'هذا جهازي — وثّقه',
+  deviceRevoke: 'إلغاء الجهاز',
+  deviceTrusted: 'موثوق',
+  deviceUntrusted: 'غير موثوق',
+  deviceFirstSeen: 'أول ظهور',
+  deviceLastSeen: 'آخر ظهور',
+  deviceRegisterError: 'تعذّر تسجيل الجهاز — حاول تاني.',
+  deviceBrowserChrome: 'كروم',
+  deviceBrowserFirefox: 'فايرفوكس',
+  deviceBrowserSafari: 'سفاري',
+  deviceBrowserEdge: 'إيدج',
+  deviceBrowserChromium: 'كروميوم',
+  deviceOsWindows: 'ويندوز',
+  deviceOsMacos: 'ماك',
+  deviceOsIos: 'آي أو إس',
+  deviceOsAndroid: 'أندرويد',
+  deviceOsLinux: 'لينكس',
+  deviceOsChromeos: 'كروم أو إس',
 }

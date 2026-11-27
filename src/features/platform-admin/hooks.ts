@@ -23,6 +23,13 @@ import {
   updateRoleTemplate,
   type TemplateEntitlements,
 } from './templates'
+import {
+  ensureCurrentDevice,
+  fetchAdminDevices,
+  logDeviceAudit,
+  revokeAdminDevice,
+  trustAdminDevice,
+} from './devices'
 import { fetchUsageSummary } from './usage'
 
 export const PLATFORM_ADMIN = 'platform-admin'
@@ -283,6 +290,58 @@ export function useApplyRoleTemplate() {
       reason: string
       expiresAt: string | null
     }) => applyRoleTemplate(input),
+    onSuccess: invalidate,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// تنبيهات الأجهزة الجديدة (مهمة 23 — 0068): تسجيل الجهاز الحالي عند
+// دخول اللوحة + قائمة الأجهزة + توثيق/إلغاء. غياب 0068 يرجع null
+// فتعرض الأقسام «قريباً» — لا خطأ خام أبداً.
+// ---------------------------------------------------------------------------
+
+/** تسجيل الجهاز الحالي عند دخول /admin (مرة لكل دخول) */
+export function useRegisterCurrentDevice() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: ensureCurrentDevice,
+    onSuccess: invalidate,
+  })
+}
+
+/** أجهزة الأدمن الحالي — null قبل تطبيق 0068 */
+export function useAdminDevices(enabled: boolean) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'devices'],
+    enabled,
+    queryFn: fetchAdminDevices,
+  })
+}
+
+/** توثيق جهاز + تدقيق best-effort */
+export function useTrustAdminDevice() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: async (deviceId: string) => {
+      const ok = await trustAdminDevice(deviceId)
+      if (!ok) throw new Error('device trust failed')
+      await logDeviceAudit('device_trusted', { device_id: deviceId })
+      return ok
+    },
+    onSuccess: invalidate,
+  })
+}
+
+/** إلغاء جهاز + تدقيق best-effort */
+export function useRevokeAdminDevice() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: async (deviceId: string) => {
+      const ok = await revokeAdminDevice(deviceId)
+      if (!ok) throw new Error('device revoke failed')
+      await logDeviceAudit('device_revoked', { device_id: deviceId })
+      return ok
+    },
     onSuccess: invalidate,
   })
 }

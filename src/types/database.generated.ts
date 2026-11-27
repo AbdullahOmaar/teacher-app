@@ -3238,6 +3238,18 @@ export type Database = {
           }
           Returns: boolean
         }
+      list_platform_devices: {
+          Args: Record<PropertyKey, never>
+          Returns: Json
+        }
+      log_platform_audit: {
+          Args: {
+            p_action: string
+            p_target_teacher_id?: string | null
+            p_details?: Json
+          }
+          Returns: string
+        }
       member_has_permission: {
           Args: {
             p_teacher_id: string
@@ -3519,11 +3531,24 @@ export type Database = {
           Args: Record<PropertyKey, never>
           Returns: number
         }
+      register_platform_device: {
+          Args: {
+            p_device_hash: string
+            p_label?: string
+          }
+          Returns: Json
+        }
       revoke_account_override: {
           Args: {
             p_override_id: string
           }
           Returns: string
+        }
+      revoke_platform_device: {
+          Args: {
+            p_device_id: string
+          }
+          Returns: boolean
         }
       report_client_error: {
           Args: {
@@ -3623,6 +3648,12 @@ export type Database = {
       teacher_id_claimable: {
           Args: {
             p_id: string
+          }
+          Returns: boolean
+        }
+      trust_platform_device: {
+          Args: {
+            p_device_id: string
           }
           Returns: boolean
         }
