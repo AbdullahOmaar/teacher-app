@@ -91,7 +91,7 @@ export function ExportPage() {
   const pendingKind = exportCsv.isPending ? exportCsv.variables : undefined
 
   return (
-    <div>
+    <div className="lg:grid lg:grid-cols-2 lg:gap-x-4 lg:items-start [&>*]:min-w-0">
       <Card className="rise-in">
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><FileUp size={22} className="text-primary" /> {t('settings.exportCsvTitle')}</h2>
         <p className="text-muted text-[13.5px] mt-0 mb-3">

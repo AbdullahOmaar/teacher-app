@@ -235,7 +235,8 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
 
       {tab === 'data' && (
         <>
-          <Card className="rise-in" style={{ animationDelay: '50ms' }}>
+          {/* صفوف البيانات عمودان عند الديسكتوب (3A-930) */}
+          <Card className="rise-in lg:grid lg:grid-cols-2 lg:gap-x-8" style={{ animationDelay: '50ms' }}>
             <InfoRow label={t('students.codeLabel')} value={student.public_code} />
             <InfoRow label={t('students.gradeLabel')} value={student.grade} />
             <InfoRow label={t('students.schoolLabel')} value={student.school} />
@@ -343,14 +344,16 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
           {enrollments.length === 0 ? (
             <EmptyState icon={Users} title={t('students.detailNoGroupsTitle')} hint={t('students.detailNoGroupsHint')} />
           ) : (
-            enrollments.map((e, i) => {
+            /* شبكة بطاقات عند الديسكتوب (3A-930) */
+            <div className="lg:grid lg:grid-cols-2 lg:gap-3 lg:items-stretch">
+            {enrollments.map((e, i) => {
               const g = groupById.get(e.group_id)
               if (!g) return null
               const effective = e.price_override ?? g.price
               return (
                 <Card
                   key={e.id}
-                  className="rise-in"
+                  className="rise-in lg:mb-0 lg:h-full"
                   style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -383,7 +386,8 @@ export function StudentDetailPage({ studentId }: { studentId?: string } = {}) {
                   </div>
                 </Card>
               )
-            })
+            })}
+            </div>
           )}
           <Button full onClick={() => setEnrollOpen(true)}>
             <Plus size={18} />
