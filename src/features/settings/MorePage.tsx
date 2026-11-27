@@ -10,6 +10,8 @@ import {
   HardDriveDownload,
   History,
   Landmark,
+  LifeBuoy,
+  Megaphone,
   MessageSquarePlus,
   NotebookPen,
   Settings,
@@ -40,6 +42,10 @@ const MENU: { icon: LucideIcon; label: string; path: string; id?: 'feedback' }[]
   // قناة ملاحظات المدرس (مهمة 11 — 0052): شارة بعدّاد غير المقروء
   // للمالك (القراءة RLS مالك فقط، فلا شارة لمساعد أصلاً)
   { icon: MessageSquarePlus, label: t('settings.moreFeedback'), path: '/feedback', id: 'feedback' },
+  // إعلانات المنصة + الدعم الفني (مهمة 17/23 — 0065): صفحتان
+  // مستقلتان؛ حتى تطبيق 0065 تعرضان «قريباً» مصممة لا خطأ خام
+  { icon: Megaphone, label: t('settings.moreAnnouncements'), path: '/announcements' },
+  { icon: LifeBuoy, label: t('settings.moreSupport'), path: '/support' },
   { icon: HardDriveDownload, label: t('settings.backup'), path: '/backup' },
   { icon: Download, label: t('settings.moreExport'), path: '/export' },
   { icon: Settings, label: t('settings.moreSettings'), path: '/settings' },

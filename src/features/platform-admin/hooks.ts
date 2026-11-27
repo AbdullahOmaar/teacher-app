@@ -1,10 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchIsPlatformAdmin, fetchPlatformOverview } from './api'
+import {
+  deleteAnnouncement,
+  fetchAdminTickets,
+  fetchAnnouncementsAdmin,
+  publishAnnouncement,
+  setTicketStatus,
+  type AnnouncementKind,
+} from './announcements'
 import { fetchEffectiveEntitlements } from './entitlements'
+import { fetchTicketThread, replyToTicket } from '../support/api'
+import type { TicketStatus } from '../support/api'
 import {
   addAllowlistEntry,
   fetchAccountOverrides,
   fetchAllowlist,
+  fetchAuditLog,
   fetchPlatformIndicators,
   fetchPlatformWorkspaces,
   fetchRegistrationOpen,
@@ -12,10 +23,12 @@ import {
   revokeAccountOverride,
   setAccountActivated,
   setAccountOverride,
+  setRegistrationOpen,
   setSubscriptionPlan,
   type PlanSlug,
 } from './panel'
 import { fetchMySubscription } from './subscription'
+import { fetchMfaStatus, type MfaStatus } from './mfa'
 import {
   applyRoleTemplate,
   createRoleTemplate,
@@ -44,6 +57,20 @@ export function useIsPlatformAdmin(enabled: boolean) {
     queryKey: [PLATFORM_ADMIN, 'is-admin'],
     enabled,
     queryFn: fetchIsPlatformAdmin,
+  })
+}
+
+/**
+ * حالة التحقق بخطوتين TOTP للمستخدم الحالي (مهمة 23 — 0067) —
+ * تُفعَّل بعد ثبوت صفة الأدمن فقط؛ المدرّس لا يصل لها أصلاً.
+ * MFA غير مفعّل في المشروع يرجع حالة unavailable (لا رمي)، وغياب
+ * الجلسة يرمي — البوابة لا تستدعيها بلا جلسة.
+ */
+export function useMfaStatus(enabled: boolean) {
+  return useQuery<MfaStatus>({
+    queryKey: [PLATFORM_ADMIN, 'mfa'],
+    enabled,
+    queryFn: fetchMfaStatus,
   })
 }
 
@@ -192,7 +219,7 @@ export function useSetSubscriptionPlan() {
   })
 }
 
-/** إعداد تجاوز فردي (0059؛ 0063 تضيف النوع 'setting') */
+/** إعداد تجاوز فردي (0059؛ 0066 تضيف النوع 'setting') */
 export function useSetAccountOverride() {
   const invalidate = useInvalidatePanel()
   return useMutation({
@@ -227,7 +254,7 @@ export function useAddAllowlistEntry() {
   })
 }
 
-/** حذف صف من قائمة السماح (0057) */
+/** حذف صف من قائمة السماح (0066 — RPC موثّق) */
 export function useRemoveAllowlistEntry() {
   const invalidate = useInvalidatePanel()
   return useMutation({
@@ -331,6 +358,28 @@ export function useTrustAdminDevice() {
     onSuccess: invalidate,
   })
 }
+/** إعلانات المنصة للأدمن (0065) — null حتى تطبيق المهاجرة (قسم «قريباً») */
+export function useAnnouncementsAdmin(enabled: boolean) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'announcements'],
+    enabled,
+    queryFn: fetchAnnouncementsAdmin,
+  })
+}
+
+/** نشر إعلان جديد (0065) — موثّق في سجل التدقيق خادمياً */
+export function usePublishAnnouncement() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (input: {
+      title: string
+      body: string
+      kind: AnnouncementKind
+      scheduledAt: string | null
+    }) => publishAnnouncement(input),
+    onSuccess: invalidate,
+  })
+}
 
 /** إلغاء جهاز + تدقيق best-effort */
 export function useRevokeAdminDevice() {
@@ -343,5 +392,84 @@ export function useRevokeAdminDevice() {
       return ok
     },
     onSuccess: invalidate,
+  })
+}
+/** حذف إعلان منشور (0065) */
+export function useDeleteAnnouncement() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (id: string) => deleteAnnouncement(id),
+    onSuccess: invalidate,
+  })
+}
+
+/** تذاكر الدعم للأدمن (0065) — بمرشّح حالة اختياري */
+export function useAdminTickets(status: TicketStatus | null, enabled: boolean) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'tickets', status ?? 'all'],
+    enabled,
+    queryFn: () => fetchAdminTickets(status),
+  })
+}
+
+/** تغيير حالة تذكرة (0065) — إغلاق/إعادة فتح، موثّق خادمياً */
+export function useSetTicketStatus() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (input: { ticketId: string; status: TicketStatus }) =>
+      setTicketStatus(input.ticketId, input.status),
+    onSuccess: invalidate,
+  })
+}
+
+/** خيط تذكرة للرد عليها من اللوحة (0065) — مشترك مع طرف المدرس */
+export function useAdminTicketThread(ticketId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'ticket-thread', ticketId],
+    enabled: enabled && Boolean(ticketId),
+    queryFn: () => fetchTicketThread(ticketId!),
+  })
+}
+
+/** الرد على تذكرة من اللوحة (0065) — الدور والحالة يُشتقان خادمياً */
+export function useAdminReplyToTicket() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (input: { ticketId: string; body: string }) =>
+      replyToTicket(input.ticketId, input.body),
+    onSuccess: invalidate,
+  })
+}
+
+/** قلب قفل التسجيل (0066 — RPC موثّق) */
+export function useSetRegistrationOpen() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (open: boolean) => setRegistrationOpen(open),
+    onSuccess: invalidate,
+  })
+}
+
+/** صفحة من سجل التدقيق (0066) — مرشّحا الحساب/الفعل اختياريان */
+export function useAuditLog(
+  input: {
+    limit: number
+    offset: number
+    teacherId?: string | null
+    action?: string | null
+  },
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [
+      PLATFORM_ADMIN,
+      'audit-log',
+      input.limit,
+      input.offset,
+      input.teacherId ?? null,
+      input.action ?? null,
+    ],
+    enabled,
+    queryFn: () => fetchAuditLog(input),
   })
 }

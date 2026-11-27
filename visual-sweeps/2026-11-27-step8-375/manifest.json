@@ -1,0 +1,79 @@
+{
+  "tool": "visual-capture 3A-326",
+  "base": "http://localhost:4173",
+  "frozenNowUtc": "2026-11-21T22:00:00.000Z",
+  "timezone": "Africa/Cairo",
+  "relay": true,
+  "theme": "default(saved/auto)",
+  "startedAt": "2026-11-27T05:20:06.549Z",
+  "widths": {
+    "375": [
+      {
+        "id": "support",
+        "file": "375/support.png",
+        "path": "/support",
+        "bytes": 29270,
+        "pngWidth": 375,
+        "pngHeight": 844,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 375,
+          "vw": 375,
+          "theme": "light",
+          "offenders": [],
+          "clipped": [
+            {
+              "desc": "span.sr-only «اسحب لتحت علشان تحدّث الصفحة»",
+              "sw": 215,
+              "cw": 1,
+              "sh": 28,
+              "ch": 1
+            }
+          ]
+        }
+      },
+      {
+        "id": "announcements",
+        "file": "375/announcements.png",
+        "path": "/announcements",
+        "bytes": 27083,
+        "pngWidth": 375,
+        "pngHeight": 844,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 375,
+          "vw": 375,
+          "theme": "light",
+          "offenders": [],
+          "clipped": [
+            {
+              "desc": "span.sr-only «اسحب لتحت علشان تحدّث الصفحة»",
+              "sw": 215,
+              "cw": 1,
+              "sh": 28,
+              "ch": 1
+            }
+          ]
+        }
+      },
+      {
+        "id": "admin-panel",
+        "file": "375/admin-panel.png",
+        "path": "/admin",
+        "bytes": 19557,
+        "pngWidth": 375,
+        "pngHeight": 844,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 375,
+          "vw": 375,
+          "theme": "light",
+          "offenders": [],
+          "clipped": []
+        }
+      }
+    ]
+  },
+  "finishedAt": "2026-11-27T05:21:12.354Z",
+  "relayAborted": 1
+}

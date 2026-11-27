@@ -15,10 +15,12 @@
 """
 import base64
 import hashlib
+import hmac
 import json
 import os
 import re
 import secrets
+import struct
 import subprocess
 import sys
 import tempfile
@@ -187,6 +189,21 @@ def create_user_sql(ref, email, password):
         "now(), now(), now())",
     )
     return uid
+
+
+def totp_code(secret_b32, digits=6, when=None):
+    """TOTP خالص بايثون (RFC 6238 فوق RFC 4226: HMAC-SHA1، خطوة 30
+    ثانية، اقتطاع ديناميكي، آخر `digits` رقماً). مُحقَّق من متجهات
+    RFC 6238 Appendix B (SHA-1، السر ASCII '12345678901234567890'):
+    T=59 → 287082، T=1111111109 → 081804، T=1111111111 → 050471،
+    T=1234567890 → 005924، T=2000000000 → 279037، T=20000000000 →
+    353130 (6 أرقام) — والتحقق المستقل بـ openssl أعطى نفس النواتج."""
+    key = base64.b32decode(secret_b32.upper())
+    counter = int((time.time() if when is None else when) // 30)
+    digest = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    value = struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF
+    return str(value % (10 ** digits)).zfill(digits)
 
 
 def baseline(ref):
@@ -2831,6 +2848,436 @@ def main():
                       left and int(left[0]["pa"]) == 0
                       and int(left[0]["ov"]) == 0
                       and int(left[0]["tm"]) == 0, f"got {left}")
+        # ---------- ANNOUNCEMENTS + TICKETS (0065 — T17/T23 الخطوة 8) ----------
+        # ⚠️ المهاجرة 0065 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن
+        # غاب يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: الإعلان يُنشر من الأدمن ويُقرأ من أي مدرس عبر RPC
+        # وحده (بلا قراءة جدول مباشرة)؛ التذكرة ملك حسابها — مدرس آخر
+        # لا يراها ولا يرد عليها؛ الرد يقلب الحالة (أدمن →
+        # waiting_teacher، مدرس → in_progress)؛ والمغلقة ترفض أي رد.
+        # كل ما يُنشأ هنا يُلغى وينظَّف في finally؛ باقة الديمو نفسها
+        # لا تتغير إطلاقاً.
+        print("ANNOUNCEMENTS + TICKETS (0065):")
+        at_probe = sql(ref, "select to_regclass('public.support_tickets') as t")
+        if not at_probe or not at_probe[0].get("t"):
+            print("  SKIP 0065 live section — migration 0065 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PLATFORM-ADMIN-ANNOUNCEMENTS-TICKETS.md)")
+        else:
+            pw_at_admin = secrets.token_urlsafe(18)
+            at_admin_uid = create_user_sql(
+                ref, "authz-at-admin@teacher-app.test", pw_at_admin)
+            at_ann_id = None
+            at_ticket_id = None
+            try:
+                at_admin_jwt, _ = sign_in(
+                    url, anon, "authz-at-admin@teacher-app.test", pw_at_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{at_admin_uid}', 'authz announcements fixture')")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_announcement_publish",
+                            jwt=demo_jwt,
+                            body={"p_title": "authz spoof",
+                                  "p_body": "spoof",
+                                  "p_kind": "general"})
+                check("a teacher cannot publish an announcement",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_announcement_publish",
+                            jwt=at_admin_jwt,
+                            body={"p_title": "authz announcement",
+                                  "p_body": "authz fixture body",
+                                  "p_kind": "update"})
+                at_ann_id = b if isinstance(b, str) and b else None
+                check("admin publishes an announcement",
+                      s == 200 and at_ann_id, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_announcements_for_me",
+                            jwt=demo_jwt,
+                            body={})
+                check("a teacher reads the published announcement via RPC",
+                      s == 200 and isinstance(b, list)
+                      and any(isinstance(x, dict)
+                              and x.get("id") == at_ann_id for x in b),
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/platform_announcements?select=id",
+                            jwt=demo_jwt)
+                check("a teacher reads NO announcement rows directly",
+                      s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/submit_support_ticket",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_subject": "authz ticket",
+                                  "p_body": "authz fixture body"})
+                at_ticket_id = (b.get("id") if isinstance(b, dict) else None)
+                check("a teacher opens a support ticket",
+                      s == 200 and at_ticket_id, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/support_ticket_thread",
+                            jwt=other_jwt,
+                            body={"p_ticket_id": at_ticket_id})
+                check("another teacher cannot read the ticket thread",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/reply_support_ticket",
+                            jwt=at_admin_jwt,
+                            body={"p_ticket_id": at_ticket_id,
+                                  "p_body": "admin reply"})
+                check("admin reply flips status to waiting_teacher",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("status") == "waiting_teacher"
+                      and b.get("author_kind") == "admin",
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/reply_support_ticket",
+                            jwt=demo_jwt,
+                            body={"p_ticket_id": at_ticket_id,
+                                  "p_body": "teacher reply"})
+                check("teacher reply flips status to in_progress",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("status") == "in_progress"
+                      and b.get("author_kind") == "teacher",
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/set_ticket_status",
+                            jwt=at_admin_jwt,
+                            body={"p_ticket_id": at_ticket_id,
+                                  "p_status": "closed"})
+                check("admin closes the ticket",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("status") == "closed",
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/reply_support_ticket",
+                            jwt=demo_jwt,
+                            body={"p_ticket_id": at_ticket_id,
+                                  "p_body": "too late"})
+                check("a reply to a closed ticket is rejected",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_announcement_delete",
+                            jwt=at_admin_jwt,
+                            body={"p_id": at_ann_id})
+                check("admin deletes the announcement",
+                      s == 200 and b is True, f"got {s} {str(b)[:120]}")
+                audit = sql(ref, "select action, count(*) as c "
+                                 "from platform_audit_log "
+                                 "where action in ('announcement_published', "
+                                 "'announcement_deleted', 'ticket_status_changed') "
+                                 "and (details->>'announcement_id' = "
+                                 f"'{at_ann_id}' or details->>'ticket_id' = "
+                                 f"'{at_ticket_id}') "
+                                 "group by action order by action")
+                acts = {r["action"]: int(r["c"]) for r in audit}
+                check("announcement publish/delete + ticket close left audit rows",
+                      acts.get("announcement_published", 0) >= 1
+                      and acts.get("announcement_deleted", 0) >= 1
+                      and acts.get("ticket_status_changed", 0) >= 1,
+                      f"got {acts}")
+            finally:
+                if at_ann_id:
+                    sql(ref, "delete from platform_announcements "
+                             f"where id = '{at_ann_id}'")
+                if at_ticket_id:
+                    sql(ref, "delete from support_tickets "
+                             f"where id = '{at_ticket_id}'")
+                sql(ref, "delete from platform_audit_log "
+                         "where action in ('announcement_published', "
+                         "'announcement_deleted', 'ticket_status_changed') "
+                         "and (details->>'announcement_id' = "
+                         f"'{at_ann_id}' or details->>'ticket_id' = "
+                         f"'{at_ticket_id}')")
+                sql(ref, "delete from auth.users "
+                         f"where id = '{at_admin_uid}'")
+                left = sql(ref, "select "
+                                "(select count(*) from platform_announcements "
+                                f"where id = '{at_ann_id}') as ann, "
+                                "(select count(*) from support_tickets "
+                                f"where id = '{at_ticket_id}') as tk, "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{at_admin_uid}') as pa")
+                check("0065 fixtures cleaned",
+                      left and int(left[0]["ann"]) == 0
+                      and int(left[0]["tk"]) == 0
+                      and int(left[0]["pa"]) == 0, f"got {left}")
+
+        # ---------- AUDIT INTEGRATION (0066 — T23 الخطوة 6) ----------
+        # ⚠️ المهاجرة 0066 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الدوال أولاً: إن
+        # غابت يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: سجل التدقيق كامل — إضافة/حذف السماح وقلب قفل التسجيل
+        # عبر RPCs موثّقة تكتب سطراً لكل فعل، وقراءة السجل للأدمن فقط
+        # بمرشّحاتها، والتزوير باسم أدمن آخر مرفوض (الإدراج المباشر
+        # باسمه غير اسمه). حالة التسجيل (مفتوح/مقفول) تُقرأ قبل أي لمس
+        # وتُستعاد حرفياً في finally؛ صفوف السماح الاستكشافية تُحذف.
+        print("AUDIT INTEGRATION (0066):")
+        audit_probe = sql(ref, "select to_regprocedure("
+                               "'public.platform_audit_log_list(int, int, uuid, text)') as f")
+        if not audit_probe or not audit_probe[0].get("f"):
+            print("  SKIP 0066 live section — migration 0066 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PLATFORM-ADMIN-AUDIT.md)")
+        else:
+            pw_audit_admin = secrets.token_urlsafe(18)
+            audit_admin_uid = create_user_sql(
+                ref, "authz-audit-admin@teacher-app.test", pw_audit_admin)
+            orig_open = sql(ref, "select (value)::text = 'true' as open "
+                                 "from platform_settings "
+                                 "where key = 'registration_open'")
+            orig_open_val = bool(orig_open[0]["open"]) if orig_open else True
+            try:
+                audit_admin_jwt, _ = sign_in(
+                    url, anon, "authz-audit-admin@teacher-app.test", pw_audit_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{audit_admin_uid}', 'authz audit fixture')")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_audit_log_list",
+                            jwt=demo_jwt,
+                            body={})
+                check("a teacher cannot list the platform audit log",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_audit_log_list",
+                            jwt=audit_admin_jwt,
+                            body={})
+                check("admin lists the audit log (object with rows+total)",
+                      s == 200 and isinstance(b, dict)
+                      and isinstance(b.get("rows"), list)
+                      and isinstance(b.get("total"), int),
+                      f"got {s} {str(b)[:160]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_allowlist_add",
+                            jwt=demo_jwt,
+                            body={"p_email": "authz-audit@teacher-app.test"})
+                check("a teacher cannot add an allowlist entry",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_allowlist_add",
+                            jwt=audit_admin_jwt,
+                            body={"p_email": "authz-audit@teacher-app.test",
+                                  "p_note": "authz fixture"})
+                allow_id = b if isinstance(b, str) and b else None
+                check("admin adds an allowlist entry via the audited RPC",
+                      s == 200 and allow_id, f"got {s} {str(b)[:120]}")
+                audit = sql(ref, "select count(*) as c "
+                                 "from platform_audit_log "
+                                 "where action = 'allowlist_added' "
+                                 "and details ->> 'email' = "
+                                 "'authz-audit@teacher-app.test'")
+                check("the allowlist add wrote one audit row",
+                      audit and int(audit[0]["c"]) == 1, f"got {audit}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_set_registration_open",
+                            jwt=demo_jwt,
+                            body={"p_open": not orig_open_val})
+                check("a teacher cannot flip the registration lock",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_set_registration_open",
+                            jwt=audit_admin_jwt,
+                            body={"p_open": not orig_open_val,
+                                  "p_reason": "authz fixture"})
+                check("admin flips the registration lock",
+                      s == 200 and b == (not orig_open_val),
+                      f"got {s} {str(b)[:120]}")
+                flipped = sql(ref, "select (value)::text = 'true' as open "
+                                   "from platform_settings "
+                                   "where key = 'registration_open'")
+                check("the flip landed in platform_settings",
+                      flipped and bool(flipped[0]["open"]) == (not orig_open_val),
+                      f"got {flipped}")
+                audit = sql(ref, "select count(*) as c "
+                                 "from platform_audit_log "
+                                 "where action = 'registration_open_changed'")
+                check("the flip wrote a platform audit row",
+                      audit and int(audit[0]["c"]) >= 1, f"got {audit}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/platform_audit_log_list",
+                            jwt=audit_admin_jwt,
+                            body={"p_action": "allowlist_added"})
+                check("audit list filters by action",
+                      s == 200 and isinstance(b, dict)
+                      and all(r.get("action") == "allowlist_added"
+                              for r in (b.get("rows") or [])),
+                      f"got {s} {str(b)[:160]}")
+                # تزوير: إدراج مباشر في السجل باسم أدمن آخر (admin_user_id
+                # ≠ auth.uid()) — سياسة الإدراج ترفضه، فلا سطر بلا فاعل.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/platform_audit_log",
+                            jwt=audit_admin_jwt,
+                            body={"admin_user_id": demo_teacher,
+                                  "action": "spoofed",
+                                  "details": {}})
+                check("a spoofed audit insert under another admin is rejected",
+                      s >= 400, f"got {s} {str(b)[:120]}")
+                if allow_id:
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/platform_allowlist_remove",
+                                jwt=audit_admin_jwt,
+                                body={"p_allowlist_id": allow_id})
+                    check("admin removes the allowlist entry via the audited RPC",
+                          s == 200 and b == allow_id,
+                          f"got {s} {str(b)[:120]}")
+                    audit = sql(ref, "select count(*) as c "
+                                     "from platform_audit_log "
+                                     "where action = 'allowlist_removed' "
+                                     "and details ->> 'allowlist_id' = "
+                                     f"'{allow_id}'")
+                    check("the allowlist remove wrote one audit row",
+                          audit and int(audit[0]["c"]) == 1, f"got {audit}")
+            finally:
+                sql(ref, "update platform_settings set value = "
+                         f"'{str(orig_open_val).lower()}'::jsonb, "
+                         "updated_at = now() where key = 'registration_open'")
+                sql(ref, "delete from teacher_allowlist "
+                         "where email = 'authz-audit@teacher-app.test'")
+                sql(ref, "delete from platform_audit_log "
+                         "where action in ('allowlist_added', "
+                         "'allowlist_removed', 'registration_open_changed') "
+                         "and details ->> 'email' = "
+                         "'authz-audit@teacher-app.test'")
+                sql(ref, "delete from platform_audit_log "
+                         "where action = 'registration_open_changed' "
+                         "and details ->> 'reason' = 'authz fixture'")
+                sql(ref, "delete from auth.users "
+                         f"where id = '{audit_admin_uid}'")
+                left = sql(ref, "select "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{audit_admin_uid}') as pa, "
+                                "(select count(*) from teacher_allowlist "
+                                "where email = 'authz-audit@teacher-app.test') as al, "
+                                "(select (value)::text = 'true' from platform_settings "
+                                "where key = 'registration_open') as open")
+                check("0066 fixtures cleaned + registration lock restored",
+                      left and int(left[0]["pa"]) == 0
+                      and int(left[0]["al"]) == 0
+                      and bool(left[0]["open"]) == orig_open_val,
+                      f"got {left}")
+
+        # ---------- PLATFORM ADMIN MFA GUARD (0067 — T23 التحقق بخطوتين) ----------
+        # ⚠️ المهاجرة 0067 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الحارس وجدول
+        # platform_admins أولاً: إن غابا يطبع تخطياً موثقاً (لا فشل —
+        # الغياب هو الحالة المتوقعة حتى البوابة)، وبعد التطبيق يشتغل
+        # كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: حارس aal2 خادمياً — my_platform_admin_aal2() ترجع true
+        # فقط لجلسة أدمن بـ aal2، وfalse لغيرها. الاختبار الإيجابي
+        # الكامل يسجّل TOTP حقيقياً عبر GoTrue (enroll → TOTP بايثون
+        # خالص RFC 6238 → challenge+verify) ثم ينادي الـ RPC بالـ JWT
+        # الجديد. إن كان MFA نفسه غير مفعّل في إعدادات المشروع (خطوة
+        # لوحة تحكم يدوية، لا مهاجرة) فالتدفق الإيجابي يُتخطى بتوثيق
+        # بينما تبقى الفحوصات السلبية (aal1 → false) دليلاً على الحارس.
+        print("PLATFORM ADMIN MFA GUARD (0067):")
+        mfa_probe = sql(ref, "select to_regprocedure(\n"
+                              "'public.platform_admin_aal2()') as f")
+        mfa_admin_table = sql(ref, "select to_regclass(\n"
+                                    "'public.platform_admins') as t")
+        if (not mfa_probe or not mfa_probe[0].get("f")
+                or not mfa_admin_table or not mfa_admin_table[0].get("t")):
+            print("  SKIP 0067 live section — migration 0067 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate)")
+        else:
+            pw_mfa_admin = secrets.token_urlsafe(18)
+            mfa_admin_uid = create_user_sql(
+                ref, "authz-mfa-admin@teacher-app.test", pw_mfa_admin)
+            try:
+                mfa_admin_jwt, _ = sign_in(
+                    url, anon, "authz-mfa-admin@teacher-app.test",
+                    pw_mfa_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{mfa_admin_uid}', 'authz mfa fixture')")
+                # سلبية (1): أدمن بجلسة aal1 (كلمة سر فقط) → false.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/my_platform_admin_aal2",
+                            jwt=mfa_admin_jwt, body={})
+                check("an aal1 admin gets false from my_platform_admin_aal2",
+                      s == 200 and b is False, f"got {s} {str(b)[:120]}")
+                # سلبية (2): مدرس بـ aal1 → false.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/my_platform_admin_aal2",
+                            jwt=demo_jwt, body={})
+                check("a teacher (aal1) gets false from my_platform_admin_aal2",
+                      s == 200 and b is False, f"got {s} {str(b)[:120]}")
+                # سلبية (3): بلا JWT (دور anon بلا تنفيذ على الدالة) →
+                # رفض (401/403/404 حسب إخفاء PostgREST للدالة).
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/my_platform_admin_aal2",
+                            jwt=None, body={})
+                check("anonymous cannot call my_platform_admin_aal2",
+                      s in (401, 403, 404), f"got {s} {str(b)[:120]}")
+                # إيجابية: تسجيل TOTP حقيقي عبر GoTrue.
+                s, b = rest(url, anon, "POST", "/auth/v1/factors",
+                            jwt=mfa_admin_jwt,
+                            body={"friendly_name": "authz mfa probe",
+                                  "factor_type": "totp",
+                                  "issuer": "Mister"})
+                if s != 200 and "mfa" in str(b).lower():
+                    print("  SKIP 0067 positive flow — MFA is not enabled on "
+                          "the Supabase project yet (enable it in the "
+                          "dashboard: Authentication → MFA) — the negatives "
+                          "above still prove the aal2 guard")
+                else:
+                    check("TOTP factor enrolls for the fixture admin",
+                          s == 200 and isinstance(b, dict) and b.get("id")
+                          and isinstance(b.get("totp"), dict)
+                          and b["totp"].get("secret"),
+                          f"got {s} {str(b)[:160]}")
+                    if s == 200:
+                        factor_id = b["id"]
+                        secret = b["totp"]["secret"]
+                        aal2_jwt = None
+                        for _ in range(3):
+                            code = totp_code(secret)
+                            s, b = rest(
+                                url, anon, "POST",
+                                f"/auth/v1/factors/{factor_id}/challenge",
+                                jwt=mfa_admin_jwt, body={})
+                            if s != 200 or not isinstance(b, dict) \
+                                    or not b.get("id"):
+                                break
+                            s, b = rest(
+                                url, anon, "POST",
+                                f"/auth/v1/factors/{factor_id}/verify",
+                                jwt=mfa_admin_jwt,
+                                body={"challenge_id": b["id"],
+                                      "code": code})
+                            if s == 200 and isinstance(b, dict) \
+                                    and b.get("access_token"):
+                                aal2_jwt = b["access_token"]
+                                break
+                            time.sleep(1)
+                        check("TOTP challenge+verify promotes the session to aal2",
+                              bool(aal2_jwt),
+                              "no aal2 token after 3 attempts")
+                        if aal2_jwt:
+                            s, b = rest(url, anon, "POST",
+                                        "/rest/v1/rpc/my_platform_admin_aal2",
+                                        jwt=aal2_jwt, body={})
+                            check("an aal2 admin gets true from my_platform_admin_aal2",
+                                  s == 200 and b is True,
+                                  f"got {s} {str(b)[:120]}")
+            finally:
+                sql(ref, "delete from platform_admins "
+                         f"where user_id = '{mfa_admin_uid}'")
+                sql(ref, "delete from auth.users "
+                         f"where id = '{mfa_admin_uid}'")
+                left = sql(ref, "select "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{mfa_admin_uid}') as pa, "
+                                "(select count(*) from auth.users "
+                                f"where id = '{mfa_admin_uid}') as u")
+                check("0067 fixtures cleaned + demo state restored",
+                      left and int(left[0]["pa"]) == 0
+                      and int(left[0]["u"]) == 0, f"got {left}")
 
         # ---------- NEW-DEVICE ALERTS (0068 — T23 تنبيهات الأجهزة الجديدة) ----------
         # ⚠️ المهاجرة 0068 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على

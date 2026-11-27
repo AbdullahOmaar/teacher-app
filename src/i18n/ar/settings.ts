@@ -434,6 +434,8 @@ export const settings = {
   moreImportStudents: 'استيراد طلاب من Excel',
   moreActivity: 'سجل النشاط',
   moreFeedback: 'ملاحظاتك لفريق مستر',
+  moreSupport: 'الدعم الفني',
+  moreAnnouncements: 'إعلانات المنصة',
   moreExport: 'تصدير واستيراد',
   moreSettings: 'الإعدادات',
   pushEnabledMsg: 'تمام — إشعارات Push مفعّلة على المتصفح ده.',
