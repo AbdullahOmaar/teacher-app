@@ -5,6 +5,7 @@ import {
   addAllowlistEntry,
   fetchAccountOverrides,
   fetchAllowlist,
+  fetchAuditLog,
   fetchPlatformIndicators,
   fetchPlatformWorkspaces,
   fetchRegistrationOpen,
@@ -12,6 +13,7 @@ import {
   revokeAccountOverride,
   setAccountActivated,
   setAccountOverride,
+  setRegistrationOpen,
   setSubscriptionPlan,
   type PlanSlug,
 } from './panel'
@@ -220,7 +222,7 @@ export function useAddAllowlistEntry() {
   })
 }
 
-/** حذف صف من قائمة السماح (0057) */
+/** حذف صف من قائمة السماح (0063 — RPC موثّق) */
 export function useRemoveAllowlistEntry() {
   const invalidate = useInvalidatePanel()
   return useMutation({
@@ -284,5 +286,38 @@ export function useApplyRoleTemplate() {
       expiresAt: string | null
     }) => applyRoleTemplate(input),
     onSuccess: invalidate,
+  })
+}
+
+/** قلب قفل التسجيل (0066 — RPC موثّق) */
+export function useSetRegistrationOpen() {
+  const invalidate = useInvalidatePanel()
+  return useMutation({
+    mutationFn: (open: boolean) => setRegistrationOpen(open),
+    onSuccess: invalidate,
+  })
+}
+
+/** صفحة من سجل التدقيق (0066) — مرشّحا الحساب/الفعل اختياريان */
+export function useAuditLog(
+  input: {
+    limit: number
+    offset: number
+    teacherId?: string | null
+    action?: string | null
+  },
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [
+      PLATFORM_ADMIN,
+      'audit-log',
+      input.limit,
+      input.offset,
+      input.teacherId ?? null,
+      input.action ?? null,
+    ],
+    enabled,
+    queryFn: () => fetchAuditLog(input),
   })
 }
