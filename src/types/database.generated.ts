@@ -3363,6 +3363,10 @@ export type Database = {
           Args: Record<PropertyKey, never>
           Returns: boolean
         }
+      my_platform_admin_aal2: {
+          Args: Record<PropertyKey, never>
+          Returns: boolean
+        }
       my_subscription: {
           Args: {
             p_teacher_id: string

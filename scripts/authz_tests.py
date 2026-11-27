@@ -15,10 +15,12 @@
 """
 import base64
 import hashlib
+import hmac
 import json
 import os
 import re
 import secrets
+import struct
 import subprocess
 import sys
 import tempfile
@@ -187,6 +189,21 @@ def create_user_sql(ref, email, password):
         "now(), now(), now())",
     )
     return uid
+
+
+def totp_code(secret_b32, digits=6, when=None):
+    """TOTP خالص بايثون (RFC 6238 فوق RFC 4226: HMAC-SHA1، خطوة 30
+    ثانية، اقتطاع ديناميكي، آخر `digits` رقماً). مُحقَّق من متجهات
+    RFC 6238 Appendix B (SHA-1، السر ASCII '12345678901234567890'):
+    T=59 → 287082، T=1111111109 → 081804، T=1111111111 → 050471،
+    T=1234567890 → 005924، T=2000000000 → 279037، T=20000000000 →
+    353130 (6 أرقام) — والتحقق المستقل بـ openssl أعطى نفس النواتج."""
+    key = base64.b32decode(secret_b32.upper())
+    counter = int((time.time() if when is None else when) // 30)
+    digest = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    value = struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF
+    return str(value % (10 ** digits)).zfill(digits)
 
 
 def baseline(ref):
@@ -3143,6 +3160,124 @@ def main():
                       and int(left[0]["al"]) == 0
                       and bool(left[0]["open"]) == orig_open_val,
                       f"got {left}")
+
+        # ---------- PLATFORM ADMIN MFA GUARD (0067 — T23 التحقق بخطوتين) ----------
+        # ⚠️ المهاجرة 0067 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الحارس وجدول
+        # platform_admins أولاً: إن غابا يطبع تخطياً موثقاً (لا فشل —
+        # الغياب هو الحالة المتوقعة حتى البوابة)، وبعد التطبيق يشتغل
+        # كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: حارس aal2 خادمياً — my_platform_admin_aal2() ترجع true
+        # فقط لجلسة أدمن بـ aal2، وfalse لغيرها. الاختبار الإيجابي
+        # الكامل يسجّل TOTP حقيقياً عبر GoTrue (enroll → TOTP بايثون
+        # خالص RFC 6238 → challenge+verify) ثم ينادي الـ RPC بالـ JWT
+        # الجديد. إن كان MFA نفسه غير مفعّل في إعدادات المشروع (خطوة
+        # لوحة تحكم يدوية، لا مهاجرة) فالتدفق الإيجابي يُتخطى بتوثيق
+        # بينما تبقى الفحوصات السلبية (aal1 → false) دليلاً على الحارس.
+        print("PLATFORM ADMIN MFA GUARD (0067):")
+        mfa_probe = sql(ref, "select to_regprocedure(\n"
+                              "'public.platform_admin_aal2()') as f")
+        mfa_admin_table = sql(ref, "select to_regclass(\n"
+                                    "'public.platform_admins') as t")
+        if (not mfa_probe or not mfa_probe[0].get("f")
+                or not mfa_admin_table or not mfa_admin_table[0].get("t")):
+            print("  SKIP 0067 live section — migration 0067 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate)")
+        else:
+            pw_mfa_admin = secrets.token_urlsafe(18)
+            mfa_admin_uid = create_user_sql(
+                ref, "authz-mfa-admin@teacher-app.test", pw_mfa_admin)
+            try:
+                mfa_admin_jwt, _ = sign_in(
+                    url, anon, "authz-mfa-admin@teacher-app.test",
+                    pw_mfa_admin)
+                sql(ref, "insert into platform_admins (user_id, note) values "
+                         f"('{mfa_admin_uid}', 'authz mfa fixture')")
+                # سلبية (1): أدمن بجلسة aal1 (كلمة سر فقط) → false.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/my_platform_admin_aal2",
+                            jwt=mfa_admin_jwt, body={})
+                check("an aal1 admin gets false from my_platform_admin_aal2",
+                      s == 200 and b is False, f"got {s} {str(b)[:120]}")
+                # سلبية (2): مدرس بـ aal1 → false.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/my_platform_admin_aal2",
+                            jwt=demo_jwt, body={})
+                check("a teacher (aal1) gets false from my_platform_admin_aal2",
+                      s == 200 and b is False, f"got {s} {str(b)[:120]}")
+                # سلبية (3): بلا JWT (دور anon بلا تنفيذ على الدالة) →
+                # رفض (401/403/404 حسب إخفاء PostgREST للدالة).
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/my_platform_admin_aal2",
+                            jwt=None, body={})
+                check("anonymous cannot call my_platform_admin_aal2",
+                      s in (401, 403, 404), f"got {s} {str(b)[:120]}")
+                # إيجابية: تسجيل TOTP حقيقي عبر GoTrue.
+                s, b = rest(url, anon, "POST", "/auth/v1/factors",
+                            jwt=mfa_admin_jwt,
+                            body={"friendly_name": "authz mfa probe",
+                                  "factor_type": "totp",
+                                  "issuer": "Mister"})
+                if s != 200 and "mfa" in str(b).lower():
+                    print("  SKIP 0067 positive flow — MFA is not enabled on "
+                          "the Supabase project yet (enable it in the "
+                          "dashboard: Authentication → MFA) — the negatives "
+                          "above still prove the aal2 guard")
+                else:
+                    check("TOTP factor enrolls for the fixture admin",
+                          s == 200 and isinstance(b, dict) and b.get("id")
+                          and isinstance(b.get("totp"), dict)
+                          and b["totp"].get("secret"),
+                          f"got {s} {str(b)[:160]}")
+                    if s == 200:
+                        factor_id = b["id"]
+                        secret = b["totp"]["secret"]
+                        aal2_jwt = None
+                        for _ in range(3):
+                            code = totp_code(secret)
+                            s, b = rest(
+                                url, anon, "POST",
+                                f"/auth/v1/factors/{factor_id}/challenge",
+                                jwt=mfa_admin_jwt, body={})
+                            if s != 200 or not isinstance(b, dict) \
+                                    or not b.get("id"):
+                                break
+                            s, b = rest(
+                                url, anon, "POST",
+                                f"/auth/v1/factors/{factor_id}/verify",
+                                jwt=mfa_admin_jwt,
+                                body={"challenge_id": b["id"],
+                                      "code": code})
+                            if s == 200 and isinstance(b, dict) \
+                                    and b.get("access_token"):
+                                aal2_jwt = b["access_token"]
+                                break
+                            time.sleep(1)
+                        check("TOTP challenge+verify promotes the session to aal2",
+                              bool(aal2_jwt),
+                              "no aal2 token after 3 attempts")
+                        if aal2_jwt:
+                            s, b = rest(url, anon, "POST",
+                                        "/rest/v1/rpc/my_platform_admin_aal2",
+                                        jwt=aal2_jwt, body={})
+                            check("an aal2 admin gets true from my_platform_admin_aal2",
+                                  s == 200 and b is True,
+                                  f"got {s} {str(b)[:120]}")
+            finally:
+                sql(ref, "delete from platform_admins "
+                         f"where user_id = '{mfa_admin_uid}'")
+                sql(ref, "delete from auth.users "
+                         f"where id = '{mfa_admin_uid}'")
+                left = sql(ref, "select "
+                                "(select count(*) from platform_admins "
+                                f"where user_id = '{mfa_admin_uid}') as pa, "
+                                "(select count(*) from auth.users "
+                                f"where id = '{mfa_admin_uid}') as u")
+                check("0067 fixtures cleaned + demo state restored",
+                      left and int(left[0]["pa"]) == 0
+                      and int(left[0]["u"]) == 0, f"got {left}")
 
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق

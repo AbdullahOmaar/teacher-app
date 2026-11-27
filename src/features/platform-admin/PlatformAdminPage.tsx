@@ -67,6 +67,7 @@ import {
 } from './panel'
 import type { TicketStatus } from '../support/api'
 import { ComingSoonCard, PanelSection } from './PanelSection'
+import { MfaSection } from './MfaScreens'
 import {
   buildTemplateEntitlements,
   isTemplateEntitlementsEmpty,
@@ -109,6 +110,7 @@ export function PlatformAdminPage() {
         </header>
 
         <OverviewSection />
+        <MfaSection />
         <IndicatorsSection />
         <WorkspacesSection />
         <TemplatesSection />
