@@ -47,6 +47,7 @@ import {
   type PlatformWorkspace,
 } from './panel'
 import { ComingSoonCard, PanelSection } from './PanelSection'
+import { MfaSection } from './MfaScreens'
 import {
   buildTemplateEntitlements,
   isTemplateEntitlementsEmpty,
@@ -87,6 +88,7 @@ export function PlatformAdminPage() {
         </header>
 
         <OverviewSection />
+        <MfaSection />
         <IndicatorsSection />
         <WorkspacesSection />
         <TemplatesSection />

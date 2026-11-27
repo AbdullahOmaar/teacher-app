@@ -16,6 +16,7 @@ import {
   type PlanSlug,
 } from './panel'
 import { fetchMySubscription } from './subscription'
+import { fetchMfaStatus, type MfaStatus } from './mfa'
 import {
   applyRoleTemplate,
   createRoleTemplate,
@@ -37,6 +38,20 @@ export function useIsPlatformAdmin(enabled: boolean) {
     queryKey: [PLATFORM_ADMIN, 'is-admin'],
     enabled,
     queryFn: fetchIsPlatformAdmin,
+  })
+}
+
+/**
+ * حالة التحقق بخطوتين TOTP للمستخدم الحالي (مهمة 23 — 0067) —
+ * تُفعَّل بعد ثبوت صفة الأدمن فقط؛ المدرّس لا يصل لها أصلاً.
+ * MFA غير مفعّل في المشروع يرجع حالة unavailable (لا رمي)، وغياب
+ * الجلسة يرمي — البوابة لا تستدعيها بلا جلسة.
+ */
+export function useMfaStatus(enabled: boolean) {
+  return useQuery<MfaStatus>({
+    queryKey: [PLATFORM_ADMIN, 'mfa'],
+    enabled,
+    queryFn: fetchMfaStatus,
   })
 }
 
