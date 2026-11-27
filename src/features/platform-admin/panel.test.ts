@@ -1,18 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import {
+  AUDIT_ACTIONS,
   isOverrideActive,
   panelSectionState,
   parseAccountOverrideRow,
+  parseAuditLogPage,
+  parseAuditLogRow,
   parsePlatformIndicators,
   parsePlatformWorkspaces,
   whatsappSectionState,
 } from './panel'
 
 /**
- * اختبارات لوحة أدمن المنصة (مهمة 17 — 0061، الخطوة 7): عقد طبقة
- * بيانات اللوحة — المحلّلات الآمنة لحمولات jsonb، وقرارات حالة
- * الأقسام النقية («قريباً» قبل الخطأ — قاعدة مالك 2026-11-26: لا
- * خطأ خام لخاصية غير مُطلقة)، ودلالة انتهاء التجاوز.
+ * اختبارات لوحة أدمن المنصة (مهمة 17 — 0061، الخطوة 7 + سجل
+ * التدقيق 0066، الخطوة 6): عقد طبقة بيانات اللوحة — المحلّلات
+ * الآمنة لحمولات jsonb، وقرارات حالة الأقسام النقية («قريباً» قبل
+ * الخطأ — قاعدة مالك 2026-11-26: لا خطأ خام لخاصية غير مُطلقة)،
+ * ودلالة انتهاء التجاوز، وتحليل صفحات سجل التدقيق.
  */
 
 describe('parsePlatformIndicators — تحويل آمن + إيراد null قسراً', () => {
@@ -196,7 +200,7 @@ describe('parseAccountOverrideRow — شكل صف التجاوز', () => {
     expect(parseAccountOverrideRow(null)).toBeNull()
   })
 
-  it('يحوّل صف إعداد (0063) بقيمة نصية', () => {
+  it('يحوّل صف إعداد (0066) بقيمة نصية', () => {
     expect(
       parseAccountOverrideRow({
         id: 'o5',
@@ -213,5 +217,72 @@ describe('parseAccountOverrideRow — شكل صف التجاوز', () => {
       key: 'confirmation_channel',
       value: 'whatsapp',
     })
+  })
+})
+
+describe('parseAuditLogRow / parseAuditLogPage — سجل التدقيق (0066)', () => {
+  const row = {
+    id: 'a1',
+    admin_user_id: 'u1',
+    admin_label: 'أدمن المنصة',
+    action: 'override_set',
+    target_teacher_id: 't1',
+    target_label: 'مستر أحمد',
+    details: { key: 'max_students', value: 200 },
+    created_at: '2026-11-27T00:00:00Z',
+  }
+
+  it('يحوّل سطراً كاملاً مع لقطات الفاعل والهدف', () => {
+    expect(parseAuditLogRow(row)).toMatchObject({
+      id: 'a1',
+      adminUserId: 'u1',
+      adminLabel: 'أدمن المنصة',
+      action: 'override_set',
+      targetTeacherId: 't1',
+      targetLabel: 'مستر أحمد',
+      createdAt: '2026-11-27T00:00:00Z',
+    })
+    expect(parseAuditLogRow(row)?.details).toEqual({
+      key: 'max_students',
+      value: 200,
+    })
+  })
+
+  it('سطر مشوّه (بلا id/فعل/تاريخ) يرجع null؛ details غير كائن تسقط لـ{}', () => {
+    expect(parseAuditLogRow({ ...row, id: '' })).toBeNull()
+    expect(parseAuditLogRow({ ...row, action: 5 })).toBeNull()
+    expect(parseAuditLogRow({ ...row, created_at: '' })).toBeNull()
+    expect(parseAuditLogRow({ ...row, details: 'x' })?.details).toEqual({})
+    expect(parseAuditLogRow(null)).toBeNull()
+  })
+
+  it('الصفحة تحسب العدّ الإجمالي وتتخطى الصفوف المشوّهة', () => {
+    const page = parseAuditLogPage({
+      total: 3,
+      rows: [row, { bad: true }, { ...row, id: 'a2', action: 'allowlist_added' }],
+    })
+    expect(page.total).toBe(3)
+    expect(page.rows).toHaveLength(2)
+    expect(page.rows[1].action).toBe('allowlist_added')
+  })
+
+  it('حمولة غائبة ترجع صفحة فارغة بلا كسر', () => {
+    expect(parseAuditLogPage(null)).toEqual({ total: 0, rows: [] })
+    expect(parseAuditLogPage({})).toEqual({ total: 0, rows: [] })
+  })
+
+  it('قائمة الأفعال المعروفة تغطي كل فعل تدقيق موثّق في 0059/0061/0066', () => {
+    for (const action of [
+      'override_set',
+      'override_revoked',
+      'account_activated',
+      'account_deactivated',
+      'subscription_plan_changed',
+      'allowlist_added',
+      'allowlist_removed',
+      'registration_open_changed',
+    ]) {
+      expect(AUDIT_ACTIONS).toContain(action)
+    }
   })
 })

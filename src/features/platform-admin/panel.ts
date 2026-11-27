@@ -3,17 +3,23 @@ import { isMissingRpcFunction } from '../auth/api'
 import type { OverrideInput } from './entitlements'
 
 // ---------------------------------------------------------------------------
-// لوحة أدمن المنصة (مهمة 17 — 0061، الخطوة 7): سطح القراءة والأفعال
-// الذي تقف عليه الواجهة. القراءات التجميعية عبر RPCs بحارس أدمن
-// خادمي (platform_workspaces / platform_indicators) — لا يقرأ العميل
-// أي صف مدرس تشغيلي؛ والأفعال عبر RPCs الأدمن (تفعيل الحساب / تعيين
-// الباقة من 0061، والتجاوزات من 0059 كما هي بلا تكرار)، وقائمة
-// السماح وإعدادات المنصة عبر سياسات الأدمن على جدوليهما (0057).
+// لوحة أدمن المنصة (مهمة 17 — 0061، الخطوة 7 + سجل التدقيق 0066،
+// الخطوة 6): سطح القراءة والأفعال الذي تقف عليه الواجهة. القراءات
+// التجميعية عبر RPCs بحارس أدمن خادمي (platform_workspaces /
+// platform_indicators) — لا يقرأ العميل أي صف مدرس تشغيلي؛ والأفعال
+// عبر RPCs الأدمن (تفعيل الحساب / تعيين الباقة من 0061، والتجاوزات
+// من 0059 كما هي بلا تكرار)، وقائمة السماح وقلب قفل التسجيل عبر
+// RPCs موثّقة من 0066 (platform_allowlist_add/remove و
+// platform_set_registration_open — الكتابة المباشرة للجدول من
+// العميل متوقفة منذ 0066 حتى يُوثَّق كل فعل)، وقراءة سجل التدقيق
+// عبر platform_audit_log_list (0066).
 //
 // قاعدة التسامح (دروس الخطوات 1–4): أي دالة/جدول غائب قبل تطبيق
 // مهاجراته عند بوابة التجميد يرجع null هنا فتُعرض حالة «قريباً»
 // مصممة في القسم المقابل — لا خطأ خام أبداً (قاعدة مالك 2026-11-26:
 // أي خاصية غير مُطلقة تعرض حالة مصممة لا خطأ). أي خطأ آخر يصعد.
+// أفعال الكتابة بلا رجوع متسامح عمداً: فعل بلا دالة موثّقة خير أن
+// يفشل بخطأ مصمم من أن يمرّ بلا أثر تدقيق.
 // ---------------------------------------------------------------------------
 
 /** باقات المنصة الأربع (ثابتة بقيد plans.slug في 0058) */
@@ -78,6 +84,36 @@ export interface AccountOverrideRow extends OverrideInput {
   reason: string
   createdAt: string
 }
+
+/** سطر تدقيق واحد كما يرجع من platform_audit_log_list (0066) */
+export interface AuditLogRow {
+  id: string
+  adminUserId: string | null
+  adminLabel: string | null
+  action: string
+  targetTeacherId: string | null
+  targetLabel: string | null
+  details: Record<string, unknown>
+  createdAt: string
+}
+
+/** نتيجة قراءة سجل التدقيق — عدّ إجمالي + صفوف الصفحة الحالية */
+export interface AuditLogPage {
+  total: number
+  rows: AuditLogRow[]
+}
+
+/** أفعال الأدمن المعروفة في سجل التدقيق (للمرشّح — أي فعل آخر يظهر كما هو) */
+export const AUDIT_ACTIONS = [
+  'override_set',
+  'override_revoked',
+  'account_activated',
+  'account_deactivated',
+  'subscription_plan_changed',
+  'allowlist_added',
+  'allowlist_removed',
+  'registration_open_changed',
+] as const
 
 /** حالة قسم في اللوحة — قرار نقي قابل للاختبار بلا تصيير */
 export type PanelSectionState = 'loading' | 'coming-soon' | 'error' | 'ready'
@@ -237,7 +273,7 @@ export async function setSubscriptionPlan(
   if (error) throw error
 }
 
-/** إعداد تجاوز فردي (RPC 0059 كما هو — لا تكرار؛ 0063 تضيف النوع 'setting') */
+/** إعداد تجاوز فردي (RPC 0059 كما هو — لا تكرار؛ 0066 تضيف النوع 'setting') */
 export async function setAccountOverride(input: {
   teacherId: string
   kind: 'feature' | 'limit' | 'setting'
@@ -340,24 +376,108 @@ export async function fetchAllowlist(): Promise<AllowlistEntry[] | null> {
   }))
 }
 
-/** إضافة صف سماح (بريد و/أو هاتف — واحد منهما على الأقل) */
+/**
+ * إضافة صف سماح (بريد و/أو هاتف — واحد منهما على الأقل) — عبر RPC
+ * 0066 الموثّق وحده: الكتابة المباشرة للجدول من العميل متوقفة منذ
+ * 0066 حتى يكتب كل فعل سطر allowlist_added في سجل التدقيق. بلا
+ * رجوع متسامح عمداً: غياب الدالة يفشل بخطأ مصمم لا بإضافة بلا أثر.
+ */
 export async function addAllowlistEntry(input: {
   email: string
   phone: string
   note: string
 }): Promise<void> {
-  const { error } = await db().from('teacher_allowlist').insert({
-    email: input.email.trim() === '' ? null : input.email.trim(),
-    phone: input.phone.trim() === '' ? null : input.phone.trim(),
-    note: input.note.trim() === '' ? null : input.note.trim(),
+  const { error } = await db().rpc('platform_allowlist_add', {
+    p_email: input.email.trim() === '' ? null : input.email.trim(),
+    p_phone: input.phone.trim() === '' ? null : input.phone.trim(),
+    ...(input.note.trim() !== '' ? { p_note: input.note.trim() } : {}),
   })
   if (error) throw error
 }
 
-/** حذف صف سماح (لا سياسة UPDATE في 0057 — التعديل حذف + إدراج) */
+/**
+ * حذف صف سماح عبر RPC 0066 الموثّق وحده (سطر allowlist_removed) —
+ * لا سياسة UPDATE في 0057، والتعديل حذف + إدراج كما كان.
+ */
 export async function removeAllowlistEntry(id: string): Promise<void> {
-  const { error } = await db().from('teacher_allowlist').delete().eq('id', id)
+  const { error } = await db().rpc('platform_allowlist_remove', {
+    p_allowlist_id: id,
+  })
   if (error) throw error
+}
+
+/**
+ * قلب قفل التسجيل عبر RPC 0066 الموثّق (سطر registration_open_changed)
+ * — أول مسار موثّق لهذا الفعل؛ قبله كان القلب فعل service role /
+ * SQL بلا أثر. بلا رجوع متسامح: غياب الدالة يفشل بخطأ مصمم.
+ */
+export async function setRegistrationOpen(open: boolean): Promise<void> {
+  const { error } = await db().rpc('platform_set_registration_open', {
+    p_open: open,
+  })
+  if (error) throw error
+}
+
+/** تحويل سطر تدقيق خام إلى شكل العميل — null عند التشوّه */
+export function parseAuditLogRow(data: unknown): AuditLogRow | null {
+  if (typeof data !== 'object' || data === null) return null
+  const row = data as Record<string, unknown>
+  if (typeof row.id !== 'string' || row.id === '') return null
+  if (typeof row.action !== 'string' || row.action === '') return null
+  if (typeof row.created_at !== 'string' || row.created_at === '') return null
+  return {
+    id: row.id,
+    adminUserId: asText(row.admin_user_id),
+    adminLabel: asText(row.admin_label),
+    action: row.action,
+    targetTeacherId: asText(row.target_teacher_id),
+    targetLabel: asText(row.target_label),
+    details:
+      typeof row.details === 'object' && row.details !== null
+        ? (row.details as Record<string, unknown>)
+        : {},
+    createdAt: row.created_at,
+  }
+}
+
+/**
+ * تحويل حمولة platform_audit_log_list الخام إلى صفحة — صف مشوّه
+ * يُتخطى، والعدّ الإجمالي يُقرأ آمناً (غيابه = عدد الصفوف الظاهرة).
+ */
+export function parseAuditLogPage(data: unknown): AuditLogPage {
+  const row = (data ?? {}) as Record<string, unknown>
+  const rows = Array.isArray(row.rows)
+    ? row.rows
+        .map(parseAuditLogRow)
+        .filter((r): r is AuditLogRow => r !== null)
+    : []
+  return {
+    total: asCount(row.total) === 0 ? rows.length : asCount(row.total),
+    rows,
+  }
+}
+
+/**
+ * قراءة سجل التدقيق — null عند غياب 0066 (قسم «قريباً»)؛ أي خطأ
+ * آخر يصعد. المرشّحان اختياريان (حساب/فعل) والترقيم بالصفحة.
+ */
+export async function fetchAuditLog(input: {
+  limit: number
+  offset: number
+  teacherId?: string | null
+  action?: string | null
+}): Promise<AuditLogPage | null> {
+  const { data, error } = await db().rpc('platform_audit_log_list', {
+    p_limit: input.limit,
+    p_offset: input.offset,
+    ...(input.teacherId ? { p_teacher_id: input.teacherId } : {}),
+    ...(input.action ? { p_action: input.action } : {}),
+  })
+  if (error) {
+    if (isMissingRpcFunction(error)) return null
+    throw error
+  }
+  return parseAuditLogPage(data)
 }
 
 /**
