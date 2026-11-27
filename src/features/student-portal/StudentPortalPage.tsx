@@ -43,6 +43,7 @@ import {
   savePortalSessionToken,
 } from '../portal/accounts'
 import { ClaimPasswordCard, PortalLoginForm, SessionAccountCard } from '../portal/accessUi'
+import { TeacherRatingCard } from '../profile/TeacherRatingCard'
 import { STUDENT_PORTAL, useStudentPortalOverview } from './hooks'
 import { t } from '../../i18n'
 
@@ -671,6 +672,12 @@ export function StudentPortalPage() {
             />
           )}
         </Card>
+      </div>
+
+      {/* تقييم المدرّس (0074 — 3A-929): بطاقة اختيارية تتدهور بصمت —
+          تظهر فقط لطالب مسجّل فعلياً عند هذا المدرّس */}
+      <div className="mt-5">
+        <TeacherRatingCard mode="student" rawToken={rawToken} />
       </div>
 
       <p className="text-center text-muted text-[12px] mt-5 mb-0">
