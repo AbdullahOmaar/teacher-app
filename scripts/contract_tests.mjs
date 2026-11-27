@@ -1,7 +1,7 @@
 // ============================================================================
 // اختبارات عقود API — فجوة 40 من تقييم الـ45 (Phase 2، المهمة 7: 3A-711)
 // ----------------------------------------------------------------------------
-// العقد المُختبَر هنا هو سطح HTTP العام للدوال الحدّية الخمس: أكواد الحالة
+// العقد المُختبَر هنا هو سطح HTTP العام للدوال الحدّية الست: أكواد الحالة
 // + شكل جسم الرد. كل الأخطاء بلا استثناء على شكل مغلف واحد:
 //   { "error": { "http_code": <نفس كود الحالة>, "message": <نص غير فارغ> } }
 // برأس Content-Type: application/json. والنجاحات بأشكالها الموثقة لكل دالة.
@@ -16,6 +16,7 @@
 // ============================================================================
 import { createHmac, randomBytes } from 'node:crypto'
 import { handleSendWhatsappOtp } from '../supabase/functions/send-whatsapp-otp/core.ts'
+import { handleSendWhatsappRecovery, CODE_TTL_MS } from '../supabase/functions/send-whatsapp-recovery/core.ts'
 import { handleSendWhatsappTest } from '../supabase/functions/send-whatsapp-test/core.ts'
 import { handleSendWhatsappMessage } from '../supabase/functions/send-whatsapp-message/core.ts'
 import { handleWhatsappWebhook } from '../supabase/functions/whatsapp-webhook/core.ts'
@@ -515,6 +516,157 @@ console.log('contract: assistant-chat')
       )
     },
   )
+}
+
+// ============================================================================\
+// 6) send-whatsapp-recovery — استرداد واتساب بقناة المنصة (3A-927)
+// سلوك كامل خلف مخزن ذاكرة بنفس عقد الإنتاج: حياد الرد، حدود المعدل،
+// تجزئة الكود، سقف المحاولات، الانتهاء، الاستهلاك، وإبطال كود فشل
+// إرساله — لا عقد سطحي فقط، لأن الدالة بلا بوابة JWT (مقفول بره).
+// ============================================================================
+console.log('contract: send-whatsapp-recovery')
+{
+  const { createHash } = await import('node:crypto')
+  const sha256 = (s) => createHash('sha256').update(s).digest('hex')
+  const PHONE = '+201012345678'
+  const UNKNOWN_PHONE = '+201155555555'
+  let clock = 1_700_000_000_000
+  const graphCalls = []
+  let graphOk = true
+  const graphFetch = async (url, init) => {
+    graphCalls.push({ url, body: JSON.parse(init.body) })
+    return graphOk
+      ? new Response(JSON.stringify({ messaging_product: 'whatsapp', messages: [{ id: 'wamid.r' }] }), { status: 200 })
+      : new Response(JSON.stringify({ error: { code: 190, message: 'mock rejection' } }), { status: 400 })
+  }
+  const codes = []
+  let seq = 0
+  const passwords = new Map()
+  const store = {
+    async findUserIdByPhone(phone) {
+      return phone === PHONE ? USER_ID : null
+    },
+    async listRecentCodeTimes(phone, sinceMs) {
+      return codes.filter((c) => c.phone === phone && c.createdMs >= sinceMs).map((c) => c.createdMs)
+    },
+    async invalidateActiveCodes(phone) {
+      for (const c of codes) if (c.phone === phone && c.consumedMs === null) c.consumedMs = clock
+    },
+    async insertCode(phone, codeHash, expiresAtMs) {
+      codes.push({
+        id: `code-${++seq}`,
+        phone,
+        codeHash,
+        expiresAtMs,
+        attempts: 0,
+        consumedMs: null,
+        createdMs: expiresAtMs - CODE_TTL_MS,
+      })
+    },
+    async getActiveCode(phone) {
+      const active = codes.filter((c) => c.phone === phone && c.consumedMs === null)
+      const row = active[active.length - 1]
+      return row ? { id: row.id, codeHash: row.codeHash, expiresAtMs: row.expiresAtMs, attempts: row.attempts } : null
+    },
+    async incrementAttempts(id) {
+      const row = codes.find((c) => c.id === id)
+      row.attempts += 1
+      return row.attempts
+    },
+    async consumeCode(id) {
+      const row = codes.find((c) => c.id === id)
+      if (row && row.consumedMs === null) row.consumedMs = clock
+    },
+    async updateUserPassword(userId, newPassword) {
+      passwords.set(userId, newPassword)
+    },
+  }
+  const envOn = {
+    WHATSAPP_RECOVERY_ENABLED: 'true',
+    WHATSAPP_ACCESS_TOKEN: 'platform-token',
+    WHATSAPP_PHONE_NUMBER_ID: '999888',
+    WHATSAPP_GRAPH_BASE_URL: 'https://graph.contract.test',
+  }
+  const call = (body, env = envOn, fetchFn = graphFetch) =>
+    handleSendWhatsappRecovery(postReq(body), env, fetchFn, () => {}, store, () => clock)
+  const lastSentCode = () =>
+    graphCalls[graphCalls.length - 1].body.template.components[0].parameters[0].text
+
+  await expectError('recovery GET', await handleSendWhatsappRecovery(
+    new Request('https://contract.test/fn', { method: 'GET' }), envOn, graphFetch, () => {}, store, () => clock), 405)
+  await expectError('recovery kill switch off', await call(
+    { action: 'request', phone: PHONE }, { ...envOn, WHATSAPP_RECOVERY_ENABLED: 'false' }), 503)
+  await expectError('recovery invalid json', await handleSendWhatsappRecovery(
+    postReq('{bad json'), envOn, graphFetch, () => {}, store, () => clock), 400)
+  await expectError('recovery unknown action', await call({ action: 'peek', phone: PHONE }), 400)
+  await expectError('recovery invalid phone', await call({ action: 'request', phone: '12345' }), 400)
+
+  // رقم غير مربوط: رد محايد 200 بلا إرسال ولا تخزين (منع التعداد)
+  const before = graphCalls.length
+  await expectOk('recovery unknown phone neutral', await call({ action: 'request', phone: UNKNOWN_PHONE }),
+    (body) => check('recovery neutral: empty object body', Object.keys(body).length === 0))
+  check('recovery neutral: no graph call', graphCalls.length === before)
+  check('recovery neutral: nothing stored', codes.filter((c) => c.phone === UNKNOWN_PHONE).length === 0)
+
+  // طلب ناجح: إرسال واحد + كود مخزّن مجزّأً فقط
+  await expectOk('recovery request ok', await call({ action: 'request', phone: PHONE }),
+    (body) => check('recovery request: empty object body', Object.keys(body).length === 0))
+  check('recovery request: one graph call', graphCalls.length === before + 1)
+  const sentCode = lastSentCode()
+  check('recovery request: 6-digit code sent', /^\d{6}$/.test(sentCode), sentCode)
+  const stored = codes[codes.length - 1]
+  check('recovery request: stored hash only', stored.codeHash === sha256(sentCode) && stored.codeHash !== sentCode)
+
+  // إعادة طلب فورية: حد 60 ثانية
+  await expectError('recovery resend too soon', await call({ action: 'request', phone: PHONE }), 429)
+
+  // كود خاطئ: 400 عام + محاولة تُعدّ (خاطئ مضمون: مشتق من الصحيح)
+  const wrongFor = (real) => (real === '000000' ? '000001' : '000000')
+  await expectError('recovery verify wrong code', await call(
+    { action: 'verify', phone: PHONE, code: wrongFor(sentCode), new_password: 'NewPass123' }), 400)
+  check('recovery wrong code: attempt counted', codes[codes.length - 1].attempts === 1)
+
+  // كلمة سر قصيرة تُرفض قبل لمس الكود
+  await expectError('recovery verify short password', await call(
+    { action: 'verify', phone: PHONE, code: sentCode, new_password: 'short' }), 400)
+  check('recovery short password: code untouched', codes[codes.length - 1].attempts === 1)
+
+  // تحقق صحيح: تعيين + استهلاك + إعادة تشغيل مستحيلة
+  await expectOk('recovery verify ok', await call(
+    { action: 'verify', phone: PHONE, code: sentCode, new_password: 'NewPass123' }),
+    (body) => check('recovery verify: status ok', body.status === 'ok'))
+  check('recovery verify: password set for the phone owner', passwords.get(USER_ID) === 'NewPass123')
+  check('recovery verify: code consumed', codes[codes.length - 1].consumedMs !== null)
+  await expectError('recovery verify replay', await call(
+    { action: 'verify', phone: PHONE, code: sentCode, new_password: 'OtherPass123' }), 400)
+
+  // كود منتهٍ: طلب جديد بعد فاصل الإرسال ثم قفز بالساعة فوق الصلاحية
+  clock += 61_000
+  await expectOk('recovery request 2', await call({ action: 'request', phone: PHONE }), () => {})
+  const code2 = lastSentCode()
+  clock += CODE_TTL_MS + 1_000
+  await expectError('recovery verify expired', await call(
+    { action: 'verify', phone: PHONE, code: code2, new_password: 'NewPass123' }), 400)
+
+  // سقف المحاولات: 5 خاطئة تبطل الكود والصحيح بعده يُرفض
+  clock += 61_000
+  await expectOk('recovery request 3', await call({ action: 'request', phone: PHONE }), () => {})
+  const code3 = lastSentCode()
+  for (let i = 0; i < 5; i++) {
+    await expectError(`recovery wrong attempt ${i + 1}`, await call(
+      { action: 'verify', phone: PHONE, code: wrongFor(code3), new_password: 'NewPass123' }), 400)
+  }
+  check('recovery attempt cap: code consumed', codes[codes.length - 1].consumedMs !== null)
+  await expectError('recovery correct after cap', await call(
+    { action: 'verify', phone: PHONE, code: code3, new_password: 'NewPass123' }), 400)
+
+  // فشل Graph عند الطلب: 502 + لا كود حي يبقى خلفه (القفز فوق نافذة
+  // الساعة كلها — ثلاث رموز سابقة داخلها ترفع سقف المعدل بحق)
+  clock += 3_700_000
+  graphOk = false
+  await expectError('recovery graph failure', await call({ action: 'request', phone: PHONE }), 502)
+  graphOk = true
+  check('recovery graph failure: code voided', codes[codes.length - 1].consumedMs !== null)
 }
 
 console.log(`\ncontract tests: ${checks - failures}/${checks} passed`)

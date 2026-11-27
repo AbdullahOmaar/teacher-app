@@ -9,11 +9,13 @@ import {
   isEmailUnconfirmed,
   isMissingRpcFunction,
   onboardingPrefill,
+  requestWhatsappRecoveryCode,
   signInWithGoogle,
   signUpNextStep,
   signUpWithEmail,
   translateAuthError,
   validateEmailField,
+  verifyWhatsappRecoveryCode,
 } from './api'
 import { t } from '../../i18n'
 
@@ -31,6 +33,7 @@ const h = vi.hoisted(() => ({
   result: { data: null as unknown, error: null as unknown },
   calls: [] as { name: string; args: unknown }[],
   authCalls: [] as { args: unknown }[],
+  invokeCalls: [] as { name: string; body: unknown }[],
 }))
 
 vi.mock('../../lib/supabase', () => ({
@@ -38,6 +41,12 @@ vi.mock('../../lib/supabase', () => ({
     rpc: (name: string, args: unknown) => {
       h.calls.push({ name, args })
       return Promise.resolve(h.result)
+    },
+    functions: {
+      invoke: (name: string, options: { body: unknown }) => {
+        h.invokeCalls.push({ name, body: options.body })
+        return Promise.resolve(h.result)
+      },
     },
     auth: {
       verifyOtp: (args: unknown) => {
@@ -358,5 +367,88 @@ describe('onboardingPrefill — تعبئة إكمال الحساب لكل مصا
     })
     expect(onboardingPrefill(null)).toEqual({ displayName: '', phone: '' })
     expect(onboardingPrefill(undefined)).toEqual({ displayName: '', phone: '' })
+  })
+})
+
+describe('استرداد واتساب — عقد العميل مع send-whatsapp-recovery (3A-927)', () => {
+  /** خطأ invoke بصيغة FunctionInvokeError: context يحمل حالة HTTP */
+  function invokeError(status: number | null) {
+    return {
+      message: 'Edge Function returned a non-2xx status code',
+      context:
+        status === null
+          ? undefined
+          : { status, text: () => Promise.resolve('') },
+    }
+  }
+  function setInvoke(error: unknown) {
+    h.result = { data: null, error }
+    h.invokeCalls = []
+  }
+
+  it('طلب الكود: يستدعي الدالة بجسم {action: request, phone} ويمر عند النجاح', async () => {
+    setInvoke(null)
+    await expect(requestWhatsappRecoveryCode('+201012345678')).resolves.toBeUndefined()
+    expect(h.invokeCalls).toEqual([
+      {
+        name: 'send-whatsapp-recovery',
+        body: { action: 'request', phone: '+201012345678' },
+      },
+    ])
+  })
+  it('طلب الكود: 503 = رسالة القناة غير المفعّلة المصممة', async () => {
+    setInvoke(invokeError(503))
+    await expect(requestWhatsappRecoveryCode('+201012345678')).rejects.toThrow(
+      t('auth.errWaRecoveryOff'),
+    )
+  })
+  it('طلب الكود: 429 = رسالة حد المعدل، و400 = رسالة الرقم غير الصحيح', async () => {
+    setInvoke(invokeError(429))
+    await expect(requestWhatsappRecoveryCode('+201012345678')).rejects.toThrow(
+      t('auth.errWaRecoveryRate'),
+    )
+    setInvoke(invokeError(400))
+    await expect(requestWhatsappRecoveryCode('+201012345678')).rejects.toThrow(
+      t('auth.errInvalidPhone'),
+    )
+  })
+  it('طلب الكود: فشل بلا حالة معروفة = رسالة فشل الإرسال العامة', async () => {
+    setInvoke(invokeError(null))
+    await expect(requestWhatsappRecoveryCode('+201012345678')).rejects.toThrow(
+      t('auth.errWaRecoverySendFailed'),
+    )
+  })
+  it('التحقق: يرسل الكود مقصوصاً وكلمة السر في جسم واحد', async () => {
+    setInvoke(null)
+    await expect(
+      verifyWhatsappRecoveryCode('+201012345678', ' 123456 ', 'NewPass123'),
+    ).resolves.toBeUndefined()
+    expect(h.invokeCalls).toEqual([
+      {
+        name: 'send-whatsapp-recovery',
+        body: {
+          action: 'verify',
+          phone: '+201012345678',
+          code: '123456',
+          new_password: 'NewPass123',
+        },
+      },
+    ])
+  })
+  it('التحقق: 400 = رسالة الكود العامة الواحدة (لا تفصيل يفرّق)', async () => {
+    setInvoke(invokeError(400))
+    await expect(
+      verifyWhatsappRecoveryCode('+201012345678', '000000', 'NewPass123'),
+    ).rejects.toThrow(t('auth.errWaRecoveryInvalid'))
+  })
+  it('التحقق: 503 = رسالة القناة، وغيرها = رسالة فشل الإتمام', async () => {
+    setInvoke(invokeError(503))
+    await expect(
+      verifyWhatsappRecoveryCode('+201012345678', '123456', 'NewPass123'),
+    ).rejects.toThrow(t('auth.errWaRecoveryOff'))
+    setInvoke(invokeError(502))
+    await expect(
+      verifyWhatsappRecoveryCode('+201012345678', '123456', 'NewPass123'),
+    ).rejects.toThrow(t('auth.errWaRecoveryFailed'))
   })
 })
