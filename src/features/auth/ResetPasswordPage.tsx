@@ -110,7 +110,7 @@ export function ResetPasswordPage() {
 
   return (
     <div className="relative overflow-hidden min-h-screen bg-bg text-text flex items-start justify-center">
-      <div className="relative w-full max-w-[640px] px-4 pt-14 pb-10">
+      <div className="relative w-full max-w-[640px] lg:max-w-[420px] px-4 pt-14 pb-10">
         <div className="text-center mb-6 rise-in">
           <div className="flex justify-center mb-3">
             {mascotVisible ? (

@@ -19,6 +19,10 @@ export const students = {
   nameSeparator: '، ',
   selectTitle: 'اختر طالباً من القائمة',
   selectHint: 'تفاصيل الطالب المحدد هتظهر هنا — أو عدّل البحث والفلاتر.',
+  /* ترويسات جدول الديسكتوب (3A-930) */
+  tableStudent: 'الطالب',
+  tableGroups: 'المجموعات',
+  tableStatus: 'الحالة',
   fabNew: 'طالب جديد',
   fabAddAria: 'إضافة طالب جديد',
   filterByGroup: 'تصفية حسب المجموعة',
