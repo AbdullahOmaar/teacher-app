@@ -21,6 +21,8 @@ import { ListRow } from '../../components/ui/ListRow'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import { useGroups } from '../groups/hooks'
+import { useUsageSummary } from '../platform-admin/hooks'
+import { UsageBarrier } from '../platform-admin/UsageBarrier'
 import { SG, useEnrollments, useStudentBalances, useStudents } from './hooks'
 import { StudentDetailPage } from './StudentDetailPage'
 import { StudentFormSheet } from './StudentFormSheet'
@@ -47,6 +49,10 @@ export function StudentsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [formOpen, setFormOpen] = useState(false)
+  // حاجز الترقية الناعم (0062 — الخطوة 5): عند بلوغ حد الطلاب زر
+  // الإضافة يعرض الحاجز بدل النموذج؛ والملخص غائب قبل تطبيق 0062
+  // فيبقى زر الإضافة كما كان (الحفظ نفسه يحرسه التريجر بعد التطبيق).
+  const [barrierOpen, setBarrierOpen] = useState(false)
   // Sheet «تصفية» النمط الموحّد (W3): فلتر المجموعة المتقدم كان صف رقائق
   // ثانياً مكدّساً فوق المحتوى — انتقل هنا، والمفعّل منه يظهر رقاقة إزالة
   const [filterOpen, setFilterOpen] = useState(false)
@@ -58,6 +64,12 @@ export function StudentsPage() {
 
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
   const studentsQ = useStudents(teacherId)
+  const usageQ = useUsageSummary(teacherId, teacher.status === 'ready')
+  const studentsAtLimit = usageQ.data?.students.atLimit === true
+  const handleAddStudent = () => {
+    if (studentsAtLimit) setBarrierOpen(true)
+    else setFormOpen(true)
+  }
   const enrollmentsQ = useEnrollments(teacherId)
   const groupsQ = useGroups(teacherId)
   const balancesQ = useStudentBalances(teacherId)
@@ -223,7 +235,7 @@ export function StudentsPage() {
           }
           action={
             (studentsQ.data?.length ?? 0) === 0
-              ? { label: t('students.addStudent'), onClick: () => setFormOpen(true), icon: UserPlus }
+              ? { label: t('students.addStudent'), onClick: handleAddStudent, icon: UserPlus }
               : undefined
           }
         />
@@ -334,7 +346,15 @@ export function StudentsPage() {
         )}
       </div>
 
-      <Fab onClick={() => setFormOpen(true)} ariaLabel={t('students.fabAddAria')} label={t('students.fabNew')} />
+      <Fab onClick={handleAddStudent} ariaLabel={t('students.fabAddAria')} label={t('students.fabNew')} />
+
+      <UsageBarrier
+        open={barrierOpen}
+        onClose={() => setBarrierOpen(false)}
+        limitKey="max_students"
+        limit={usageQ.data?.students.limit ?? null}
+        used={usageQ.data?.students.used ?? 0}
+      />
 
       {importOpen && (
         <StudentImportSheet

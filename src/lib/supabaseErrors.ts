@@ -12,6 +12,11 @@ import { t } from '../i18n'
 export function friendlyDbError(error: unknown, fallback: string, fkMessage?: string): Error {
   const code = (error as { code?: string } | null)?.code
   const message = error instanceof Error ? error.message : ''
+  // تريجر حد الطلاب (0062): رفع 'limit_reached:max_students' عند بلوغ
+  // الحد الفعّال — يُترجم لرسالة الترقية العربية بدل الخطأ الخام.
+  if (/limit_reached:max_students/i.test(message)) {
+    return new Error(t('settings.usageLimitStudentsReached'))
+  }
   if (code === '23503' || /foreign key|violates foreign key/i.test(message)) {
     return new Error(fkMessage ?? t('common.deleteBlockedByLinks'))
   }

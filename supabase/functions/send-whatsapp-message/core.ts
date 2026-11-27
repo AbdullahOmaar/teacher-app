@@ -91,6 +91,13 @@ export interface WhatsappMessageDeps {
   ) => Promise<TeacherWhatsappTemplate | null>
   /** التوكن مفكوكاً من Vault (service role) أو null */
   getToken: (teacherId: string) => Promise<string | null>
+  /**
+   * فحص حد رسائل الشهر (0062 — الخطوة 5): null = نظام الحدود غائب
+   * (قبل تطبيق المهاجرة) فيُسمح — الإنفاذ يبدأ مع التطبيق لا قبله.
+   */
+  checkMessageLimit: (
+    teacherId: string,
+  ) => Promise<{ allowed: boolean; limit: number | null; used: number } | null>
   /** إدخال صف سجل بحالة queued — يرجع معرّفه أو null عند الفشل */
   insertLog: (row: NewMessageLogRow) => Promise<string | null>
   /** تحديث صف السجل بنتيجة الإرسال */
@@ -239,6 +246,22 @@ export async function handleSendWhatsappMessage(
   if (!token) {
     log(`send-whatsapp-message: token missing in vault (teacher ${teacherId})`)
     return jsonError(422, 'whatsapp config incomplete or disabled')
+  }
+
+  // حد رسائل الشهر (0062 — الخطوة 5): بعد اكتمال الإعداد وقبل أي
+  // سجل أو إرسال — فلا تُستهلك رسالة مرفوضة أصلاً. null = نظام
+  // الحدود غائب (قبل تطبيق المهاجرة) فيُسمح.
+  const limitCheck = await deps.checkMessageLimit(teacherId)
+  if (limitCheck && !limitCheck.allowed) {
+    log(
+      `send-whatsapp-message: monthly limit reached (teacher ${teacherId} ` +
+        `used=${limitCheck.used} limit=${limitCheck.limit})`,
+    )
+    return jsonError(429, 'monthly message limit reached', {
+      code: 'limit_reached',
+      limit: limitCheck.limit,
+      used: limitCheck.used,
+    })
   }
 
   // السجل أولاً: لا إرسال بلا أثر قابل للمتابعة في نموذج البيانات

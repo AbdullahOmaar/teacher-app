@@ -3,6 +3,7 @@ import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { isValidEgyptianMobile } from '../../lib/phone'
 import { logActivity } from '../activity/api'
+import { checkUsageLimit } from '../platform-admin/usage'
 import type {
   EnrollmentInput,
   EnrollmentRow,
@@ -76,6 +77,19 @@ export async function fetchStudentBalances(teacherId: string): Promise<Map<strin
 }
 
 /**
+ * فحص مسبق ودود لحد الطلاب قبل الإدراج (0062 — الخطوة 5): عند بلوغ
+ * الحد يُرفض برسالة ترقية عربية قبل أي كتابة. الدالة غائبة قبل
+ * تطبيق 0062 فيُتخطى الفحص (null) — والتريجر الخادمي
+ * ‏students_limit_trg هو الحارس النهائي بعد التطبيق.
+ */
+export async function assertStudentsLimit(teacherId: string): Promise<void> {
+  const check = await checkUsageLimit(teacherId, 'max_students')
+  if (check && !check.allowed) {
+    throw new Error(t('settings.usageLimitStudentsReached'))
+  }
+}
+
+/**
  * تحقق نقي من موبايلات الطالب (3A-913 — يغطي 3A-910 أيضاً): أي رقم
  * غير فارغ لازم يكون موبايلاً مصرياً صالحاً (010/011/012/015، 11 رقماً).
  * الفارغ مسموح (الحقلان اختياريان). يعيد رسالة الخطأ العربية أو null.
@@ -100,6 +114,7 @@ export function validateStudentPhones(
 export async function createStudent(teacherId: string, input: StudentInput): Promise<StudentRow> {
   const phoneError = validateStudentPhones(input)
   if (phoneError) throw new Error(phoneError)
+  await assertStudentsLimit(teacherId)
   // public_code لا يُرسل: الـ trigger يولّد كوداً عشوائياً من 8 أحرف
   const { data, error } = await db()
     .from('students')

@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase'
 import type { StudentInput, StudentRow } from '../../../types/database'
-import { createStudent, upsertEnrollment, validateStudentPhones } from '../api'
+import { assertStudentsLimit, createStudent, upsertEnrollment, validateStudentPhones } from '../api'
 import type { ClassifiedRow } from './logic'
 import { t } from '../../../i18n'
 import { friendlyDbError } from '../../../lib/supabaseErrors'
@@ -42,6 +42,9 @@ async function createStudentWithCode(
   const phoneError = validateStudentPhones(input)
   if (phoneError) throw new Error(phoneError)
   if (!supabase) throw new Error(t('students.impApiSupabaseNotLinked'))
+  // نفس الفحص المسبق لحد الطلاب — خطأ ودود على أول صف بدل رفع
+  // التريجر في منتصف الاستيراد (التريجر يبقى الحارس النهائي).
+  await assertStudentsLimit(teacherId)
   const { data, error } = await supabase
     .from('students')
     .insert({ teacher_id: teacherId, public_code: code, ...input })
