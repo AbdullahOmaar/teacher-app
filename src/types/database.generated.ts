@@ -734,6 +734,7 @@ export type Database = {
           days: number[]
           start_time: string
           duration_minutes: number
+          slots: Json
           room: string | null
           capacity: number | null
           assistant_name: string | null
@@ -751,6 +752,7 @@ export type Database = {
           days?: number[]
           start_time: string
           duration_minutes?: number
+          slots?: Json
           room?: string | null
           capacity?: number | null
           assistant_name?: string | null
@@ -768,6 +770,7 @@ export type Database = {
           days?: number[]
           start_time?: string
           duration_minutes?: number
+          slots?: Json
           room?: string | null
           capacity?: number | null
           assistant_name?: string | null
