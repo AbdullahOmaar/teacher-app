@@ -3238,6 +3238,14 @@ export type Database = {
           }
           Returns: boolean
         }
+      log_platform_audit: {
+          Args: {
+            p_action: string
+            p_target_teacher_id?: string | null
+            p_details?: Json
+          }
+          Returns: string
+        }
       member_has_permission: {
           Args: {
             p_teacher_id: string

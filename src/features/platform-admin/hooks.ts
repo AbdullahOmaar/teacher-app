@@ -152,7 +152,7 @@ export function useAccountOverrides(
 }
 
 /** إبطال كل كاش اللوحة بعد أي فعل إدارة (الوحدة مغلقة على نفسها) */
-function useInvalidatePanel() {
+export function useInvalidatePanel() {
   const queryClient = useQueryClient()
   return () => {
     void queryClient.invalidateQueries({ queryKey: [PLATFORM_ADMIN] })
