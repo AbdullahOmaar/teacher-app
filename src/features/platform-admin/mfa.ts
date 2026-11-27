@@ -127,8 +127,12 @@ export async function fetchMfaStatus(): Promise<MfaStatus> {
     }
     throw error
   }
-  const level = client.auth.mfa.getAuthenticatorAssuranceLevel(session)
-  return resolveMfaStatus(parseMfaFactors(data), parseAal(level?.currentLevel))
+  const aalResult = await client.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (aalResult.error) throw aalResult.error
+  return resolveMfaStatus(
+    parseMfaFactors(data),
+    parseAal(aalResult.data?.currentLevel ?? null),
+  )
 }
 
 /**

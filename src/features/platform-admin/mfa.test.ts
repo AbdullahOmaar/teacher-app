@@ -44,7 +44,8 @@ vi.mock('../../lib/supabase', () => ({
       mfa: {
         listFactors: () =>
           Promise.resolve({ data: h.factors, error: h.factorsError }),
-        getAuthenticatorAssuranceLevel: () => h.aal,
+        getAuthenticatorAssuranceLevel: () =>
+          Promise.resolve({ data: h.aal, error: null }),
         enroll: (args: unknown) => {
           h.mfaCalls.push({ method: 'enroll', args })
           return Promise.resolve(h.enrollResult)
