@@ -77,6 +77,8 @@ export const portal = {
   pageNoSessionsYet: 'لسه مفيش حصص متسجلة',
   pageBalanceLabel: 'الموقف المالي',
   pagePaid: 'مسدد',
+  /** طالب بلا أي فاتورة (3A-925 بند ٤) — ليست «مسدد» */
+  pageNoInvoices: 'لا فواتير',
   pageBalanceNote: 'ده إجمالي المبلغ المستحق حالياً على الطالب. لأي استفسار تواصل مع المدرس.',
   pageScheduleTitle: 'مواعيد الحصص',
   pageNotEnrolled: 'الطالب غير مسجل في أي مجموعة حالياً.',

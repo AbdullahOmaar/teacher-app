@@ -17,6 +17,7 @@ import {
   type RawPortalBrand,
 } from './tokenLifecycle'
 import type {
+  GroupSlot,
   GuardianAccessTokenRow,
   GuardianRow,
   PaymentMethod,
@@ -348,6 +349,8 @@ interface PortalGroup {
   name: string
   days: number[]
   start_time: string
+  /** المواعيد الأسبوعية الكاملة (3A-926) — سطر عرض لكل موعد */
+  slots: GroupSlot[]
   room: string | null
   links: string[]
 }
@@ -396,10 +399,24 @@ export interface PortalOverview {
   sections: PortalSections
   attendance_rate: number | null
   balance: number
+  /** توجد أي فاتورة للطالب أصلاً (0071) — أساس فرق «مسدد» عن «لا فواتير» */
+  has_invoices: boolean
   groups: PortalGroup[]
   latest_scores: PortalScore[]
   notes: PortalNote[]
   recent_attendance: PortalAttendance[]
+}
+
+/**
+ * حالة مال الطالب المعروضة في البوابة (3A-925 بند ٤): مستحقّ إن وُجد رصيد،
+ * «مسدد» إن وُجدت فواتير ورصيدها صفر، و«لا فواتير» إن لم توجد أي فاتورة
+ * أصلاً — الخلط بين الأخيرتين كان يعرض «مسدد» لطالب لم تُنشأ له فاتورة قط.
+ */
+export type PortalMoneyState = 'due' | 'paid' | 'none'
+
+export function portalMoneyState(o: { balance: number; has_invoices: boolean }): PortalMoneyState {
+  if (o.balance > 0) return 'due'
+  return o.has_invoices ? 'paid' : 'none'
 }
 
 /** قراءة البوابة بالرمز الخام عبر الـ RPC — المسار الآمن الوحيد للـ anon */

@@ -315,6 +315,10 @@ export function StudentPortalPage() {
                 <div className="text-muted text-[12px] font-semibold mb-0.5">{t('studentPortal.pageBalanceDueLabel')}</div>
             {o.balance > 0 ? (
               <div className="text-[20px] font-extrabold text-bad-text">{formatMoney(o.balance)}</div>
+            ) : o.invoices.length === 0 ? (
+              <div className="text-[20px] font-extrabold text-muted">
+                {t('studentPortal.pageNoInvoices')}
+              </div>
             ) : (
               <div className="text-[20px] font-extrabold text-ok-text flex items-center justify-center gap-1.5">
                 {t('studentPortal.pagePaidLabel')} <Check size={22} />
@@ -373,8 +377,12 @@ export function StudentPortalPage() {
             <Card key={g.name}>
               <div className="font-bold text-[15px]">{g.name}</div>
               <div className="text-muted text-[13.5px] mt-0.5">
-                {daysLabel(g.days)} · {t('studentPortal.pageAtTime', { time: formatTime12(g.start_time) })}
-                {g.room ? ` · ${g.room}` : ''}
+                {g.slots.map((s, i) => (
+                  <div key={i}>
+                    {daysLabel([s.day])} · {t('studentPortal.pageAtTime', { time: formatTime12(s.start_time) })}
+                    {i === g.slots.length - 1 && g.room ? ` · ${g.room}` : ''}
+                  </div>
+                ))}
               </div>
               {g.links.some((link) => safeExternalUrl(link) !== null) && (
                 <div className="flex flex-wrap gap-2 mt-2">

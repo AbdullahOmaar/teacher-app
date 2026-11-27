@@ -3,6 +3,7 @@ import { t } from '../../i18n'
 import type { GuardianRow } from '../../types/database'
 import {
   isMissingWhatsappOptOutColumn,
+  portalMoneyState,
   portalNotifMeta,
   portalProofStatusMeta,
   proofErrorMessage,
@@ -121,5 +122,18 @@ describe('withWhatsappOptOutDefault — إكمال صف قديم بالافتر�
   it('قيمة موجودة تُحفَظ كما هي', () => {
     expect(withWhatsappOptOutDefault({ ...legacyRow, whatsapp_opt_out: true }).whatsapp_opt_out).toBe(true)
     expect(withWhatsappOptOutDefault({ ...legacyRow, whatsapp_opt_out: false }).whatsapp_opt_out).toBe(false)
+  })
+})
+
+describe('portalMoneyState — حالة مال البوابة (3A-925 بند ٤)', () => {
+  it('رصيد موجب = مستحقّ مهما كانت الفواتير', () => {
+    expect(portalMoneyState({ balance: 150, has_invoices: true })).toBe('due')
+    expect(portalMoneyState({ balance: 150, has_invoices: false })).toBe('due')
+  })
+  it('فواتير موجودة ورصيد صفر = مسدد', () => {
+    expect(portalMoneyState({ balance: 0, has_invoices: true })).toBe('paid')
+  })
+  it('لا فواتير أصلاً ورصيد صفر = لا فواتير (لا «مسدد» الخاطئة)', () => {
+    expect(portalMoneyState({ balance: 0, has_invoices: false })).toBe('none')
   })
 })

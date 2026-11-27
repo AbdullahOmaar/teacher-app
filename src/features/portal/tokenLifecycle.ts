@@ -1,6 +1,7 @@
 import { db } from '../../lib/supabase'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import type { Database } from '../../types/database'
+import { parseGroupSlots } from '../groups/slots'
 
 // ===========================================================================
 // دورة حياة توكنات الروابط الموقّعة — وحدة مشتركة بين بوابة ولي الأمر
@@ -286,6 +287,8 @@ interface PortalGroupLike {
   start_time: string
   room: string | null
   links: string[]
+  /** مواعيد المجموعة الكاملة (0071) — غيابها (خادم أقدم) = اشتقاق من الأيام/الوقت */
+  slots?: unknown
 }
 
 export interface OverviewHeadRaw {
@@ -293,6 +296,9 @@ export interface OverviewHeadRaw {
   brand?: RawPortalBrand | null
   attendance_rate?: unknown
   balance?: unknown
+  /** وجود أي فاتورة للطالب (0071) — غيابه (خادم أقدم) يُقرأ «توجد» حتى لا
+   * تتحول «مسدد» الصحيحة إلى «لا فواتير» بالخطأ أثناء نافذة الترحيل */
+  has_invoices?: unknown
   groups?: PortalGroupLike[] | null
 }
 
@@ -302,10 +308,18 @@ export function normalizeOverviewHead(raw: OverviewHeadRaw) {
     brand: normalizePortalBrand(raw.brand),
     attendance_rate: raw.attendance_rate == null ? null : num(raw.attendance_rate),
     balance: num(raw.balance),
+    has_invoices: raw.has_invoices !== false,
     groups: (raw.groups ?? []).map((g) => ({
       name: g.name,
       days: (g.days ?? []).map((d) => Number(d)),
       start_time: g.start_time,
+      // المواعيد الكاملة للعرض سطراً لكل موعد — مدة الاشتقاق الاحتياطي
+      // 60 افتراضية لأن البوابتين تعرضان اليوم والوقت فقط لا المدة
+      slots: parseGroupSlots(g.slots, {
+        days: (g.days ?? []).map((d) => Number(d)),
+        start_time: g.start_time,
+        duration_minutes: 60,
+      }),
       room: g.room ?? null,
       links: g.links ?? [],
     })),

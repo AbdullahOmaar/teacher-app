@@ -3,6 +3,7 @@ import { t } from '../../i18n'
 import { waLink } from '../../lib/format'
 import type {
   AssessmentType,
+  GroupSlot,
   PaymentMethod,
   ScoreSource,
   StudentAccessTokenRow,
@@ -157,6 +158,8 @@ interface StudentPortalGroup {
   name: string
   days: number[]
   start_time: string
+  /** المواعيد الأسبوعية الكاملة (3A-926) — سطر عرض لكل موعد */
+  slots: GroupSlot[]
   room: string | null
   links: string[]
 }
