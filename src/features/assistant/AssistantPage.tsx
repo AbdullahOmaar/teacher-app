@@ -25,6 +25,7 @@ import {
   type ChatHistoryTurn,
 } from './apiAssistant'
 import { fetchAiUsage } from './aiUsage'
+import { AssistantQuickActions } from './AssistantQuickActions'
 
 // ============================================================================
 // شاشة محادثة المساعد الذكي (Phase 2 T6 — ق5 ‏BYOK)
@@ -349,7 +350,8 @@ export function AssistantPage() {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
 
   const status = statusQ.data ?? null
-  const chatReady = Boolean(status?.enabled && status?.has_key)
+  // الوضع الحتمي (3A-924) يعمل بلا مفتاح: الحالة تقول needs_key=false
+  const chatReady = Boolean(status?.enabled && (status?.has_key || !status?.needs_key))
   const matrix = matrixQ.data ?? null
   const aiUsage = aiUsageQ.data ?? null
   const aiUsageText = aiUsage
@@ -372,10 +374,9 @@ export function AssistantPage() {
     return turns.slice(-10)
   }
 
-  const handleSend = async () => {
-    const text = input.trim()
+  const sendText = async (rawText: string) => {
+    const text = rawText.trim()
     if (!text || busy || !chatReady) return
-    setInput('')
     push({ id: nextId(), role: 'user', text })
     setBusy(true)
     stopRequestedRef.current = false
@@ -431,6 +432,18 @@ export function AssistantPage() {
     } finally {
       setBusy(false)
     }
+  }
+
+  const handleSend = async () => {
+    const text = input.trim()
+    if (!text || busy || !chatReady) return
+    setInput('')
+    await sendText(text)
+  }
+
+  /** قالب جاهز في صندوق الكتابة (إضافة طالب/توليد حصص) — يحرّره المدرّس ثم يرسل */
+  const prefillComposer = (text: string) => {
+    setInput(text)
   }
 
   const setProposalState = (id: number, state: ProposalState) =>
@@ -516,6 +529,11 @@ export function AssistantPage() {
               : t('assistant.keySourceByok')}
           </p>
         )}
+        {status?.planner_mode === 'deterministic' && (
+          <p className="text-muted text-[13px] mt-2 mb-0">
+            {t('assistant.modeDeterministic')}
+          </p>
+        )}
         {aiUsageText && (
           <p className="text-muted text-[13px] mt-1 mb-0">
             {aiUsageText}
@@ -546,7 +564,7 @@ export function AssistantPage() {
           <p className="text-muted text-[13.5px] mt-0 mb-0">{t('assistant.disabledBody')}</p>
         </Card>
       )}
-      {status?.enabled && !status.has_key && (
+      {status?.enabled && !status.has_key && status.needs_key && (
         <Card>
           <p className="mt-0 mb-1 font-semibold text-[15px]">{t('assistant.noKeyTitle')}</p>
           <p className="text-muted text-[13.5px] mt-0 mb-3">{t('assistant.noKeyBody')}</p>
@@ -704,7 +722,14 @@ export function AssistantPage() {
       </div>
 
       {chatReady && (
-        <div className="flex items-end gap-2">
+        <>
+          <AssistantQuickActions
+            teacherId={teacherId}
+            disabled={busy}
+            onSend={(text) => void sendText(text)}
+            onPrefill={prefillComposer}
+          />
+          <div className="flex items-end gap-2">
           <div className="grow">
             <TextInput
               value={input}
@@ -735,7 +760,8 @@ export function AssistantPage() {
               {t('assistant.send')}
             </Button>
           )}
-        </div>
+          </div>
+        </>
       )}
       {busy && (
         <p className="text-muted text-[12.5px] mt-0 mb-0">{t('assistant.sending')}</p>
