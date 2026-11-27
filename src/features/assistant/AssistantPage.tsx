@@ -13,6 +13,7 @@ import { t, type I18nKey } from '../../i18n'
 import {
   AssistantError,
   confirmAssistantProposal,
+  fetchAssistantPermissions,
   fetchAssistantStatus,
   fetchGroupName,
   fetchSessionLabel,
@@ -23,6 +24,7 @@ import {
   type AssistantReply,
   type ChatHistoryTurn,
 } from './apiAssistant'
+import { fetchAiUsage } from './aiUsage'
 
 // ============================================================================
 // شاشة محادثة المساعد الذكي (Phase 2 T6 — ق5 ‏BYOK)
@@ -270,6 +272,30 @@ async function resolveProposal(
   }
 }
 
+function MatrixGroup({
+  title,
+  note,
+  entries,
+}: {
+  title: string
+  note?: string
+  entries: { tool: string; description: string }[]
+}) {
+  return (
+    <section className="mt-3">
+      <p className="mt-0 mb-1 font-semibold text-[14px]">{title}</p>
+      {note && <p className="text-muted text-[12.5px] mt-0 mb-1">{note}</p>}
+      {entries.length > 0 && (
+        <ul className="mt-0 mb-0 ps-4 text-[13.5px] flex flex-col gap-1">
+          {entries.map((e) => (
+            <li key={e.tool}>{e.description}</li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
 export function AssistantPage() {
   const teacher = useCurrentTeacher()
   const navigate = useNavigate()
@@ -279,6 +305,26 @@ export function AssistantPage() {
   const statusQ = useQuery({
     queryKey: ['assistant-status', teacherId],
     queryFn: () => fetchAssistantStatus(teacherId),
+    enabled: Boolean(teacherId),
+    retry: false,
+  })
+
+  // مصفوفة الصلاحيات المعلنة (مهمة 22): معلومة منشورة من الدالة نفسها
+  // — تُقرأ مرة واحدة وتُعرض والمساعد مطفأ. فشلها يُخفي القسم فقط
+  // (معلومة ثانوية — المحادثة لا تعتمد عليها).
+  const matrixQ = useQuery({
+    queryKey: ['assistant-permissions', teacherId],
+    queryFn: () => fetchAssistantPermissions(teacherId),
+    enabled: Boolean(teacherId),
+    retry: false,
+    staleTime: Infinity,
+  })
+
+  // استخدام الذكاء هذا الشهر (مهمة 22 — 0062): سطر عرض فقط. أي خطأ
+  // (ومنها غياب الدالة قبل التطبيق) يُخفي السطر — بلا قيم مخترعة.
+  const aiUsageQ = useQuery({
+    queryKey: ['assistant-ai-usage', teacherId],
+    queryFn: () => fetchAiUsage(teacherId).catch(() => null),
     enabled: Boolean(teacherId),
     retry: false,
   })
@@ -304,6 +350,15 @@ export function AssistantPage() {
 
   const status = statusQ.data ?? null
   const chatReady = Boolean(status?.enabled && status?.has_key)
+  const matrix = matrixQ.data ?? null
+  const aiUsage = aiUsageQ.data ?? null
+  const aiUsageText = aiUsage
+    ? aiUsage.limit === null
+      ? t('assistant.aiUsageUnlimited', { used: aiUsage.used })
+      : t('assistant.aiUsageLine', { used: aiUsage.used, limit: aiUsage.limit })
+    : null
+  const aiAtLimit =
+    aiUsage !== null && aiUsage.limit !== null && aiUsage.used >= aiUsage.limit
   // تصنيف خطأ الحالة مرة واحدة للعرض: 503 → بطاقة «مطفأ» الصريحة،
   // فشل وصول (بلا سياق) → رسالة شبكة، غيرهما → الرسالة العامة.
   const statusErrKind = statusQ.isError ? statusErrorKind(statusQ.error) : null
@@ -453,6 +508,20 @@ export function AssistantPage() {
           <Sparkles size={22} className="text-primary" /> {t('assistant.title')}
         </h2>
         <p className="text-muted text-[13.5px] mt-0 mb-0">{t('assistant.intro')}</p>
+        {status?.key_source && (
+          <p className="text-muted text-[13px] mt-2 mb-0">
+            {t('assistant.keySourceLabel')}:{' '}
+            {status.key_source === 'platform'
+              ? t('assistant.keySourcePlatform')
+              : t('assistant.keySourceByok')}
+          </p>
+        )}
+        {aiUsageText && (
+          <p className="text-muted text-[13px] mt-1 mb-0">
+            {aiUsageText}
+            {aiAtLimit ? ` — ${t('assistant.aiUsageAtLimit')}` : ''}
+          </p>
+        )}
       </Card>
 
       {statusQ.isLoading && (
@@ -485,6 +554,26 @@ export function AssistantPage() {
             <KeyRound size={16} />
             {t('assistant.noKeyCta')}
           </Button>
+        </Card>
+      )}
+
+      {matrix && (
+        <Card>
+          <p className="mt-0 mb-1 font-semibold text-[15px]">{t('assistant.matrixTitle')}</p>
+          <p className="text-muted text-[13.5px] mt-0 mb-0">{t('assistant.matrixIntro')}</p>
+          {matrix.reads.length === 0 && matrix.confirm.length === 0 ? (
+            <p className="text-muted text-[13.5px] mt-2 mb-0">{t('assistant.matrixEmpty')}</p>
+          ) : (
+            <>
+              <MatrixGroup title={t('assistant.matrixReads')} entries={matrix.reads} />
+              <MatrixGroup
+                title={t('assistant.matrixDirect')}
+                note={t('assistant.matrixDirectNote')}
+                entries={[]}
+              />
+              <MatrixGroup title={t('assistant.matrixConfirm')} entries={matrix.confirm} />
+            </>
+          )}
         </Card>
       )}
 

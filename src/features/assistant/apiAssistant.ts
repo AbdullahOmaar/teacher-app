@@ -25,6 +25,8 @@ export interface AssistantStatus {
   enabled: boolean
   has_key: boolean
   provider: string | null
+  /** مصدر المفتاح الفعّال: مفتاح المدرس (BYOK) أو مفتاح المنصة — null بلا مفتاح */
+  key_source: 'byok' | 'platform' | null
 }
 
 export interface ProviderKeyStatus {
@@ -32,6 +34,18 @@ export interface ProviderKeyStatus {
   provider: string | null
   model: string | null
   updated_at: string | null
+}
+
+/** مصفوفة الصلاحيات المعلنة كما تنشرها الدالة (مهمة 22) */
+export interface PermissionMatrixEntry {
+  tool: string
+  description: string
+}
+
+export interface AssistantPermissionMatrix {
+  reads: PermissionMatrixEntry[]
+  direct: PermissionMatrixEntry[]
+  confirm: PermissionMatrixEntry[]
 }
 
 export type AssistantReply =
@@ -65,6 +79,7 @@ export class AssistantError extends Error {
 function messageFor(status: number, code: string | null): string {
   if (status === 503) return t('assistant.errDisabled')
   if (code === 'no_api_key') return t('assistant.errNoKey')
+  if (status === 429 && code === 'limit_reached') return t('assistant.errAiLimit')
   if (status === 403) return t('assistant.errForbidden')
   if (status === 409) return t('assistant.errConflict')
   if (
@@ -128,10 +143,41 @@ async function invokeAssistant(
 
 export async function fetchAssistantStatus(teacherId: string): Promise<AssistantStatus> {
   const data = await invokeAssistant({ action: 'status', teacher_id: teacherId })
+  const keySource = data.key_source === 'byok' || data.key_source === 'platform'
+    ? data.key_source
+    : null
   return {
     enabled: data.enabled === true,
     has_key: data.has_key === true,
     provider: typeof data.provider === 'string' ? data.provider : null,
+    key_source: keySource,
+  }
+}
+
+function parseMatrixEntries(value: unknown): PermissionMatrixEntry[] {
+  if (!Array.isArray(value)) return []
+  const out: PermissionMatrixEntry[] = []
+  for (const raw of value) {
+    if (!isRecord(raw)) continue
+    if (typeof raw.tool !== 'string' || typeof raw.description !== 'string') continue
+    out.push({ tool: raw.tool, description: raw.description })
+  }
+  return out
+}
+
+/**
+ * مصفوفة الصلاحيات المعلنة (مهمة 22): تُقرأ من الدالة نفسها فلا تنحرف
+ * عن سجل الأدوات — معلومة منشورة لا تشغيل، فتصل والمساعد مطفأ.
+ */
+export async function fetchAssistantPermissions(
+  teacherId: string,
+): Promise<AssistantPermissionMatrix> {
+  const data = await invokeAssistant({ action: 'permissions', teacher_id: teacherId })
+  const matrix = isRecord(data.matrix) ? data.matrix : {}
+  return {
+    reads: parseMatrixEntries(matrix.reads),
+    direct: parseMatrixEntries(matrix.direct),
+    confirm: parseMatrixEntries(matrix.confirm),
   }
 }
 
