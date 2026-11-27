@@ -8,7 +8,7 @@ export const platformAdmin = {
   teachersActivated: 'حسابات مفعّلة',
   studentsTotal: 'إجمالي الطلاب',
   foundationNote:
-    'إعلانات المنصة وتذاكر الدعم بتيجي في الخطوة الجاية من خطة الأدمن — باقي أقسام الإدارة شغالة من هنا.',
+    'إعلانات المنصة وتذاكر الدعم شغالة من هنا دلوقتي — باقي أقسام الإدارة شغالة من هنا.',
   loadError: 'تعذّر تحميل أرقام المنصة — حاول تاني.',
   deniedTitle: 'الصفحة دي لإدارة المنصة بس',
   deniedHint:
@@ -179,6 +179,43 @@ export const platformAdmin = {
     'القائمة فاضية — مع قفل التسجيل محدش هيقدر يكمّل إنشاء حساب جديد.',
   allowlistContactRequired: 'لازم إيميل أو موبايل على الأقل.',
   allowlistAddedAt: 'أُضيف',
+
+  // إعلانات المنصة (0065 — النشر والحذف من اللوحة)
+  announcementsTitle: 'إعلانات المنصة',
+  announcementsEmpty: 'لا توجد إعلانات منشورة لسه.',
+  announcementTitleLabel: 'عنوان الإعلان',
+  announcementBodyLabel: 'نص الإعلان',
+  announcementKindLabel: 'النوع',
+  announcementKindUpdate: 'تحديث',
+  announcementKindMaintenance: 'صيانة',
+  announcementKindGeneral: 'عام',
+  announcementScheduledLabel: 'موعد الصيانة (اختياري)',
+  announcementPublish: 'نشر الإعلان',
+  announcementDelete: 'حذف الإعلان',
+  announcementPublishedToast: 'اتنشر الإعلان لكل المدرسين.',
+  announcementTitleRequired: 'اكتب عنواناً للإعلان الأول.',
+  announcementBodyRequired: 'اكتب نص الإعلان الأول.',
+  announcementPublishedAt: 'نُشر',
+
+  // تذاكر الدعم (0065 — القائمة والرد وتغيير الحالة من اللوحة)
+  ticketsTitle: 'تذاكر الدعم',
+  ticketsEmpty: 'لا توجد تذاكر دعم لسه.',
+  ticketStatusNew: 'جديدة',
+  ticketStatusInProgress: 'قيد المعالجة',
+  ticketStatusWaitingTeacher: 'بانتظار رد المدرس',
+  ticketStatusClosed: 'مغلقة',
+  ticketFilterAll: 'كل الحالات',
+  ticketFilterLabel: 'الحالة',
+  ticketClose: 'إغلاق التذكرة',
+  ticketReopen: 'إعادة فتح التذكرة',
+  ticketReplyLabel: 'اكتب ردك للمدرس',
+  ticketReplySend: 'إرسال الرد',
+  ticketReplyRequired: 'اكتب الرد الأول.',
+  ticketTeacherLabel: 'المدرس',
+  ticketUnknownTeacher: 'حساب محذوف',
+  ticketAuthorAdmin: 'إدارة المنصة',
+  ticketAuthorTeacher: 'المدرس',
+  ticketNoMessages: 'لا توجد رسائل في التذكرة دي لسه.',
 
   // إعدادات واتساب المنصة — حالة «قريباً» المصممة (لا رقم منصة بعد)
   whatsappTitle: 'إعدادات واتساب المنصة',

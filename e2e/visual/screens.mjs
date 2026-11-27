@@ -43,6 +43,13 @@ export const SCREENS = [
   { id: 'backup', name: 'النسخ الاحتياطي', path: '/backup', auth: 'demo', maxDiffRatio: 0.01, volatile: 'ضجيج متقطع مقاس حتى 0.66% (0.000% في تشغيلتين) — قياسات 3A-326' },
   { id: 'portal-links', name: 'إدارة روابط البوابات', path: '/portal-links', auth: 'demo' },
   { id: 'activity-log', name: 'سجل النشاط', path: '/activity-log', auth: 'demo', maxDiffRatio: 0.01, volatile: 'طوابع زمنية للنشاط' },
+  /* الخطوة 8 (0065 — غير مطبّقة حياً): الصفحتان تعرضان «قريباً» مصممة
+     حتى تطبيق المهاجرة؛ /admin للمدرس تعرض شاشة الرفض المصممة (البوابة
+     ترفض غير الأدمن) — أقسام اللوحة الجديدة نفسها لا تظهر إلا لحساب
+     أدمن منصة، ولا يوجد حساب أدمن حي قبل بوابة التجميد. */
+  { id: 'support', name: 'الدعم الفني (تذاكر)', path: '/support', auth: 'demo' },
+  { id: 'announcements', name: 'إعلانات المنصة', path: '/announcements', auth: 'demo' },
+  { id: 'admin-panel', name: 'لوحة أدمن المنصة (رفض للمدرس)', path: '/admin', auth: 'demo' },
   { id: 'analytics', name: 'التحليلات', path: '/analytics', auth: 'demo', maxDiffRatio: 0.01, volatile: 'فترة الشهر الحالي المجمّد' },
   { id: 'at-risk', name: 'المعرضون للخطر', path: '/at-risk', auth: 'demo', maxDiffRatio: 0.01, volatile: 'بصمة ضجيج ثابتة 0.481% في ثلاث قياسات مستقلة والمحتوى مطابق بالعين — قياسات 3A-326' },
   { id: 'notfound-shell', name: '404 داخل الجلسة', path: '/no-such-screen-xyz', auth: 'demo' },
