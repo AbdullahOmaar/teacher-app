@@ -58,7 +58,8 @@ export const PORTAL_TOKEN_TTL_DAYS = 30
 
 const TOKEN_COLS =
   'id, teacher_id, guardian_id, student_id, expires_at, revoked_at, last_used_at, created_at'
-const GUARDIAN_COLS = 'id, teacher_id, user_id, display_name, phone, created_at, updated_at'
+const GUARDIAN_COLS =
+  'id, teacher_id, user_id, display_name, phone, created_at, updated_at, whatsapp_opt_out'
 
 // ---------------------------------------------------------------------------
 // توليد الرمز وهاشّه (Web Crypto — في المتصفح فقط، بلا أي إرسال للخام)
@@ -142,7 +143,7 @@ async function ensureGuardianAndLink(
 
   const { data: link, error: linkErr } = await supa
     .from('guardian_students')
-    .select('guardian_id, guardians(id, teacher_id, user_id, display_name, phone, created_at, updated_at)')
+    .select('guardian_id, guardians(id, teacher_id, user_id, display_name, phone, created_at, updated_at, whatsapp_opt_out)')
     .eq('teacher_id', teacherId)
     .eq('student_id', student.id)
     .limit(1)

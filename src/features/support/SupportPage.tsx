@@ -25,6 +25,7 @@ import {
   useSubmitSupportTicket,
   useTicketThread,
 } from './hooks'
+import { FeatureIntro } from '../newFeatures/FeatureIntro'
 
 const STATUS_BADGE: Record<TicketStatus, string> = {
   new: 'bg-warn/15 text-warn-text',
@@ -108,6 +109,7 @@ export function SupportPage() {
   return (
     <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [SUPPORT])}>
       <div>
+        <FeatureIntro featureId="support-tickets" />
         <p className="text-muted text-[13.5px] leading-[1.8] mb-3 mt-0 rise-in">
           {t('support.ticketsIntro')}
         </p>

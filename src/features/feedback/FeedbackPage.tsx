@@ -20,6 +20,7 @@ import { useAuth } from '../../lib/useAuth'
 import type { FeedbackKind, FeedbackStatus, TeacherFeedbackRow } from '../../types/database'
 import { formatDateLabel } from '../schedule/api'
 import { FEEDBACK, useFeedbackList, useSetFeedbackStatus, useSubmitFeedback } from './hooks'
+import { FeatureIntro } from '../newFeatures/FeatureIntro'
 
 const KIND_OPTIONS: { id: FeedbackKind; label: string }[] = [
   { id: 'suggestion', label: t('feedback.kindSuggestion') },
@@ -104,6 +105,7 @@ export function FeedbackPage() {
   return (
     <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [FEEDBACK])}>
       <div>
+        <FeatureIntro featureId="teacher-feedback" />
         <p className="text-muted text-[13.5px] leading-[1.8] mb-3 mt-0 rise-in">
           {t('feedback.intro')}
         </p>

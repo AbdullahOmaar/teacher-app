@@ -25,7 +25,7 @@ import type { WhatsappMessageKind, WhatsappTemplateStatus } from './whatsappTemp
 // ---------------------------------------------------------------------------
 
 const WHATSAPP_CONFIG_COLS =
-  'teacher_id, enabled, phone_number_id, waba_id, template_name, template_language, token_updated_at, last_test_at, created_at, updated_at'
+  'teacher_id, enabled, phone_number_id, waba_id, template_name, template_language, token_updated_at, last_test_at, created_at, updated_at, auto_send_enabled, auto_send_daily_quota'
 
 export interface WhatsappConfigInput {
   enabled: boolean
@@ -33,6 +33,9 @@ export interface WhatsappConfigInput {
   waba_id: string
   template_name: string
   template_language: string
+  /** استعداد الإرسال الآلي (0073): opt-in السنتر + حصته اليومية */
+  auto_send_enabled: boolean
+  auto_send_daily_quota: number
 }
 
 /** قراءة إعداد واتساب السنتر (null = لم يُنشأ صف بعد — الميزة غير مهيأة) */
@@ -79,6 +82,9 @@ export async function upsertWhatsappConfig(
         waba_id: input.waba_id.trim(),
         template_name: templateName,
         template_language: templateLang,
+        auto_send_enabled: input.auto_send_enabled,
+        // الحصة عدد صحيح موجب دائماً (قيد القاعدة > 0 أيضاً)
+        auto_send_daily_quota: Math.max(1, Math.floor(input.auto_send_daily_quota) || 100),
       },
       { onConflict: 'teacher_id' },
     )
@@ -142,7 +148,7 @@ const WHATSAPP_TEMPLATES_COLS =
   'teacher_id, kind, template_name, language, status, created_at, updated_at'
 
 const WHATSAPP_LOG_COLS =
-  'id, teacher_id, kind, template_name, recipient_phone, status, meta_message_id, error_code, error_message, created_at, updated_at'
+  'id, teacher_id, kind, template_name, recipient_phone, status, meta_message_id, error_code, error_message, created_at, updated_at, source'
 
 /** سجل قوالب السنتر (صف لكل نوع أُدخل — الغائب يعني «غير محدّد») */
 export async function fetchWhatsappTemplates(

@@ -15,6 +15,7 @@ import { useTheme } from '../../hooks/useTheme'
 import { prefetchRoute } from '../../lib/routePrefetch'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { useHomeAlerts } from '../../features/home/hooks'
+import { useNewFeatures } from '../../features/newFeatures/hooks'
 import { Onboarding } from '../../features/auth/Onboarding'
 import { AccountDeletedScreen } from '../../features/auth/AccountDeletedScreen'
 import { useAccountDeletedAt } from '../../hooks/useAccountDeleted'
@@ -129,6 +130,11 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const alertsCount = alertsQ.data
     ? new Set(alertsQ.data.filter((a) => !a.silent).map((a) => a.kind)).size
     : 0
+  // نقطة نظام «جديد» على تبويب «المزيد» (المهمة 24): كل الخصائص
+  // المسجلة مداخلها تحت «المزيد»، فوجود أي خاصية غير مشاهَدة يرفع
+  // نقطة على التبويب حتى تُفتح وتُختم من صفحتها.
+  const { unseen: unseenFeaturesList } = useNewFeatures(teacherId)
+  const hasUnseenFeatures = unseenFeaturesList.length > 0
   const isDark =
     typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark'
   const avatarLetter =
@@ -248,11 +254,14 @@ export function AppShell({ children }: { children?: ReactNode }) {
                 }`}
               >
                 <span
-                  className={`flex items-center justify-center rounded-full px-4 py-1 ${
+                  className={`relative flex items-center justify-center rounded-full px-4 py-1 ${
                     active ? 'bg-soft' : ''
                   }`}
                 >
                   <Icon size={24} fill={active ? 'currentColor' : 'none'} />
+                  {item.key === 'more' && hasUnseenFeatures && (
+                    <span className="absolute top-0.5 end-2 w-2.5 h-2.5 rounded-full bg-primary" />
+                  )}
                 </span>
                 {item.label}
               </button>
