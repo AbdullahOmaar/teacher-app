@@ -35,6 +35,8 @@ function entitlementsStub(limit: number | null): EffectiveEntitlements {
       maxAiMessagesMonth: 500,
     },
     features: {},
+    settings: {},
+    confirmation: { required: false, channel: null },
     verification: { required: false, channels: [] },
     overridesApplied: [],
   }
