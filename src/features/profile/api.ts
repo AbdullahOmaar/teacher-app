@@ -517,7 +517,7 @@ export interface MyRating {
   comment: string | null
 }
 
-function parseMyRating(data: unknown): MyRating | null {
+export function parseMyRating(data: unknown): MyRating | null {
   const r = asRecord(data)
   if (!r || typeof r.stars !== 'number') return null
   return { stars: r.stars, comment: asString(r.comment) }
