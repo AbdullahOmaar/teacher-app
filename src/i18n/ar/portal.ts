@@ -132,6 +132,8 @@ export const portal = {
   apiAttAbsent: 'غائب',
   apiAttLate: 'متأخر',
   apiAttMakeup: 'تعويضية',
+  /** شارة محايدة لأي حالة حضور لا يعرفها العميل (3A-928) */
+  apiAttFallback: 'حضور',
   durationLabel: 'مدة صلاحية الرابط',
   durationDays: '{days} يوم',
   durationCustomChip: 'مدة مخصصة',

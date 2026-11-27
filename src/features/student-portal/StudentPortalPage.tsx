@@ -25,7 +25,7 @@ import { fmtScore, pctOf, ASSESSMENT_TYPE_LABELS } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import { formatDateLabel, formatDayMonth, periodLabel } from '../schedule/api'
 import {
-  STUDENT_PORTAL_ATT_META,
+  studentPortalAttMeta,
   fetchStudentPushStatus,
   studentPortalErrorInfo,
   subscribeStudentPush,
@@ -442,10 +442,7 @@ export function StudentPortalPage() {
       ) : (
         <Card className="p-0 overflow-hidden">
           {o.homework.map((h, i) => {
-            const meta = STUDENT_PORTAL_ATT_META[h.status] ?? {
-              label: h.status,
-              badge: 'bg-soft text-muted border-border',
-            }
+            const meta = studentPortalAttMeta(h.status)
             return (
               <div
                 key={`${h.date}-${h.group_name}-${i}`}

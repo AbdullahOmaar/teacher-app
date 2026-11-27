@@ -84,4 +84,6 @@ export const studentPortal = {
   apiAttAbsent: 'غائب',
   apiAttLate: 'متأخر',
   apiAttMakeup: 'تعويضية',
+  /** شارة محايدة لأي حالة حضور لا يعرفها العميل (3A-928) */
+  apiAttFallback: 'حضور',
 } as const

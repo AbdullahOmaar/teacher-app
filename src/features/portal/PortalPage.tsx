@@ -26,7 +26,7 @@ import type { PaymentMethod } from '../../types/database'
 import { fmtScore, pctOf } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import {
-  PORTAL_ATT_META,
+  portalAttMeta,
   PROOF_METHODS,
   fetchGuardianPushStatus,
   portalErrorInfo,
@@ -810,7 +810,7 @@ export function PortalPage() {
       ) : (
         <Card className="p-0 overflow-hidden">
           {o.recent_attendance.map((a, i) => {
-            const meta = PORTAL_ATT_META[a.status] ?? { label: a.status, badge: 'bg-soft text-muted border-border' }
+            const meta = portalAttMeta(a.status)
             return (
               <div
                 key={`${a.date}-${a.group_name}-${i}`}

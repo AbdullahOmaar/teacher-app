@@ -374,3 +374,15 @@ export const STUDENT_PORTAL_ATT_META: Record<string, { label: string; badge: str
   l: t('studentPortal.apiAttLate'),
   m: t('studentPortal.apiAttMakeup'),
 })
+
+/**
+ * حسم ميتا حالة حضور بأمان (3A-928 — نفس قاعدة بوابة ولي الأمر): بحث
+ * محروس بـ Object.hasOwn وقبول القيم غير النصية — لا undefined أبداً
+ * مهما أرسل الخادم، فلا كراش «reading badge» في أي بوابة.
+ */
+export function studentPortalAttMeta(status: string): { label: string; badge: string } {
+  if (typeof status === 'string' && Object.hasOwn(STUDENT_PORTAL_ATT_META, status)) {
+    return STUDENT_PORTAL_ATT_META[status]
+  }
+  return { label: t('studentPortal.apiAttFallback'), badge: 'bg-soft text-muted border-border' }
+}
