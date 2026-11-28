@@ -1,6 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mister/core/data/secure_storage_service.dart';
 import 'package:mister/core/data/services.dart';
 import 'package:mister/core/data/supabase_service.dart';
+import 'package:mister/features/auth/data/app_lock_service.dart';
+import 'package:mister/features/auth/data/auth_gateway.dart';
+import 'package:mister/features/auth/data/auth_repository.dart';
+import 'package:mister/features/auth/data/auth_repository_impl.dart';
 import 'package:mister/features/auth/data/teacher_repository.dart';
 import 'package:mister/features/auth/data/teacher_repository_impl.dart';
 import 'package:mister/features/groups/data/groups_repository.dart';
@@ -40,5 +45,32 @@ final homeRepositoryProvider = Provider<HomeRepository>(
     ref.watch(supabaseServiceProvider),
     ref.watch(scheduleRepositoryProvider),
     ref.watch(studentsRepositoryProvider),
+  ),
+);
+
+/// F1-T5 — الدخول والأمان.
+final secureStorageServiceProvider = Provider<SecureStorageServiceImpl>(
+  (ref) => SecureStorageServiceImpl(),
+);
+
+final authGatewayProvider = Provider<AuthGateway>(
+  (ref) => SupabaseAuthGateway(Supabase.instance.client.auth),
+);
+
+final authRepositoryProvider = Provider<AuthRepository>(
+  (ref) => AuthRepositoryImpl(
+    ref.watch(authGatewayProvider),
+    ref.watch(supabaseServiceProvider),
+  ),
+);
+
+final biometricGatewayProvider = Provider<BiometricGateway>(
+  (ref) => LocalAuthGateway(),
+);
+
+final appLockServiceProvider = Provider<AppLockService>(
+  (ref) => AppLockService(
+    ref.watch(secureStorageServiceProvider),
+    ref.watch(biometricGatewayProvider),
   ),
 );

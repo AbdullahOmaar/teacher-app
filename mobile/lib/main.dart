@@ -2,12 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mister/app_build_info.dart';
+import 'package:mister/core/data/secure_storage_service.dart';
+import 'package:mister/core/data/supabase_service.dart';
 import 'package:mister/core/router/app_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 // import 'package:mister/l10n/app_localizations.dart'; // يُولَّد من ARB في F1-T3 (gen-l10n).
 
-/// نقطة الدخول — هيكل F1-T2.
+/// نقطة الدخول — هيكل F1-T2 + إقلاع F1-T5.
 /// العربية افتراضيًا (قرار منتج موثّق — الملحق أ L5) مع الإنجليزية من الإعدادات.
-void main() {
+/// إقلاع Supabase: PKCE + جلسة في المخزن الآمن (MASVS) — من dart-define فقط.
+/// بلا إعدادات بيئة (بناء دخاني) يُقلع التطبيق بلا عميل؛ البوابات تتحقق محليًا.
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (AppConfig.supabaseUrl.isNotEmpty) {
+    await Supabase.initialize(
+      url: AppConfig.supabaseUrl,
+      anonKey: AppConfig.supabaseAnonKey,
+      authOptions: FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.pkce,
+        localStorage: SecureGoTrueStorage(),
+      ),
+    );
+  }
   runApp(const ProviderScope(child: MisterApp()));
 }
 
