@@ -104,6 +104,16 @@ class SupabaseServiceImpl implements SupabaseService {
     }
   }
 
+  @override
+  Future<void> upsertRow(String table, Map<String, dynamic> values,
+      {required String onConflict,}) async {
+    try {
+      await client.from(table).upsert(values, onConflict: onConflict);
+    } catch (e) {
+      throw mapSupabaseError(e);
+    }
+  }
+
   /// إدخال/تحديث يعيد الصف — تُستخدم من الريبو فقط.
   @override
   Future<Map<String, dynamic>> insertRow(

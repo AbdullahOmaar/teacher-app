@@ -71,6 +71,14 @@ class FakeSupabaseService implements SupabaseService {
   }
 
   @override
+  @override
+  Future<void> upsertRow(String table, Map<String, dynamic> values,
+      {required String onConflict,}) async {
+    _maybeThrow();
+    inserts.add((table: table, values: values));
+  }
+
+  @override
   Future<Map<String, dynamic>> insertRow(
       String table, Map<String, dynamic> values,) async {
     _maybeThrow();

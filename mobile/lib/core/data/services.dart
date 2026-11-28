@@ -37,6 +37,10 @@ abstract class SupabaseService {
     required List<Object> inValues,
   });
 
+  /// إدخال أو تحديث عند التعارض (idempotent) — لمزامنة الحضور.
+  Future<void> upsertRow(String table, Map<String, dynamic> values,
+      {required String onConflict,});
+
   Future<Map<String, dynamic>> insertRow(
       String table, Map<String, dynamic> values,);
   Future<Map<String, dynamic>> updateRow(
