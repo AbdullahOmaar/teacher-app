@@ -7,7 +7,9 @@ import type { Database } from '../../types/database'
 // (portal/api.ts) وبوابة الطالب (student-portal/api.ts) — COD-3 / 3A-362.
 //
 // البوابتان تتشاركان الشكل نفسه حرفياً: رمز خام ← هاش SHA-256 ← انتهاء
-// بمدة يحددها المدرس (3A-385؛ الافتراضي 30 يوماً) ← إبطال النشط السابق ← إدراج؛ جلب/إلغاء بنفس الاستعلامات؛
+// بمدة يحددها المدرس (3A-385؛ الافتراضي 30 يوماً) ← إدراج (التوليد لا
+// يُبطل أي رابط قائم — الرابط يموت بانتهائه أو بإلغاء صريح من المدرس
+// فقط، إصلاح 2026-11-28)؛ جلب/إلغاء بنفس الاستعلامات؛
 // قراءة بالرمز عبر RPC؛ وPush بنفس الشكل مع اختلاف أسماء الـ RPC فقط.
 // الفروق الحقيقية (اسم الجدول، أعمدة الإدراج الزائدة مثل guardian_id،
 // باني الرابط، أسماء RPC) تُمرَّر هنا كبرمترات — صفر تغيير سلوكي:
@@ -157,22 +159,19 @@ export interface CreateTokenLinkInput extends CreateTokenLinkDeps {
 
 /**
  * توليد رابط جديد: رمز عشوائي في العميل → هاش SHA-256 فقط يُرسل
- * ويُخزّن، وأي روابط نشطة سابقة لنفس الطالب تُبطَل أولاً (إعادة
- * التوليد = إبطال القديم). يعيد الرابط الكامل وتاريخ الانتهاء.
+ * ويُخزّن. التوليد إضافي فقط: لا يُبطل أي رابط قائم لنفس الطالب —
+ * الرابط الذي بيد الطالب/ولي الأمر يفضل صالحاً وقابلاً لإعادة
+ * الاستخدام لحد انتهائه أو إلغاء المدرس له صراحة من قائمة الروابط
+ * (revokeTokenRow). قبل إصلاح 2026-11-28 كان التوليد يُبطل كل النشط
+ * قبله، فأي إعادة توليد (حتى من جلسة أخرى) كانت تقتل رابط الطالب
+ * فوراً — وهو الباج الذي أبلغ عنه المالك حياً. يعيد الرابط الكامل
+ * وتاريخ الانتهاء.
  */
 export async function createTokenLink(input: CreateTokenLinkInput): Promise<{ link: string; expiresAt: string }> {
   const supa = db()
   const rawToken = input.generateRawToken()
   const tokenHash = await input.sha256Hex(rawToken)
   const expiresAt = tokenExpiresAt(input.ttlDays ?? TOKEN_TTL_DAYS)
-
-  const { error: revokeErr } = await supa
-    .from(input.table)
-    .update({ revoked_at: new Date().toISOString() })
-    .eq('teacher_id', input.teacherId)
-    .eq('student_id', input.studentId)
-    .is('revoked_at', null)
-  if (revokeErr) throw revokeErr
 
   const { error: insErr } = await supa.from(input.table).insert({
     teacher_id: input.teacherId,
