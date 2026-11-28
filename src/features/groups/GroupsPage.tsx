@@ -99,26 +99,35 @@ export function GroupsPage() {
                 className={`rise-in ${g.archived_at != null ? 'opacity-70' : ''}`}
                 style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
               >
-                {/* التفاف مقصود: اسم مجموعة طويل + شارة مساعد كانا ينضغطان
-                    في صف واحد فتلتف الشارة داخل كبسولتها لسطرين */}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                {/* (مراجعة المالك الحية 2026-11-28 — تخطيط كارت المجموعة،
+                    نفس نمط شارة الفاتورة في PR #76): سطر الاسم أولاً وشارة
+                    الحالة قصاده في الطرف المقابل (أقصى الشمال بصرياً) في
+                    نفس السطر — لا سطر مستقل للشارة. الاسم يُختصر بنقاط قبل
+                    الشارتين دائماً والشارتان ثابتتا الانكماش، فيحلّ هذا محل
+                    الالتفاف المقصود القديم (اسم طويل + شارة مساعد كانا
+                    ينضغطان فتلتف الشارة داخل كبسولتها لسطرين). */}
+                <div className="flex items-center gap-x-3">
                   <span className="shrink-0 w-10 h-10 rounded-full bg-soft text-primary flex items-center justify-center">
                     <Users size={20} />
                   </span>
-                  <span className="font-bold text-[16px] min-w-0">{g.name}</span>
-                  {g.archived_at != null && (
-                    <span className="text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 whitespace-nowrap">
-                      {t('groups.badgeArchived')}
-                    </span>
-                  )}
+                  <span className="font-bold text-[16px] flex-1 min-w-0 truncate">{g.name}</span>
                   {g.assistant_name && (
-                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5 max-w-full truncate">
+                    <span className="shrink-0 max-w-[38%] truncate text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
                       {t('groups.detailAssistant', { name: g.assistant_name })}
                     </span>
                   )}
+                  {g.archived_at != null && (
+                    <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 whitespace-nowrap">
+                      {t('groups.badgeArchived')}
+                    </span>
+                  )}
                 </div>
-                <div className="text-muted text-[13.5px] mt-0.5">
-                  {BILLING_LABELS[g.billing_type]} · {formatMoney(g.price)} · {daysLabel(g.days)} ·{' '}
+                {/* البيانات الوصفية سطراً سطراً (قاعدة المالك نفسها):
+                    سطر الوصف (نظام الفوترة · السعر · الميعاد والمدة ·
+                    القاعة) في سطر واحد، والأيام في سطر لوحدها — كانت
+                    كلها مدموجة في سطر واحد مع الأيام. */}
+                <div className="text-muted text-[13.5px] mt-1">
+                  {BILLING_LABELS[g.billing_type]} · {formatMoney(g.price)} ·{' '}
                   {formatTime12(g.start_time)} {t('groups.listDuration', { minutes: g.duration_minutes })}
                   {g.room ? (
                     <>
@@ -129,6 +138,7 @@ export function GroupsPage() {
                     ''
                   )}
                 </div>
+                <div className="text-muted text-[13.5px] mt-0.5">{daysLabel(g.days)}</div>
                 {g.capacity != null && pct != null ? (
                   <div className="mt-2">
                     <div className="flex justify-between text-[13.5px] text-muted mb-1">
