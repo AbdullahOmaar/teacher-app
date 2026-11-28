@@ -1,0 +1,31 @@
+{
+  "tool": "visual-capture 3A-326",
+  "base": "http://localhost:4211",
+  "frozenNowUtc": "2026-11-21T22:00:00.000Z",
+  "timezone": "Africa/Cairo",
+  "relay": true,
+  "theme": "default(saved/auto)",
+  "startedAt": "2026-11-28T04:42:28.092Z",
+  "widths": {
+    "375": [
+      {
+        "id": "portal-student",
+        "file": "375/portal-student.png",
+        "path": "(generated token link, revoked after capture)",
+        "bytes": 359296,
+        "pngWidth": 375,
+        "pngHeight": 5016,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 375,
+          "vw": 375,
+          "theme": "light",
+          "offenders": [],
+          "clipped": []
+        }
+      }
+    ]
+  },
+  "finishedAt": "2026-11-28T04:43:06.602Z",
+  "relayAborted": 0
+}

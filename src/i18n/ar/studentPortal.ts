@@ -68,6 +68,7 @@ export const studentPortal = {
   pageReversalBadge: 'دفعة عكسية',
   pageFooter: 'بوابة الطالب — دي بياناتك انت بس، زي ما المدرس محددها.',
   loginUsernameCode: 'رقم الموبايل أو كود الطالب',
+  claimLoginNameHint: 'اسم الدخول بتاعك: كودك اللي في ملفك عند المدرس — أو رقم موبايلك المسجل عند المدرس. الاتنين ينفعوا مع كلمة السر في الدخول الجاي.',
   loginUsernamePlaceholder: '01xxxxxxxxx أو الكود اللي في ملفك عند المدرس',
   apiStudentLinkWa: 'أهلاً {name}، ده رابط بوابة الطالب الخاصة بيك (حصصك الجاية وواجباتك ودرجاتك ومدفوعاتك): {link} — الرابط صالح لمدة {days} يوم.',
   apiErrorExpiredTitle: 'الرابط منتهي أو ملغي',
