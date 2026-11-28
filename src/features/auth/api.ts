@@ -36,6 +36,12 @@ export function translateAuthError(message: string): string {
   // banned_until برسالة «User is banned» — تُترجم لرسالة الحذف
   // المصممة بدل أي نص خام (قاعدة المالك 18:06 + F6).
   if (m.includes('banned')) return t('auth.errAccountDeleted')
+  // مزوّد OAuth غير مفعّل على المشروع (3A-931): GoTrue يرفض بـ
+  // «Unsupported provider: provider is not enabled» قبل أي تحويل —
+  // رسالة مصممة تقول للمستخدم إن الدخول بجوجل لم يُفعَّل بعد وإن
+  // الإيميل طريقه الشغال، لا نص خام ولا طريق مسدود.
+  if (m.includes('provider is not enabled') || m.includes('unsupported provider'))
+    return t('auth.errGoogleNotEnabled')
   if (m.includes('invalid login credentials')) return t('auth.authApiInvalidCredentials')
   if (m.includes('already registered') || m.includes('already exists'))
     return t('auth.authApiAlreadyRegistered')
@@ -239,6 +245,67 @@ export function isEmailUnconfirmed(
 ): boolean {
   if (!user) return false
   return !user.email_confirmed_at
+}
+
+/**
+ * الدخول بجوجل (3A-931 — قرار مالك 2026-11-28): زر واحد للدخول
+ * والتسجيل معاً عبر Supabase OAuth. signInWithOAuth يحوّل المتصفح
+ * لجوجل، والرجوع يهبط على /login بنفس الأصل (ضمن uri_allow_list)
+ * حيث يلتقط AuthProvider الجلسة من الرابط (detectSessionInUrl) —
+ * فلا مسار مصادقة موازٍ إطلاقاً: مستخدم جوجل الجديد يمرّ بنفس
+ * حلّ الهوية (useCurrentTeacher) ويسقط لنفس شاشة إكمال الحساب
+ * (Onboarding) عند غياب ملف المدرس، كمسجّل الإيميل تماماً.
+ * فشل بدء التحويل (مزود غير مفعّل على المشروع) يُترجم في
+ * translateAuthError لرسالة مصممة — انظر errGoogleNotEnabled.
+ */
+export async function signInWithGoogle(): Promise<void> {
+  const { error } = await db().auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${window.location.origin}/login` },
+  })
+  if (error) throw new Error(translateAuthError(error.message))
+}
+
+/**
+ * رسالة خطأ رجوع OAuth المصممة (3A-931): عند إلغاء المستخدم عند
+ * جوجل أو فشل المزود يرجع المتصفح إلى /login حاملاً معاملات خطأ —
+ * في الاستعلام (?error=access_denied&error_description=...) مع
+ * PKCE أو في المقطع (#error=...) مع الضمني. نقرأ المعاملين من
+ * الموضعين ونرجع رسالة عربية مصممة بحسب النوع (إلغاء/فشل عام) —
+ * نص error_description الخام لا يُعرض أبداً (قاعدة المالك)،
+ * وغياب أي خطأ يرجع null فلا رسالة.
+ */
+export function googleReturnErrorMessage(search: string, hash: string): string | null {
+  const readError = (raw: string): string | null => {
+    const params = new URLSearchParams(raw.replace(/^[?#]/, ''))
+    return params.get('error') ?? params.get('error_code')
+  }
+  const err = readError(search) ?? readError(hash)
+  if (!err) return null
+  return err === 'access_denied' ? t('auth.errGoogleCancelled') : t('auth.errGoogleFailed')
+}
+
+/**
+ * تعبئة شاشة إكمال الحساب (Onboarding) من بيانات الحساب (3A-931):
+ * مسجّل الإيميل يحمل display_name من نموذج التسجيل، بينما يضع
+ * GoTrue اسم حساب جوجل في full_name/name بلا display_name —
+ * فبلا هذا السقوط كان مستخدم جوجل يرى حقل اسم فارغاً في نفس
+ * الشاشة. الأولوية: display_name ثم full_name ثم name، والهاتف
+ * من البيانات الوصفية أو رقم الحساب نفسه (حسابات الهاتف P5-3).
+ * دالة صافية بلا أي مسار موازٍ: نفس الشاشة ونفس الإنشاء.
+ */
+export function onboardingPrefill(
+  user: {
+    user_metadata?: Record<string, unknown> | null
+    phone?: string | null
+  } | null | undefined,
+): { displayName: string; phone: string } {
+  const meta = user?.user_metadata ?? {}
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+  return {
+    displayName: str(meta.display_name) || str(meta.full_name) || str(meta.name),
+    phone: str(meta.phone) || user?.phone || '',
+  }
 }
 
 /**

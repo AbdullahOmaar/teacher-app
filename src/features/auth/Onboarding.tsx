@@ -6,7 +6,7 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/form'
 import { useAuth } from '../../lib/useAuth'
-import { ensureTeacherProfile } from './api'
+import { ensureTeacherProfile, onboardingPrefill } from './api'
 import { t } from '../../i18n'
 
 /**
@@ -18,11 +18,13 @@ import { t } from '../../i18n'
 export function Onboarding() {
   const { user, signOut } = useAuth()
   const qc = useQueryClient()
-  const meta = (user?.user_metadata ?? {}) as { display_name?: string; phone?: string | null }
+  // التعبئة من بيانات الحساب (3A-931): display_name لمسجّل الإيميل،
+  // وfull_name/name لحساب جوجل، والرقم من البيانات أو هوية الحساب
+  // نفسها لحسابات الهاتف (P5-3) — نفس الشاشة لكل المصادر
+  const prefill = onboardingPrefill(user)
 
-  const [displayName, setDisplayName] = useState(meta.display_name ?? '')
-  // حسابات الهاتف (P5-3): الرقم هوية الحساب نفسه فيُعبَّأ منه مباشرة
-  const [phone, setPhone] = useState(meta.phone ?? user?.phone ?? '')
+  const [displayName, setDisplayName] = useState(prefill.displayName)
+  const [phone, setPhone] = useState(prefill.phone)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
