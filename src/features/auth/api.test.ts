@@ -8,7 +8,10 @@ import {
   isEmailUnconfirmed,
   isMissingRpcFunction,
   signUpNextStep,
+  signUpWithEmail,
+  translateAuthError,
 } from './api'
+import { t } from '../../i18n'
 
 /**
  * اختبارات بوابة قفل التسجيل (مهمة 17 — 0057): عقد العميل مع
@@ -34,6 +37,10 @@ vi.mock('../../lib/supabase', () => ({
     },
     auth: {
       verifyOtp: (args: unknown) => {
+        h.authCalls.push({ args })
+        return Promise.resolve(h.result)
+      },
+      signUp: (args: unknown) => {
         h.authCalls.push({ args })
         return Promise.resolve(h.result)
       },
@@ -218,5 +225,33 @@ describe('fetchAuthUser — لقطة المستخدم الطازجة (3A-904)', 
   it('لا مستخدم في الرد = null', async () => {
     setAuth({ user: null })
     await expect(fetchAuthUser()).resolves.toBeNull()
+  })
+})
+
+describe('signUpWithEmail — تمرير توكن CAPTCHA (F5)', () => {
+  it('بلا توكن: لا مفتاح captchaToken في النداء أصلاً (الحماية مطفأة = السلوك الحالي)', async () => {
+    setAuth({ user: { id: 'u-1', identities: [{ id: 'i-1' }] }, session: { access_token: 'x' } })
+    await signUpWithEmail({ email: 'a@b.c', password: 'password123', displayName: 'مدرس' })
+    const args = h.authCalls[0].args as { options: Record<string, unknown> }
+    expect('captchaToken' in args.options).toBe(false)
+  })
+
+  it('بتوكن: يُمرَّر كما هو في options.captchaToken', async () => {
+    setAuth({ user: { id: 'u-1', identities: [{ id: 'i-1' }] }, session: { access_token: 'x' } })
+    await signUpWithEmail({
+      email: 'a@b.c',
+      password: 'password123',
+      displayName: 'مدرس',
+      captchaToken: 'tok-123',
+    })
+    const args = h.authCalls[0].args as { options: Record<string, unknown> }
+    expect(args.options.captchaToken).toBe('tok-123')
+  })
+})
+
+describe('translateAuthError — حساب محذوف ناعماً (F1/F6)', () => {
+  it('رسالة الحظر من GoTrue تُترجم لرسالة الحذف المصممة لا للنص الخام', () => {
+    expect(translateAuthError('User is banned')).toBe(t('auth.errAccountDeleted'))
+    expect(translateAuthError('User is banned')).not.toContain('banned')
   })
 })
