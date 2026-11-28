@@ -208,11 +208,42 @@ async function assertGroupCapacity(teacherId: string, input: EnrollmentInput): P
   }
 }
 
+/**
+ * حارس الأرشفة (عيب سند الحي 2026-11-28 — الاستيراد بيتخطى حماية الأرشفة):
+ * أي تسجيل جديد في مجموعة مؤرشفة يُرفض برسالة عربية واضحة — قرار 0007:
+ * المجموعة المؤرشفة «لا تظهر كخيار تسجيل جديد».
+ * تحديث تسجيل قائم (سعر خاص/حصص مسبقة) لا يعيقه الحارس أبداً.
+ * يسري على كل مسارات upsertEnrollment: نموذج التسجيل، نموذج الطالب،
+ * قبول طلب الانتظار/الحجز، والاستيراد (يفشل الصف وحده برسالة واضحة).
+ */
+async function assertGroupNotArchived(teacherId: string, input: EnrollmentInput): Promise<void> {
+  const { data: existing, error: exErr } = await db()
+    .from('enrollments')
+    .select('id')
+    .eq('teacher_id', teacherId)
+    .eq('student_id', input.student_id)
+    .eq('group_id', input.group_id)
+    .maybeSingle()
+  if (exErr) throw exErr
+  if (existing) return
+  const { data: group, error: gErr } = await db()
+    .from('groups')
+    .select('archived_at, name')
+    .eq('teacher_id', teacherId)
+    .eq('id', input.group_id)
+    .maybeSingle()
+  if (gErr) throw gErr
+  if (group?.archived_at != null) {
+    throw new Error(t('students.enrollGroupArchived', { name: group.name }))
+  }
+}
+
 /** تسجيل طالب في مجموعة (أو تحديث سعره الخاص) — unique (student_id, group_id) */
 export async function upsertEnrollment(
   teacherId: string,
   input: EnrollmentInput,
 ): Promise<EnrollmentRow> {
+  await assertGroupNotArchived(teacherId, input)
   await assertGroupCapacity(teacherId, input)
   const { data, error } = await db()
     .from('enrollments')
