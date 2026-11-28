@@ -5,6 +5,7 @@
 
 import { db } from '../../lib/supabase'
 import { t } from '../../i18n'
+import type { I18nKey } from '../../i18n/dict'
 import { formatMoney, waLink } from '../../lib/format'
 import type { StudentRow } from '../../types/database'
 import { periodYm } from './apiHelpers'
@@ -36,6 +37,27 @@ export async function fetchWhatsappTemplate(teacherId: string): Promise<string |
 
 export const DEFAULT_WA_TEMPLATE = t('invoices.apiDefaultWaTemplate')
 
+/**
+ * مفاتيح متغيرات قالب رسالة الإيصال — المصدر الوحيد للحقيقة: محرك
+ * التعويض تحت بيستبدل القايمة دي بالظبط، ومنتقي المفاتيح في محرر
+ * القالب (إعدادات التطبيق) بيعرضها هي نفسها — ممنوع نسخة تانية في
+ * أي مكان. labelKey هو اسم المتغير العربي على شريحة المنتقي.
+ */
+export interface ReceiptTemplateKey {
+  /** نص المفتاح بأقواسه كما يظهر في نص القالب */
+  key: string
+  labelKey: I18nKey
+}
+
+export const RECEIPT_TEMPLATE_KEYS: readonly ReceiptTemplateKey[] = [
+  { key: '{guardian}', labelKey: 'settings.waVarGuardian' },
+  { key: '{name}', labelKey: 'settings.waVarStudent' },
+  { key: '{period}', labelKey: 'settings.waVarPeriod' },
+  { key: '{paid}', labelKey: 'settings.waVarPaid' },
+  { key: '{total}', labelKey: 'settings.waVarTotal' },
+  { key: '{balance}', labelKey: 'settings.waVarBalance' },
+]
+
 /** تعويض متغيرات قالب الإيصال (المرجع §5.6) — {period} بصيغة YYYY-MM */
 export function buildReceiptMessage(
   template: string,
@@ -48,13 +70,19 @@ export function buildReceiptMessage(
     balance: number
   },
 ): string {
-  return template
-    .replaceAll('{guardian}', vars.guardian)
-    .replaceAll('{name}', vars.name)
-    .replaceAll('{period}', periodYm(vars.periodMonth))
-    .replaceAll('{paid}', formatMoney(vars.paid))
-    .replaceAll('{total}', formatMoney(vars.total))
-    .replaceAll('{balance}', formatMoney(vars.balance))
+  const values: Record<string, string> = {
+    '{guardian}': vars.guardian,
+    '{name}': vars.name,
+    '{period}': periodYm(vars.periodMonth),
+    '{paid}': formatMoney(vars.paid),
+    '{total}': formatMoney(vars.total),
+    '{balance}': formatMoney(vars.balance),
+  }
+  let out = template
+  for (const { key } of RECEIPT_TEMPLATE_KEYS) {
+    out = out.replaceAll(key, values[key])
+  }
+  return out
 }
 
 /** رابط إرسال الإيصال عبر واتساب لولي الأمر (guardian_phone وإلا phone) */

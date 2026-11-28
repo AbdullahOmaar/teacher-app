@@ -1,4 +1,4 @@
-import type { Dispatch, FormEvent, SetStateAction } from 'react'
+import { useRef, type Dispatch, type FormEvent, type SetStateAction, type SyntheticEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Save } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
@@ -6,14 +6,12 @@ import { Chip, Field, TextArea, TextInput } from '../../../components/ui/form'
 import { ErrorState, LoadingState } from '../../../components/ui/states'
 import type { ThemeMode, useTheme } from '../../../hooks/useTheme'
 import type { TeacherSettingsRow } from '../../../types/database'
-import { DEFAULT_WA_TEMPLATE } from '../../invoices/api'
+import { DEFAULT_WA_TEMPLATE, RECEIPT_TEMPLATE_KEYS } from '../../invoices/api'
 import { formatDateLabel } from '../../schedule/api'
 import { REMINDER_OPTIONS, THEME_MODES } from '../api'
+import { insertTemplateKey } from '../templateInsert'
 import type { useTeacherSettings, useUpdateTeacherSettings } from '../hooks'
 import { t } from '../../../i18n'
-
-/** متغيرات قالب رسالة واتساب المتاحة في الإيصال (المرجع §3.16) */
-const WA_TEMPLATE_VARS = ['{guardian}', '{name}', '{period}', '{paid}', '{total}', '{balance}']
 
 /** محتوى قسم «إعدادات التطبيق» — نموذج teacher_settings كاملاً */
 export function AppSettingsSection({
@@ -45,6 +43,31 @@ export function AppSettingsSection({
   handleSettingsSave: (e: FormEvent) => void
   updateSettings: ReturnType<typeof useUpdateTeacherSettings>
 }) {
+  // (ملاحظات المالك 2026-11-28 — بند ٣): منتقي مفاتيح القالب — بنتتبع
+  // عنصر النص وتحديده من أحداثه نفسها (بلا ref عابر للمكوّن المشترك)،
+  // وضغطة أي شريحة بتدرج مفتاحها مكان المؤشر وترجّع التركيز والمؤشر.
+  const taRef = useRef<HTMLTextAreaElement | null>(null)
+  const selRef = useRef<{ start: number; end: number } | null>(null)
+  const trackSelection = (e: SyntheticEvent<HTMLTextAreaElement>) => {
+    taRef.current = e.currentTarget
+    selRef.current = {
+      start: e.currentTarget.selectionStart ?? e.currentTarget.value.length,
+      end: e.currentTarget.selectionEnd ?? e.currentTarget.value.length,
+    }
+  }
+  const insertKey = (key: string) => {
+    const current = waTpl ?? settingsRow?.whatsapp_template ?? DEFAULT_WA_TEMPLATE
+    const sel = selRef.current
+    const { value, caret } = insertTemplateKey(current, key, sel?.start ?? null, sel?.end ?? null)
+    setWaTpl(value)
+    requestAnimationFrame(() => {
+      const el = taRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(caret, caret)
+      selRef.current = { start: caret, end: caret }
+    })
+  }
   return (
     <>
       {settingsQ.isPending ? (
@@ -65,18 +88,32 @@ export function AppSettingsSection({
             <TextArea
               rows={3}
               value={waTpl ?? settingsRow?.whatsapp_template ?? DEFAULT_WA_TEMPLATE}
-              onChange={(e) => setWaTpl(e.target.value)}
+              onChange={(e) => {
+                trackSelection(e)
+                setWaTpl(e.target.value)
+              }}
+              onSelect={trackSelection}
+              onFocus={trackSelection}
+              onClick={trackSelection}
+              onKeyUp={trackSelection}
             />
           </Field>
-          <div className="flex flex-wrap gap-1.5 mb-4 -mt-1">
-            {WA_TEMPLATE_VARS.map((v) => (
-              <code
-                key={v}
-                dir="ltr"
-                className="text-[12px] bg-soft text-primary rounded-full px-2 py-0.5 font-semibold"
+          <div className="text-[12.5px] text-muted mb-1.5 -mt-1">
+            {t('settings.waTemplateVarsHint')}
+          </div>
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {RECEIPT_TEMPLATE_KEYS.map(({ key, labelKey }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => insertKey(key)}
+                className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-full bg-soft text-primary text-[12.5px] font-semibold cursor-pointer border border-transparent active:bg-primary/10"
               >
-                {v}
-              </code>
+                {t(labelKey)}
+                <code dir="ltr" className="text-[12px] font-bold">
+                  {key}
+                </code>
+              </button>
             ))}
           </div>
 

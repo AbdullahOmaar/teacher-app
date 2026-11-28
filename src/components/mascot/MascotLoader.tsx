@@ -81,7 +81,18 @@ export function MascotLoader({ size = 96, className = '' }: MascotLoaderProps) {
   }
 
   if (imgFailed || !ASSET) {
-    return <Logo size={size} className={className} decorative />
+    // (ملاحظات المالك 2026-11-28): مسار السقوط ده كان بيرجع لوجو الكتاب
+    // ثابتاً تماماً بينما كل أسطح السبلاش/التحميل التانية متحركة — لو
+    // فشل أصل اللوتي على جهاز المستخدم بقى ده وش التطبيق الثابت اللي
+    // شايفه. بياخد نفس «mascot-breathe» بتاع مسار إيقاف الماسكوت فوق
+    // (3A-325) فالسقوط متحرك بنفس لغة الحركة القائمة.
+    return (
+      <Logo
+        size={size}
+        className={`${className} mascot-breathe`.trim()}
+        decorative
+      />
+    )
   }
 
   const scaleF = size / anim.w

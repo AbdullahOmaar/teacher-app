@@ -21,7 +21,7 @@ export const components = {
   pushStop: 'إيقاف الإشعارات على الجهاز ده',
   pushStarting: 'جارٍ التفعيل…',
   pushStart: 'تفعيل الإشعارات الفورية',
-  logoTitle: 'تطبيق المدرس',
+  logoTitle: 'مستر',
   avatarFallback: '؟',
   dangerTypeNameLabel: 'للتأكيد اكتب اسم «{entityName}» كاملاً',
   dangerExecuting: 'جارٍ التنفيذ…',

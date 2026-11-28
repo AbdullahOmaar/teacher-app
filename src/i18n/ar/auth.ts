@@ -12,7 +12,7 @@ export const auth = {
   passwordMismatch: 'كلمة المرور وتأكيدها مش متطابقين.',
   accountCreatedNotice: 'تم إنشاء حسابك — اكتب كود التأكيد اللي وصلك على بريدك علشان تفعّل حسابك وتدخل.',
   signUpFailed: 'تعذّر إنشاء الحساب.',
-  appTitle: 'تطبيق المدرس',
+  appTitle: 'مستر',
   signInSubtitle: 'سجّل دخولك علشان تكمل',
   signUpSubtitle: 'أنشئ حساب مدرس جديد',
   forgotSubtitle: 'استعادة كلمة المرور',

@@ -90,8 +90,18 @@ export function InvoiceCard({
         first={first}
         className={selected ? 'lg:bg-soft' : ''}
         leading={<Avatar name={inv.student_name} />}
-        title={inv.student_name}
-        titleClassName="font-semibold text-[15px] leading-[1.6] truncate"
+        title={
+          // (ملاحظات المالك 2026-11-28 — بند ٤): شارة الحالة على سطر
+          // الاسم نفسه في طرفه المقابل (أقصى الشمال بصرياً)، لا في عمود
+          // ذيلي وحده بياكل الكارت — ده بيحل محل موضع 3A-697 (trailing)
+          // بمراجعة المالك الحية. الاسم يُختصر بنقاط قبل الشارة دائماً
+          // والشارة ثابتة الانكماش.
+          <span className="flex items-center gap-2">
+            <span className="flex-1 min-w-0 truncate">{inv.student_name}</span>
+            {stateBadge(inv)}
+          </span>
+        }
+        titleClassName="font-semibold text-[15px] leading-[1.6]"
         secondary={
           <>
             {/* (3A-651 — نمط الصف المنظّم): كل سطر ثانوي وحدة ذرية
@@ -115,11 +125,6 @@ export function InvoiceCard({
           </>
         }
         secondaryClassName="text-muted text-[13.5px] leading-[1.6]"
-        // (3A-697 — بند المالك ٤): شارة الحالة وحدها في آخر سطر
-        // الاسم (الطرف المقابل) — السهم الذي كان بجانبها أُزيل نهائياً
-        // بقرار المالك («ملوش لازمة»)؛ الصف كله يبقى رابطاً قابلاً
-        // للضغط كما كان، والشارة لا تتحرك من موضعها
-        trailing={stateBadge(inv)}
       />
     </Link>
   )

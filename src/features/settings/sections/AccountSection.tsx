@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { t } from '../../../i18n'
+import { shortAccountCode } from '../../../lib/shortCode'
 
 /** محتوى قسم «حسابي» — البريد + معرّف الحساب + الدور الحالي */
 export function AccountSection({
@@ -26,8 +27,16 @@ export function AccountSection({
         {t('settings.accountIdLabel')}
       </div>
       <div className="flex items-center gap-2 mb-1">
-        <code className="flex-1 min-w-0 text-[12px] bg-soft rounded-xl px-2 py-2 break-all leading-relaxed" dir="ltr">
-          {ownId}
+        {/* (ملاحظات المالك 2026-11-28): العرض هو الكود القصير المنظّم
+            المشتق من المعرّف (lib/shortCode) بدل الـUUID الخام الطويل —
+            المعرّف الكامل نفسه يفضل في الـtitle وزر النسخ بينسخه كما
+            هو، لأن نموذج الإضافة بالمعرّف بيتحقق منه كاملاً */}
+        <code
+          className="flex-1 min-w-0 text-[13.5px] font-bold bg-soft rounded-xl px-2 py-2 leading-relaxed tracking-wide"
+          dir="ltr"
+          title={ownId}
+        >
+          {shortAccountCode(ownId)}
         </code>
         <Button variant="soft" onClick={copyMyId} className="min-h-[48px] px-3 text-[13.5px]">
           {copied ? (<><Check size={18} /> {t('settings.copied')}</>) : t('settings.copy')}
