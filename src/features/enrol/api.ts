@@ -179,6 +179,15 @@ export function normalizeEgPhone(raw: string): string {
   return raw.replace(/[\s-]/g, '')
 }
 
+/**
+ * تحقق حقل الموبايل في النموذج (ملاحظة مالك 2026-11-28): الرقم كما كتبه
+ * ولي الأمر — بعد التطبيع — يطابق قاعدة الخادم نفسها. يُستخدم لربط الخطأ
+ * بحقل الرقم نفسه بدل رسالة نموذج عامة.
+ */
+export function isValidEgMobile(raw: string): boolean {
+  return EG_MOBILE_RE.test(normalizeEgPhone(raw))
+}
+
 /** إرسال طلب حجز عبر الـ RPC — التحقق الخادمي هو الحاكم النهائي */
 export async function submitBooking(rawToken: string, input: BookingInput): Promise<void> {
   const { error } = await db().rpc('enrolment_submit_by_token', {

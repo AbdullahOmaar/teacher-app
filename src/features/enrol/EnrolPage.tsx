@@ -19,9 +19,9 @@ import { daysLabel, formatTime12 } from '../../lib/format'
 import { PublicPageShell } from '../../components/PublicPageShell'
 import { t } from '../../i18n'
 import {
-  EG_MOBILE_RE,
   enrolErrorInfo,
   fetchEnrolPage,
+  isValidEgMobile,
   normalizeEgPhone,
   submitBooking,
   type EnrolBrand,
@@ -101,6 +101,14 @@ export function EnrolPage() {
   const [wantsTrial, setWantsTrial] = useState(false)
   const [note, setNote] = useState('')
   const [website, setWebsite] = useState('') // honeypot — يبقى فارغاً من البشر
+  // أخطاء على مستوى الحقل نفسه (ملاحظة مالك 2026-11-28): خطأ الرقم يظهر
+  // تحت خانة الرقم باسمها، لا رسالة نموذج عامة. FormError يبقى لأخطاء
+  // الخادم التي لا ترتبط بحقل بعينه فقط.
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string
+    phone?: string
+    group?: string
+  }>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
@@ -157,15 +165,21 @@ export function EnrolPage() {
     )
   }
 
+  const clearFieldError = (key: 'name' | 'phone' | 'group') =>
+    setFieldErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev))
+
   const onSubmit = async () => {
     setFormError(null)
+    // تحقق الحقول دفعة واحدة — كل خطأ على حقله نفسه (ملاحظة مالك
+    // 2026-11-28)، فولي الأمر يرى كل ما يحتاج إصلاحه مرة واحدة.
+    const errors: typeof fieldErrors = {}
     const name = studentName.trim()
-    if (name.length < 3) return setFormError(t('enrol.pageNameError'))
+    if (name.length < 3) errors.name = t('enrol.pageNameError')
     const phone = normalizeEgPhone(guardianPhone)
-    if (!EG_MOBILE_RE.test(phone)) {
-      return setFormError(t('enrol.pagePhoneError'))
-    }
-    if (!groupId) return setFormError(t('enrol.pageGroupError'))
+    if (!isValidEgMobile(guardianPhone)) errors.phone = t('enrol.pagePhoneError')
+    if (!groupId) errors.group = t('enrol.pageGroupError')
+    setFieldErrors(errors)
+    if (errors.name || errors.phone || errors.group) return
     setSubmitting(true)
     try {
       await submitBooking(token, {
@@ -178,8 +192,19 @@ export function EnrolPage() {
       })
       setDone(true)
     } catch (e) {
-      const info = enrolErrorInfo(e)
-      setFormError(`${info.title} — ${info.hint}`)
+      // رفض خادمي مرتبط بحقل (سباق تحقق/حالة تغيّرت) يرجع لحقله نفسه؛
+      // ما عداه يبقى خطأ نموذج عاماً مهذباً كما كان.
+      const msg = e instanceof Error ? e.message : String(e ?? '')
+      if (msg.includes('invalid phone')) {
+        setFieldErrors({ phone: t('enrol.pagePhoneError') })
+      } else if (msg.includes('invalid group')) {
+        setFieldErrors({ group: t('enrol.pageGroupError') })
+      } else if (msg.includes('invalid name')) {
+        setFieldErrors({ name: t('enrol.pageNameError') })
+      } else {
+        const info = enrolErrorInfo(e)
+        setFormError(`${info.title} — ${info.hint}`)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -196,28 +221,43 @@ export function EnrolPage() {
           {t('enrol.pageFormIntro')}
         </p>
 
-        <Field label={t('enrol.pageStudentNameLabel')}>
+        <Field label={t('enrol.pageStudentNameLabel')} error={fieldErrors.name}>
           <TextInput
             value={studentName}
-            onChange={(e) => setStudentName(e.target.value)}
+            onChange={(e) => {
+              setStudentName(e.target.value)
+              clearFieldError('name')
+            }}
             placeholder={t('enrol.pageStudentNamePlaceholder')}
             autoComplete="name"
+            aria-invalid={fieldErrors.name ? true : undefined}
           />
         </Field>
 
-        <Field label={t('enrol.pageGuardianPhoneLabel')}>
+        <Field label={t('enrol.pageGuardianPhoneLabel')} error={fieldErrors.phone}>
           <TextInput
             type="tel"
             dir="ltr"
             value={guardianPhone}
-            onChange={(e) => setGuardianPhone(e.target.value)}
+            onChange={(e) => {
+              setGuardianPhone(e.target.value)
+              clearFieldError('phone')
+            }}
             placeholder="01xxxxxxxxx"
             autoComplete="tel"
+            aria-invalid={fieldErrors.phone ? true : undefined}
           />
         </Field>
 
-        <Field label={t('enrol.pageGroupLabel')}>
-          <Select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+        <Field label={t('enrol.pageGroupLabel')} error={fieldErrors.group}>
+          <Select
+            value={groupId}
+            onChange={(e) => {
+              setGroupId(e.target.value)
+              clearFieldError('group')
+            }}
+            aria-invalid={fieldErrors.group ? true : undefined}
+          >
             <option value="">{t('enrol.pageGroupPlaceholder')}</option>
             {groups.map((g) => (
               <option key={g.id} value={g.id}>
