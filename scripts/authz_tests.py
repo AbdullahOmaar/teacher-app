@@ -78,7 +78,11 @@ def sql(ref, query):
         capture_output=True, text=True, timeout=120,
     )
     if out.returncode != 0:
-        raise RuntimeError(f"SQL failed: {out.stderr.strip()[:300]}")
+        # ذيل الخطأ لا رأسه: تتبّع أداة الموصل يضع رسالة PostgreSQL
+        # الحقيقية (HTTP 400 + نص الخطأ) في آخر سطر، والاقتطاع من
+        # الرأس كان يدفنها — تشغيلة 2026-11-28 00:40 انهارت من غير
+        # ما يظهر سببها في السجل.
+        raise RuntimeError(f"SQL failed: {out.stderr.strip()[-800:]}")
     return json.loads(out.stdout) if out.stdout.strip() else []
 
 
@@ -208,6 +212,27 @@ def totp_code(secret_b32, digits=6, when=None):
     return str(value % (10 ** digits)).zfill(digits)
 
 
+def purge_fixture_users(ref):
+    """تنظيف وقائي قبل الأساس وقبل أي تجهيزات: حذف بقايا مستخدمي
+    التجهيزات (authz-*@teacher-app.test) من تشغيلة سابقة ماتت قبل
+    بلوغ تنظيفها — موت العملية أو استبدال الجهاز لا يمرّ بالـ
+    finally، والتنظيف الختامي يحذف بمعرّفات متغيرات لا توجد إلا
+    إن نجح الإنشاء. من دون هذا التنظيف يصطدم أول إنشاء في
+    التشغيلة التالية ببريد مكرر (users_email_partial_key)
+    وتنهار التشغيلة كلها عند أول تجهيزة — وهو بالضبط ما حدث
+    في تشغيلة 2026-11-28 00:40 (بقايا تشغيلة 2026-11-27 19:20Z)."""
+    rows = sql(ref, "select id from auth.users "
+                    "where email like 'authz-%@teacher-app.test'")
+    ids = [r["id"] for r in rows]
+    if not ids:
+        return
+    in_list = ",".join(f"'{u}'" for u in ids)
+    sql(ref, f"delete from teacher_members where user_id in ({in_list})")
+    sql(ref, f"delete from teachers where owner_user_id in ({in_list})")
+    sql(ref, f"delete from auth.users where id in ({in_list})")
+    print(f"  purged {len(ids)} leftover fixture user(s) from a previous run")
+
+
 def baseline(ref):
     rows = sql(
         ref,
@@ -225,6 +250,7 @@ def main():
     if not os.path.exists(HELPER):
         skip("أداة موصل Supabase غير موجودة في هذه البيئة")
     url, anon, ref = load_env()
+    purge_fixture_users(ref)
     base0 = baseline(ref)
     print(f"authz tests against {ref} — baseline: {base0}")
 
@@ -2100,8 +2126,14 @@ def main():
                             jwt=demo_jwt)
                 check("a teacher reads NO override rows directly",
                       s == 200 and b == [], f"got {s} {str(b)[:80]}")
+                # «فارغ» هنا = لا تجاوزات نشطة: الإلغاء في 0059 يكون
+                # بضبط expires_at (الصف يبقى سجلاً تاريخياً بالتصميم)،
+                # فأي تشغيلة سابقة تترك صفوفاً منتهية تكسر فحص فراغ
+                # الجدول الخام — نحوّل الفحص للنشط فقط بنفس محمول
+                # عدّ التنظيف في قسم 0062.
                 s, b = rest(url, anon, "GET",
-                            "/rest/v1/account_overrides?select=id",
+                            "/rest/v1/account_overrides?select=id"
+                            "&or=(expires_at.is.null,expires_at.gt.now())",
                             jwt=ov_admin_jwt)
                 check("admin reads the overrides table (empty)",
                       s == 200 and b == [], f"got {s} {str(b)[:80]}")
@@ -2465,9 +2497,14 @@ def main():
                             jwt=demo_jwt,
                             body={"teacher_id": demo_teacher,
                                   "name": "authz-limit-probe"})
+                # إدراج الجدول مع return=representation يرجّع قائمة
+                # بصف واحد لا كائناً (نمط PR #60) — نلتقط الصف من
+                # أيّ الشكلين.
+                probe_row = b[0] if isinstance(b, list) and b else (
+                    b if isinstance(b, dict) else None)
                 check("the insert works again after the revoke",
-                      s in (200, 201) and isinstance(b, dict)
-                      and b.get("name") == "authz-limit-probe",
+                      s in (200, 201) and probe_row
+                      and probe_row.get("name") == "authz-limit-probe",
                       f"got {s} {str(b)[:160]}")
             finally:
                 if usage_override_id:
@@ -2719,9 +2756,20 @@ def main():
                             body={"teacher_id": demo_teacher,
                                   "user_id": team_member_uid,
                                   "role": "assistant",
-                                  "permissions": {"can_take_attendance": True},
+                                  # can_manage_students لازم لقراءة
+                                  # الطلاب: سياسة students_assistant_all
+                                  # (0001) تشترطها، وبصلاحية الحضور فقط
+                                  # يقرأ العضو صفر طلاب بالتصميم.
+                                  "permissions": {
+                                      "can_take_attendance": True,
+                                      "can_manage_students": True},
                                   "status": "active"})
-                team_member_row = b if isinstance(b, dict) else None
+                # إدراج الجدول مع return=representation يرجّع قائمة
+                # بصف واحد لا كائناً (نمط PR #60) — الالتقاط من
+                # الشكلين؛ البقاء على الكائن وحده أبقى الصف None
+                # وانهار القسم عند أول استخدام له (تشغيلة 28b).
+                team_member_row = b[0] if isinstance(b, list) and b else (
+                    b if isinstance(b, dict) else None)
                 check("the team-limit trigger allows the insert under the raised limit",
                       s in (200, 201) and team_member_row
                       and team_member_row.get("user_id") == team_member_uid,
