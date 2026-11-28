@@ -3983,8 +3983,8 @@ def main():
                       left74 and int(left74[0]["pf"]) == 0
                       and int(left74[0]["rt"]) == 0
                       and int(left74[0]["ov"]) == 0, f"got {left74}")
-        # ---------- WHATSAPP RECOVERY CODES (0070 — 3A-927 استرداد واتساب) ----------
-        # ⚠️ المهاجرة 0070 مكتوبة في الـPR لكنها **غير مطبّقة على الإنتاج**
+        # ---------- WHATSAPP RECOVERY CODES (0076 — 3A-927 استرداد واتساب) ----------
+        # ⚠️ المهاجرة 0076 مكتوبة في الـPR لكنها **غير مطبّقة على الإنتاج**
         # بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند بوابة
         # تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن غاب يطبع
         # تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى البوابة)،
@@ -3992,10 +3992,10 @@ def main():
         # الغرض: جدول الأكواد سجلّ أمني خادمي صرف — RLS بلا أي سياسة،
         # فلا قراءة ولا كتابة لأي دور عميل، ودالتا البحث/العدّاد
         # الداخليتان service_role فقط (بوابة التنفيذ هي الحارس).
-        print("WHATSAPP RECOVERY (0070):")
+        print("WHATSAPP RECOVERY (0076):")
         wr_probe = sql(ref, "select to_regclass('public.whatsapp_recovery_codes') as t")
         if not wr_probe or not wr_probe[0].get("t"):
-            print("  SKIP 0070 live section — migration 0070 is written but NOT "
+            print("  SKIP 0076 live section — migration 0076 is written but NOT "
                   "applied (phase-freeze rule 2026-11-25: application deferred "
                   "to the Phase-2 freeze + QA gate — docs/WHATSAPP-RECOVERY.md)")
         else:
@@ -4050,7 +4050,7 @@ def main():
                          f"where phone = '{wr_phone}'")
                 left = sql(ref, "select count(*) as c from whatsapp_recovery_codes "
                                 f"where phone = '{wr_phone}'")
-                check("0070 fixtures cleaned",
+                check("0076 fixtures cleaned",
                       left and int(left[0]["c"]) == 0, f"got {left}")
 
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------

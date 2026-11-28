@@ -19,7 +19,7 @@ Supabase Auth لا يملك `resetPasswordForPhone` — الاسترداد إي�
 | الجزء | المكان |
 |---|---|
 | الدالة الحدّية | `supabase/functions/send-whatsapp-recovery/` (`core.ts` نقي + `index.ts` مدخل Deno) — الدالة الثامنة |
-| جدول الأكواد + دالتان داخليتان | مهاجرة `0070_whatsapp_recovery.sql` (كود فقط — تُطبَّق عند تجميد فيز 2 + بوابة QA بقاعدة التجميد) |
+| جدول الأكواد + دالتان داخليتان | مهاجرة `0076_whatsapp_recovery.sql` (كود فقط — تُطبَّق عند تجميد فيز 2 + بوابة QA بقاعدة التجميد) |
 | عميل الويب | `requestWhatsappRecoveryCode` / `verifyWhatsappRecoveryCode` في `src/features/auth/api.ts` |
 | الواجهة | `src/features/auth/WhatsappRecovery.tsx` داخل صفحة الاسترداد (تبديل قناة) |
 | علم العميل | `WHATSAPP_RECOVERY_ENABLED` في `src/lib/phone.ts` من `VITE_WHATSAPP_RECOVERY_ENABLED` (افتراضي false) |
@@ -72,7 +72,7 @@ Supabase Auth لا يملك `resetPasswordForPhone` — الاسترداد إي�
 
 ## 6) خطوات التفعيل (عند قرار التفعيل — لا كود)
 
-1. تطبيق مهاجرة 0070 (عند تجميد فيز 2 + بوابة QA).
+1. تطبيق مهاجرة 0076 (عند تجميد فيز 2 + بوابة QA).
 2. نشر الدالة مع `verify_jwt=false`.
 3. ضبط أسرار المنصة أعلاه + قلب `WHATSAPP_RECOVERY_ENABLED`.
 4. بناء الويب بـ `VITE_WHATSAPP_RECOVERY_ENABLED=true` ونشره.

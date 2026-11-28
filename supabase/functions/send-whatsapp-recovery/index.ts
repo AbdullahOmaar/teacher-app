@@ -8,7 +8,7 @@
 // قناة المنصة: الإرسال بأصول Meta في أسرار المشروع (رقم المنصة)، لا
 // بحلّ قناة مدرس — قرار المدير 2026-11-27 (المقفول بره قد لا تملك
 // قناته وجوداً). المخزن هنا يركب على جدول whatsapp_recovery_codes
-// ودالتي 0070 الداخليتين بالـ service role حصراً.
+// ودالتي 0076 الداخليتين بالـ service role حصراً.
 //
 // verify_jwt معطّل على مستوى المنصة عمداً عند النشر: المستدعي
 // مستخدم مقفول بره حسابه بلا أي JWT — البوابات هي Kill switch +
@@ -70,7 +70,7 @@ function adminClient(): SupabaseClient {
   })
 }
 
-/** مخزن الإنتاج: جدول 0070 + دالتاه الداخليتان + Admin API */
+/** مخزن الإنتاج: جدول 0076 + دالتاه الداخليتان + Admin API */
 const store: RecoveryStore = {
   async findUserIdByPhone(phone: string) {
     const supabase = adminClient()
