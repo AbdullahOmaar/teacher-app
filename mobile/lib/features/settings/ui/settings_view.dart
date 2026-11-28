@@ -68,9 +68,9 @@ class SettingsView extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 20),
-          // أسماء اللغات أعلام (لا تُترجم) — لا مفتاح قاموس لعنوان «اللغة».
+          // أسماء اللغات أعلام (لا تُترجم) — العنوان نفسه بمفتاح ARB (عقود v1.2).
           PageToolBar(
-            title: locale.languageCode == 'ar' ? 'اللغة' : 'Language',
+            title: l10n.settings_language_title,
           ),
           const SizedBox(height: 8),
           AppChipRow(

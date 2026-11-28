@@ -9,5 +9,10 @@ abstract class GroupsRepository {
 
   /// أرشفة لا حذف (0007).
   Future<void> archive(String teacherId, String groupId);
+  /// 🆕 عقود v1.2 — أعضاء المجموعة (roster من fetchGroupRoster).
+  Future<List<GroupMember>> listMembers(String teacherId, String groupId);
   Future<List<GroupWaitlist>> listWaitlist(String teacherId, String groupId);
+  /// 🆕 عقود v1.2 — إضافة انتظار (source افتراضي 'manual' خادميًا).
+  Future<GroupWaitlist> addWaitlistEntry(
+      String teacherId, String groupId, WaitlistInput input,);
 }

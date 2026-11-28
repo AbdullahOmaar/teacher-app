@@ -1629,6 +1629,7 @@
   "settings_centre_share_label": "نسبة السنتر % (بتتخصم من محصّل الشهر في شاشة الفلوس)",
   "settings_reminder_label": "التذكير قبل الحصة",
   "settings_theme_label": "المظهر",
+  "settings_language_title": "اللغة",
   "settings_theme_hint": "المظهر بيطبّق فوراً وبيتحفظ في حسابك — «تلقائي» بيتبع إعدادات جهازك.",
   "settings_last_export_label": "آخر تصدير/نسخة احتياطية:",
   "settings_no_export_yet": "لسه معملتش أي تصدير",
@@ -8817,6 +8818,9 @@
   },
   "@settings_theme_label": {
     "description": "مصدر الويب: settings.themeLabel"
+  },
+  "@settings_language_title": {
+    "description": "عقود v1.2: عنوان صف اللغة في الإعدادات — أسماء اللغات نفسها أعلام لا تُترجم"
   },
   "@settings_theme_hint": {
     "description": "مصدر الويب: settings.themeHint"

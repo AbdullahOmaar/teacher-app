@@ -106,11 +106,61 @@ class FakeGroupsRepository implements GroupsRepository {
   }
 
   @override
+  @override
+  Future<List<GroupMember>> listMembers(
+    String teacherId,
+    String groupId,
+  ) async {
+    await _delay();
+    return _db.enrollments
+        .where((e) => e.groupId == groupId)
+        .map((e) {
+          final student = _db.students
+              .where((s) => s.id == e.studentId)
+              .firstOrNull;
+          return GroupMember(
+            enrollmentId: e.id,
+            studentId: e.studentId,
+            groupId: e.groupId,
+            studentName: student?.name ?? '—',
+            studentCode: student?.publicCode ?? '',
+            studentPaused: student?.paused ?? false,
+            priceOverride: e.priceOverride,
+            prepaidSessions: e.prepaidSessions,
+            createdAt: e.createdAt,
+          );
+        })
+        .toList();
+  }
+
+  @override
   Future<List<GroupWaitlist>> listWaitlist(
     String teacherId,
     String groupId,
   ) async {
     await _delay();
     return _db.waitlist.where((w) => w.groupId == groupId).toList();
+  }
+
+  @override
+  Future<GroupWaitlist> addWaitlistEntry(
+    String teacherId,
+    String groupId,
+    WaitlistInput input,
+  ) async {
+    await _delay();
+    final now = DateTime.now();
+    final entry = GroupWaitlist(
+      id: 'w-${now.microsecondsSinceEpoch}',
+      teacherId: teacherId,
+      groupId: groupId,
+      name: input.name,
+      phone: input.phone,
+      note: input.note,
+      source: 'manual',
+      createdAt: now,
+    );
+    _db.waitlist.add(entry);
+    return entry;
   }
 }

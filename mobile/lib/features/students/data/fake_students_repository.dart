@@ -102,6 +102,41 @@ class FakeStudentsRepository implements StudentsRepository {
   }
 
   @override
+  Future<Enrollment> enroll(String teacherId, EnrollmentInput input) async {
+    await _delay();
+    // upsert على (student_id, group_id) — كما في الويب.
+    final existingIndex = _db.enrollments.indexWhere(
+      (e) => e.studentId == input.studentId && e.groupId == input.groupId,
+    );
+    if (existingIndex >= 0) {
+      final old = _db.enrollments[existingIndex];
+      final updated = Enrollment(
+        id: old.id,
+        teacherId: teacherId,
+        studentId: input.studentId,
+        groupId: input.groupId,
+        priceOverride: input.priceOverride,
+        prepaidSessions: input.prepaidSessions,
+        createdAt: old.createdAt,
+      );
+      _db.enrollments[existingIndex] = updated;
+      return updated;
+    }
+    final now = DateTime.now();
+    final enrollment = Enrollment(
+      id: 'e-${now.microsecondsSinceEpoch}',
+      teacherId: teacherId,
+      studentId: input.studentId,
+      groupId: input.groupId,
+      priceOverride: input.priceOverride,
+      prepaidSessions: input.prepaidSessions,
+      createdAt: now,
+    );
+    _db.enrollments.add(enrollment);
+    return enrollment;
+  }
+
+  @override
   Future<Map<String, double>> balances(String teacherId) async {
     await _delay();
     return Map.of(_db.balancesMap);
