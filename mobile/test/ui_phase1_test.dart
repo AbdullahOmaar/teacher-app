@@ -31,6 +31,7 @@ Widget harness(Widget child) {
   return ProviderScope(
     overrides: fakeOverrides(),
     child: MaterialApp(
+      debugShowCheckedModeBanner: false,
       locale: const Locale('ar'),
       supportedLocales: const [Locale('ar'), Locale('en')],
       localizationsDelegates: const [
