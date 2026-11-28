@@ -83,6 +83,7 @@ import {
 } from './panel'
 import type { TicketStatus } from '../support/api'
 import { ComingSoonCard, PanelSection } from './PanelSection'
+import { SystemStatusSection } from './SystemStatusSection'
 import { MfaSection } from './MfaScreens'
 import {
   buildTemplateEntitlements,
@@ -106,7 +107,8 @@ import {
  * 0065، الخطوة 8): نظرة عامة ومؤشرات تجميعية + مساحات عمل
  * بإجراءات إدارة (تفعيل/باقة/تجاوزات) + قائمة سماح وقلب قفل
  * التسجيل + سجل تدقيق المنصة + إعلانات المنصة وتذاكر الدعم +
- * قسم واتساب نائم بحالة «قريباً» مصممة. الصفحة لا تُرسم إلا
+ * قسم واتساب نائم بحالة «قريباً» مصممة + قسم «حالة النظام»
+ * (3A-933: روابط رسمية وفحوص سلامة حية وآخر نسخة ليلية). الصفحة لا تُرسم إلا
  * خلف RequirePlatformAdmin، وكل RPC بحارس أدمن خادمي — الدفاع
  * مزدوج (بوابة + قاعدة).
  * «قريباً» مصممة — لا خطأ خام أبداً؛ والإيراد المتوقع «—» حتى
@@ -132,6 +134,7 @@ export function PlatformAdminPage() {
 
         <div className="xl:col-span-2 min-w-0"><NewDeviceBanner /></div>
         <div className="xl:col-span-2 min-w-0"><OverviewSection /></div>
+        <div className="min-w-0"><SystemStatusSection /></div>
         <div className="min-w-0"><MfaSection /></div>
         <div className="xl:col-span-2 min-w-0"><IndicatorsSection /></div>
         <div className="xl:col-span-2 min-w-0"><WorkspacesSection /></div>

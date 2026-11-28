@@ -44,6 +44,7 @@ import {
   trustAdminDevice,
 } from './devices'
 import { fetchUsageSummary } from './usage'
+import { fetchLastBackupAt } from './systemStatus'
 
 export const PLATFORM_ADMIN = 'platform-admin'
 
@@ -170,6 +171,18 @@ export function useRegistrationOpen(enabled: boolean) {
     queryKey: [PLATFORM_ADMIN, 'registration-open'],
     enabled,
     queryFn: fetchRegistrationOpen,
+  })
+}
+
+/**
+ * لحظة آخر نسخة ليلية ناجحة (3A-933) — null حتى تُفعَّل آلية النسخ
+ * مع إعداد البرودكشن فتكتب مفتاح last_backup_at في platform_settings.
+ */
+export function useLastBackupAt(enabled: boolean) {
+  return useQuery({
+    queryKey: [PLATFORM_ADMIN, 'last-backup-at'],
+    enabled,
+    queryFn: fetchLastBackupAt,
   })
 }
 
