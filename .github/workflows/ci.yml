@@ -15,7 +15,13 @@ name: CI
 
 on:
   push:
+    # تطبيق فلاتر (mobile/) له بوابته المستقلة (flutter-check.yml) —
+    # تغيّرات mobile/ وحدها لا تشغّل بيلدات/فحوص الويب.
+    paths-ignore:
+      - 'mobile/**'
   pull_request:
+    paths-ignore:
+      - 'mobile/**'
 
 permissions:
   contents: read

@@ -1,0 +1,33 @@
+# بوابة الجودة — الملحق أ (أ-4): flutter_lints + قواعد صارمة نظير tsc strict في الويب.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-inference: true
+    strict-raw-types: true
+  errors:
+    # لا أي `dynamic` هارب ولا تجاهل تحليلات بلا تعليل موثّق.
+    missing_required_param: error
+    missing_return: error
+    # deprecated_member_use: متجاهَل عمدًا — نسخة الـSDK الحالية (ما بعد 3.47-pre)
+    # تُعلّم material.dart وGlobal*Localizations كمهملة لصالح حزم material_ui/
+    # cupertino_ui غير المستقرة بعد؛ الكود الرسمي ما زال على material.dart.
+    # يُراجَع عند استقرار الـSDK — لا يُستخدم كمبرر لتجاهل إهمالات حقيقية.
+    deprecated_member_use: ignore
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+
+linter:
+  rules:
+    - always_use_package_imports
+    - avoid_dynamic_calls
+    - avoid_print
+    - prefer_final_fields
+    - prefer_final_locals
+    # public_member_api_docs: متروك عمدًا — توثيق الواجهات العامة في
+    # FLUTTER-CONTRACTS-v1.md لا كتعليقات على كل عضو (كان 261 info ضجيجًا).
+    - require_trailing_commas
+    - sort_constructors_first
+    - use_key_in_widget_constructors

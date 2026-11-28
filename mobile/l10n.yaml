@@ -1,0 +1,9 @@
+# نظام الترجمة الرسمي — الملحق أ (أ-3): gen-l10n/ARB، العربية لغة القالب.
+arb-dir: lib/l10n
+template-arb-file: app_ar.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+preferred-supported-locales:
+  - ar
+  - en
+nullable-getter: false
