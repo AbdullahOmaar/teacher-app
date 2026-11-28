@@ -7,8 +7,8 @@ import 'package:mister/features/students/domain/models/student.dart';
 
 /// حالة أمر نموذج الطالب — قيم الحقول حالة View (controllers)،
 /// والفيوموديل يملك: قائمة المجموعات للمنتقي + أمر الحفظ وحالته.
-/// ملاحظة عقد: لا توجد دالة تسجيل (enroll) في StudentsRepository v1.1،
-/// فاختيار المجموعة في النموذج يُعرَض ولا يُحفَظ حتى تصل دالة التسجيل.
+/// عقود v1.2: اختيار المجموعة في النموذج يُحفَظ عبر
+/// `StudentsRepository.enroll` (upsert) بعد إنشاء/تعديل الطالب.
 class StudentFormState {
   const StudentFormState({
     this.groups = const [],
@@ -60,15 +60,24 @@ class StudentFormViewModel extends FamilyNotifier<StudentFormState, String> {
     }
   }
 
-  Future<void> submit(StudentInput input) async {
+  /// حفظ النموذج — بعد إنشاء/تعديل الطالب، يسجّله في المجموعة
+  /// المختارة عبر `enroll` (upsert) إن وُجدت؛ بلا مجموعة يُتخطى التسجيل.
+  Future<void> submit(StudentInput input, {String? groupId}) async {
     state = state.copyWith(submitting: true, clearFormError: true);
     try {
       final teacherId = await ref.read(currentTeacherIdProvider.future);
       final repo = ref.read(studentsRepositoryProvider);
+      final Student saved;
       if (isEdit) {
-        await repo.update(teacherId, arg, input);
+        saved = await repo.update(teacherId, arg, input);
       } else {
-        await repo.create(teacherId, input);
+        saved = await repo.create(teacherId, input);
+      }
+      if (groupId != null) {
+        await repo.enroll(
+          teacherId,
+          EnrollmentInput(studentId: saved.id, groupId: groupId),
+        );
       }
       state = state.copyWith(submitting: false, done: true);
     } on AppError catch (e) {

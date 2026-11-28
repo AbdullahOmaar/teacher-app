@@ -91,6 +91,7 @@ class _StudentFormSheetState extends ConsumerState<StudentFormSheet> {
             guardianPhone: _blankToNull(_guardianPhone),
             levelNote: _blankToNull(_levelNote),
           ),
+          groupId: _groupId,
         );
   }
 
