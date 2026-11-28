@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mister/core/theme/app_colors.dart';
+import 'package:mister/core/theme/app_theme.dart';
 
 /// أنماط الزر الأربعة — نظير `ui/Button.tsx` في الويب.
 enum AppButtonVariant { primary, soft, danger, ghost }
@@ -59,7 +60,11 @@ class AppButton extends StatelessWidget {
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       textStyle: const WidgetStatePropertyAll(
-        TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       elevation: const WidgetStatePropertyAll(0),
     );
@@ -77,7 +82,19 @@ class AppButton extends StatelessWidget {
                 Icon(icon, size: 20),
                 const SizedBox(width: 8),
               ],
-              Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  // الخط صراحة: أزرار Material ترسم التسمية بنمطها
+                  // الداخلي ولا ترث عائلة خط الثيم دائمًا (درس الشيبس).
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ],
           );
 

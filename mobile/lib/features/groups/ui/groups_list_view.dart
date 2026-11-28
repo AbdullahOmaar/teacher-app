@@ -175,7 +175,9 @@ class _GroupsListViewState extends ConsumerState<GroupsListView> {
           Row(
             children: [
               AppButton(
-                label: l10n.groups_roster_title(enrolled),
+                // العدّاد في سطر الأرقام أعلاه — الزر قصير حتى لا يفيض
+                // صف الأفعال على 375px (نمط الكروت §4-3: صف أفقي واحد).
+                label: l10n.shell_title_students,
                 icon: Icons.people_outline,
                 variant: AppButtonVariant.soft,
                 onPressed: () => context.push('/groups/${g.id}'),

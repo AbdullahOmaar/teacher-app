@@ -145,6 +145,7 @@ class AppTheme {
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
+            fontFamily: fontFamily,
             fontSize: 12,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
             color: selected ? c.primary : c.muted,
@@ -159,14 +160,15 @@ class AppTheme {
         backgroundColor: c.card,
         selectedColor: c.soft,
         side: BorderSide(color: c.borderInteractive),
-        labelStyle: _secondary.copyWith(color: c.text),
+        labelStyle: _secondary.copyWith(color: c.text, fontFamily: fontFamily),
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: c.text,
-        contentTextStyle: _secondary.copyWith(color: c.bg),
+        contentTextStyle:
+            _secondary.copyWith(color: c.bg, fontFamily: fontFamily),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       dividerTheme: DividerThemeData(color: c.border, thickness: 1),

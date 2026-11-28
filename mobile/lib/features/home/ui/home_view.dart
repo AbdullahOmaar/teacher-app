@@ -193,6 +193,7 @@ class _KpiCard extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.bodySmall,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
         ],

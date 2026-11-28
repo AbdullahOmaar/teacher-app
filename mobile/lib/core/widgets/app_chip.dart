@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mister/core/theme/app_colors.dart';
+import 'package:mister/core/theme/app_theme.dart';
 
 /// رقاقة تصفية — نظير `Chip` في `ui/form.tsx`.
 class AppChip extends StatelessWidget {
@@ -17,8 +18,17 @@ class AppChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    // الخط مضمّن في نمط نص التسمية نفسه: ‏ChoiceChip في هذه النسخة
+    // يرسم تسميته بنمط لا يرث عائلة خط الثيم (تظهر مربعات بديلة
+    // للحروف العربية)، فالتثبيت الصريح هنا هو الضمان.
+    final labelStyle = TextStyle(
+      fontFamily: AppTheme.fontFamily,
+      fontSize: 13.5,
+      color: selected ? colors.primaryDark : colors.text,
+      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+    );
     return ChoiceChip(
-      label: Text(label),
+      label: Text(label, style: labelStyle),
       selected: selected,
       onSelected: onSelected,
       showCheckmark: false,
@@ -27,11 +37,7 @@ class AppChip extends StatelessWidget {
       side: BorderSide(
         color: selected ? colors.primary : colors.borderInteractive,
       ),
-      labelStyle: TextStyle(
-        fontSize: 13.5,
-        color: selected ? colors.primaryDark : colors.text,
-        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-      ),
+      labelStyle: labelStyle,
     );
   }
 }
