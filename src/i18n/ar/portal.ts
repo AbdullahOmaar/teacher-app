@@ -84,6 +84,17 @@ export const portal = {
   pageNotEnrolled: 'الطالب غير مسجل في أي مجموعة حالياً.',
   pageGroupSchedule: '{days} · الساعة {time}',
   pageGroupRoom: ' · {room}',
+  installTitle: 'تثبيت التطبيق',
+  installIntro:
+    'ثبّت التطبيق على شاشة جهازك عشان تفتح بوابتك أسرع وبأيقونة على الشاشة الرئيسية.',
+  installAction: 'تثبيت التطبيق على الجهاز',
+  installInstalling: 'جارٍ التثبيت…',
+  installInstalled: 'التطبيق مثبّت على جهازك — هتلاقيه أيقونة على الشاشة الرئيسية.',
+  installAccepted: 'تمام — التطبيق بيُثبّت على جهازك دلوقتي.',
+  installDismissed: 'اتأجل التثبيت — الزر هيفضل هنا وقت ما تحب.',
+  installUnavailable: 'التثبيت المباشر مش متاح من المتصفح ده — جرّب الإرشاد اليدوي تحت.',
+  installManualHint:
+    'لو مفيش زر تثبيت (زي Safari في آيفون): من قائمة المشاركة في المتصفح اختر «إضافة إلى الشاشة الرئيسية». وفي Chrome/Edge هتلاقي «تثبيت التطبيق» في قائمة المتصفح كمان.',
   pageScoresTitle: 'آخر الدرجات',
   pageNoScores: 'لسه مفيش درجات مسجلة.',
   pageScoreOf: '{score} من {max}',

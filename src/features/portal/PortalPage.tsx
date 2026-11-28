@@ -52,6 +52,7 @@ import {
 } from './accounts'
 import { ClaimPasswordCard, PortalLoginForm, SessionAccountCard } from './accessUi'
 import { TeacherRatingCard } from '../profile/TeacherRatingCard'
+import { PortalInstallCard } from './PortalInstallCard'
 import {
   PORTAL,
   useMarkPortalNotificationsRead,
@@ -292,17 +293,17 @@ function PaymentProofSection({
                 key={p.id}
                 className={`px-[14px] py-2.5 ${i < proofs.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[15px]">
-                      {formatMoney(p.amount)} · {PAYMENT_METHOD_LABELS[p.method]}
-                    </div>
-                    <div className="text-muted text-[12px]">{p.created_at.slice(0, 10)}</div>
-                  </div>
-                  <span className={`text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
+                {/* تخطيط كروت البوابة الموحّد: المبلغ/الطريقة وشارة
+                    الحالة في سطر، والتاريخ في سطر البيانات */}
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">
+                    {formatMoney(p.amount)} · {PAYMENT_METHOD_LABELS[p.method]}
+                  </span>
+                  <span className={`shrink-0 text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
                     {meta.label}
                   </span>
                 </div>
+                <div className="text-muted text-[12px] mt-0.5">{p.created_at.slice(0, 10)}</div>
                 {p.status === 'rejected' && p.rejection_reason && (
                   <p className="text-bad-text text-[13.5px] mt-1 mb-0">{t('portal.pageProofRejectionReason', { reason: p.rejection_reason })}</p>
                 )}
@@ -379,33 +380,36 @@ function NotificationsSection({
               return (
                 <div
                   key={n.id}
-                  className={`flex items-center gap-3 px-[14px] py-2.5 ${
+                  className={`px-[14px] py-2.5 ${
                     i < notifications.length - 1 ? 'border-b border-border' : ''
                   } ${isUnread ? 'bg-soft/60' : ''}`}
                 >
-                  <span
-                    className={`text-[12px] font-bold border rounded-full px-2.5 py-1 shrink-0 ${meta.badge}`}
-                  >
-                    {meta.label}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[15px] break-words">{n.group_name ?? ''}</div>
-                    <div className="text-muted text-[12px]">
-                      {n.kind === 'invoice_issued'
-                        ? t('portal.pageNotifInvoiceLine', {
-                            period: n.invoice_period ?? '',
-                            total: formatMoney(n.invoice_total),
-                            balance: formatMoney(n.invoice_balance),
-                          })
-                        : t('portal.pageNotifSessionLine', {
-                            date: n.session_date ?? '',
-                            time: fmtEventTime(n.event_at),
-                          })}
-                    </div>
+                  {/* تخطيط كروت البوابة الموحّد: اسم المجموعة وشارة
+                      نوع التنبيه في سطر قصاد بعض (كانت الشارة تسبق
+                      الاسم)، وسطر التفاصيل تحتها */}
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">{n.group_name ?? ''}</span>
+                    <span
+                      className={`shrink-0 text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}
+                    >
+                      {meta.label}
+                    </span>
+                    {isUnread && (
+                      <span className="w-2.5 h-2.5 rounded-full bg-bad shrink-0" aria-label={t('portal.pageNotifUnreadAria')} />
+                    )}
                   </div>
-                  {isUnread && (
-                    <span className="w-2.5 h-2.5 rounded-full bg-bad shrink-0" aria-label={t('portal.pageNotifUnreadAria')} />
-                  )}
+                  <div className="text-muted text-[12px] mt-0.5">
+                    {n.kind === 'invoice_issued'
+                      ? t('portal.pageNotifInvoiceLine', {
+                          period: n.invoice_period ?? '',
+                          total: formatMoney(n.invoice_total),
+                          balance: formatMoney(n.invoice_balance),
+                        })
+                      : t('portal.pageNotifSessionLine', {
+                          date: n.session_date ?? '',
+                          time: fmtEventTime(n.event_at),
+                        })}
+                  </div>
                 </div>
               )
             })}
@@ -678,6 +682,12 @@ export function PortalPage() {
         </div>
       )}
 
+      {/* تثبيت التطبيق على الجهاز (ملاحظة المالك 2026-11-28) — فوق
+          مفتاح الإشعارات كمجموعة واحدة «ثبّت وفعّل» */}
+      <div className="rise-in" style={{ animationDelay: '40ms' }}>
+        <PortalInstallCard />
+      </div>
+
       {/* إشعارات Push الفورية — اشتراك اختياري من البوابة (Phase 4 خطوة 2)؛
           محورها الحضور فتختفي مع إخفاء المدرس لقسم الحضور (3A-385) */}
       {o.sections.attendance && (
@@ -708,7 +718,10 @@ export function PortalPage() {
         o.groups.map((g) => (
           <Card key={g.name}>
             <div className="font-bold text-[15px]">{g.name}</div>
-            <div className="text-muted text-[13.5px] mt-0.5">
+            {/* البيانات الوصفية سطراً سطراً (قاعدة كروت البوابة —
+                ملاحظة المالك 2026-11-28): كل موعد في سطر بيومه وميعاده،
+                والقاعة في سطر آخر موعد — مواعيد المجموعة الكاملة (3A-926) */}
+            <div className="text-muted text-[13.5px] mt-1">
               {g.slots.map((s, i) => (
                 <div key={i}>
                   {t('portal.pageGroupSchedule', { days: daysLabel([s.day]), time: formatTime12(s.start_time) })}
@@ -758,22 +771,26 @@ export function PortalPage() {
             return (
               <div
                 key={`${s.title}-${s.date}-${i}`}
-                className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.latest_scores.length - 1 ? 'border-b border-border' : ''}`}
+                className={`px-[14px] py-2.5 ${i < o.latest_scores.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] break-words">{s.title}</div>
-                  <div className="text-muted text-[12px]">{s.date}</div>
+                {/* تخطيط كروت البوابة الموحّد: العنوان وشارة النسبة في
+                    سطر، والتاريخ والدرجة في سطر البيانات */}
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">{s.title}</span>
+                  {pct != null && (
+                    <span
+                      className={`shrink-0 min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${pct >= 50 ? 'bg-ok-text' : 'bg-bad-text'}`}
+                    >
+                      {pct}%
+                    </span>
+                  )}
                 </div>
-                <div className="text-[13.5px] font-semibold whitespace-nowrap">
-                  {t('portal.pageScoreOf', { score: fmtScore(s.score), max: fmtScore(s.max_score) })}
-                </div>
-                {pct != null && (
-                  <span
-                    className={`min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${pct >= 50 ? 'bg-ok-text' : 'bg-bad-text'}`}
-                  >
-                    {pct}%
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-muted text-[12px] flex-1 min-w-0">{s.date}</span>
+                  <span className="shrink-0 text-[13.5px] font-semibold whitespace-nowrap">
+                    {t('portal.pageScoreOf', { score: fmtScore(s.score), max: fmtScore(s.max_score) })}
                   </span>
-                )}
+                </div>
               </div>
             )
           })}
@@ -815,15 +832,17 @@ export function PortalPage() {
             return (
               <div
                 key={`${a.date}-${a.group_name}-${i}`}
-                className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.recent_attendance.length - 1 ? 'border-b border-border' : ''}`}
+                className={`px-[14px] py-2.5 ${i < o.recent_attendance.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] break-words">{a.group_name}</div>
-                  <div className="text-muted text-[12px]">{a.date}</div>
+                {/* تخطيط كروت البوابة الموحّد: الاسم وشارة الحالة في
+                    سطر، والتاريخ في سطر البيانات */}
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">{a.group_name}</span>
+                  <span className={`shrink-0 text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
+                    {meta.label}
+                  </span>
                 </div>
-                <span className={`text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
-                  {meta.label}
-                </span>
+                <div className="text-muted text-[12px] mt-0.5">{a.date}</div>
               </div>
             )
           })}

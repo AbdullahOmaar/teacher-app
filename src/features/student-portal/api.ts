@@ -164,7 +164,7 @@ interface StudentPortalGroup {
   links: string[]
 }
 
-interface StudentPortalSession {
+export interface StudentPortalSession {
   date: string
   start_time: string
   duration_minutes: number
