@@ -1,0 +1,37 @@
+{
+  "base": "http://127.0.0.1:4173",
+  "note": "لقطتا دليل PR #57 (3A-911) من البناء المحلي لفرع fix/low-defects-911 بجلسة مالك وهمية كاملة الاعتراض (auth + REST يُردّ عليهما محلياً في المتصفح؛ لا نداء شبكة خرج من الجهاز). البيانات المعروضة (مجموعة/طلاب/حضور) وهمية لأغراض اللقطة فقط، والمحتوى الملتقط هو واجهة البناء الحقيقية: زر التراجع عن الانصراف في حالته المسلّحة بعد الضغطة الأولى، وحالة فراغ اليوم بلا حصص مع زر «إضافة حصة إضافية».",
+  "startedAt": "2026-11-28T01:55:38.052Z",
+  "theme": "default(saved/auto)",
+  "timezone": "Africa/Cairo",
+  "tool": "visual-capture (one-off puppeteer script, local build + vite preview)",
+  "widths": {
+    "375": [
+      {
+        "id": "attendance-leftat-clear-armed",
+        "file": "375/attendance-leftat-clear-armed.png",
+        "path": "/attendance (طالب حاضر منصرف — زر التراجع مسلّح بعد الضغطة الأولى: «متأكد؟ اضغط تاني للتراجع»)",
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375,
+          "theme": "light"
+        },
+        "pngWidth": 375,
+        "pngHeight": 1633
+      },
+      {
+        "id": "attendance-empty-day-extra",
+        "file": "375/attendance-empty-day-extra.png",
+        "path": "/attendance?date=2026-11-25 (يوم غير مجدول — حالة الفراغ مع زر «إضافة حصة إضافية»)",
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375,
+          "theme": "light"
+        },
+        "pngWidth": 375,
+        "pngHeight": 844
+      }
+    ]
+  },
+  "finishedAt": "2026-11-28T01:55:53.959Z"
+}
