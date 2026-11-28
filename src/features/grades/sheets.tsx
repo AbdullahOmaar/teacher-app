@@ -70,6 +70,12 @@ export function AssessmentFormSheet({
   const mut = initial ? update : create
   const max = parseFloat(maxScore)
   const pass = parseFloat(passScore)
+  // منع صارم لا تحذير (3A-928): نجاح فوق النهائية يُعطّل الحفظ ويظهر
+  // كخطأ حقل — كانت الصيغة القديمة تحذّر فقط وتحفظ 20/30 بصمت
+  const passAboveMax =
+    Number.isFinite(max) && Number.isFinite(pass) && pass > max
+      ? t('grades.passAboveMax', { pass: fmtScore(pass), max: fmtScore(max) })
+      : undefined
   const valid =
     title.trim().length > 0 &&
     Boolean(groupId) &&
@@ -77,7 +83,8 @@ export function AssessmentFormSheet({
     Number.isFinite(max) &&
     max > 0 &&
     Number.isFinite(pass) &&
-    pass >= 0
+    pass >= 0 &&
+    pass <= max
 
   return (
     <Sheet
@@ -164,7 +171,7 @@ export function AssessmentFormSheet({
               onChange={(e) => setMaxScore(e.target.value)}
             />
           </Field>
-          <Field label={t('grades.formPassLabel')}>
+          <Field label={t('grades.formPassLabel')} error={passAboveMax}>
             <TextInput
               type="number"
               min="0"
@@ -176,11 +183,6 @@ export function AssessmentFormSheet({
             />
           </Field>
         </div>
-        {pass > max && (
-          <p className="text-warn-text text-[13.5px] font-semibold">
-            {t('grades.formPassWarn')}
-          </p>
-        )}
         {mut.isError && <FormError message={errText(mut.error)} />}
       </form>
 
@@ -451,7 +453,7 @@ export function ExamSheetSheet({
       </ChipRow>
 
       <div
-        className="print-area bg-white text-slate-900 border border-dashed border-slate-300 rounded-xl p-4 mb-3"
+        className="print-area bg-card text-text border border-dashed border-border rounded-xl p-4 mb-3"
         style={printFontStyle(printFont)}
       >
         <PrintBrandHeader
@@ -459,10 +461,10 @@ export function ExamSheetSheet({
           fallbackTitle={teacherNameQ.data ? teacherNameQ.data : t('grades.examSheet')}
           logoAlt={t('grades.sheetLogoAlt')}
         >
-          <div className="text-[13.5px] text-slate-600">
+          <div className="text-[13.5px] text-muted">
             {assessment.title} · {groupName}
           </div>
-          <div className="text-[13.5px] text-slate-500">
+          <div className="text-[13.5px] text-muted">
             {t('grades.sheetMeta', { max: fmtScore(assessment.max_score), date: formatDateLabel(assessment.assess_date) })}
           </div>
         </PrintBrandHeader>

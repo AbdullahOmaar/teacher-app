@@ -3,6 +3,7 @@ import { db } from '../../lib/supabase'
 import { friendlyDbError } from '../../lib/supabaseErrors'
 import { DAY_NAMES } from '../../lib/format'
 import type { ExtraSessionInput, GroupRow, HolidayRow, SessionRow } from '../../types/database'
+import { groupSlotsOf } from '../groups/slots'
 import {
   addDaysStr,
   fetchSessionsInRange,
@@ -136,7 +137,7 @@ export async function ensureSessionsGenerated(
   groups: GroupRow[],
   monthStarts: string[],
 ): Promise<void> {
-  const active = groups.filter((g) => g.days && g.days.length > 0 && g.archived_at == null)
+  const active = groups.filter((g) => groupSlotsOf(g).length > 0 && g.archived_at == null)
   if (active.length === 0 || monthStarts.length === 0) return
   // الشهور التي لم تُضمَن بعد لأي مجموعة نشطة واحدة على الأقل
   const pendingMonths = monthStarts.filter((month) =>

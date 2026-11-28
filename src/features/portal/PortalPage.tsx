@@ -26,10 +26,11 @@ import type { PaymentMethod } from '../../types/database'
 import { fmtScore, pctOf } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import {
-  PORTAL_ATT_META,
+  portalAttMeta,
   PROOF_METHODS,
   fetchGuardianPushStatus,
   portalErrorInfo,
+  portalMoneyState,
   portalNotifMeta,
   portalProofStatusMeta,
   subscribeGuardianPush,
@@ -645,10 +646,12 @@ export function PortalPage() {
             {o.sections.money && (
               <div className="rounded-xl border border-border bg-bg p-3 text-center">
                 <div className="text-muted text-[12px] font-semibold mb-0.5">{t('portal.pageBalanceLabel')}</div>
-                {o.balance > 0 ? (
+                {portalMoneyState(o) === 'due' ? (
                   <div className="text-[20px] font-extrabold text-bad-text">{formatMoney(o.balance)}</div>
-                ) : (
+                ) : portalMoneyState(o) === 'paid' ? (
                   <div className="text-[20px] font-extrabold text-ok-text flex items-center justify-center gap-1.5">{t('portal.pagePaid')} <Check size={22} /></div>
+                ) : (
+                  <div className="text-[20px] font-extrabold text-muted">{t('portal.pageNoInvoices')}</div>
                 )}
               </div>
             )}
@@ -705,8 +708,12 @@ export function PortalPage() {
           <Card key={g.name}>
             <div className="font-bold text-[15px]">{g.name}</div>
             <div className="text-muted text-[13.5px] mt-0.5">
-              {t('portal.pageGroupSchedule', { days: daysLabel(g.days), time: formatTime12(g.start_time) })}
-              {g.room ? t('portal.pageGroupRoom', { room: g.room }) : ''}
+              {g.slots.map((s, i) => (
+                <div key={i}>
+                  {t('portal.pageGroupSchedule', { days: daysLabel([s.day]), time: formatTime12(s.start_time) })}
+                  {i === g.slots.length - 1 && g.room ? t('portal.pageGroupRoom', { room: g.room }) : ''}
+                </div>
+              ))}
             </div>
             {g.links.some((link) => safeExternalUrl(link) !== null) && (
               <div className="flex flex-wrap gap-2 mt-2">
@@ -803,7 +810,7 @@ export function PortalPage() {
       ) : (
         <Card className="p-0 overflow-hidden">
           {o.recent_attendance.map((a, i) => {
-            const meta = PORTAL_ATT_META[a.status] ?? { label: a.status, badge: 'bg-soft text-muted border-border' }
+            const meta = portalAttMeta(a.status)
             return (
               <div
                 key={`${a.date}-${a.group_name}-${i}`}

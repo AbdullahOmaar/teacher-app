@@ -17,6 +17,7 @@ import {
   type RawPortalBrand,
 } from './tokenLifecycle'
 import type {
+  GroupSlot,
   GuardianAccessTokenRow,
   GuardianRow,
   PaymentMethod,
@@ -348,6 +349,8 @@ interface PortalGroup {
   name: string
   days: number[]
   start_time: string
+  /** المواعيد الأسبوعية الكاملة (3A-926) — سطر عرض لكل موعد */
+  slots: GroupSlot[]
   room: string | null
   links: string[]
 }
@@ -396,10 +399,24 @@ export interface PortalOverview {
   sections: PortalSections
   attendance_rate: number | null
   balance: number
+  /** توجد أي فاتورة للطالب أصلاً (0071) — أساس فرق «مسدد» عن «لا فواتير» */
+  has_invoices: boolean
   groups: PortalGroup[]
   latest_scores: PortalScore[]
   notes: PortalNote[]
   recent_attendance: PortalAttendance[]
+}
+
+/**
+ * حالة مال الطالب المعروضة في البوابة (3A-925 بند ٤): مستحقّ إن وُجد رصيد،
+ * «مسدد» إن وُجدت فواتير ورصيدها صفر، و«لا فواتير» إن لم توجد أي فاتورة
+ * أصلاً — الخلط بين الأخيرتين كان يعرض «مسدد» لطالب لم تُنشأ له فاتورة قط.
+ */
+export type PortalMoneyState = 'due' | 'paid' | 'none'
+
+export function portalMoneyState(o: { balance: number; has_invoices: boolean }): PortalMoneyState {
+  if (o.balance > 0) return 'due'
+  return o.has_invoices ? 'paid' : 'none'
 }
 
 /** قراءة البوابة بالرمز الخام عبر الـ RPC — المسار الآمن الوحيد للـ anon */
@@ -509,14 +526,30 @@ export const PROOF_STATUS_META: Record<
 const META_FALLBACK_BADGE = 'bg-soft text-muted border-border'
 
 /**
+ * بحث ميتا محروس (3A-909 + 3A-928): لا يعيد undefined أبداً مهما كانت
+ * القيمة القادمة من الخادم — مفتاح غير نصي (null/undefined من JSONB)،
+ * أو فارغ، أو غير معروف، أو موروث من النموذج الأولي للكائنات
+ * ('toString'/'constructor' — البحث الخام كان يعيد دالة فيُقرأ منها
+ * badge فارغ) — الكل يتحل لشارة محايدة بتسمية البديل. الفحص بـ
+ * Object.hasOwn حتى لا تتسرب مفاتيح Object.prototype.
+ */
+function metaOf(
+  map: Record<string, { label: string; badge: string }>,
+  key: unknown,
+  fallbackLabel: string,
+): { label: string; badge: string } {
+  if (typeof key === 'string' && Object.hasOwn(map, key)) return map[key]
+  return { label: fallbackLabel, badge: META_FALLBACK_BADGE }
+}
+
+/**
  * حسم ميتا حالة إثبات بأمان (3A-909): الحالة تأتي من الخادم عبر JSONB
  * مُلقاة بنوع العميل — أي حالة لا يعرفها العميل (انحراف نسخ بين العميل
  * وقاعدة البيانات) تتحل هنا لشارة محايدة بدل أن ترمي أثناء العرض
  * وتُسقط صفحة البوابة كلها على حدّ الخطأ العام «حصلت مشكلة غير متوقعة».
  */
 export function portalProofStatusMeta(status: string): { label: string; badge: string } {
-  const known = (PROOF_STATUS_META as Partial<Record<string, { label: string; badge: string }>>)[status]
-  return known ?? { label: t('portal.apiProofStatusFallback'), badge: META_FALLBACK_BADGE }
+  return metaOf(PROOF_STATUS_META, status, t('portal.apiProofStatusFallback'))
 }
 
 export function proofErrorMessage(error: unknown): string {
@@ -809,8 +842,17 @@ export const PORTAL_NOTIF_META: Record<
  * العام). أي نوع غير معروف يتحل هنا لشارة «تنبيه» محايدة ولا يرمي أبداً.
  */
 export function portalNotifMeta(kind: string): { label: string; badge: string } {
-  const known = (PORTAL_NOTIF_META as Partial<Record<string, { label: string; badge: string }>>)[kind]
-  return known ?? { label: t('portal.apiNotifFallback'), badge: META_FALLBACK_BADGE }
+  return metaOf(PORTAL_NOTIF_META, kind, t('portal.apiNotifFallback'))
+}
+
+/**
+ * حسم ميتا حالة حضور في البوابة (3A-928): كان آخر بحث خام مباشر في
+ * خريطة عند صفحة البوابة — صار عبر metaOf المحروس كسائر الميتا، فأي
+ * حالة حضور لا يعرفها العميل (أو قيمة فارغة/غير نصية) تتحل لشارة
+ * «حضور» المحايدة ولا ترمي أبداً.
+ */
+export function portalAttMeta(status: string): { label: string; badge: string } {
+  return metaOf(PORTAL_ATT_META, status, t('portal.apiAttFallback'))
 }
 
 /** حالات الحضور الأربع في البوابة (§2.4) — الشارات مشتركة (buildAttMeta)، والتسميات بمفاتيح هذه البوابة */

@@ -339,6 +339,18 @@ export interface StudentInput {
   paused: boolean
 }
 
+/**
+ * موعد أسبوعي واحد للمجموعة (3A-926 — عمود groups.slots من 0070):
+ * day برقم dow (0=الأحد..6=السبت — نفس ترقيم days وextract(dow) في القاعدة)،
+ * وstart_time بصيغة "HH:MM". المجموعة قد تحمل عدة مواعيد بأيام وأوقات ومدد
+ * مختلفة، وتوليد الحصص يمرّ عليها كلها.
+ */
+export interface GroupSlot {
+  day: number
+  start_time: string // "HH:MM"
+  duration_minutes: number
+}
+
 export interface GroupInput {
   name: string
   billing_type: BillingType
@@ -346,6 +358,9 @@ export interface GroupInput {
   days: number[]
   start_time: string // "HH:MM"
   duration_minutes: number
+  /** المواعيد الأسبوعية الكاملة (3A-926) — مصدر الحقيقة؛ days/start_time/
+   * duration_minutes أعلاها مرايا مشتقة منها (slotsToMirrors) لتوافق القراء */
+  slots: GroupSlot[]
   room: string | null
   capacity: number | null
   assistant_name: string | null

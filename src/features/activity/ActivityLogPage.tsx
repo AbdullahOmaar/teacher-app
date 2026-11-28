@@ -78,6 +78,13 @@ function detailsText(row: ActivityLogRow): string | null {
   if (email) parts.push(email)
   const reason = str(d.reason)
   if (reason) parts.push(t('activity.detail.reason', { reason }))
+  // عكس دفعة (3A-925): يُذكر إيصال العكس وتصريح أن الأصلية لم تُحذف —
+  // العكس قيد محاسبي مقابل، لا حذف من الدفتر أبداً
+  if (row.event_type === 'payment_voided') {
+    const reversalReceipt = str(d.reversal_receipt_no)
+    if (reversalReceipt) parts.push(t('activity.detail.reversalReceipt', { receipt: reversalReceipt }))
+    parts.push(t('activity.detail.voidedNote'))
+  }
   return parts.length > 0 ? parts.join(' · ') : null
 }
 

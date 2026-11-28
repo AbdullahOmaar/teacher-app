@@ -167,11 +167,53 @@ export async function setStudentPaused(
   })
 }
 
+/** هل امتلأت سعة مجموعة؟ (نقي — 3A-925): capacity null = بلا حد فلا امتلاء أبداً */
+export function isGroupFull(capacity: number | null, enrolledCount: number): boolean {
+  return capacity != null && enrolledCount >= capacity
+}
+
+/**
+ * حارس سعة المجموعة (3A-925 بند ١): أي تسجيل جديد في مجموعة وصلت سعتها
+ * يُرفض برسالة عربية واضحة — قرار المالك: المنع لا قائمة الانتظار.
+ * تحديث تسجيل قائم (سعر خاص/حصص مسبقة) لا يعيقه الحارس أبداً.
+ * يسري على كل مسارات upsertEnrollment: نموذج التسجيل، نموذج الطالب،
+ * قبول طلب الانتظار/الحجز، والاستيراد (يفشل الصف وحده برسالة واضحة).
+ */
+async function assertGroupCapacity(teacherId: string, input: EnrollmentInput): Promise<void> {
+  const { data: existing, error: exErr } = await db()
+    .from('enrollments')
+    .select('id')
+    .eq('teacher_id', teacherId)
+    .eq('student_id', input.student_id)
+    .eq('group_id', input.group_id)
+    .maybeSingle()
+  if (exErr) throw exErr
+  if (existing) return
+  const { data: group, error: gErr } = await db()
+    .from('groups')
+    .select('capacity')
+    .eq('teacher_id', teacherId)
+    .eq('id', input.group_id)
+    .maybeSingle()
+  if (gErr) throw gErr
+  if (!group || group.capacity == null) return
+  const { count, error: cErr } = await db()
+    .from('enrollments')
+    .select('*', { count: 'exact', head: true })
+    .eq('teacher_id', teacherId)
+    .eq('group_id', input.group_id)
+  if (cErr) throw cErr
+  if (isGroupFull(group.capacity, count ?? 0)) {
+    throw new Error(t('students.enrollGroupFull', { capacity: group.capacity }))
+  }
+}
+
 /** تسجيل طالب في مجموعة (أو تحديث سعره الخاص) — unique (student_id, group_id) */
 export async function upsertEnrollment(
   teacherId: string,
   input: EnrollmentInput,
 ): Promise<EnrollmentRow> {
+  await assertGroupCapacity(teacherId, input)
   const { data, error } = await db()
     .from('enrollments')
     .upsert(

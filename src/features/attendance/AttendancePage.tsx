@@ -11,7 +11,6 @@ import { ErrorState, LoadingState, NoTeacherProfile, PageLoadingOverlay, SignInR
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatTime12, safeExternalUrl } from '../../lib/format'
-import type { AttendanceStatus } from '../../types/database'
 import { useGroups } from '../groups/hooks'
 import { SG } from '../students/hooks'
 import { formatDateLabel, generationWindowMonths, monthStartStr, todayStr } from '../schedule/api'
@@ -24,6 +23,7 @@ import {
   departureMessage,
   departureWaUrl,
   isAttended,
+  markAllPresentEntries,
   resolveGuardian,
   type AttendanceValue,
   type SessionWithGroup,
@@ -314,10 +314,10 @@ export function AttendancePage() {
 
   const markAllPresent = () => {
     if (!selected || cancelled || !teacherId) return
-    const entries = roster.map((s) => ({
-      studentId: s.id,
-      value: { ...valueOf(s.id), status: 'p' as AttendanceStatus },
-    }))
+    // «الكل حاضر» = من لا حالة لهم بعد فقط (3A-925 بند ٣): غائب قائم لا
+    // يُستبدل أبداً — البناء كله في markAllPresentEntries النقية المُختبَرة
+    const entries = markAllPresentEntries(roster, valueOf)
+    if (entries.length === 0) return
     applyOverride(entries)
     // كل طالب عنصر مستقل في قائمة المزامنة (نفس مفتاح الدمج الفردي)،
     // والمحرك يرسلهم دفعة حصة واحدة — متصلاً كان أو غير متصل (3A-296)

@@ -197,10 +197,35 @@ export async function fetchAssessment(
   return { ...toAssessment(data), group_name: data.groups?.name ?? '—' }
 }
 
+/**
+ * تحقق نقي من نهائية/درجة نجاح تقييم قبل أي حفظ (3A-928): نهائية 20
+ * ونجاح 30 كانت تُحفظ بصمت (النموذج كان يحذّر فقط ولا يمنع) — فتستحيل
+ * كل النجاحات وتضطرب النسب. يعيد رسالة الخطأ العربية أو null.
+ */
+export function validateAssessmentInput(
+  input: Pick<AssessmentInput, 'max_score' | 'pass_score'>,
+): string | null {
+  if (!Number.isFinite(input.max_score) || input.max_score <= 0) {
+    return t('grades.maxScoreInvalid')
+  }
+  if (!Number.isFinite(input.pass_score) || input.pass_score < 0) {
+    return t('grades.passScoreInvalid')
+  }
+  if (input.pass_score > input.max_score) {
+    return t('grades.passAboveMax', {
+      pass: fmtScore(input.pass_score),
+      max: fmtScore(input.max_score),
+    })
+  }
+  return null
+}
+
 export async function createAssessment(
   teacherId: string,
   input: AssessmentInput,
 ): Promise<AssessmentRow> {
+  const invalid = validateAssessmentInput(input)
+  if (invalid) throw new Error(invalid)
   const { data, error } = await db()
     .from('assessments')
     .insert({ teacher_id: teacherId, ...input })
@@ -215,6 +240,8 @@ export async function updateAssessment(
   assessmentId: string,
   input: AssessmentInput,
 ): Promise<AssessmentRow> {
+  const invalid = validateAssessmentInput(input)
+  if (invalid) throw new Error(invalid)
   const { data, error } = await db()
     .from('assessments')
     .update(input)

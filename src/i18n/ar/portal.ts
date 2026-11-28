@@ -77,6 +77,8 @@ export const portal = {
   pageNoSessionsYet: 'لسه مفيش حصص متسجلة',
   pageBalanceLabel: 'الموقف المالي',
   pagePaid: 'مسدد',
+  /** طالب بلا أي فاتورة (3A-925 بند ٤) — ليست «مسدد» */
+  pageNoInvoices: 'لا فواتير',
   pageBalanceNote: 'ده إجمالي المبلغ المستحق حالياً على الطالب. لأي استفسار تواصل مع المدرس.',
   pageScheduleTitle: 'مواعيد الحصص',
   pageNotEnrolled: 'الطالب غير مسجل في أي مجموعة حالياً.',
@@ -130,6 +132,8 @@ export const portal = {
   apiAttAbsent: 'غائب',
   apiAttLate: 'متأخر',
   apiAttMakeup: 'تعويضية',
+  /** شارة محايدة لأي حالة حضور لا يعرفها العميل (3A-928) */
+  apiAttFallback: 'حضور',
   durationLabel: 'مدة صلاحية الرابط',
   durationDays: '{days} يوم',
   durationCustomChip: 'مدة مخصصة',

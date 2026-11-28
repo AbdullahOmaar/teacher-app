@@ -16,7 +16,7 @@ import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../.
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
-import { BILLING_LABELS, daysLabel, formatMoney, formatTime12, safeExternalUrl } from '../../lib/format'
+import { BILLING_LABELS, DAY_NAMES, formatMoney, formatTime12, safeExternalUrl } from '../../lib/format'
 import { SG, useStudents } from '../students/hooks'
 import { EnrollStudentSheet } from '../students/EnrollStudentSheet'
 import {
@@ -31,6 +31,7 @@ import {
   useSetGroupArchived,
   useWaitlist,
 } from './hooks'
+import { groupSlotsOf } from './slots'
 import { GroupFormSheet } from './GroupFormSheet'
 import { GroupStarCheer } from './GroupStarCheer'
 
@@ -207,7 +208,12 @@ export function GroupDetailPage() {
         <div className="text-muted text-[13.5px] mt-1 leading-relaxed">
           {BILLING_LABELS[group.billing_type]} · {formatMoney(group.price)}
           <br />
-          {daysLabel(group.days)} · {formatTime12(group.start_time)} {t('groups.detailDuration', { minutes: group.duration_minutes })}
+          {groupSlotsOf(group).map((s, i) => (
+            <span key={i}>
+              {i > 0 && <br />}
+              {DAY_NAMES[s.day]} · {formatTime12(s.start_time)} {t('groups.detailDuration', { minutes: s.duration_minutes })}
+            </span>
+          ))}
           {group.room ? <br /> : null}
           {group.room ? (<span className="inline-flex items-center gap-1"><MapPin size={16} /> {group.room}</span>) : ''}
           {group.assistant_name ? <><br />{t('groups.detailAssistant', { name: group.assistant_name })}</> : null}

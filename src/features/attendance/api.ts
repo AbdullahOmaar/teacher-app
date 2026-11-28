@@ -72,6 +72,21 @@ export interface AttendanceValue {
 
 export const EMPTY_VALUE: AttendanceValue = { status: null, homework_done: false, starred: false }
 
+/**
+ * مدخلات «الكل حاضر» (3A-925 بند ٣ — قرار المالك): تُبنى فقط للطلاب الذين
+ * لا حالة لهم بعد (status null) — أي حالة قائمة (غائب/متأخر/تعويضية/حاضر)
+ * لا تُمسّ أبداً، وبلا أي حوار تأكيد. القيمة الكاملة الحالية تُحمل كما هي
+ * (واجب/تمييز محفوظان) ويُبدَّل status وحده إلى حاضر.
+ */
+export function markAllPresentEntries(
+  roster: { id: string }[],
+  valueOf: (studentId: string) => AttendanceValue,
+): { studentId: string; value: AttendanceValue }[] {
+  return roster
+    .filter((s) => valueOf(s.id).status == null)
+    .map((s) => ({ studentId: s.id, value: { ...valueOf(s.id), status: 'p' as const } }))
+}
+
 function isEmptyValue(v: AttendanceValue): boolean {
   return v.status == null && !v.homework_done && !v.starred
 }

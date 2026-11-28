@@ -131,8 +131,48 @@ describe('normalizeOverviewHead', () => {
     expect(head.attendance_rate).toBe(87.5)
     expect(head.balance).toBe(120)
     expect(head.groups).toEqual([
-      { name: 'مجموعة', days: [1, 3], start_time: '16:00', room: null, links: [] },
+      {
+        name: 'مجموعة',
+        days: [1, 3],
+        start_time: '16:00',
+        // بلا slots من الخادم: تُشتق من الأيام/الوقت (مدة العرض الاحتياطية 60)
+        slots: [
+          { day: 1, start_time: '16:00', duration_minutes: 60 },
+          { day: 3, start_time: '16:00', duration_minutes: 60 },
+        ],
+        room: null,
+        links: [],
+      },
     ])
+  })
+  it('مواعيد الخادم الكاملة (0071) تُقرأ كما هي — أوقات مختلفة لكل يوم', () => {
+    const head = normalizeOverviewHead({
+      student: { name: 'ط', code: 'S', grade: null },
+      groups: [
+        {
+          name: 'مجموعة',
+          days: [6, 1],
+          start_time: '12:00',
+          room: null,
+          links: [],
+          slots: [
+            { day: 6, start_time: '12:00:00', duration_minutes: 60 },
+            { day: 1, start_time: '16:00', duration_minutes: 90 },
+          ],
+        },
+      ],
+    })
+    expect(head.groups[0].slots).toEqual([
+      { day: 6, start_time: '12:00', duration_minutes: 60 },
+      { day: 1, start_time: '16:00', duration_minutes: 90 },
+    ])
+  })
+  it('has_invoices: false الصريحة وحدها تعني «لا فواتير» — الغياب/ null = توجد (3A-925)', () => {
+    const base = { student: { name: 'ط', code: 'S', grade: null } }
+    expect(normalizeOverviewHead({ ...base, has_invoices: false }).has_invoices).toBe(false)
+    expect(normalizeOverviewHead({ ...base, has_invoices: true }).has_invoices).toBe(true)
+    expect(normalizeOverviewHead({ ...base, has_invoices: null }).has_invoices).toBe(true)
+    expect(normalizeOverviewHead(base).has_invoices).toBe(true)
   })
   it('حضور غائب = null ومجموعات غائبة = []', () => {
     const head = normalizeOverviewHead({

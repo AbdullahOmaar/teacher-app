@@ -37,6 +37,8 @@ export const studentPortal = {
   pageNoSessionsYet: 'لسه مفيش حصص متسجلة',
   pageBalanceDueLabel: 'المستحق عليّ',
   pagePaidLabel: 'مسدد',
+  /** طالب بلا أي فاتورة (3A-925 بند ٤ — نفس عيب بوابة ولي الأمر) */
+  pageNoInvoices: 'لا فواتير',
   pageUpcomingTitle: 'حصصي القادمة',
   pageUpcomingEmpty:
     'مفيش حصص جاية متجدولة حالياً — ممكن جدول الشهر الجديد لسه ما اتعملش، اسأل المدرس.',
@@ -82,4 +84,6 @@ export const studentPortal = {
   apiAttAbsent: 'غائب',
   apiAttLate: 'متأخر',
   apiAttMakeup: 'تعويضية',
+  /** شارة محايدة لأي حالة حضور لا يعرفها العميل (3A-928) */
+  apiAttFallback: 'حضور',
 } as const
