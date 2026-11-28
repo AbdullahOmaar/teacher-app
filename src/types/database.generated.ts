@@ -2952,6 +2952,7 @@ export type Database = {
           updated_at: string
           owner_user_id: string
           account_activated: boolean
+          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -2962,6 +2963,7 @@ export type Database = {
           updated_at?: string
           owner_user_id: string
           account_activated?: boolean
+          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -2972,6 +2974,7 @@ export type Database = {
           updated_at?: string
           owner_user_id?: string
           account_activated?: boolean
+          deleted_at?: string | null
         }
         Relationships: [
           {
@@ -3227,7 +3230,9 @@ export type Database = {
           Returns: Json
         }
       delete_my_teacher_account: {
-          Args: Record<PropertyKey, never>
+          Args: {
+            p_confirmation: string
+          }
           Returns: Json
         }
       effective_entitlements: {
