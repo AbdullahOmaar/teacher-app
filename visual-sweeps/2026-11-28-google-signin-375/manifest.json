@@ -1,0 +1,25 @@
+{
+  "base": "http://127.0.0.1:4175",
+  "note": "لقطة دليل PR #66 (3A-931) من البناء المحلي لفرع feat/google-signin-931: بطاقة الدخول عند 375px وفيها زر «الدخول بجوجل» مفعّلاً (Supabase مضبوط في بيئة البناء). زائر بلا جلسة؛ لا نداء شبكة خرج من الجهاز.",
+  "startedAt": "2026-11-28T01:47:37.247Z",
+  "theme": "default(saved/auto)",
+  "timezone": "Africa/Cairo",
+  "tool": "visual-capture (one-off puppeteer script, local build + vite preview)",
+  "widths": {
+    "375": [
+      {
+        "id": "login-google-button",
+        "file": "375/login-google-button.png",
+        "path": "/login (بطاقة الدخول مع زر «الدخول بجوجل»)",
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375,
+          "theme": "light"
+        },
+        "pngWidth": 375,
+        "pngHeight": 950
+      }
+    ]
+  },
+  "finishedAt": "2026-11-28T01:47:54.430Z"
+}
