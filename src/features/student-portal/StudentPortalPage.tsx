@@ -114,10 +114,13 @@ function PortalMessage({
   icon: Icon,
   title,
   hint,
+  extra,
 }: {
   icon: IconComponent
   title: string
   hint: string
+  /** محتوى إضافي تحت بطاقة الرسالة (نموذج الدخول عند موت الرابط) */
+  extra?: React.ReactNode
 }) {
   return (
     <StudentPortalShell>
@@ -128,6 +131,7 @@ function PortalMessage({
         <div className="type-section mb-1">{title}</div>
         <p className="text-muted type-secondary mb-0">{hint}</p>
       </Card>
+      {extra}
     </StudentPortalShell>
   )
 }
@@ -206,6 +210,25 @@ export function StudentPortalPage() {
 
   const overviewQ = useStudentPortalOverview(rawToken)
 
+  // بطاقة الدخول باسم الدخول وكلمة السر — تظهر عند فتح البوابة من غير
+  // رابط، وتحت رسالة «الرابط غير صالح» أيضاً حتى لا يكون الرابط الميت
+  // طريقاً مسدوداً لمن عنده حساب.
+  const loginCard = (
+    <Card>
+      <div className="type-section mb-1">{t('portal.loginTitle')}</div>
+      <p className="text-muted text-[13.5px] mt-0">{t('portal.loginIntro')}</p>
+      <PortalLoginForm
+        role="student"
+        usernameLabel={t('studentPortal.loginUsernameCode')}
+        usernamePlaceholder={t('studentPortal.loginUsernamePlaceholder')}
+        onLoggedIn={(res) => {
+          clearCredentialCache()
+          setSessionToken(res.session_token)
+        }}
+      />
+    </Card>
+  )
+
   if (!urlToken && !sessionChecked) {
     return (
       <StudentPortalShell>
@@ -215,23 +238,7 @@ export function StudentPortalPage() {
   }
 
   if (!rawToken) {
-    return (
-      <StudentPortalShell>
-        <Card>
-          <div className="type-section mb-1">{t('portal.loginTitle')}</div>
-          <p className="text-muted text-[13.5px] mt-0">{t('portal.loginIntro')}</p>
-          <PortalLoginForm
-            role="student"
-            usernameLabel={t('studentPortal.loginUsernameCode')}
-            usernamePlaceholder={t('studentPortal.loginUsernamePlaceholder')}
-            onLoggedIn={(res) => {
-              clearCredentialCache()
-              setSessionToken(res.session_token)
-            }}
-          />
-        </Card>
-      </StudentPortalShell>
-    )
+    return <StudentPortalShell>{loginCard}</StudentPortalShell>
   }
 
   if (overviewQ.isPending) {
@@ -244,7 +251,21 @@ export function StudentPortalPage() {
 
   if (overviewQ.isError || !overviewQ.data) {
     const info = studentPortalErrorInfo(overviewQ.error)
-    return <PortalMessage icon={Clock} title={info.title} hint={info.hint} />
+    // نموذج الدخول يظهر تحت الرسالة عند موت الاعتماد فقط (رابط/جلسة
+    // غير صالحة) — أخطاء الشبكة العابرة تبقى رسالة بلا نموذج. رسالة
+    // الخطأ تُقرأ من خاصية message مباشرة: أخطاء PostgREST كائنات
+    // عادية لا مثيلات Error فـ instanceof لا يكفي.
+    const errMsg =
+      (overviewQ.error as { message?: string } | null)?.message ?? String(overviewQ.error ?? '')
+    const credentialDead = errMsg.includes('invalid or expired')
+    return (
+      <PortalMessage
+        icon={Clock}
+        title={info.title}
+        hint={info.hint}
+        extra={credentialDead ? loginCard : undefined}
+      />
+    )
   }
 
   const o = overviewQ.data
@@ -601,7 +622,11 @@ export function StudentPortalPage() {
             <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
             <span>
               {t('portal.claimDone', { username: justClaimed.username })}{' '}
-              {justClaimed.linkClosed ? t('portal.claimLinkDone') : t('portal.claimLinkStillValid')}
+              {justClaimed.linkClosed ? t('portal.claimLinkDone') : t('portal.claimLinkStillValid')}{' '}
+              {t('portal.claimLoginAtLabel')}{' '}
+              <span dir="ltr" className="font-semibold">
+                {`${window.location.origin}/student-portal`}
+              </span>
             </span>
           </p>
         )}
@@ -617,6 +642,8 @@ export function StudentPortalPage() {
             />
           ) : (
             <ClaimPasswordCard
+              loginPath="/student-portal"
+              loginNameHint={t('studentPortal.claimLoginNameHint')}
               claim={(pw) =>
                 portalClaimStudent(rawToken, pw).then((res) => {
                   const outcome = resolveClaimOutcome(res)

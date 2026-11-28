@@ -122,7 +122,18 @@ function PortalEmptyNote({ text, showMascot }: { text: string; showMascot: boole
   )
 }
 
-function PortalMessage({ icon: Icon, title, hint }: { icon: IconComponent; title: string; hint: string }) {
+function PortalMessage({
+  icon: Icon,
+  title,
+  hint,
+  extra,
+}: {
+  icon: IconComponent
+  title: string
+  hint: string
+  /** محتوى إضافي تحت بطاقة الرسالة (نموذج الدخول عند موت الرابط) */
+  extra?: React.ReactNode
+}) {
   return (
     <PortalShell>
       <Card className="text-center py-8">
@@ -132,6 +143,7 @@ function PortalMessage({ icon: Icon, title, hint }: { icon: IconComponent; title
         <div className="type-section mb-1">{title}</div>
         <p className="text-muted type-secondary mb-0">{hint}</p>
       </Card>
+      {extra}
     </PortalShell>
   )
 }
@@ -494,6 +506,25 @@ export function PortalPage() {
 
   const overviewQ = usePortalOverview(studentId, rawToken)
 
+  // بطاقة الدخول باسم الدخول وكلمة السر — تظهر عند فتح البوابة من غير
+  // رابط، وتحت رسالة «الرابط غير صالح» أيضاً (لمن لا جلسة له) حتى لا
+  // يكون الرابط الميت طريقاً مسدوداً لمن عنده حساب.
+  const loginCard = (
+    <Card>
+      <div className="type-section mb-1">{t('portal.loginTitle')}</div>
+      <p className="text-muted text-[13.5px] mt-0">{t('portal.loginIntro')}</p>
+      <PortalLoginForm
+        role="guardian"
+        usernameLabel={t('portal.loginUsernameGuardian')}
+        usernamePlaceholder={t('portal.loginUsernameGuardianPlaceholder')}
+        onLoggedIn={(res) => {
+          clearCredentialCaches()
+          setSession({ token: res.session_token, info: res })
+        }}
+      />
+    </Card>
+  )
+
   if (urlToken && !urlStudentId) {
     return (
       <PortalMessage
@@ -513,23 +544,7 @@ export function PortalPage() {
   }
 
   if (!urlToken && !session) {
-    return (
-      <PortalShell>
-        <Card>
-          <div className="type-section mb-1">{t('portal.loginTitle')}</div>
-          <p className="text-muted text-[13.5px] mt-0">{t('portal.loginIntro')}</p>
-          <PortalLoginForm
-            role="guardian"
-            usernameLabel={t('portal.loginUsernameGuardian')}
-            usernamePlaceholder={t('portal.loginUsernameGuardianPlaceholder')}
-            onLoggedIn={(res) => {
-              clearCredentialCaches()
-              setSession({ token: res.session_token, info: res })
-            }}
-          />
-        </Card>
-      </PortalShell>
-    )
+    return <PortalShell>{loginCard}</PortalShell>
   }
 
   if (session && sessionStudents.length === 0) {
@@ -570,7 +585,24 @@ export function PortalPage() {
 
   if (overviewQ.isError || !overviewQ.data) {
     const info = portalErrorInfo(overviewQ.error)
-    return <PortalMessage icon={Clock} title={info.title} hint={info.hint} />
+    // نموذج الدخول يظهر تحت الرسالة عند موت الاعتماد فقط ولمن لا جلسة
+    // له — أخطاء الشبكة العابرة تبقى رسالة بلا نموذج. رسالة الخطأ تُقرأ
+    // من خاصية message مباشرة: أخطاء PostgREST كائنات عادية لا مثيلات
+    // Error فـ instanceof لا يكفي.
+    const errMsg =
+      (overviewQ.error as { message?: string } | null)?.message ?? String(overviewQ.error ?? '')
+    const credentialDead =
+      errMsg.includes('invalid or expired') ||
+      errMsg.includes('not authorized') ||
+      errMsg.includes('token not valid')
+    return (
+      <PortalMessage
+        icon={Clock}
+        title={info.title}
+        hint={info.hint}
+        extra={!session && credentialDead ? loginCard : undefined}
+      />
+    )
   }
 
   const o = overviewQ.data
@@ -804,7 +836,11 @@ export function PortalPage() {
             <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
             <span>
               {t('portal.claimDone', { username: justClaimed.username })}{' '}
-              {justClaimed.linkClosed ? t('portal.claimLinkDone') : t('portal.claimLinkStillValid')}
+              {justClaimed.linkClosed ? t('portal.claimLinkDone') : t('portal.claimLinkStillValid')}{' '}
+              {t('portal.claimLoginAtLabel')}{' '}
+              <span dir="ltr" className="font-semibold">
+                {`${window.location.origin}/portal`}
+              </span>
             </span>
           </p>
         )}
@@ -821,6 +857,8 @@ export function PortalPage() {
             />
           ) : (
             <ClaimPasswordCard
+              loginPath="/portal"
+              loginNameHint={t('portal.claimLoginNameHintGuardian')}
               claim={(pw) =>
                 portalClaimGuardian(rawToken, studentId, pw).then((res) => {
                   const outcome = resolveClaimOutcome(res)
