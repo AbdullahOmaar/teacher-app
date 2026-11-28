@@ -1,0 +1,7 @@
+# Cloudflare Pages — مرآة إعادات كتابة vercel.json (بنفس الترتيب: أول تطابق يفوز).
+# ‎/health‎ ← ‎/api/health‎ (دالة Pages في functions/api/health.ts) — يسبق قاعدة الـSPA كما في vercel.json.
+/health /api/health 200
+# مظلة الـSPA: أي مسار لا يطابق ملفاً ثابتاً يُقدَّم ‎/index.html‎ بحالة 200.
+# مسارات ‎/api/*‎ لا تبتلعها المظلة: توجيه دوال Pages يسبق الأصول الثابتة،
+# وهو ما يطابق استثناء ‎(?!api/)‎ في vercel.json.
+/* /index.html 200
