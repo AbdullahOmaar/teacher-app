@@ -3984,6 +3984,141 @@ def main():
                       and int(left74[0]["rt"]) == 0
                       and int(left74[0]["ov"]) == 0, f"got {left74}")
 
+        # ---------- OVERPAYMENT SERVER GUARD (0078 — 3A-910) ----------
+        # ⚠️ المهاجرة 0078 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الـtrigger أولاً:
+        # إن غاب يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة
+        # حتى البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: دفعة موجبة أكبر من الرصيد الحي للفاتورة تُرفض خادمياً
+        # (حارس العميل في createPayment أول شبكة، وهذا الضمان الصلب —
+        # بما فيه سباق دفعتين متزامنتين بفضل قفل صف الفاتورة)؛ والعكس
+        # السالب يمر، والدفعة المساوية للرصيد تمر، والجزئي ثم الباقي يمر.
+        print("OVERPAYMENT SERVER GUARD (0078):")
+        probe78 = sql(ref, "select count(*) as c from pg_trigger "
+                           "where tgname = 'trg_payments_no_overpay'")
+        if not probe78 or int(probe78[0]["c"]) == 0:
+            print("  SKIP 0078 live section — migration 0078 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate)")
+        else:
+            inv78 = None
+            inv78b = None
+            stu78 = None
+            grp78 = None
+            try:
+                # فيتشرز: مجموعة + طالب + فاتورة إجماليها 400 (سطر واحد).
+                grp78 = sql(ref, "insert into groups (teacher_id, name, "
+                                 "start_time) values "
+                                 f"('{demo_teacher}', 'authz-0078', '10:00') "
+                                 "returning id")[0]["id"]
+                stu78 = sql(ref, "insert into students (teacher_id, name) "
+                                 f"values ('{demo_teacher}', 'authz-0078') "
+                                 "returning id")[0]["id"]
+                inv78 = sql(ref, "insert into invoices (teacher_id, "
+                                 "student_id, group_id, period_month) values "
+                                 f"('{demo_teacher}', '{stu78}', '{grp78}', "
+                                 "'2099-02-01') returning id")[0]["id"]
+                sql(ref, "insert into invoice_lines (teacher_id, invoice_id, "
+                         "description, amount) values "
+                         f"('{demo_teacher}', '{inv78}', 'authz-0078', 400)")
+                # (1) دفعة 500 على فاتورة 400 → رفض بالرسالة العربية،
+                # ولا صف يُدرج (نفس حالة سند الحية 2026-11-28).
+                try:
+                    sql(ref, "insert into payments (teacher_id, invoice_id, "
+                             "amount, receipt_no) values "
+                             f"('{demo_teacher}', '{inv78}', 500, "
+                             "'authz-0078-001')")
+                    over_rejected = False
+                    over_detail = "insert unexpectedly succeeded"
+                except RuntimeError as e:
+                    over_rejected = "مبلغ الدفعة أكبر من المتبقي" in str(e)
+                    over_detail = str(e)[-160:]
+                check("0078 overpayment (500 on 400) is rejected server-side",
+                      over_rejected, over_detail)
+                left78 = sql(ref, "select count(*) as c from payments "
+                                  f"where invoice_id = '{inv78}'")
+                check("0078 rejected overpayment inserts no row",
+                      left78 and int(left78[0]["c"]) == 0, f"got {left78}")
+                # (2) دفعة مساوية للرصيد تماماً (400) → تمر.
+                sql(ref, "insert into payments (teacher_id, invoice_id, "
+                         "amount, receipt_no) values "
+                         f"('{demo_teacher}', '{inv78}', 400, 'authz-0078-002')")
+                row78 = sql(ref, "select balance from invoice_balances "
+                                 f"where invoice_id = '{inv78}'")
+                check("0078 exact-balance payment (400 on 400) is allowed",
+                      row78 and float(row78[0]["balance"]) == 0, f"got {row78}")
+                # (3) فاتورة ثانية: جزئي 150 ثم الباقي 250 → يمران؛
+                # ثم جنيه واحد زيادة → يُرفض.
+                inv78b = sql(ref, "insert into invoices (teacher_id, "
+                                  "student_id, group_id, period_month) values "
+                                  f"('{demo_teacher}', '{stu78}', '{grp78}', "
+                                  "'2099-03-01') returning id")[0]["id"]
+                sql(ref, "insert into invoice_lines (teacher_id, invoice_id, "
+                         "description, amount) values "
+                         f"('{demo_teacher}', '{inv78b}', 'authz-0078', 400)")
+                sql(ref, "insert into payments (teacher_id, invoice_id, "
+                         "amount, receipt_no) values "
+                         f"('{demo_teacher}', '{inv78b}', 150, 'authz-0078-003')")
+                sql(ref, "insert into payments (teacher_id, invoice_id, "
+                         "amount, receipt_no) values "
+                         f"('{demo_teacher}', '{inv78b}', 250, 'authz-0078-004')")
+                row78b = sql(ref, "select balance from invoice_balances "
+                                  f"where invoice_id = '{inv78b}'")
+                check("0078 partial 150 then remainder 250 both allowed",
+                      row78b and float(row78b[0]["balance"]) == 0,
+                      f"got {row78b}")
+                try:
+                    sql(ref, "insert into payments (teacher_id, invoice_id, "
+                             "amount, receipt_no) values "
+                             f"('{demo_teacher}', '{inv78b}', 1, 'authz-0078-005')")
+                    one_rejected = False
+                    one_detail = "insert unexpectedly succeeded"
+                except RuntimeError as e:
+                    one_rejected = "مبلغ الدفعة أكبر من المتبقي" in str(e)
+                    one_detail = str(e)[-160:]
+                check("0078 one pound over a settled invoice is rejected",
+                      one_rejected, one_detail)
+                # (4) عكس سالب يمر (تصحيح §5.3) ويعيد الرصيد.
+                sql(ref, "insert into payments (teacher_id, invoice_id, "
+                         "amount, receipt_no) values "
+                         f"('{demo_teacher}', '{inv78b}', -250, "
+                         "'authz-0078-006')")
+                row78c = sql(ref, "select balance from invoice_balances "
+                                  f"where invoice_id = '{inv78b}'")
+                check("0078 negative reversal passes and restores balance",
+                      row78c and float(row78c[0]["balance"]) == 250,
+                      f"got {row78c}")
+            finally:
+                if inv78:
+                    sql(ref, "delete from payments "
+                             f"where invoice_id = '{inv78}'")
+                    sql(ref, "delete from invoice_lines "
+                             f"where invoice_id = '{inv78}'")
+                    sql(ref, "delete from invoices "
+                             f"where id = '{inv78}'")
+                if inv78b:
+                    sql(ref, "delete from payments "
+                             f"where invoice_id = '{inv78b}'")
+                    sql(ref, "delete from invoice_lines "
+                             f"where invoice_id = '{inv78b}'")
+                    sql(ref, "delete from invoices "
+                             f"where id = '{inv78b}'")
+                if stu78:
+                    sql(ref, "delete from students "
+                             f"where id = '{stu78}'")
+                if grp78:
+                    sql(ref, "delete from groups "
+                             f"where id = '{grp78}'")
+                left78f = sql(ref, "select "
+                                   "(select count(*) from payments "
+                                   "where receipt_no like 'authz-0078-%') as p, "
+                                   "(select count(*) from students "
+                                   "where name = 'authz-0078') as s")
+                check("0078 fixtures cleaned",
+                      left78f and int(left78f[0]["p"]) == 0
+                      and int(left78f[0]["s"]) == 0, f"got {left78f}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد
