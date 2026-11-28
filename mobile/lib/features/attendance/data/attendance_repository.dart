@@ -6,10 +6,12 @@ import 'package:mister/features/schedule/domain/models/session.dart';
 abstract class AttendanceRepository {
   Future<List<Session>> todaySessions(String teacherId);
   Future<List<AttendanceRecord>> roster(String teacherId, String sessionId);
-  Future<void> saveValue(String teacherId, String sessionId, String studentId, AttendanceValue value);
+  Future<void> saveValue(String teacherId, String sessionId, String studentId,
+      AttendanceValue value,);
 
   // --- الأوفلاين ---
-  Future<void> enqueue(String teacherId, String sessionId, String studentId, AttendanceValue value);
+  Future<void> enqueue(String teacherId, String sessionId, String studentId,
+      AttendanceValue value,);
   Future<List<QueuedAttendanceItem>> pendingQueue();
 
   /// تصريف الطابور بالترتيب — §2-7.

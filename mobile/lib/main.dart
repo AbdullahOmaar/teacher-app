@@ -44,7 +44,8 @@ class SplashView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('مستر', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+            const Text('مستر',
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),),
             const SizedBox(height: 16),
             Text(AppBuildInfo.releaseLine),
           ],

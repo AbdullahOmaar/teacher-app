@@ -14,6 +14,16 @@ class Teacher {
     required this.updatedAt,
   });
 
+  factory Teacher.fromJson(Map<String, dynamic> json) => Teacher(
+        id: json['id'] as String,
+        ownerUserId: json['owner_user_id'] as String,
+        displayName: json['display_name'] as String,
+        avatarUrl: json['avatar_url'] as String?,
+        phone: json['phone'] as String?,
+        createdAt: DateTime.parse(json['created_at'] as String),
+        updatedAt: DateTime.parse(json['updated_at'] as String),
+      );
+
   /// = owner_user_id للسنتر الأساسي.
   final String id;
   final String ownerUserId;
@@ -34,6 +44,15 @@ class MemberPermissions {
     this.canViewMoney = false,
   });
 
+  factory MemberPermissions.fromJson(Map<String, dynamic> json) =>
+      MemberPermissions(
+        canTakeAttendance: json['can_take_attendance'] as bool? ?? false,
+        canManageStudents: json['can_manage_students'] as bool? ?? false,
+        canManageGroups: json['can_manage_groups'] as bool? ?? false,
+        canManageGrades: json['can_manage_grades'] as bool? ?? false,
+        canViewMoney: json['can_view_money'] as bool? ?? false,
+      );
+
   final bool canTakeAttendance;
   final bool canManageStudents;
   final bool canManageGroups;
@@ -41,6 +60,8 @@ class MemberPermissions {
 
   /// false افتراضيًا — الماليات محجوبة في RLS.
   final bool canViewMoney;
+
+  /// من jsonb ‏permissions — المفاتيح حرفية من الويب (features/auth/api.ts).
 }
 
 class TeacherMember {
@@ -55,6 +76,20 @@ class TeacherMember {
     required this.createdAt,
     required this.updatedAt,
   });
+
+  factory TeacherMember.fromJson(Map<String, dynamic> json) => TeacherMember(
+        id: json['id'] as String,
+        teacherId: json['teacher_id'] as String,
+        userId: json['user_id'] as String?,
+        invitedEmail: json['invited_email'] as String?,
+        role: MemberRole.values.byName(json['role'] as String),
+        permissions: MemberPermissions.fromJson(
+          (json['permissions'] as Map?)?.cast<String, dynamic>() ?? const {},
+        ),
+        status: MemberStatus.values.byName(json['status'] as String),
+        createdAt: DateTime.parse(json['created_at'] as String),
+        updatedAt: DateTime.parse(json['updated_at'] as String),
+      );
 
   final String id;
   final String teacherId;
