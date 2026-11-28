@@ -4,6 +4,9 @@ export const invoices = {
   filterDue: 'مستحقة',
   filterPartial: 'جزئية',
   filterPaid: 'مسددة',
+  /** منتقي الشهر (ملاحظة المالك 2026-11-28) — Sheet بنمط فلتر المجموعات الموحّد */
+  monthFilterTitle: 'تصفية حسب الشهر',
+  monthFilterAll: 'كل الشهور',
   badgePartial: 'جزئي — باقي {amount}',
   /** توست نسخ قائمة المتأخرات (كان متسرباً في common — PAT-9) */
   copiedOverdueList: 'اتنسخت قائمة المتأخرات',
