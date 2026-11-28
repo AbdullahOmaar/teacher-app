@@ -7,8 +7,10 @@ import 'package:mister/core/data/providers.dart';
 import 'package:mister/core/data/secure_storage_service.dart';
 import 'package:mister/core/data/supabase_service.dart';
 import 'package:mister/core/router/app_router.dart';
+import 'package:mister/core/theme/app_theme.dart';
+import 'package:mister/core/theme/appearance_providers.dart';
+import 'package:mister/l10n/app_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-// import 'package:mister/l10n/app_localizations.dart'; // يُولَّد من ARB في F1-T3 (gen-l10n).
 
 /// نقطة الدخول — هيكل F1-T2 + إقلاع F1-T5.
 /// العربية افتراضيًا (قرار منتج موثّق — الملحق أ L5) مع الإنجليزية من الإعدادات.
@@ -35,23 +37,24 @@ Future<void> main() async {
   );
 }
 
-class MisterApp extends StatelessWidget {
+class MisterApp extends ConsumerWidget {
   const MisterApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
       routerConfig: appRouter,
-      locale: const Locale('ar'),
+      locale: ref.watch(localeProvider),
       supportedLocales: const [Locale('ar'), Locale('en')],
       localizationsDelegates: const [
-        // AppLocalizations.delegate, // بعد توليد l10n في F1-T3
+        AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: ThemeData.light(useMaterial3: true),
-      darkTheme: ThemeData.dark(useMaterial3: true),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ref.watch(themeModeProvider),
       debugShowCheckedModeBanner: false,
     );
   }
