@@ -1,0 +1,26 @@
+[
+  {
+    "id": "student-portal-before",
+    "file": "student-portal-before.png",
+    "dom": {
+      "docOverflowX": false,
+      "vw": 375,
+      "invoiceProbe": {
+        "sameRow": false,
+        "nameTop": 2683,
+        "badgeTop": 2705,
+        "badgeLeftGap": 14
+      },
+      "hasInstallCard": false
+    }
+  },
+  {
+    "id": "guardian-portal-before",
+    "file": "guardian-portal-before.png",
+    "dom": {
+      "docOverflowX": false,
+      "vw": 375,
+      "hasInstallCard": false
+    }
+  }
+]
