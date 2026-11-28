@@ -1,0 +1,23 @@
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.snappyshots
+
+# Environment / secrets — لا أسرار في الكود أو التاريخ (الملحق أ أ-2/CODE).
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Generated (يُعاد توليده في CI)
+lib/l10n/app_localizations*.dart
+lib/l10n/app_localizations_*.dart
