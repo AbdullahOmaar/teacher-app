@@ -10,6 +10,7 @@ import {
   payStateOf,
   periodLabel,
   periodYm,
+  RECEIPT_TEMPLATE_KEYS,
   receiptWaUrl,
   splitArrears,
   summarizeStudentInvoices,
@@ -104,6 +105,24 @@ describe('رسالة الإيصال (§5.6)', () => {
     expect(msg).toBe(
       'أهلاً أم أحمد، إيصال الطالب أحمد عن 2026-11: المدفوع 200\u00A0ج من 300\u00A0ج، والمتبقي 100\u00A0ج. شكراً لك.',
     )
+  })
+  it('قائمة RECEIPT_TEMPLATE_KEYS هي نفسها مفاتيح المحرك (مصدر وحيد للحقيقة)', () => {
+    // منتقي المفاتيح في محرر القالب بيعرض القائمة دي — أي مفتاح فيها
+    // لازم المحرك يعوّضه فعلاً، وأي مفتاح في القالب الافتراضي لازم
+    // يكون فيها.
+    const tpl = RECEIPT_TEMPLATE_KEYS.map((k) => k.key).join(' ')
+    const msg = buildReceiptMessage(tpl, {
+      guardian: 'ولي',
+      name: 'طالب',
+      periodMonth: '2026-11-01',
+      paid: 1,
+      total: 2,
+      balance: 1,
+    })
+    expect(msg).not.toContain('{')
+    for (const { key } of RECEIPT_TEMPLATE_KEYS) {
+      expect(DEFAULT_WA_TEMPLATE).toContain(key)
+    }
   })
   it('receiptWaUrl يفضّل رقم ولي الأمر ثم رقم الطالب', () => {
     expect(receiptWaUrl({ guardian_phone: '01012345678', phone: '01112345678' }, 'x')).toContain(

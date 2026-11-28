@@ -1,6 +1,6 @@
 /** نصوص هيكل التطبيق (AppShell): عناوين الشاشات وتبويبات التنقل */
 export const shell = {
-  appName: 'تطبيق المدرس',
+  appName: 'مستر',
   avatarFallback: 'م',
   back: 'رجوع',
   notifications: 'الإشعارات',

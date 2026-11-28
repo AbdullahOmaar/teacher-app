@@ -54,6 +54,8 @@ export {
   fetchTeacherDisplayName,
   fetchWhatsappTemplate,
   DEFAULT_WA_TEMPLATE,
+  RECEIPT_TEMPLATE_KEYS,
+  type ReceiptTemplateKey,
   buildReceiptMessage,
   receiptWaUrl,
 } from './apiReceipt'

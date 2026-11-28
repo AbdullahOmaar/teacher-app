@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="المدرس" />
+    <meta name="apple-mobile-web-app-title" content="مستر" />
     <script>
       // تهيئة الثيم قبل أول رسم (إصلاح QA الخطوة 14): خطاف useTheme راكب
       // داخل AppShell فقط، فالصفحات العامة (الدخول/البوابة) كانت تظهر
@@ -36,7 +36,7 @@
         /* بلا وصول للتخزين: يبقى الافتراضي الفاتح من CSS */
       }
     </script>
-    <title>تطبيق المدرس</title>
+    <title>مستر</title>
     <!-- الخط (IBM Plex Sans Arabic) مضمّن محلياً عبر @fontsource في main.tsx — لا روابط خطوط خارجية -->
   </head>
   <body>
@@ -44,11 +44,14 @@
       <!-- سبلاش إقلاع ثابت (MASCOT-PLAN §٦): دُفّي هو لوجو التحميل بقرار
            المالك — يُرسم قبل وصول حزمة JS ويستبدله React عند تركيبه.
            عند إيقاف الماسكوت (data-mascot=off من سكربت التهيئة) يظهر
-           لوجو الكتاب الأصلي. الألوان هي توكنات --bg/--text نفسها. -->
+           لوجو الكتاب الأصلي. الألوان هي توكنات --bg/--text نفسها.
+           (قرار المالك 2026-11-28): الاسم الظاهر هنا وفي العنوان
+           والـmanifest هو «مستر» — وهو نفس الاسم الذي يظهر تحت أيقونة
+           سبلاش نظام التشغيل (WebAPK). -->
       <div id="boot-splash">
         <img id="boot-doffy" src="/mascot/doffy-splash.webp" alt="" width="150" height="154" />
         <img id="boot-logo" src="/logo.svg" alt="" width="92" height="92" />
-        <div class="boot-name">تطبيق المدرس</div>
+        <div class="boot-name">مستر</div>
       </div>
       <style>
         #boot-splash { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: #f7f8fc; }
