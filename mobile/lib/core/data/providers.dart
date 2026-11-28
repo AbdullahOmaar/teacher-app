@@ -6,6 +6,8 @@ import 'package:mister/core/data/secure_storage_service.dart';
 import 'package:mister/core/data/services.dart';
 import 'package:mister/core/data/supabase_service.dart';
 import 'package:mister/features/auth/data/app_lock_service.dart';
+import 'package:mister/features/push/data/push_messaging_gateway.dart';
+import 'package:mister/features/push/data/push_token_repository.dart';
 import 'package:mister/features/auth/data/auth_gateway.dart';
 import 'package:mister/features/auth/data/auth_repository.dart';
 import 'package:mister/features/auth/data/auth_repository_impl.dart';
@@ -100,5 +102,18 @@ final attendanceRepositoryProvider = Provider<AttendanceRepository>(
     ref.watch(localStorageServiceProvider),
     ref.watch(scheduleRepositoryProvider),
     ref.watch(connectivityServiceProvider),
+  ),
+);
+
+/// F1-T8 — حلقة FCM (مركونة بعلم مركزي حتى خطوة تفعيل المالك).
+/// البوابة نائمة الآن؛ التنفيذ الحقيقي (firebase_messaging) عند التفعيل.
+final pushMessagingGatewayProvider = Provider<PushMessagingGateway>(
+  (ref) => const DormantPushGateway(),
+);
+
+final pushTokenRepositoryProvider = Provider<PushTokenRepository>(
+  (ref) => PushTokenRepository(
+    ref.watch(supabaseServiceProvider),
+    ref.watch(pushMessagingGatewayProvider),
   ),
 );
