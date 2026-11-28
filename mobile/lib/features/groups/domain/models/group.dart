@@ -147,7 +147,8 @@ class GroupWaitlist {
         name: json['name'] as String,
         phone: json['phone'] as String?,
         note: json['note'] as String?,
-        source: json['source'] as String,
+        // غياب source = الافتراضي الخادمي 'manual' (عقود v1.2).
+        source: json['source'] as String? ?? 'manual',
         wantsTrial: json['wants_trial'] as bool? ?? false,
         createdAt: DateTime.parse(json['created_at'] as String),
       );
@@ -163,4 +164,60 @@ class GroupWaitlist {
   final String source;
   final bool wantsTrial;
   final DateTime createdAt;
+}
+
+/// صف roster من fetchGroupRoster — عقود v1.2 (join enrollments × students).
+class GroupMember {
+  const GroupMember({
+    required this.enrollmentId,
+    required this.studentId,
+    required this.groupId,
+    required this.studentName,
+    required this.studentCode,
+    required this.studentPaused,
+    this.priceOverride,
+    this.prepaidSessions,
+    required this.createdAt,
+  });
+
+  factory GroupMember.fromJson(Map<String, dynamic> json) {
+    final student = (json['students'] as Map).cast<String, dynamic>();
+    return GroupMember(
+      enrollmentId: json['id'] as String,
+      studentId: json['student_id'] as String,
+      groupId: json['group_id'] as String,
+      studentName: student['name'] as String? ?? '—',
+      studentCode: student['public_code'] as String? ?? '',
+      studentPaused: student['paused'] as bool? ?? false,
+      priceOverride: (json['price_override'] as num?)?.toDouble(),
+      prepaidSessions: json['prepaid_sessions'] as int?,
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+
+  final String enrollmentId;
+  final String studentId;
+  final String groupId;
+  final String studentName;
+  final String studentCode;
+  final bool studentPaused;
+  final double? priceOverride;
+  final int? prepaidSessions;
+  final DateTime createdAt;
+}
+
+/// دخل إضافة انتظار — عقود v1.2 (addWaitlistEntry في الويب).
+/// source = 'manual' افتراضيًا خادميًا — لا يُرسل من العميل.
+class WaitlistInput {
+  const WaitlistInput({required this.name, this.phone, this.note});
+
+  final String name;
+  final String? phone;
+  final String? note;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'phone': phone,
+        'note': note,
+      };
 }

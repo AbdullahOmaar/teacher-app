@@ -1629,6 +1629,7 @@
   "settings_centre_share_label": "Centre share % (deducted from the month's collections on the Money screen)",
   "settings_reminder_label": "Reminder before the session",
   "settings_theme_label": "Appearance",
+  "settings_language_title": "Language",
   "settings_theme_hint": "Appearance applies immediately and is saved to your account — “Automatic” follows your device settings.",
   "settings_last_export_label": "Last export/backup:",
   "settings_no_export_yet": "You have not made any export yet",
@@ -8817,6 +8818,9 @@
   },
   "@settings_theme_label": {
     "description": "مصدر الويب: settings.themeLabel"
+  },
+  "@settings_language_title": {
+    "description": "عقود v1.2: عنوان صف اللغة في الإعدادات — أسماء اللغات نفسها أعلام لا تُترجم"
   },
   "@settings_theme_hint": {
     "description": "مصدر الويب: settings.themeHint"

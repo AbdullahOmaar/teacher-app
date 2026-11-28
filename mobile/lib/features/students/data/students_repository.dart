@@ -11,5 +11,7 @@ abstract class StudentsRepository {
   Future<List<Enrollment>> listEnrollments(String teacherId);
   Future<List<Enrollment>> listStudentEnrollments(
       String teacherId, String studentId,);
+  /// 🆕 عقود v1.2 — تسجيل طالب في مجموعة (upsert على student_id, group_id).
+  Future<Enrollment> enroll(String teacherId, EnrollmentInput input);
   Future<Map<String, double>> balances(String teacherId);
 }

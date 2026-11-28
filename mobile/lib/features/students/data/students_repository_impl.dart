@@ -65,6 +65,25 @@ class StudentsRepositoryImpl implements StudentsRepository {
   }
 
   @override
+  Future<Enrollment> enroll(String teacherId, EnrollmentInput input) async {
+    await _service.upsertRow(
+      'enrollments',
+      {'teacher_id': teacherId, ...input.toJson()},
+      onConflict: 'student_id,group_id',
+    );
+    final rows = await _service.select(
+      'enrollments',
+      columns: enrollmentCols,
+      filters: {
+        'teacher_id': teacherId,
+        'student_id': input.studentId,
+        'group_id': input.groupId,
+      },
+    );
+    return Enrollment.fromJson(rows.first);
+  }
+
+  @override
   Future<Map<String, double>> balances(String teacherId) async {
     final rows = await _service.selectUnordered('student_balances',
         columns: 'teacher_id, student_id, balance',

@@ -130,6 +130,30 @@ class Enrollment {
   final DateTime createdAt;
 }
 
+/// دخل تسجيل طالب في مجموعة — عقود v1.2 (upsertEnrollment في الويب).
+class EnrollmentInput {
+  const EnrollmentInput({
+    required this.studentId,
+    required this.groupId,
+    this.priceOverride,
+    this.prepaidSessions,
+  });
+
+  final String studentId;
+  final String groupId;
+
+  /// null = سعر المجموعة.
+  final double? priceOverride;
+  final int? prepaidSessions;
+
+  Map<String, dynamic> toJson() => {
+        'student_id': studentId,
+        'group_id': groupId,
+        'price_override': priceOverride,
+        'prepaid_sessions': prepaidSessions,
+      };
+}
+
 /// view‏ `student_balances` — محسوب خادميًا، غير مخزّن. لا حساب رصيد في العميل.
 class StudentBalance {
   const StudentBalance(
