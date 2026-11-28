@@ -95,6 +95,21 @@ export interface MessageLogPatch {
   errorMessage?: string
 }
 
+/**
+ * كشف غياب عمود source في whatsapp_message_log (مهاجرة 0073) من خطأ
+ * PostgREST — بوابة ترتيب النشر: لو أُعيد نشر الدالة قبل تطبيق 0073
+ * يرفض الإدخال بـ PGRST204؛ مدخل Deno (index.ts) يعيد الإدخال بلا
+ * source عند هذا الكشف حتى لا يتعطل الإرسال اليدوي الحي (قاعدة
+ * «لا إرسال بلا سجل» تبقى: أي فشل آخر يرجع null فيوقف الإرسال).
+ */
+export function isMissingLogSourceColumnError(error: {
+  code?: string
+  message?: string
+} | null): boolean {
+  if (!error) return false
+  return error.code === 'PGRST204' || (error.message ?? '').includes('source')
+}
+
 export interface WhatsappMessageDeps {
   /** يتحقق من JWT الترويسة ويرجع معرّف المستخدم أو null */
   getUserId: (req: Request) => Promise<string | null>

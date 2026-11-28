@@ -10,6 +10,9 @@
 //   قالب غير جاهز 422، توكن غائب 422، فشل كتابة السجل 500 بلا إرسال،
 //   نجاح كامل (حمولة القالب + انتقال السجل queued←sent بـ wamid)،
 //   رفض Graph ‏502 مع حفظ رمز/رسالة الخطأ في السجل، وخطأ شبكة 502.
+// • كاشف غياب عمود source (0073 — QA #65): PGRST204 أو رسالة تسمّي
+//   العمود ← true، وأي خطأ آخر وnull ← false (إعادة الإدخال بلا
+//   source عند الكشف تعيش في index.ts — بوابة ترتيب نشر الدالة).
 // • الوضع الداخلي (0073 — المهمة 24): سرّ صحيح + ‏internal:true بلا
 //   JWT وبلا ملكية ← إرسال ناجح بسجل source=auto؛ سرّ خاطئ أو غياب
 //   الترويسة ← رجوع لمسار JWT (401)؛ Kill switch فوق الوضع الداخلي
@@ -25,7 +28,10 @@
 // ============================================================================
 import { createServer } from 'node:http'
 import { createHmac } from 'node:crypto'
-import { handleSendWhatsappMessage } from '../supabase/functions/send-whatsapp-message/core.ts'
+import {
+  handleSendWhatsappMessage,
+  isMissingLogSourceColumnError,
+} from '../supabase/functions/send-whatsapp-message/core.ts'
 import { handleWhatsappWebhook } from '../supabase/functions/whatsapp-webhook/core.ts'
 
 const USER_ID = '11111111-1111-4111-8111-111111111111'
@@ -521,6 +527,26 @@ state = freshState()
   const body = 'this is not json'
   const res = await handleWhatsappWebhook(hookPost(body, sign(body)), HOOK_ENV, webhookDeps())
   check('POST signed malformed json → 200 updated=0 (no retry storm)', res.status === 200, `got ${res.status}`)
+}
+
+// --- كاشف غياب عمود source (0073 — بوابة ترتيب النشر، QA #65) --------------
+{
+  check(
+    'detector: PGRST204 missing source column → true',
+    isMissingLogSourceColumnError({
+      code: 'PGRST204',
+      message: "Could not find the 'source' column of 'whatsapp_message_log' in the schema cache",
+    }) === true,
+  )
+  check(
+    'detector: message naming source → true',
+    isMissingLogSourceColumnError({ code: '42703', message: 'column "source" does not exist' }) === true,
+  )
+  check(
+    'detector: unrelated error → false',
+    isMissingLogSourceColumnError({ code: '23505', message: 'duplicate key' }) === false,
+  )
+  check('detector: null error → false', isMissingLogSourceColumnError(null) === false)
 }
 
 graphServer.close()

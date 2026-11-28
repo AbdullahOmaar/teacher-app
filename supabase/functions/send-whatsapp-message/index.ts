@@ -26,6 +26,7 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import {
   handleSendWhatsappMessage,
+  isMissingLogSourceColumnError,
   type WhatsappMessageDeps,
   type WhatsappMessageEnv,
 } from './core.ts'
@@ -157,20 +158,34 @@ const deps: WhatsappMessageDeps = {
     return `${total.toLocaleString('en-US')} ج`
   },
   insertLog: async (row) => {
+    const base = {
+      teacher_id: row.teacherId,
+      kind: row.kind,
+      template_name: row.templateName,
+      recipient_phone: row.recipientPhone,
+      status: 'queued',
+    }
     const { data, error } = await serviceClient()
       .from('whatsapp_message_log')
-      .insert({
-        teacher_id: row.teacherId,
-        kind: row.kind,
-        template_name: row.templateName,
-        recipient_phone: row.recipientPhone,
-        status: 'queued',
-        source: row.source,
-      })
+      .insert({ ...base, source: row.source })
       .select('id')
       .single()
-    if (error || !data) return null
-    return String(data.id)
+    if (!error && data) return String(data.id)
+    if (error && isMissingLogSourceColumnError(error)) {
+      // بوابة ترتيب النشر (QA #65): الدالة أُعيد نشرها قبل تطبيق 0073
+      // فعمود source غائب — نعيد الإدخال بدونه (يأخذ افتراضي القاعدة
+      // 'manual' بعد التطبيق، وقبلها الصف بلا مصدر صريح) حتى لا يتعطل
+      // الإرسال اليدوي الحي بقاعدة «لا إرسال بلا سجل». أي فشل آخر
+      // يبقى null فيوقف الـ core الإرسال كما هو مصمم.
+      const retry = await serviceClient()
+        .from('whatsapp_message_log')
+        .insert(base)
+        .select('id')
+        .single()
+      if (retry.error || !retry.data) return null
+      return String(retry.data.id)
+    }
+    return null
   },
   updateLog: async (logId, patch) => {
     const update: Record<string, unknown> = { status: patch.status }
