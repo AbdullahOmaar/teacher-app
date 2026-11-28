@@ -18,8 +18,9 @@ export const settings = {
   sectionTeam: 'فريق العمل (المساعدون)',
   sectionEnrol: 'صفحة الحجز العامة',
   sectionPrintFont: 'خط طباعة المستندات',
-  sectionWhatsapp: 'واتساب (اختياري)',
-  sectionAssistant: 'المساعد الذكي (مفتاحك)',
+  /** قسم «الربط والتكاملات» (ملاحظة المالك 2026-11-28): يجمع بطاقات
+   * Push وواتساب ومفتاح المساعد — حلّ محل قسمي واتساب/المساعد المنفصلين */
+  sectionIntegrations: 'الربط والتكاملات',
   sectionErrors: 'سجل أخطاء التطبيق',
   moreAssistant: 'المساعد الذكي',
   sectionMascot: 'الماسكوت دُفّي',
