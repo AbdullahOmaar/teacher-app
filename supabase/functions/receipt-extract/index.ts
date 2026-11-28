@@ -155,20 +155,34 @@ function makeDeps(req: Request): ExtractDeps {
   }
 }
 
+// CORS للمتصفح: الاستدعاء من التطبيق يمرّ بـ preflight OPTIONS
+// (Authorization + apikey + content-type ترويسات غير بسيطة)، فبلا معالج
+// OPTIONS وبلا ترويسات CORS يُحجب النداء قبل وصوله للدالة (405 بلا
+// Access-Control-* — ثبت حياً 2026-11-25). النمط الموثّق من Supabase:
+// ‏Allow-Origin: * يصلح مع ترويسة Authorization (بلا كوكيز/credentials).
+// نفس نمط assistant-chat (core.ts) وsend-push (index.ts) حرفياً — كانت
+// هذه الدالة الوحيدة بلا معالج CORS (بند بوابة تجميد فيز 2).
+const CORS_HEADERS: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 function errorResponse(status: number, message: string): Response {
   return new Response(JSON.stringify({ error: { http_code: status, message } }), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
   })
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS })
   if (req.method !== 'POST') return errorResponse(405, 'method not allowed')
   try {
     const outcome = await handleReceiptExtract(req, makeDeps(req))
     return new Response(JSON.stringify({ ok: true, ...outcome }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
     })
   } catch (err) {
     if (err instanceof ExtractError) return errorResponse(err.httpStatus, err.message)

@@ -280,7 +280,7 @@ apply_role_template` — تطبيق القالب يكتب تجاوزاً فرد�
 | `send-whatsapp-test` | مدرّس (اختبار تهيئته) | `verify_jwt` مفعّل؛ بوابة `WHATSAPP_OTP_ENABLED` | حية خلف العلم المقفول؛ CORS مُصلَح في الكود |
 | `send-push` | خادم-لخادم من `push_dispatch` (pg_net) | `verify_jwt` **معطّل عمداً** + سرّ داخلي `PUSH_INTERNAL_SECRET` لا يخرج من الخادم | حية؛ لها معالج CORS (يُستدعى من التطبيق أيضاً لاختبار الدفع) |
 | `send-whatsapp-otp` | GoTrue ‏Send SMS Hook | `verify_jwt` **معطّل عمداً** + توقيع الويب هوك بسرّ `SEND_SMS_HOOK_SECRET` داخل `core.ts`؛ قتل `WHATSAPP_OTP_ENABLED` | مبنية؛ القناة مطفأة بقرار — **لا CORS** (مستدعيها خادم لا متصفح) |
-| `receipt-extract` | مدرّس من شيت مراجعة الإثباتات | `verify_jwt` مفعّل + JWT؛ بوابة `RECEIPT_EXTRACT_ENABLED` | **غير منشورة** + **لا معالج CORS بعد** — إصلاحها ونشرها بند بوابة تجميد (واجهتها تعرض «لسه مش مفعّلة» بأدب) |
+| `receipt-extract` | مدرّس من شيت مراجعة الإثباتات | `verify_jwt` مفعّل + JWT؛ بوابة `RECEIPT_EXTRACT_ENABLED` | **غير منشورة** (النشر عند إعداد البرودكشن من فرع التجميد)؛ **CORS مُصلَح في الكود** — OPTIONS ‏204 + الترويسات على كل الردود بنمط assistant-chat/send-push، ثبت محلياً بـ Deno (بند بوابة التجميد اكتمل كودياً؛ واجهتها تعرض «لسه مش مفعّلة» بأدب) |
 | `whatsapp-webhook` | Meta (خادم-لخادم) | `verify_jwt` **معطّل عمداً**؛ تحقق GET ‏`hub.challenge` بـ `WHATSAPP_WEBHOOK_VERIFY_TOKEN` + توقيع `x-hub-signature-256` بـ `WHATSAPP_APP_SECRET` | حية؛ لا CORS (لا متصفح) |
 
 نمط موحّد: كل دالة تنقسم `index.ts` (ربط البيئة/الأسرار) +
