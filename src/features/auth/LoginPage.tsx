@@ -1,5 +1,5 @@
 import { invalidatePrefixes } from '../../lib/invalidate'
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { FlaskConical, Loader2, LogIn, Moon, Send, Sun, UserPlus } from 'lucide-react'
@@ -28,6 +28,18 @@ import { CodeEntry } from './CodeEntry'
 import { t } from '../../i18n'
 import { WHATSAPP_OTP_ENABLED } from '../../lib/phone'
 import { PhoneAuth } from './PhoneAuth'
+import {
+  captchaConfig,
+  removeCaptcha,
+  renderCaptcha,
+  resetCaptcha,
+} from '../../lib/captcha'
+import {
+  clearLoginThrottle,
+  getLoginThrottle,
+  saveLoginFailure,
+  throttleWaitSeconds,
+} from '../../lib/loginThrottle'
 
 type Mode = 'signin' | 'signup' | 'forgot'
 type Method = 'email' | 'phone'
@@ -97,6 +109,37 @@ export function LoginPage() {
     (themeMode === 'auto' &&
       typeof window !== 'undefined' &&
       !!window.matchMedia?.('(prefers-color-scheme: dark)').matches)
+
+  // CAPTCHA اختيارية للتسجيل (F5 — lib/captcha): مطفأة افتراضياً؛
+  // تُرسم فقط في وضع التسجيل عندما تكون مفعّلة في بيئة البناء،
+  // والتوكن يُستهلك مع كل محاولة فيُعاد ضبط الودجت بعدها. (الخطافات
+  // هنا قبل أي إرجاع مشروط — قواعد الخطافات.)
+  const captcha = captchaConfig()
+  const captchaContainerRef = useRef<HTMLDivElement | null>(null)
+  const captchaWidgetRef = useRef<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  useEffect(() => {
+    if (!captcha.enabled || mode !== 'signup' || method !== 'email') return
+    const container = captchaContainerRef.current
+    if (!container) return
+    let cancelled = false
+    void renderCaptcha(container, captcha.siteKey!, (token) => {
+      if (!cancelled) setCaptchaToken(token)
+    }).then((widgetId) => {
+      if (cancelled) {
+        removeCaptcha(widgetId)
+        return
+      }
+      captchaWidgetRef.current = widgetId
+    })
+    return () => {
+      cancelled = true
+      removeCaptcha(captchaWidgetRef.current)
+      captchaWidgetRef.current = null
+      setCaptchaToken(null)
+    }
+    // captcha.siteKey ثابت لعمر البناء كله (متغير بيئة بناء)
+  }, [captcha.enabled, captcha.siteKey, mode, method])
 
   if (!loading && session) {
     return <Navigate to={from} replace />
@@ -173,13 +216,26 @@ export function LoginPage() {
 
   const handleSignIn = async (e: FormEvent) => {
     e.preventDefault()
+    // خنق العميل (F2): قفل تصاعدي بعد فشل متكرر لنفس البريد على هذا
+    // الجهاز — يُفحص قبل أي نداء شبكة، ورسالته مصممة بعدّاد ثوانٍ.
+    const waitSec = throttleWaitSeconds(
+      getLoginThrottle(localStorage, email, Date.now()),
+      Date.now(),
+    )
+    if (waitSec > 0) {
+      setError(t('auth.errLoginThrottled', { seconds: waitSec }))
+      setNotice(null)
+      return
+    }
     if (!beginBusy()) return
     setError(null)
     setNotice(null)
     try {
       await signInWithEmail(email, password)
+      clearLoginThrottle(localStorage, email)
       // تغيّر الجلسة في AuthProvider يعيد التوجيه تلقائياً بالأعلى
     } catch (err) {
+      saveLoginFailure(localStorage, email, Date.now())
       const msg = err instanceof Error ? err.message : t('auth.signInFailed')
       setError(msg)
       // بريد غير مؤكد ليس طريقاً مسدوداً (3A-904): زر يفتح شاشة
@@ -220,6 +276,13 @@ export function LoginPage() {
       setError(t('auth.passwordMismatch'))
       return
     }
+    // F5: عند تفعيل CAPTCHA في بيئة البناء لا تسجيل بلا توكن تحدي
+    // مكتمل — والخادم (Supabase Auth) يتحقق منه بدوره عندما تكون
+    // الحماية مضبوطة في اللوحة.
+    if (captcha.enabled && !captchaToken) {
+      setError(t('auth.errCaptchaIncomplete'))
+      return
+    }
     if (!beginBusy()) return
     try {
       // بوابة قفل التسجيل (0057 — قائمة السماح): تُفحص قبل signUp
@@ -236,6 +299,7 @@ export function LoginPage() {
         password,
         displayName,
         phone: phone || undefined,
+        captchaToken: captchaToken ?? undefined,
       })
       // دخول فوري بنفس البيانات عند غياب الجلسة الفورية (3A-904 —
       // نموذج التأكيد بتصحيح المالك 2026-11-26 ~17:19): نظام التأكيد
@@ -268,6 +332,12 @@ export function LoginPage() {
       setError(err instanceof Error ? err.message : t('auth.signUpFailed'))
     } finally {
       endBusy()
+      // توكن CAPTCHA صالح لاستخدام واحد: أي محاولة (نجاحاً أو فشلاً)
+      // تستهلكه — إعادة ضبط الودجت لتحدٍّ جديد.
+      if (captcha.enabled) {
+        resetCaptcha(captchaWidgetRef.current)
+        setCaptchaToken(null)
+      }
     }
   }
 
@@ -526,6 +596,9 @@ export function LoginPage() {
                   required
                 />
               </Field>
+              {captcha.enabled && (
+                <div ref={captchaContainerRef} className="flex justify-center mb-3" dir="ltr" />
+              )}
               <Button full type="submit" disabled={busy || !configured} aria-busy={busy}>
                 {busy ? <Loader2 size={18} className="animate-spin" /> : <UserPlus size={18} />}
                 {busy ? t('auth.creatingAccount') : t('auth.createAccount')}

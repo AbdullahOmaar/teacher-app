@@ -16,6 +16,8 @@ import { prefetchRoute } from '../../lib/routePrefetch'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { useHomeAlerts } from '../../features/home/hooks'
 import { Onboarding } from '../../features/auth/Onboarding'
+import { AccountDeletedScreen } from '../../features/auth/AccountDeletedScreen'
+import { useAccountDeletedAt } from '../../hooks/useAccountDeleted'
 import { AttendanceSyncBridge } from '../../features/attendance/SyncBridge'
 import { OfflineStrip } from './OfflineStrip'
 import { InstallButton } from '../InstallButton'
@@ -102,6 +104,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate()
   const { toggle } = useTheme()
   const teacher = useCurrentTeacher()
+  // حذف ناعم (0075 — F1): شاشة الحذف المصممة تحل محل المحتوى كله
+  // متى كان الحساب معلّماً محذوفاً — فوق أي حالة حلّ هوية أخرى.
+  const deletedAt = useAccountDeletedAt()
   const { screen, tab } = resolveRoute(location.pathname)
   const isRoot = TAB_ROOTS.has(screen)
   // شاشتا الطلاب والفواتير بنمط List-Detail عند ≥1024px (بحث §5):
@@ -209,7 +214,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
             الـ transform) عند كل تنقّل؛ ليس حاوية السكرول ولا يلمس
             آلة السحب-للتحديث داخل الصفحات */}
         <div key={location.pathname} className="route-in">
-          {teacher.status === 'loading' ? (
+          {deletedAt ? (
+            <AccountDeletedScreen deletedAt={deletedAt} />
+          ) : teacher.status === 'loading' ? (
             <LoadingState />
           ) : teacher.status === 'no-teacher' ? (
             <Onboarding />

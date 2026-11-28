@@ -32,6 +32,10 @@ export function translateAuthError(message: string): string {
     markStaleClient()
     return `${t('auth.errStaleVersion')} ${t('auth.errStaleVersionHint')}`
   }
+  // حساب محذوف ناعماً (0075 — F1): GoTrue يرفض دخول المحظور بـ
+  // banned_until برسالة «User is banned» — تُترجم لرسالة الحذف
+  // المصممة بدل أي نص خام (قاعدة المالك 18:06 + F6).
+  if (m.includes('banned')) return t('auth.errAccountDeleted')
   if (m.includes('invalid login credentials')) return t('auth.authApiInvalidCredentials')
   if (m.includes('already registered') || m.includes('already exists'))
     return t('auth.authApiAlreadyRegistered')
@@ -91,6 +95,12 @@ export interface SignUpInput {
   password: string
   displayName: string
   phone?: string
+  /**
+   * توكن CAPTCHA اختياري (F5 — lib/captcha): يُمرَّر لـ Supabase Auth
+   * كما هو عندما تكون الحماية مفعّلة في بيئة البناء؛ غيابه = السلوك
+   * الحالي حرفياً (الحماية مطفأة افتراضياً — انظر docs/SECURITY-F1-F6.md).
+   */
+  captchaToken?: string
 }
 
 export interface SignUpResult {
@@ -112,6 +122,9 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
         display_name: input.displayName.trim(),
         phone: input.phone?.trim() || null,
       },
+      // F5: لا يُرسَل المفتاح أصلاً عندما لا يوجد توكن — عقد Supabase
+      // يرفض captchaToken فارغاً، والحماية المطفأة تعني غيابه التام.
+      ...(input.captchaToken ? { captchaToken: input.captchaToken } : {}),
     },
   })
   if (error) throw new Error(translateAuthError(error.message))
@@ -337,27 +350,38 @@ export async function signInDemo(): Promise<void> {
 
 export const TEACHER_COLS_BASE =
   'id, owner_user_id, display_name, avatar_url, phone, created_at, updated_at'
-export const TEACHER_COLS = `${TEACHER_COLS_BASE}, account_activated`
+export const TEACHER_COLS = `${TEACHER_COLS_BASE}, account_activated, deleted_at`
 
 /**
- * قراءة متسامحة لعمود account_activated (مهاجرة 0055، بوابة التجميد):
- * على قاعدة بلا المهاجرة يرفض PostgREST الـ select بـ PGRST204 —
- * نرجع لقائمة الأعمدة القديمة ونملأ الافتراضي true (نفس افتراضي
- * المهاجرة: كل الحسابات القائمة تبقى مفعّلة). لا إنفاذ للعلم في أي
- * مسار بعد، فالرجوع لا يغيّر أي سلوك — والدخول يبقى شغالاً بلا 0055.
+ * قراءة متسامحة لعمودَي account_activated (0055) وdeleted_at (0075،
+ * بوابة التجميد): على قاعدة بلا المهاجرة يرفض PostgREST الـ select
+ * بـ PGRST204 — نرجع لقائمة الأعمدة القديمة ونملأ الافتراضيات
+ * (account_activated: true = نفس افتراضي 0055: كل الحسابات القائمة
+ * تبقى مفعّلة؛ deleted_at: null = حساب حي). الرجوع لا يغيّر أي سلوك
+ * على قاعدة بلا المهاجرتين — والدخول يبقى شغالاً.
  */
 export function isMissingAccountActivatedColumn(error: {
   code?: string
   message?: string
 } | null): boolean {
   if (!error) return false
-  return error.code === 'PGRST204' || (error.message ?? '').includes('account_activated')
+  const msg = error.message ?? ''
+  return (
+    error.code === 'PGRST204' ||
+    msg.includes('account_activated') ||
+    msg.includes('deleted_at')
+  )
 }
 
 export function withAccountActivatedDefault<T extends object>(
   row: T,
-): T & { account_activated: boolean } {
-  return { ...row, account_activated: true }
+): T & { account_activated: boolean; deleted_at: string | null } {
+  const existing = (row as { deleted_at?: unknown }).deleted_at
+  return {
+    ...row,
+    account_activated: true,
+    deleted_at: typeof existing === 'string' ? existing : null,
+  }
 }
 
 // ---------------------------------------------------------------------------

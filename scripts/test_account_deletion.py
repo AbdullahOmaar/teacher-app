@@ -1,17 +1,32 @@
 #!/usr/bin/env python3
-"""E2E test: account deletion (gap 32 — Phase 2 T3, migration 0046).
+"""E2E test: account SOFT deletion (F1 — migration 0075; was hard deletion
+in 0046, rewritten after Sanad's security test, 2026-11-28).
 
 Creates a throwaway teacher (auth user + teacher row + seeded rows across
 the teacher's tables + one proof + one storage object), then:
   1. anon call to the RPC -> must fail (no session);
-  2. demo-user call to the RPC -> must fail ('demo account cannot be deleted');
-  3. throwaway-user call to the RPC -> must succeed with a per-table report;
-  4. verifies the cascade: teacher row, all seeded rows, and the auth user
-     are gone; the proof's storage.objects row REMAINS as a documented
-     orphan (0047: protect_delete blocks direct storage deletes); the demo
-     baseline is untouched (teachers=2, students=42, auth.users=3).
-Secrets (anon key, passwords) are read in-process from .env.local and never
-printed. Exits non-zero on any failure; best-effort cleanup on failure.
+  2. demo-user call with the demo's own email as confirmation -> must fail
+     ('demo account cannot be deleted');
+  3. throwaway call WITHOUT a confirmation argument -> must fail;
+  4. throwaway call with a WRONG confirmation -> 'confirmation mismatch'
+     and the account stays untouched;
+  5. throwaway call with the account email as confirmation -> succeeds
+     with the soft-delete report (soft_deleted, centres_marked);
+  6. verifies the soft-delete semantics: teacher row and ALL seeded rows
+     still exist, deleted_at is set, the auth user still exists but is
+     banned, its sessions are gone, re-sign-in fails, and a second call
+     is refused ('account already deleted'); the demo baseline is
+     untouched (teachers=2, students=42, auth.users=3 after cleanup).
+
+If migration 0075 is not applied yet (no teachers.deleted_at column —
+the phase-freeze gate), the test prints SKIP and exits 0: the absence is
+the expected state until the freeze + QA gate applies it.
+
+Cleanup hard-deletes the fixture teacher/auth user via SQL at the end —
+that is the test's own purge of its fixture, not product behaviour.
+Secrets (anon key, passwords) are read in-process from .env.local and
+never printed. Exits non-zero on any failure; best-effort cleanup on
+failure.
 """
 import json
 import os
@@ -94,12 +109,23 @@ def sign_in(url, anon, email, password):
 
 
 def main():
+    # 0075 gate: without the deleted_at column the soft-delete contract
+    # does not exist yet — documented skip, not a failure (freeze rule).
+    probe = sql("select 1 as x from information_schema.columns "
+                "where table_schema='public' and table_name='teachers' "
+                "and column_name='deleted_at'")
+    if not probe:
+        print("SKIP — migration 0075 is written but NOT applied "
+              "(phase-freeze rule: application deferred to the Phase-2 "
+              "freeze + QA gate)")
+        return
+
     e = env()
     url = e["VITE_SUPABASE_URL"]
     anon = e["VITE_SUPABASE_ANON_KEY"]
     stamp = str(int(time.time()))
     email = f"test-delete-{stamp}@teacher-app.test"
-    password = secrets.token_urlsafe(16)
+    password = secrets.token_urlsafe(18)
 
     # pre-cleanup: remove leftovers of any previous interrupted run
     for r in sql("select id, owner_user_id from public.teachers "
@@ -138,8 +164,8 @@ def main():
         "now(), now(), now())")
     print(f"  fixture auth user created: {uid[:8]}…")
     teacher = sql(
-        "insert into public.teachers (owner_user_id, display_name) values "
-        f"('{uid}', 'اختبار الحذف') returning id")[0]["id"]
+        "insert into public.teachers (id, owner_user_id, display_name) values "
+        f"('{uid}', '{uid}', 'اختبار الحذف') returning id")[0]["id"]
     sql(f"insert into public.teacher_settings (teacher_id) values ('{teacher}')")
     group = sql(
         "insert into public.groups (teacher_id, name, start_time) values "
@@ -173,13 +199,15 @@ def main():
 
     try:
         print("negative tests:")
-        s, b = rest(url, anon, "POST", "/rest/v1/rpc/delete_my_teacher_account")
+        s, b = rest(url, anon, "POST", "/rest/v1/rpc/delete_my_teacher_account",
+                    body={"p_confirmation": email})
         check("anon call rejected", s in (401, 403), f"status={s} body={b}")
         check("teacher still exists after anon call",
               sql(f"select count(*) c from public.teachers where id='{teacher}'")[0]["c"] == 1)
 
         demo_jwt = sign_in(url, anon, "demo@teacher-app.com", "Demo123456")
-        s, b = rest(url, anon, "POST", "/rest/v1/rpc/delete_my_teacher_account", jwt=demo_jwt)
+        s, b = rest(url, anon, "POST", "/rest/v1/rpc/delete_my_teacher_account",
+                    jwt=demo_jwt, body={"p_confirmation": "demo@teacher-app.com"})
         msg = json.dumps(b, ensure_ascii=False)
         check("demo call refused", s >= 400 and "demo account cannot be deleted" in msg,
               f"status={s} body={msg[:200]}")
@@ -188,53 +216,73 @@ def main():
                   "where owner_user_id = (select id from auth.users "
                   "where email='demo@teacher-app.com')")[0]["c"] == 1)
 
+        s, b = rest(url, anon, "POST", "/rest/v1/rpc/delete_my_teacher_account",
+                    jwt=jwt, body={})
+        msg = json.dumps(b, ensure_ascii=False)
+        check("call without confirmation rejected",
+              s in (400, 404) and ("confirmation" in msg or "p_confirmation" in msg),
+              f"status={s} body={msg[:200]}")
+
+        s, b = rest(url, anon, "POST", "/rest/v1/rpc/delete_my_teacher_account",
+                    jwt=jwt, body={"p_confirmation": "wrong@example.com"})
+        msg = json.dumps(b, ensure_ascii=False)
+        check("wrong confirmation refused", s == 400 and "confirmation mismatch" in msg,
+              f"status={s} body={msg[:200]}")
+        check("account untouched after wrong confirmation",
+              sql(f"select deleted_at from public.teachers where id='{teacher}'")[0]["deleted_at"] is None)
+
         print("positive test:")
-        s, b = rest(url, anon, "POST", "/rest/v1/rpc/delete_my_teacher_account", jwt=jwt)
-        check("owner call succeeds", s == 200, f"status={s} body={json.dumps(b)[:300]}")
+        s, b = rest(url, anon, "POST", "/rest/v1/rpc/delete_my_teacher_account",
+                    jwt=jwt, body={"p_confirmation": email})
+        check("owner call with correct confirmation succeeds", s == 200,
+              f"status={s} body={json.dumps(b)[:300]}")
         if s == 200:
             rep = b
             check("report names the teacher", rep.get("teacher_id") == teacher)
-            dt = rep.get("deleted_tables", {})
-            check("report counts seeded rows",
-                  dt.get("students") == 1 and dt.get("groups") == 1
-                  and dt.get("invoices") == 1 and dt.get("payments") == 1
-                  and dt.get("payment_proofs") == 1,
-                  f"deleted_tables={dt}")
-            check("report counts the orphaned storage object",
-                  rep.get("storage_objects_orphaned") == 1)
+            check("report marks the soft delete", rep.get("soft_deleted") is True)
+            check("report counts marked centres", (rep.get("centres_marked") or 0) >= 1,
+                  f"report={rep}")
 
-        print("verification:")
-        check("teacher row gone",
-              sql(f"select count(*) c from public.teachers where id='{teacher}'")[0]["c"] == 0)
-        for tbl, col in (("students", "teacher_id"), ("groups", "teacher_id"),
-                         ("invoices", "teacher_id"), ("payments", "teacher_id"),
-                         ("payment_proofs", "teacher_id"),
-                         ("guardian_access_tokens", "teacher_id"),
-                         ("push_subscriptions", "teacher_id"),
-                         ("activity_log", "teacher_id"),
-                         ("teacher_settings", "teacher_id")):
-            check(f"{tbl} rows gone",
-                  sql(f"select count(*) c from public.{tbl} where {col}='{teacher}'")[0]["c"] == 0)
-        check("storage object row REMAINS as documented orphan (0047: "
-              "protect_delete blocks direct deletes; file unreachable in "
-              "the private bucket)",
-              sql(f"select count(*) c from storage.objects where name='{proof_path}'")[0]["c"] == 1)
-        check("auth user gone",
-              sql(f"select count(*) c from auth.users where id='{uid}'")[0]["c"] == 0)
+        print("verification (soft, not hard):")
+        row = sql(f"select deleted_at from public.teachers where id='{teacher}'")
+        check("teacher row RETAINED with deleted_at set",
+              len(row) == 1 and row[0]["deleted_at"] is not None)
+        for tbl in ("students", "groups", "invoices", "payments",
+                    "payment_proofs", "guardian_access_tokens",
+                    "push_subscriptions", "activity_log", "teacher_settings"):
+            check(f"{tbl} rows retained",
+                  sql(f"select count(*) c from public.{tbl} where teacher_id='{teacher}'")[0]["c"] >= 1)
+        urow = sql(f"select banned_until from auth.users where id='{uid}'")
+        check("auth user retained but banned",
+              len(urow) == 1 and urow[0]["banned_until"] is not None)
+        check("sessions revoked",
+              sql(f"select count(*) c from auth.sessions where user_id='{uid}'")[0]["c"] == 0)
+        s, b = rest(url, anon, "POST", "/auth/v1/token?grant_type=password",
+                    body={"email": email, "password": password})
+        check("re-sign-in refused after soft delete", s != 200,
+              f"status={s}")
+        s, b = rest(url, anon, "POST", "/rest/v1/rpc/delete_my_teacher_account",
+                    jwt=jwt, body={"p_confirmation": email})
+        msg = json.dumps(b, ensure_ascii=False)
+        check("second delete refused as already deleted",
+              s == 400 and "account already deleted" in msg,
+              f"status={s} body={msg[:200]}")
         check("other teachers untouched",
-              sql("select count(*) c from public.teachers")[0]["c"] == 2)
-        check("baseline restored",
-              sql("select count(*) c from auth.users")[0]["c"] == 3
-              and sql("select count(*) c from public.students")[0]["c"] == 42)
+              sql("select count(*) c from public.teachers where deleted_at is null")[0]["c"] == 2)
     finally:
-        # best-effort cleanup if anything above failed mid-way. The storage
-        # row needs the documented session escape hatch (protect_delete
-        # blocks direct deletes) — used here only to remove this test's own
-        # orphan; the product itself leaves orphans by design (0047).
+        # Test-side purge of the fixture only (the product keeps soft-deleted
+        # data for the 30-day grace window — this script removes its own
+        # fixture so the shared baseline is restored). The storage row needs
+        # the documented session escape hatch (protect_delete blocks direct
+        # deletes) — used here only to remove this test's own orphan.
         sql(f"delete from public.teachers where id='{teacher}'")
         sql(f"delete from auth.users where id='{uid}'")
         sql("select set_config('storage.allow_delete_query','true',false); "
             f"delete from storage.objects where name='{proof_path}'")
+        check("baseline restored after fixture purge",
+              sql("select count(*) c from public.teachers")[0]["c"] == 2
+              and sql("select count(*) c from auth.users")[0]["c"] == 3
+              and sql("select count(*) c from public.students")[0]["c"] == 42)
 
     print(f"\naccount-deletion E2E: {'ALL PASS' if not FAILURES else f'{len(FAILURES)} FAILURES: {FAILURES}'}")
     sys.exit(1 if FAILURES else 0)
