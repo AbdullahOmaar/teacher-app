@@ -7,6 +7,7 @@ import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
 import { AlertTriangle, Ban, Users, X } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { PermissionDeniedCard } from '../../components/ui/PermissionDeniedCard'
 import { ErrorState, LoadingState, NoTeacherProfile, PageLoadingOverlay, SignInRequired, Skeleton } from '../../components/ui/states'
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
@@ -398,6 +399,20 @@ export function AttendancePage() {
         onSuccess: () => toast(isLeft ? t('attendance.leftCleared') : t('attendance.leftMarked')),
         onError: () => toast(t('attendance.leftError')),
       },
+    )
+  }
+
+  // عيب صلاحيات المساعد (رد سند 93 — 0079): الحضور يقرأ الحصص بصلاحية
+  // can_take_attendance (RLS)؛ مساعد بلا هذه الصلاحية لا يرى شيئاً
+  // بالتصميم — بطاقة صلاحية صريحة (نمط المالية) بدل حالة الفراغ المضللة
+  // التي توحي بأنه «لا يوجد عمل». مساعد الحضور يمر من هنا ويرى
+  // الطلاب والمجموعات بعد 0079.
+  if (teacher.role === 'assistant' && !teacher.permissions.can_take_attendance) {
+    return (
+      <PermissionDeniedCard
+        title={t('attendance.noPermissionTitle')}
+        body={t('attendance.noPermissionBody')}
+      />
     )
   }
 

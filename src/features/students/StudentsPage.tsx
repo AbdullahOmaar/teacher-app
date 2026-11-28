@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/Card'
 import { Check, UserPlus, Users, X } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
+import { PermissionDeniedCard } from '../../components/ui/PermissionDeniedCard'
 import {
   PageToolBar,
   StickyGroupHeader,
@@ -20,6 +21,7 @@ import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
+import { canReadOperational } from '../auth/api'
 import { useGroups } from '../groups/hooks'
 import { useUsageSummary } from '../platform-admin/hooks'
 import { UsageBarrier } from '../platform-admin/UsageBarrier'
@@ -165,6 +167,22 @@ export function StudentsPage() {
   if (teacher.status === 'no-teacher') return <NoTeacherProfile />
 
   const isAssistant = teacher.role === 'assistant'
+  const permissions = teacher.permissions
+  // عيب صلاحيات المساعد (رد سند 93 — 0079): مساعد بلا أي صلاحية تشغيلية
+  // لا يقرأ الطلاب أصلاً (RLS)، فتُعرض بطاقة صلاحية صريحة (نمط المالية)
+  // بدل حالة الفراغ المضللة التي تدفعه لإضافة طلاب مكررين.
+  if (isAssistant && !canReadOperational(permissions)) {
+    return (
+      <PermissionDeniedCard
+        title={t('students.noPermissionTitle')}
+        body={t('students.noPermissionBody')}
+      />
+    )
+  }
+  // زر الإنشاء (العائم + حالة الفراغ) مقيد بمفتاح إدارة الطلاب نفسه:
+  // كان ظاهراً لكل مساعد بلا أي فحص — الكتابة مرفوضة خادمياً أصلاً (RLS)
+  // لكن الزر كان يوصل لمسار مسدود. المالك يملك المفتاح ضمناً.
+  const canManageStudents = permissions.can_manage_students
   const loading = studentsQ.isPending || enrollmentsQ.isPending || groupsQ.isPending
   const error = studentsQ.error ?? enrollmentsQ.error ?? groupsQ.error
 
@@ -234,7 +252,7 @@ export function StudentsPage() {
               : t('students.emptyNoMatchHint')
           }
           action={
-            (studentsQ.data?.length ?? 0) === 0
+            (studentsQ.data?.length ?? 0) === 0 && canManageStudents
               ? { label: t('students.addStudent'), onClick: handleAddStudent, icon: UserPlus }
               : undefined
           }
@@ -346,7 +364,9 @@ export function StudentsPage() {
         )}
       </div>
 
-      <Fab onClick={handleAddStudent} ariaLabel={t('students.fabAddAria')} label={t('students.fabNew')} />
+      {canManageStudents && (
+        <Fab onClick={handleAddStudent} ariaLabel={t('students.fabAddAria')} label={t('students.fabNew')} />
+      )}
 
       <UsageBarrier
         open={barrierOpen}
