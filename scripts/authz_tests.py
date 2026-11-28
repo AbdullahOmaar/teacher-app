@@ -92,7 +92,9 @@ def rest(url, anon, method, path, jwt=None, body=None, expect_json=True):
         "-w", "\n%{http_code}",
     ]
     if body is not None:
-        args += ["-H", "Content-Type: application/json", "-d", json.dumps(body)]
+        args += ["-H", "Content-Type: application/json",
+                 "-H", "Prefer: return=representation",
+                 "-d", json.dumps(body)]
     args.append(url + path)
     out = subprocess.run(args, capture_output=True, text=True, timeout=120)
     if out.returncode != 0:
