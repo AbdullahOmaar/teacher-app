@@ -8,7 +8,7 @@ import { Logo } from '../../components/brand/Logo'
 import { useMascotVisible } from '../../components/mascot/useMascotVisible'
 import doffyIcon from '../../assets/mascot/icon.webp'
 import { Check, Loader2, Send } from 'lucide-react'
-import { confirmRecoveryWithCode, requestPasswordReset, updatePassword } from './api'
+import { confirmRecoveryWithCode, requestPasswordReset, updatePassword, validateEmailField } from './api'
 import { CodeEntry } from './CodeEntry'
 import { t } from '../../i18n'
 
@@ -66,8 +66,15 @@ export function ResetPasswordPage() {
 
   const handleRequestCode = async (e: FormEvent) => {
     e.preventDefault()
-    if (!beginBusy()) return
     setError(null)
+    // النموذج noValidate (3A-911): فحص البريد هنا بالعربية بدل فقاعة
+    // المتصفح الإنجليزية التي كانت تسبق المعالج
+    const emailError = validateEmailField(emailInput)
+    if (emailError) {
+      setError(emailError)
+      return
+    }
+    if (!beginBusy()) return
     try {
       await requestPasswordReset(emailInput)
       // رد الخادم محايد: ننتقل لإدخال الكود في الحالتين
@@ -147,7 +154,7 @@ export function ResetPasswordPage() {
                 backLabel={t('auth.changeEmail')}
               />
             ) : (
-              <form onSubmit={handleRequestCode}>
+              <form noValidate onSubmit={handleRequestCode}>
                 {linkError && (
                   <p className="bg-bad-soft text-bad-text text-[13.5px] font-semibold rounded-xl px-3 py-2 mb-3 mt-0" role="alert">
                     {t('auth.resetLinkInvalid')}
@@ -180,7 +187,7 @@ export function ResetPasswordPage() {
               </form>
             )
           ) : (
-            <form onSubmit={handleSubmit}>
+            <form noValidate onSubmit={handleSubmit}>
               {error && (
                 <p className="bg-bad-soft text-bad-text text-[13.5px] font-semibold rounded-xl px-3 py-2 mb-3 mt-0" role="alert">
                   {error}

@@ -10,6 +10,7 @@ import {
   signUpNextStep,
   signUpWithEmail,
   translateAuthError,
+  validateEmailField,
 } from './api'
 import { t } from '../../i18n'
 
@@ -253,5 +254,21 @@ describe('translateAuthError — حساب محذوف ناعماً (F1/F6)', () =
   it('رسالة الحظر من GoTrue تُترجم لرسالة الحذف المصممة لا للنص الخام', () => {
     expect(translateAuthError('User is banned')).toBe(t('auth.errAccountDeleted'))
     expect(translateAuthError('User is banned')).not.toContain('banned')
+  })
+})
+
+describe('validateEmailField — فحص حقل البريد في نماذج المصادقة (3A-911)', () => {
+  it('بريد فارغ أو مسافات = رسالة «اكتب بريدك الأول»', () => {
+    expect(validateEmailField('')).toBe(t('auth.emailRequired'))
+    expect(validateEmailField('   ')).toBe(t('auth.emailRequired'))
+  })
+  it('صيغة فاسدة = رسالة الصيغة غير الصحيحة', () => {
+    expect(validateEmailField('abc')).toBe(t('auth.authApiInvalidEmail'))
+    expect(validateEmailField('a@b')).toBe(t('auth.authApiInvalidEmail'))
+    expect(validateEmailField('a b@c.d')).toBe(t('auth.authApiInvalidEmail'))
+  })
+  it('بريد سليم = null، والمسافات الطرفية تُقصّ قبل الفحص', () => {
+    expect(validateEmailField('teacher@example.com')).toBeNull()
+    expect(validateEmailField('  teacher@example.com  ')).toBeNull()
   })
 })

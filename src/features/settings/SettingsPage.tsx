@@ -252,6 +252,12 @@ export function SettingsPage() {
     e.preventDefault()
     if (!managedCentre) return
     setProfileMsg(null)
+    // النموذج noValidate (3A-911): اسم المدرس كان يعتمد على required
+    // الأصلية وحدها — الفحص هنا بالعربية وبنفس رسالة سطر الحالة
+    if (!(profileName ?? managedCentre.display_name).trim()) {
+      setProfileMsg(t('settings.teacherNameRequired'))
+      return
+    }
     updateProfile.mutate(
       {
         display_name: (profileName ?? managedCentre.display_name).trim(),

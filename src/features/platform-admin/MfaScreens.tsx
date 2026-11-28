@@ -283,7 +283,7 @@ export function MfaEnrollScreen({
           </Field>
         </>
       )}
-      <form onSubmit={handleVerify}>
+      <form noValidate onSubmit={handleVerify}>
         <FormError message={error} />
         <CodeField code={code} onChange={setCode} disabled={verifying} />
         <Button
@@ -351,7 +351,7 @@ export function MfaChallengeScreen({ factorId }: { factorId: string }) {
       title={t('platformAdmin.mfaChallengeTitle')}
       intro={t('platformAdmin.mfaChallengeIntro')}
     >
-      <form onSubmit={handleVerify}>
+      <form noValidate onSubmit={handleVerify}>
         <FormError message={error} />
         <CodeField code={code} onChange={setCode} disabled={verifying} />
         <Button

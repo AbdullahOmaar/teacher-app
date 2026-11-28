@@ -96,7 +96,7 @@ export function AssessmentFormSheet({
         </>
       }
     >
-      <form
+      <form noValidate
         id="assessment-form"
         onSubmit={(e) => {
           e.preventDefault()
@@ -256,7 +256,7 @@ export function ExamBuilderSheet({
 
   return (
     <Sheet open title={t('grades.builderTitle', { title: assessment.title })} onClose={onClose}>
-      <form
+      <form noValidate
         onSubmit={(e) => {
           e.preventDefault()
           if (!valid) return

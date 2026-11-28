@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Check,
@@ -57,6 +58,15 @@ export function StudentRow({
   onChangeValue: (studentId: string, patch: Partial<AttendanceValue>) => void
   onToggleLeft: (studentId: string) => void
 }) {
+  // تأكيد بخطوتين قبل مسح الانصراف (3A-911): المسح يمحو سجلاً
+  // محفوظاً بضغطة واحدة على زر أيقونة 36px ملاصق للنجمة (خطر لمس
+  // خاطئ)، وتنبيه «غادر» لولي الأمر (0012) لا يتراجع بالمسح —
+  // وإعادة التسجيل تبعته من جديد. النمط هو نمط التطبيق الخفيف
+  // نفسه (AssistantKeyCard): أول ضغطة تُسلّح والثانية تنفّذ.
+  // التسليح مربوط بقيمة الانصراف نفسها: أي تغيّر فيها (مسح/تسجيل
+  // جديد) يُبطل التسليح اشتقاقاً وقت الرسم — بلا أثر جانبي.
+  const [armedLeftAt, setArmedLeftAt] = useState<string | null>(null)
+  const confirmClear = leftAt !== undefined && armedLeftAt === leftAt
   return (
     <div
       className={`px-3 py-2 ${first ? '' : 'border-t border-border'} ${
@@ -128,16 +138,31 @@ export function StudentRow({
               قائمة مزامنة الأوفلاين */}
           {isAttended(v.status) &&
             (leftAt ? (
-              <button
-                type="button"
-                disabled={cancelled || clearLeftPending}
-                onClick={() => onToggleLeft(st.id)}
-                className="shrink-0 w-9 h-9 flex items-center justify-center bg-transparent border-0 cursor-pointer text-primary disabled:opacity-40 disabled:cursor-not-allowed"
-                title={t('attendance.undo')}
-                aria-label={t('attendance.undo')}
-              >
-                <Undo2 size={20} />
-              </button>
+              confirmClear ? (
+                <button
+                  type="button"
+                  disabled={cancelled || clearLeftPending}
+                  onClick={() => {
+                    setArmedLeftAt(null)
+                    onToggleLeft(st.id)
+                  }}
+                  className="shrink-0 h-9 px-1.5 flex items-center justify-center bg-transparent border-0 cursor-pointer text-bad-text text-[12.5px] font-bold whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label={t('attendance.undoConfirm')}
+                >
+                  {t('attendance.undoConfirm')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={cancelled || clearLeftPending}
+                  onClick={() => setArmedLeftAt(leftAt)}
+                  className="shrink-0 w-9 h-9 flex items-center justify-center bg-transparent border-0 cursor-pointer text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={t('attendance.undo')}
+                  aria-label={t('attendance.undo')}
+                >
+                  <Undo2 size={20} />
+                </button>
+              )
             ) : (
               <button
                 type="button"

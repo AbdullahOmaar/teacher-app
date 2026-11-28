@@ -63,7 +63,7 @@ export function Onboarding() {
           {error}
         </p>
       )}
-      <form onSubmit={handleSubmit} className="text-start">
+      <form noValidate onSubmit={handleSubmit} className="text-start">
         <Field label={t('auth.teacherNameLabel')}>
           <TextInput
             autoComplete="name"

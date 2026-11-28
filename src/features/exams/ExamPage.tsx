@@ -490,7 +490,7 @@ export function ExamPage() {
             <span>{windowNote}</span>
           </p>
         ) : (
-          <form
+          <form noValidate
             onSubmit={(e) => {
               e.preventDefault()
               if (code.trim()) beginWithCode(code)

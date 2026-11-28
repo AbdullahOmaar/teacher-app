@@ -70,7 +70,7 @@ export function ExpenseFormSheet({
         </>
       }
     >
-      <form
+      <form noValidate
         id="expense-form"
         onSubmit={(e) => {
           e.preventDefault()
@@ -204,7 +204,7 @@ export function RecurringFormSheet({
         </>
       }
     >
-      <form
+      <form noValidate
         id="recurring-form"
         onSubmit={(e) => {
           e.preventDefault()

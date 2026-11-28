@@ -106,7 +106,7 @@ export function IssueInvoicesSheet({
           </Button>
         </div>
       ) : (
-        <form
+        <form noValidate
           id="issue-form"
           onSubmit={(e) => {
             e.preventDefault()
@@ -207,7 +207,7 @@ export function PaySheet({
           <b className="text-text">{formatMoney(invoice.balance)}</b> {t('invoices.sheetPayOfTotal', { amount: formatMoney(invoice.total) })}
         </div>
       </div>
-      <form
+      <form noValidate
         id="pay-form"
         onSubmit={(e) => {
           e.preventDefault()
@@ -528,7 +528,7 @@ export function AdjustSheet({
           {t('invoices.sheetAdjustEmpty')}
         </p>
       ) : (
-        <form
+        <form noValidate
           id="adjust-form"
           onSubmit={(e) => {
             e.preventDefault()

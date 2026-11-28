@@ -200,6 +200,7 @@ export const settings = {
   roleOwner: 'مدرس (مالك الحساب)',
   roleAssistant: 'مساعد عند مدرس آخر',
   profileSaved: 'تم حفظ بياناتك',
+  teacherNameRequired: 'اكتب اسم المدرس الأول.',
   profileSaveFailed: 'تعذّر حفظ البيانات.',
   teacherNameLabel: 'اسم المدرس',
   phoneLabel: 'رقم الموبايل',

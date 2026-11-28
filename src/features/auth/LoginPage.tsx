@@ -23,6 +23,7 @@ import {
   signInWithEmail,
   signUpNextStep,
   signUpWithEmail,
+  validateEmailField,
 } from './api'
 import { CodeEntry } from './CodeEntry'
 import { t } from '../../i18n'
@@ -197,9 +198,16 @@ export function LoginPage() {
 
   const handleForgot = async (e: FormEvent) => {
     e.preventDefault()
-    if (!beginBusy()) return
     setError(null)
     setNotice(null)
+    // النموذج noValidate (3A-911): فحص البريد هنا بالعربية بدل فقاعة
+    // المتصفح الإنجليزية التي كانت تسبق المعالج
+    const emailError = validateEmailField(email)
+    if (emailError) {
+      setError(emailError)
+      return
+    }
+    if (!beginBusy()) return
     try {
       await requestPasswordReset(email)
       // الرد محايد دائماً: لا نؤكد ولا ننفي تسجيل البريد — والانتقال
@@ -227,9 +235,20 @@ export function LoginPage() {
       setNotice(null)
       return
     }
-    if (!beginBusy()) return
     setError(null)
     setNotice(null)
+    // النموذج noValidate (3A-911): فحوص JS بالعربية بدل فقاعات
+    // المتصفح الإنجليزية (required/type=email كانت الطبقة الوحيدة)
+    const emailError = validateEmailField(email)
+    if (emailError) {
+      setError(emailError)
+      return
+    }
+    if (!password) {
+      setError(t('auth.passwordRequired'))
+      return
+    }
+    if (!beginBusy()) return
     try {
       await signInWithEmail(email, password)
       clearLoginThrottle(localStorage, email)
@@ -266,6 +285,11 @@ export function LoginPage() {
     setNotice(null)
     if (!displayName.trim()) {
       setError(t('auth.nameRequired'))
+      return
+    }
+    const emailError = validateEmailField(email)
+    if (emailError) {
+      setError(emailError)
       return
     }
     if (password.length < 8) {
@@ -467,7 +491,7 @@ export function LoginPage() {
           ) : method === 'phone' ? (
             <PhoneAuth />
           ) : mode === 'signin' ? (
-            <form onSubmit={handleSignIn}>
+            <form noValidate onSubmit={handleSignIn}>
               <Field label={t('auth.emailLabel')}>
                 <TextInput
                   type="email"
@@ -518,7 +542,7 @@ export function LoginPage() {
               )}
             </form>
           ) : mode === 'forgot' ? (
-            <form onSubmit={handleForgot}>
+            <form noValidate onSubmit={handleForgot}>
               <Field label={t('auth.emailLabel')}>
                 <TextInput
                   type="email"
@@ -543,7 +567,7 @@ export function LoginPage() {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleSignUp}>
+            <form noValidate onSubmit={handleSignUp}>
               <Field label={t('auth.teacherNameLabel')}>
                 <TextInput
                   autoComplete="name"

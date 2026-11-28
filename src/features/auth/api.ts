@@ -676,6 +676,19 @@ export async function inviteAssistant(
 /** صيغة بريد مقبولة — نفس نمط قيد القاعدة في 0006 تقريباً */
 export const INVITE_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/**
+ * فحص حقل البريد في نماذج المصادقة (3A-911): يرجع رسالة عربية جاهزة
+ * للعرض أو null عند السلامة. النماذج noValidate فهذا الفحص هو طبقة
+ * التحقق الوحيدة قبل الإرسال — بدل فقاعات المتصفح الإنجليزية غير
+ * الموحّدة التي كانت تسبق معالجات الإرسال.
+ */
+export function validateEmailField(raw: string): string | null {
+  const email = raw.trim()
+  if (!email) return t('auth.emailRequired')
+  if (!INVITE_EMAIL_RE.test(email)) return t('auth.authApiInvalidEmail')
+  return null
+}
+
 /** تطبيع بريد الدعوة كما تفرضه القاعدة: قصّ + أحرف صغيرة */
 export function normalizeInviteEmail(raw: string): string {
   return raw.trim().toLowerCase()

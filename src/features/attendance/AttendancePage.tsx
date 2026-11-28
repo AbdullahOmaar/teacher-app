@@ -15,7 +15,8 @@ import type { AttendanceStatus } from '../../types/database'
 import { useGroups } from '../groups/hooks'
 import { SG } from '../students/hooks'
 import { formatDateLabel, generationWindowMonths, monthStartStr, todayStr } from '../schedule/api'
-import { SCHED, useGeneration, useSetSessionStatus } from '../schedule/hooks'
+import { SCHED, useGeneration, useHolidays, useSetSessionStatus } from '../schedule/hooks'
+import { ExtraSessionSheet } from '../schedule/sheets'
 import {
   EMPTY_VALUE,
   arrivalMessage,
@@ -73,6 +74,7 @@ export function AttendancePage() {
   // وضع مسح QR (خطوة 4): الكاميرا لا تُفتح إلا بضغط الزر صراحةً، وصفّ آخر
   // طالب سُجّل بالمسح يومض في القائمة بعد إغلاق الماسح (flashId)
   const [scanOpen, setScanOpen] = useState(false)
+  const [extraOpen, setExtraOpen] = useState(false)
   // ارتفاع الشريط اللاصق السفلي مقاساً فعلياً — يُبنى به فاصل سفلي
   // بنفس الارتفاع حتى يمرّ آخر محتوى بالكامل فوق الشريط (3A-324)
   const [barEl, setBarEl] = useState<HTMLDivElement | null>(null)
@@ -137,6 +139,14 @@ export function AttendancePage() {
   const groupsQ = useGroups(teacherId)
   const groups = useMemo(() => groupsQ.data ?? [], [groupsQ.data])
   const groupById = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups])
+
+  // إجازات المدرس — تُمرَّر لورقة الحصة الإضافية (3A-911) لتحذير
+  // الإضافة في يوم إجازة، بنفس عقد شاشة الجدول
+  const holidaysQ = useHolidays(teacherId)
+  const holidayDates = useMemo(
+    () => new Set((holidaysQ.data ?? []).map((h) => h.holiday_date)),
+    [holidaysQ.data],
+  )
 
   // توليد حصص شهور العرض (نفس آلية الجدول) قبل قراءة حصص اليوم المختار
   const neededMonths = useMemo(() => {
@@ -438,6 +448,7 @@ export function AttendancePage() {
         cancelled={cancelled}
         onToggleSessionStatus={toggleSessionStatus}
         statusPending={statusMut.isPending}
+        onAddExtra={() => setExtraOpen(true)}
       />
 
       {/* تحميل المنتقي: مؤشر دُفّي الموحّد من أول لحظة (3A-384 —
@@ -580,6 +591,20 @@ export function AttendancePage() {
             </>
           )}
         </>
+      )}
+
+      {/* حصة إضافية من الحضور مباشرة (3A-911): يوم بلا حصص مجدولة
+          لم يعد طريقاً مسدوداً — نفس ورقة الجدول بتاريخ اليوم
+          المختار ابتدائياً، وإبطال الكاش يشمل الحضور أصلاً */}
+      {extraOpen && teacherId && (
+        <ExtraSessionSheet
+          groups={groups}
+          holidayDates={holidayDates}
+          teacherId={teacherId}
+          initialDate={date}
+          onClose={() => setExtraOpen(false)}
+          onDone={toast}
+        />
       )}
 
       {/* ماسح QR (خطوة 4): يُركّب فقط عند الفتح الصريح — الكاميرا تُطلب
