@@ -10,6 +10,15 @@
 //   قالب غير جاهز 422، توكن غائب 422، فشل كتابة السجل 500 بلا إرسال،
 //   نجاح كامل (حمولة القالب + انتقال السجل queued←sent بـ wamid)،
 //   رفض Graph ‏502 مع حفظ رمز/رسالة الخطأ في السجل، وخطأ شبكة 502.
+// • كاشف غياب عمود source (0073 — QA #65): PGRST204 أو رسالة تسمّي
+//   العمود ← true، وأي خطأ آخر وnull ← false (إعادة الإدخال بلا
+//   source عند الكشف تعيش في index.ts — بوابة ترتيب نشر الدالة).
+// • الوضع الداخلي (0073 — المهمة 24): سرّ صحيح + ‏internal:true بلا
+//   JWT وبلا ملكية ← إرسال ناجح بسجل source=auto؛ سرّ خاطئ أو غياب
+//   الترويسة ← رجوع لمسار JWT (401)؛ Kill switch فوق الوضع الداخلي
+//   أيضاً؛ فاتورة آلية: المبلغ يُحلّ لحظة التنفيذ ويُحقن معاملاً
+//   أول، وغياب مبلغ نهائي ← 422 ‏invoice_total_unavailable بلا سجل
+//   ولا Graph؛ والمسار اليدوي لا يحلّ مبلغاً أبداً ولو وُجد invoice_id.
 // • whatsapp-webhook: تحقق GET (صحيح/فاسد/سرّ غائب)، POST بلا سرّ
 //   تطبيق 401، توقيع فاسد 401، حالة delivered تحدّث السجل، حالة
 //   failed برمز خطأ Meta، رسائل واردة بلا حالات 200 بلا تحديث،
@@ -19,7 +28,10 @@
 // ============================================================================
 import { createServer } from 'node:http'
 import { createHmac } from 'node:crypto'
-import { handleSendWhatsappMessage } from '../supabase/functions/send-whatsapp-message/core.ts'
+import {
+  handleSendWhatsappMessage,
+  isMissingLogSourceColumnError,
+} from '../supabase/functions/send-whatsapp-message/core.ts'
 import { handleWhatsappWebhook } from '../supabase/functions/whatsapp-webhook/core.ts'
 
 const USER_ID = '11111111-1111-4111-8111-111111111111'
@@ -99,6 +111,10 @@ function makeDeps() {
             limit: 500,
             used: state.limitReached ? 500 : 0,
           },
+    // مبلغ الفاتورة لحظة التنفيذ (0073): الافتراضي مبلغ نهائي جاهز؛
+    // ‏state.invoiceAmountText = null يحاكي غياب مبلغ نهائي بعد.
+    loadInvoiceAmountText: async () =>
+      state.invoiceAmountText === undefined ? '1,200 ج' : state.invoiceAmountText,
     insertLog: async (row) => {
       if (!state.insertLogOk) return null
       const id = `log-${++logSeq}`
@@ -129,6 +145,13 @@ function sendReq(body, method = 'POST') {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: method === 'POST' ? JSON.stringify(body) : undefined,
+  })
+}
+function sendReqH(body, headers) {
+  return new Request('http://127.0.0.1/send-whatsapp-message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(body),
   })
 }
 const GOOD_BODY = {
@@ -280,6 +303,121 @@ state.fetchThrows = true
   check('network error → log failed (network error)', row?.status === 'failed' && row?.errorMessage === 'network error')
 }
 
+// --- الوضع الداخلي (0073 — الإرسال الآلي من سلّم القاعدة) -------------------
+const AUTO_ENV = { ...ON_ENV, WHATSAPP_AUTO_INTERNAL_SECRET: 'auto-secret-0073' }
+const AUTO_HEADERS = { 'x-wa-internal-secret': 'auto-secret-0073' }
+const INVOICE_ID = '33333333-3333-4333-8333-333333333333'
+
+state = freshState()
+state.userId = null // نداء القاعدة: لا JWT مستخدم أصلاً
+state.owner = false // ولا فحص ملكية في هذا المسار
+{
+  const res = await handleSendWhatsappMessage(
+    sendReqH({ ...GOOD_BODY, internal: true }, AUTO_HEADERS),
+    AUTO_ENV,
+    makeDeps(),
+  )
+  check('internal ok (no jwt, no owner) → 200', res.status === 200, `got ${res.status}`)
+  const row = [...logRows.values()][0]
+  check('internal ok → log row source=auto, sent', row?.source === 'auto' && row?.status === 'sent')
+  check('internal ok → graph call happened', graphCalls.length === 1)
+}
+
+state = freshState()
+state.userId = null
+{
+  const res = await handleSendWhatsappMessage(
+    sendReqH({ ...GOOD_BODY, internal: true }, { 'x-wa-internal-secret': 'wrong-secret' }),
+    AUTO_ENV,
+    makeDeps(),
+  )
+  check('internal wrong secret → falls back to JWT path → 401', res.status === 401, `got ${res.status}`)
+  check('internal wrong secret → no graph call, no log row', graphCalls.length === 0 && logRows.size === 0)
+}
+
+state = freshState()
+state.userId = null
+{
+  const res = await handleSendWhatsappMessage(
+    sendReqH({ ...GOOD_BODY, internal: true }, {}),
+    AUTO_ENV,
+    makeDeps(),
+  )
+  check('internal flag without secret header → 401', res.status === 401, `got ${res.status}`)
+}
+
+state = freshState()
+{
+  const res = await handleSendWhatsappMessage(
+    sendReqH({ ...GOOD_BODY, internal: true }, AUTO_HEADERS),
+    { ...OFF_ENV, WHATSAPP_AUTO_INTERNAL_SECRET: 'auto-secret-0073' },
+    makeDeps(),
+  )
+  check('internal + kill switch off → 503 (kill switch above internal)', res.status === 503, `got ${res.status}`)
+}
+
+state = freshState()
+state.userId = null
+state.template = { templateName: 'invoice_issued_ar', language: 'ar', status: 'ready' }
+{
+  const res = await handleSendWhatsappMessage(
+    sendReqH(
+      { teacher_id: TEACHER_ID, kind: 'invoice_issued', to: PHONE, params: ['', 'أحمد'], internal: true, invoice_id: INVOICE_ID },
+      AUTO_HEADERS,
+    ),
+    AUTO_ENV,
+    makeDeps(),
+  )
+  check('internal invoice → 200', res.status === 200, `got ${res.status}`)
+  const sent = JSON.parse(graphCalls[0].body)
+  check(
+    'internal invoice → amount resolved at send time as param 1',
+    sent.template.components[0].parameters.map((p) => p.text).join('|') === '1,200 ج|أحمد',
+  )
+  const row = [...logRows.values()][0]
+  check('internal invoice → log row source=auto', row?.source === 'auto')
+}
+
+state = freshState()
+state.userId = null
+state.template = { templateName: 'invoice_issued_ar', language: 'ar', status: 'ready' }
+state.invoiceAmountText = null
+{
+  const res = await handleSendWhatsappMessage(
+    sendReqH(
+      { teacher_id: TEACHER_ID, kind: 'invoice_issued', to: PHONE, params: ['', 'أحمد'], internal: true, invoice_id: INVOICE_ID },
+      AUTO_HEADERS,
+    ),
+    AUTO_ENV,
+    makeDeps(),
+  )
+  const body = await res.json()
+  check(
+    'internal invoice, total not final → 422 invoice_total_unavailable',
+    res.status === 422 && body.error?.code === 'invoice_total_unavailable',
+    `got ${res.status}`,
+  )
+  check('internal invoice, total not final → no log row, no graph call', logRows.size === 0 && graphCalls.length === 0)
+}
+
+state = freshState()
+state.invoiceAmountText = '9,999 ج' // يجب ألا يُستخدم في المسار اليدوي
+{
+  const res = await handleSendWhatsappMessage(
+    sendReq({ teacher_id: TEACHER_ID, kind: 'invoice_issued', to: PHONE, params: ['5 ج', 'أحمد'], invoice_id: INVOICE_ID }),
+    ON_ENV,
+    makeDeps(),
+  )
+  check('manual invoice with invoice_id → 200', res.status === 200, `got ${res.status}`)
+  const sent = JSON.parse(graphCalls[0].body)
+  check(
+    'manual invoice → params untouched (no server-side resolution)',
+    sent.template.components[0].parameters.map((p) => p.text).join('|') === '5 ج|أحمد',
+  )
+  const row = [...logRows.values()][0]
+  check('manual invoice → log row source=manual', row?.source === 'manual')
+}
+
 // ============================================================================
 // whatsapp-webhook
 // ============================================================================
@@ -389,6 +527,26 @@ state = freshState()
   const body = 'this is not json'
   const res = await handleWhatsappWebhook(hookPost(body, sign(body)), HOOK_ENV, webhookDeps())
   check('POST signed malformed json → 200 updated=0 (no retry storm)', res.status === 200, `got ${res.status}`)
+}
+
+// --- كاشف غياب عمود source (0073 — بوابة ترتيب النشر، QA #65) --------------
+{
+  check(
+    'detector: PGRST204 missing source column → true',
+    isMissingLogSourceColumnError({
+      code: 'PGRST204',
+      message: "Could not find the 'source' column of 'whatsapp_message_log' in the schema cache",
+    }) === true,
+  )
+  check(
+    'detector: message naming source → true',
+    isMissingLogSourceColumnError({ code: '42703', message: 'column "source" does not exist' }) === true,
+  )
+  check(
+    'detector: unrelated error → false',
+    isMissingLogSourceColumnError({ code: '23505', message: 'duplicate key' }) === false,
+  )
+  check('detector: null error → false', isMissingLogSourceColumnError(null) === false)
 }
 
 graphServer.close()

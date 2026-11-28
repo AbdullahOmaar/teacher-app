@@ -1,0 +1,32 @@
+{
+  "base": "http://127.0.0.1:4176",
+  "note": "لقطات QA لـ PR #65 من البناء المحلي للفرع نفسه (feat/task24-auto-notify-new) + vite preview، بجلسة مالك وهمية كاملة الاعتراض (auth + REST يُردّ عليهما محلياً في المتصفح؛ لا نداء شبكة خرج من الجهاز). البيانات الوهمية: إعداد واتساب مفعّل باستعداد آلي (auto_send_enabled=true، حصة 100) وسجل رسائل فيه صفوف source=auto وsource=manual حتى تظهر علامتا المصدر «آلي»/«يدوي» كما في الإنتاج بعد 0073.",
+  "startedAt": "2026-11-28T01:52:26.778Z",
+  "theme": "default(saved/auto)",
+  "timezone": "Africa/Cairo",
+  "tool": "visual-capture (one-off puppeteer script, local build + vite preview)",
+  "widths": {
+    "375": [
+      {
+        "file": "375/settings-whatsapp-auto-send.png",
+        "pngWidth": 375,
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375
+        },
+        "id": "settings-whatsapp-auto-send",
+        "path": "/settings (قسم الإرسال التلقائي: مفتاح الاستعداد + حصة يومية + زر الحفظ)"
+      },
+      {
+        "file": "375/settings-whatsapp-log-badges.png",
+        "pngWidth": 375,
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375
+        },
+        "id": "settings-whatsapp-log-badges",
+        "path": "/settings (سجل رسائل واتساب بعلامتي المصدر: آلي + يدوي)"
+      }
+    ]
+  }
+}

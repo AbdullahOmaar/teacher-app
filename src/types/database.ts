@@ -87,6 +87,9 @@ export type TeacherSettingsRow = Tables<'teacher_settings'>
  */
 export type TeacherWhatsappConfigRow = Omit<Tables<'teacher_whatsapp_config'>, 'token_vault_secret_id'>
 
+/** حالة «شوهدت» لخاصية في نظام «جديد» العام (migration ‏0073 — مهمة 24) */
+export type TeacherFeatureSeenRow = Tables<'teacher_feature_seen'>
+
 /** سجل قوالب Utility لواتساب لكل سنتر (migration ‏0045 — 3A-300) */
 export type TeacherWhatsappTemplateRow = Tables<'teacher_whatsapp_templates'>
 

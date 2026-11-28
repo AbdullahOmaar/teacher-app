@@ -26,6 +26,7 @@ import {
 } from './apiAssistant'
 import { fetchAiUsage } from './aiUsage'
 import { AssistantQuickActions } from './AssistantQuickActions'
+import { FeatureIntro } from '../newFeatures/FeatureIntro'
 
 // ============================================================================
 // شاشة محادثة المساعد الذكي (Phase 2 T6 — ق5 ‏BYOK)
@@ -516,6 +517,7 @@ export function AssistantPage() {
 
   return (
     <div className="flex flex-col gap-3">
+      <FeatureIntro featureId="assistant-deterministic" />
       <Card>
         <h2 className="type-section mt-0 mb-2 flex items-center gap-2">
           <Sparkles size={22} className="text-primary" /> {t('assistant.title')}

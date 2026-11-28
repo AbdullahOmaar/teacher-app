@@ -964,6 +964,7 @@ export type Database = {
           phone: string
           created_at: string
           updated_at: string
+          whatsapp_opt_out: boolean
         }
         Insert: {
           id?: string
@@ -973,6 +974,7 @@ export type Database = {
           phone: string
           created_at?: string
           updated_at?: string
+          whatsapp_opt_out?: boolean
         }
         Update: {
           id?: string
@@ -982,6 +984,7 @@ export type Database = {
           phone?: string
           created_at?: string
           updated_at?: string
+          whatsapp_opt_out?: boolean
         }
         Relationships: [
           {
@@ -2667,6 +2670,35 @@ export type Database = {
           },
         ]
       }
+      teacher_feature_seen: {
+        Row: {
+          teacher_id: string
+          feature_id: string
+          seen_by: string | null
+          seen_at: string
+        }
+        Insert: {
+          teacher_id: string
+          feature_id: string
+          seen_by?: string | null
+          seen_at?: string
+        }
+        Update: {
+          teacher_id?: string
+          feature_id?: string
+          seen_by?: string | null
+          seen_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_feature_seen_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_members: {
         Row: {
           id: string
@@ -2829,6 +2861,8 @@ export type Database = {
           last_test_at: string | null
           created_at: string
           updated_at: string
+          auto_send_enabled: boolean
+          auto_send_daily_quota: number
         }
         Insert: {
           teacher_id: string
@@ -2842,6 +2876,8 @@ export type Database = {
           last_test_at?: string | null
           created_at?: string
           updated_at?: string
+          auto_send_enabled?: boolean
+          auto_send_daily_quota?: number
         }
         Update: {
           teacher_id?: string
@@ -2855,6 +2891,8 @@ export type Database = {
           last_test_at?: string | null
           created_at?: string
           updated_at?: string
+          auto_send_enabled?: boolean
+          auto_send_daily_quota?: number
         }
         Relationships: [
           {
@@ -2999,6 +3037,7 @@ export type Database = {
           error_message: string | null
           created_at: string
           updated_at: string
+          source: string
         }
         Insert: {
           id?: string
@@ -3012,6 +3051,7 @@ export type Database = {
           error_message?: string | null
           created_at?: string
           updated_at?: string
+          source?: string
         }
         Update: {
           id?: string
@@ -3025,6 +3065,7 @@ export type Database = {
           error_message?: string | null
           created_at?: string
           updated_at?: string
+          source?: string
         }
         Relationships: [
           {

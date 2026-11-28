@@ -3573,6 +3573,96 @@ def main():
                                 f"where owner_user_id = '{del_uid}'")
                 check("0075 fixtures cleaned",
                       left and int(left[0]["c"]) == 0, f"got {left}")
+        # ---------- WHATSAPP AUTO-SEND + «جديد» (0073 — المهمة 24 / 3A-900) ----------
+        # ⚠️ المهاجرة 0073 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول/الأعمدة
+        # أولاً: إن غابت يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة
+        # المتوقعة حتى البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً.
+        # الغرض: بوابة المنصة مطفأة افتراضياً + ضوابط السنتر بقيمها
+        # الافتراضية + RLS جدول teacher_feature_seen (المالك يختم/يقرأ،
+        # المجهول لا شيء) + دالة الإرسال الداخلي مسحوبة من كل العملاء.
+        print("WHATSAPP AUTO-SEND + FEATURE SEEN (0073):")
+        probe73 = sql(ref, "select to_regclass('public.teacher_feature_seen') as t, "
+                           "(select count(*) from information_schema.columns "
+                           "where table_schema = 'public' "
+                           "and table_name = 'teacher_whatsapp_config' "
+                           "and column_name in ('auto_send_enabled', "
+                           "'auto_send_daily_quota')) as cols")
+        if not probe73 or not probe73[0].get("t") or int(probe73[0]["cols"]) != 2:
+            print("  SKIP 0073 live section — migration 0073 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PHASE2-T24-AUTO-NOTIFY.md)")
+        else:
+            try:
+                gate73 = sql(ref, "select value::text as v from platform_settings "
+                                  "where key = 'whatsapp_auto_send_enabled'")
+                check("0073 platform auto-send gate defaults to false",
+                      gate73 and gate73[0]["v"] == "false", f"got {gate73}")
+                # قيم السنتر الافتراضية: opt-in مطفأ + حصة 100 (صف مؤقت
+                # يُحذف في finally — خط الأساس wa_config=0 يُستعاد)
+                sql(ref, "insert into teacher_whatsapp_config (teacher_id) "
+                         f"values ('{demo_teacher}')")
+                cfg73 = sql(ref, "select auto_send_enabled, auto_send_daily_quota "
+                                 "from teacher_whatsapp_config "
+                                 f"where teacher_id = '{demo_teacher}'")
+                check("0073 centre auto-send defaults (off, quota 100)",
+                      cfg73 and cfg73[0]["auto_send_enabled"] is False
+                      and int(cfg73[0]["auto_send_daily_quota"]) == 100,
+                      f"got {cfg73}")
+                # المجهول لا يقرأ جدول «شوهدت» ولا يستدعي الإرسال الداخلي
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/teacher_feature_seen?select=feature_id")
+                check("0073 anon reads no feature-seen rows",
+                      (s == 200 and b == []) or s in (401, 403),
+                      f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/whatsapp_auto_dispatch",
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "absence_notice",
+                                  "p_phone": "01000000000",
+                                  "p_params": ["x", "y"],
+                                  "p_invoice_id": None})
+                check("0073 anon cannot call whatsapp_auto_dispatch",
+                      s in (401, 403, 404), f"got {s}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/whatsapp_auto_dispatch",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "absence_notice",
+                                  "p_phone": "01000000000",
+                                  "p_params": ["x", "y"],
+                                  "p_invoice_id": None})
+                check("0073 even the owner cannot call whatsapp_auto_dispatch "
+                      "(internal only)", s in (401, 403, 404), f"got {s}")
+                # المالك يختم خاصية ويقرأ ختمه
+                s, b = rest(url, anon, "POST", "/rest/v1/teacher_feature_seen",
+                            jwt=demo_jwt,
+                            body={"teacher_id": demo_teacher,
+                                  "feature_id": "authz-0073-probe"})
+                check("0073 owner stamps a feature seen",
+                      s in (200, 201, 204), f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/teacher_feature_seen"
+                            "?select=feature_id&feature_id=eq.authz-0073-probe",
+                            jwt=demo_jwt)
+                check("0073 owner reads his stamp back",
+                      s == 200 and isinstance(b, list) and len(b) == 1,
+                      f"got {s} {str(b)[:80]}")
+            finally:
+                sql(ref, "delete from teacher_feature_seen "
+                         f"where teacher_id = '{demo_teacher}' "
+                         "and feature_id = 'authz-0073-probe'")
+                sql(ref, "delete from teacher_whatsapp_config "
+                         f"where teacher_id = '{demo_teacher}'")
+                left73 = sql(ref, "select "
+                                  "(select count(*) from teacher_feature_seen "
+                                  f"where teacher_id = '{demo_teacher}') as fs, "
+                                  "(select count(*) from teacher_whatsapp_config "
+                                  f"where teacher_id = '{demo_teacher}') as wc")
+                check("0073 fixtures cleaned",
+                      left73 and int(left73[0]["fs"]) == 0
+                      and int(left73[0]["wc"]) == 0, f"got {left73}")
 
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
