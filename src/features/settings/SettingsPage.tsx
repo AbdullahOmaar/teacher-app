@@ -41,6 +41,7 @@ import { EnrolLinkCard } from '../enrol/EnrolLinkCard'
 import { PushNotificationsCard } from './PushNotificationsCard'
 import { PrintFontCard } from './PrintFontCard'
 import { SubscriptionCard } from './SubscriptionCard'
+import { ProfileSettingsCard } from '../profile/ProfileSettingsCard'
 import { MascotSettingsCard } from './MascotSettingsCard'
 import { WhatsAppSettingsCard } from './WhatsAppSettingsCard'
 import { AssistantKeyCard } from './AssistantKeyCard'
@@ -747,10 +748,13 @@ export function SettingsPage() {
       )}
 
       {/* باقتك الحالية (مهمة 19 — 0058): عرض قراءة فقط، مالك فقط؛
-          تُخفى البطاقة نفسها حتى تُطبَّق 0058 عند بوابة التجميد */}
+          تُخفى البطاقة نفسها حتى تُطبَّق 0058 عند بوابة التجميد.
+          وبطاقة الصفحة الشخصية (0074 — 3A-929) في نفس القسم: فيتشر
+          خطة برو ظاهرة للمالك دائماً وبشارة القفل لغير المستحق */}
       {isOwnerWorkspace && (
         <SettingsSection {...sectionProps('plan')} bare>
           <SubscriptionCard />
+          <ProfileSettingsCard />
         </SettingsSection>
       )}
 

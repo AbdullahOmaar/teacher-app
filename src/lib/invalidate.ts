@@ -58,6 +58,8 @@ export const INVALIDATION_SETS = {
   paymentProofs: ['payment-proofs', 'invoices', 'home', 'sg', 'money', 'analytics', 'atrisk'],
   /** البوابة: توكناتها وقوائمها وحدها. */
   portal: ['portal'],
+  /** الصفحة الشخصية (0074): إدارة المدرّس وأسطحها وحدها. */
+  profile: ['profile'],
   /** الجدول يغذي الرئيسية والحضور (الحصص مصدر قوائم الحضور اليومية). */
   schedule: ['schedule', 'home', 'attendance'],
   /** حفظ الإعدادات: نسبة السنتر تدخل view الربح وقالب الواتساب وتنبيهات

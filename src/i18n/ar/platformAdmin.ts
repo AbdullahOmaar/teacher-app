@@ -89,6 +89,7 @@ export const platformAdmin = {
   featureAiAssistant: 'مساعد الذكاء',
   featureTeamAccounts: 'حسابات الفريق',
   featureOnlinePayments: 'الدفع الأونلاين',
+  featurePersonalPage: 'الصفحة الشخصية العامة',
   featureVerificationRequired: 'التأكيد الإلزامي',
   featureVerificationChannelEmail: 'قناة تأكيد: إيميل',
   featureVerificationChannelWhatsapp: 'قناة تأكيد: واتساب',

@@ -51,6 +51,7 @@ import {
   type PortalSessionInfo,
 } from './accounts'
 import { ClaimPasswordCard, PortalLoginForm, SessionAccountCard } from './accessUi'
+import { TeacherRatingCard } from '../profile/TeacherRatingCard'
 import {
   PORTAL,
   useMarkPortalNotificationsRead,
@@ -830,6 +831,12 @@ export function PortalPage() {
           )}
         </>
       )}
+
+      {/* تقييم المدرّس (0074 — 3A-929): بطاقة اختيارية تتدهور بصمت —
+          تظهر فقط لوليّ طالب مسجّل فعلياً عند هذا المدرّس */}
+      <div className="mt-5">
+        <TeacherRatingCard mode="guardian" rawToken={rawToken} studentId={studentId} />
+      </div>
 
       {/* بطاقة الحساب (3A-385 + 0056): الواصل برابط يعيّن كلمة سر
           للدخول الجاي — والـ claim يستهلك الرابط ويبدّل الاعتماد لجلسة

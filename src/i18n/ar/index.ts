@@ -29,6 +29,7 @@ import { support } from './support'
 import { errorLog } from './errorLog'
 import { format } from './format'
 import { mascot } from './mascot'
+import { profile } from './profile'
 import { whatsNew } from './whatsNew'
 
 /**
@@ -68,5 +69,6 @@ export const ar = {
   errorLog,
   format,
   mascot,
+  profile,
   whatsNew,
 } as const

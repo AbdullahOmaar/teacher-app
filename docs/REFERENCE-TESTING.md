@@ -787,6 +787,27 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 - **السيناريو:** «false الصريحة وحدها تُخفي — أي قيمة أخرى = ظاهر» — **الخطوات:** قيم مختلطة — **المتوقع:** الإخفاء عند false فقط.
 - **السيناريو:** «قيم غير كائن تُهمل بأمان» — **الخطوات:** مدخل غير كائن — **المتوقع:** إهمال آمن بلا كسر.
 
+**الملف:** `src/features/profile/api.test.ts` — الحالة: أوتوماتيك (18 حالة) — 3A-929 (0074)
+
+- **السيناريو:** «سلاج سليم يُقبل» (isValidProfileSlug) — **الخطوات:** صيغ صحيحة متنوعة — **المتوقع:** قبول.
+- **السيناريو:** «سلاج قصير/طويل يُرفض» — **الخطوات:** حرفان و41 حرفاً — **المتوقع:** رفض عند حدّي 3..40.
+- **السيناريو:** «شرطات معلّقة/مضاعفة وكبائر ومسافات تُرفض» — **الخطوات:** صيغ فاسدة — **المتوقع:** رفض.
+- **السيناريو:** «التطبيع يحوّل المسافات/السفليات لشرطات ويصغّر» (normalizeProfileSlug) — **الخطوات:** نص خام مختلط — **المتوقع:** سلاج منظّف.
+- **السيناريو:** «التطبيع يحذف أي حرف خارج النمط» — **الخطوات:** نقاط وعلامات وحروف عربية — **المتوقع:** حذف كامل لها.
+- **السيناريو:** «رابط الصفحة يُبنى /t/<slug>» (buildPublicProfileUrl) — **الخطوات:** أصل + سلاج — **المتوقع:** المسار الكامل.
+- **السيناريو:** «روابط http/https بنطاق حقيقي تُقبل» (isValidExternalUrl) — **الخطوات:** روابط خارجية متنوعة — **المتوقع:** قبول.
+- **السيناريو:** «مخططات أخرى ونطاق بلا نقطة ومسافات تُرفض» — **الخطوات:** ftp وjavascript ونطاق محلي — **المتوقع:** رفض.
+- **السيناريو:** «حدّا الطول 1000 للمحتوى و500 للغلاف» (isValidCoverUrl) — **الخطوات:** رابط أطول من الحدّين — **المتوقع:** رفض، والقصر الصالح يُقبل.
+- **السيناريو:** «المقال يحتاج نصاً» (validateContentInput) — **الخطوات:** مقال بلا نص ثم بنص — **المتوقع:** خطأ ثم قبول.
+- **السيناريو:** «غير المقال يحتاج رابطاً خارجياً صالحاً» — **الخطوات:** كتاب بلا رابط وكورس برابط فاسد وقائمة برابط صالح — **المتوقع:** رفضان ثم قبول.
+- **السيناريو:** «العنوان الفارغ مرفوض أولاً» — **الخطوات:** عنوان فراغات — **المتوقع:** خطأ العنوان قبل أي فحص آخر.
+- **السيناريو:** «الحمولة العامة السليمة تُرسم والعناصر الناقصة تُسقَط» (parsePublicProfile) — **الخطوات:** حمولة كاملة بمنشور/كتاب ناقصين — **المتوقع:** رسم الباقي وإسقاط الناقص.
+- **السيناريو:** «لا حقل خاص يمر ولو لوّثت الحمولة» — **الخطوات:** حمولة ملوثة بهاتف وبريد ومعرّف مدرّس وملاحظة داخلية — **المتوقع:** غيابها كلها من الناتج المسرَّب نصياً.
+- **السيناريو:** «found=false أو تشوّه جوهري = غير موجود» — **الخطوات:** أشكال فاسدة متنوعة — **المتوقع:** {found:false} دائماً بلا رمي.
+- **السيناريو:** «نوع مراجع مجهول يُقرأ كطالب ولا يرمي» — **الخطوات:** reviewer_kind غريب — **المتوقع:** student.
+- **السيناريو:** «تقييمي الحالي يُرسم» (parseMyRating) — **الخطوات:** نجوم + تعليق/غيابه — **المتوقع:** الكائن كما هو.
+- **السيناريو:** «غياب/تشوّه تقييمي = null» — **الخطوات:** null وكائن فارغ ونجوم نصية — **المتوقع:** null.
+
 ### 6.10 الإعدادات (settings)
 
 **الملف:** `src/features/settings/apiBackup.test.ts` — الحالة: أوتوماتيك (12 حالة)
@@ -1182,6 +1203,7 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 - **القسم: PLANS + SUBSCRIPTIONS (0058)** — الفحوص: «owner reads his own subscription via my_subscription» · «owner reads his plan limits via plan_limits» · «another teacher cannot read this subscription» · «anon cannot call my_subscription (no grant)» · «another teacher reads no subscription rows» · «a teacher cannot read the plans table directly» · «owner cannot change his own plan (no client UPDATE)» · «another teacher cannot read this plan limits».
 - **القسم: ACCOUNT OVERRIDES (0059)** — الفحوص: «a teacher reads NO override rows directly» · «admin reads the overrides table (empty)» · «a teacher cannot set an override» · «admin sets a limit override» · «override wins over the plan in effective_entitlements» · «another teacher cannot read these entitlements» · «feature override with a non-boolean value is rejected» · «rejected override left no feature row» · «admin revokes the override» · «after revoke the plan limit returns (trial 50)» · «set + revoke both left audit rows» · «0059 fixtures cleaned».
 - **القسم: PLATFORM PANEL (0061)** — الفحوص: «a teacher cannot list platform workspaces» · «a teacher cannot read platform indicators» · «a teacher cannot flip account activation» · «anon cannot list platform workspaces» · «admin lists workspaces incl. the demo teacher» · «admin reads indicators; revenue stays null (no prices)» · «admin flips the demo activation flag» · «the flip landed in teachers.account_activated» · «the flip wrote a platform audit row» · «assigning an unknown plan is rejected» · «0061 fixtures cleaned + demo state restored».
+- **القسم: TEACHER PERSONAL PAGE (0074 — 3A-929)** — الفحوص: «0074: anon reads no teacher_profiles rows» · «0074: anon reads no teacher_profile_ratings rows» · «0074: teacher_has_personal_page is not client-callable» · «0074: public+entitled profile is found» · «0074: payload carries published items only» · «0074: payload leaks no private fields» · «0074: hidden profile reads as not found» · «0074: unknown slug reads as not found» · «0074: unentitled profile reads as not found» · «0074: booking page opens by profile slug» · «0074: booking by a hidden slug is refused» · «0074: rating with a bogus token is refused» · «0074: stars outside 1..5 are refused» · «0074: enrolled guardian submits a rating» · «0074: re-submitting updates the same rating row» · «0074: guardian reads back his own rating» · «0074: enrolled student submits his own rating» · «0074: a foreign student cannot be rated through this guardian link» · «0074: a non-owner cannot hide a rating» · «0074: the owner hides a rating» · «0074: a hidden rating leaves the public payload» · «0074: the teacher cannot delete a rating» · «0074: the teacher cannot edit a rating's text» · «0074 fixtures cleaned» — **المتوقع:** الظهور = (مفعّل + مستحق برو) معاً، والحمولة بلا أي حقل خاص، والتقييم من رابط حقيقي لمسجّل فعلي فقط بلا تكرار، والإشراف إخفاء فقط. يتخطى نفسه حتى تُطبَّق 0074 عند بوابة التجميد.
 - **القسم: SEC-L3 (فرض نوع/حجم إثبات الدفع خادمياً)** — الفحوص: «SEC-L3 wrong mime type rejected server-side» · «SEC-L3 oversize rejected server-side» · «SEC-L3 valid tiny png upload succeeds (control)» · «SEC-L3 fixtures cleaned».
 - **فحص الختام العام:** «baseline restored after cleanup» — **الخطوات:** مقارنة عدّادات خط الأساس قبل المجموعة وبعد تنظيفها — **المتوقع:** تطابق تام (المجموعة لا تترك أثراً في الديمو).
 
@@ -1287,16 +1309,16 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 | وحدات المال (§6.6) | 4 | 50 | أوتوماتيك — CI |
 | وحدات رئيسية/تحليلات/معرّضون/إشعارات (§6.7) | 4 | 51 | أوتوماتيك — CI |
 | وحدات المساعد (§6.8) | 1 | 16 | أوتوماتيك — CI |
-| وحدات البوابات (§6.9) | 2 | 36 | أوتوماتيك — CI |
+| وحدات البوابات (§6.9) | 3 | 54 | أوتوماتيك — CI |
 | وحدات الإعدادات (§6.10) | 4 | 31 | أوتوماتيك — CI |
 | وحدات أدمن المنصة (§6.11) | 5 | 51 | أوتوماتيك — CI |
 | وحدات lib + i18n (§6.12) | 13 | 110 مسمّاة + 33 صف it.each = 143 تشغيلاً | أوتوماتيك — CI |
 | وحدات نظام «جديد» (§6.24) | 2 | 10 | أوتوماتيك — CI |
-| **مجموع الوحدات** | **60 ملفاً** | **578 مسمّاة / 611 تشغيلاً** | |
+| **مجموع الوحدات** | **61 ملفاً** | **596 مسمّاة / 629 تشغيلاً** | |
 | عقود الدوال الحدّية (§6.13) | 1 | 30 سيناريو (~85 فحصاً) | أوتوماتيك — CI |
 | حدود المعدّل (§6.14) | 1 | 12 فحصاً | أوتوماتيك — CI |
 | حقن الأعطال (§6.15) | 1 | 9 سيناريوهات | أوتوماتيك — CI |
-| التفويض الحي authz (§6.16) | 1 | 21 قسماً + فحص ختام (آخر عدّ موثّق 127/127 على المهاجرات المطبّقة؛ أقسام 0055–0061 تنضم عند تطبيقها، وقسم 0073 ينضم عند تطبيقه) | أوتوماتيك — تشغيل محلي solo |
+| التفويض الحي authz (§6.16) | 1 | 22 قسماً + فحص ختام (آخر عدّ موثّق 127/127 على المهاجرات المطبّقة؛ أقسام 0055–0061 تنضم عند تطبيقها، وقسم 0073 ينضم عند تطبيقه، وقسم 0074 «TEACHER PERSONAL PAGE» — 24 فحصاً — ينضم عند تطبيق 0074 عند بوابة التجميد) | أوتوماتيك — تشغيل محلي solo |
 | حذف الحساب الحي (§6.17) | 1 | 14 فحصاً (منها حلقة الجداول) | أوتوماتيك — تشغيل محلي |
 | اعتراض البريد (§6.18) | 1 | 6 فحوص | أوتوماتيك — CI |
 | E2E دخاني (§6.19) | 1 | 8 تدفقات | أوتوماتيك — CI حاجب |
