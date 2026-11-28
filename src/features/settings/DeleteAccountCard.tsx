@@ -1,9 +1,12 @@
 /**
- * بطاقة حذف الحساب (فجوة 32 من تقييم الـ45 — مهمة Phase 2 رقم 3).
+ * بطاقة حذف الحساب (فجوة 32 من تقييم الـ45 — مهمة Phase 2 رقم 3؛
+ * تأكيد مكتوب + حذف ناعم منذ مهاجرة 0075 — F1 من اختبار سند).
  *
  * مالك فقط، ومخفية عن الحساب التجريبي العام (الحارس الحقيقي في دالة
- * الحذف نفسها، هجرة 0046). خطوتان: زر مسلّح ← كلمة سر + تأكيد ثانٍ.
- * بعد النجاح: توست تأكيد + انتقال لصفحة الدخول (الجلسة ميتة أصلاً).
+ * الحذف نفسها، هجرة 0075). ثلاث خطوات: زر مسلّح ← كتابة بريد الحساب
+ * كاملاً للتأكيد ← كلمة السر (إعادة مصادقة). الخادم يطابق حجة التأكيد
+ * نفسه، فتخطي الواجهة لا يحذف شيئاً. بعد النجاح: توست تأكيد + انتقال
+ * لصفحة الدخول (الجلسة مقطوعة خادمياً أصلاً).
  */
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -12,25 +15,33 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Field, FormError, TextInput } from '../../components/ui/form'
 import { useToast } from '../../components/ui/toast'
+import { useAuth } from '../../lib/useAuth'
 import { t } from '../../i18n'
 import { deleteMyAccount } from './deleteAccount'
 
 export function DeleteAccountCard() {
   const navigate = useNavigate()
   const toast = useToast()
+  const { user } = useAuth()
+  const accountEmail = user?.email ?? ''
   const [armed, setArmed] = useState(false)
+  const [confirmation, setConfirmation] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
 
+  const confirmationMatches =
+    accountEmail !== '' &&
+    confirmation.trim().toLowerCase() === accountEmail.trim().toLowerCase()
+
   const handleDelete = async (e: FormEvent) => {
     e.preventDefault()
-    if (busy || !password) return
+    if (busy || !password || !confirmationMatches) return
     setBusy(true)
     setError(null)
     try {
-      await deleteMyAccount(password)
+      await deleteMyAccount(password, confirmation)
       setDone(true)
       toast(t('settings.deleteAccountDone'))
       navigate('/login', { replace: true })
@@ -59,6 +70,17 @@ export function DeleteAccountCard() {
 
       {armed ? (
         <form onSubmit={handleDelete}>
+          <Field label={t('settings.deleteAccountConfirmEmailLabel')}>
+            <TextInput
+              type="email"
+              autoComplete="off"
+              dir="ltr"
+              placeholder={t('settings.deleteAccountConfirmEmailPlaceholder')}
+              value={confirmation}
+              onChange={(e) => setConfirmation(e.target.value)}
+              disabled={busy}
+            />
+          </Field>
           <Field label={t('settings.deleteAccountPasswordLabel')}>
             <TextInput
               type="password"
@@ -79,7 +101,7 @@ export function DeleteAccountCard() {
               type="submit"
               variant="danger"
               className="flex-1"
-              disabled={busy || !password}
+              disabled={busy || !password || !confirmationMatches}
             >
               {busy ? t('settings.deleteAccountDeleting') : t('settings.deleteAccountConfirm')}
             </Button>
@@ -90,6 +112,7 @@ export function DeleteAccountCard() {
               disabled={busy}
               onClick={() => {
                 setArmed(false)
+                setConfirmation('')
                 setPassword('')
                 setError(null)
               }}

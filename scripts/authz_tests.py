@@ -3434,6 +3434,98 @@ def main():
                       and int(left[0]["pa"]) == 0
                       and int(left[0]["au"]) == 0, f"got {left}")
 
+        # ---------- SOFT ACCOUNT DELETE (0075 — F1 من اختبار سند) ----------
+        # ⚠️ المهاجرة 0075 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود عمود
+        # teachers.deleted_at أولاً: إن غاب يطبع تخطياً موثقاً (لا فشل —
+        # الغياب هو الحالة المتوقعة حتى البوابة)، وبعد التطبيق يشتغل
+        # كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: حذف الحساب صار ناعماً وبحجة تأكيد خادمية — بلا تأكيد
+        # مطابق لبريد الحساب يُرفض النداء قبل أي تغيير، وبالتأكيد
+        # الصحيح يُعلَّم الحساب محذوفاً (البيانات تبقى)، تُقطع جلساته،
+        # ويُحظر دخوله من جديد، ونداء ثانٍ يُرفض بـ already deleted.
+        print("SOFT ACCOUNT DELETE (0075):")
+        del_probe = sql(ref, "select 1 as x from information_schema.columns "
+                             "where table_schema = 'public' "
+                             "and table_name = 'teachers' "
+                             "and column_name = 'deleted_at'")
+        if not del_probe:
+            print("  SKIP 0075 live section — migration 0075 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate)")
+        else:
+            pw_del = secrets.token_urlsafe(18)
+            del_uid = create_user_sql(
+                ref, "authz-softdel@teacher-app.test", pw_del)
+            try:
+                sql(ref, "insert into teachers (id, owner_user_id, "
+                         "display_name) values "
+                         f"('{del_uid}', '{del_uid}', 'authz softdel fixture')")
+                del_jwt, _ = sign_in(
+                    url, anon, "authz-softdel@teacher-app.test", pw_del)
+                # (1) بلا حجة تأكيد أصلاً → رفض (لا مسار حذف بلا تأكيد).
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/delete_my_teacher_account",
+                            jwt=del_jwt, body={})
+                check("0075 delete without confirmation is rejected",
+                      s in (400, 404) and ("confirmation" in str(b)
+                                           or "p_confirmation" in str(b)),
+                      f"got {s} {str(b)[:140]}")
+                # (2) تأكيد خاطئ → 'confirmation mismatch' ولا شيء يتغير.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/delete_my_teacher_account",
+                            jwt=del_jwt,
+                            body={"p_confirmation": "wrong@example.com"})
+                check("0075 wrong confirmation is rejected",
+                      s == 400 and "confirmation mismatch" in str(b),
+                      f"got {s} {str(b)[:140]}")
+                row = sql(ref, "select deleted_at from teachers "
+                               f"where id = '{del_uid}'")
+                check("0075 rejected calls leave the account untouched",
+                      row and row[0]["deleted_at"] is None,
+                      f"got {row}")
+                # (3) التأكيد الصحيح (بريد الحساب نفسه) → حذف ناعم.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/delete_my_teacher_account",
+                            jwt=del_jwt,
+                            body={"p_confirmation":
+                                  "authz-softdel@teacher-app.test"})
+                check("0075 confirmed delete soft-deletes",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("soft_deleted") is True,
+                      f"got {s} {str(b)[:140]}")
+                row = sql(ref, "select deleted_at from teachers "
+                               f"where id = '{del_uid}'")
+                check("0075 teacher row is retained with deleted_at set",
+                      row and row[0]["deleted_at"] is not None,
+                      f"got {row}")
+                # (4) الدخول من جديد مرفوض (banned_until من المهاجرة).
+                s, b = rest(url, anon, "POST",
+                            "/auth/v1/token?grant_type=password",
+                            body={"email": "authz-softdel@teacher-app.test",
+                                  "password": pw_del})
+                check("0075 soft-deleted account cannot sign in again",
+                      s != 200 and "access_token" not in str(b),
+                      f"got {s} {str(b)[:140]}")
+                # (5) نداء ثانٍ بنفس التوكن → 'account already deleted'.
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/delete_my_teacher_account",
+                            jwt=del_jwt,
+                            body={"p_confirmation":
+                                  "authz-softdel@teacher-app.test"})
+                check("0075 second delete is rejected as already deleted",
+                      s == 400 and "account already deleted" in str(b),
+                      f"got {s} {str(b)[:140]}")
+            finally:
+                sql(ref, "delete from teachers "
+                         f"where owner_user_id = '{del_uid}'")
+                sql(ref, f"delete from auth.users where id = '{del_uid}'")
+                left = sql(ref, "select count(*) as c from teachers "
+                                f"where owner_user_id = '{del_uid}'")
+                check("0075 fixtures cleaned",
+                      left and int(left[0]["c"]) == 0, f"got {left}")
+
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق
         # سياسة الرفع؛ هذه الفحوص تثبت الفرض حياً: نوع خاطئ وحجم زائد
