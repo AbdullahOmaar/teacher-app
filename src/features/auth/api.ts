@@ -394,6 +394,80 @@ export async function updatePassword(newPassword: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// استرداد كلمة السر برمز واتساب — قناة المنصة (3A-927)
+// لا مسار استرداد هاتفياً أصلياً في Supabase Auth (الاسترداد إيميل
+// فقط)، فالدورة تديرها دالة send-whatsapp-recovery: كود من رقم
+// المنصة (قرار المدير: المقفول بره قد لا تملك قناة مدرّسه عملاً)،
+// يُخزَّن مجزّأً خادمياً، وبالتحقق منه تُعيَّن كلمة السر عبر Admin
+// API في نفس الطلب — لا جلسة وسيطة. السطح خلف علم العميل
+// VITE_WHATSAPP_RECOVERY_ENABLED والدالة خلف Kill switch خادمي؛
+// التفعيل إعدادات وأسرار فقط (docs/WHATSAPP-RECOVERY.md).
+// ---------------------------------------------------------------------------
+
+/** شكل خطأ دالة Edge كما يصل من functions.invoke (context = الرد الخام) */
+interface FunctionInvokeError {
+  message?: string
+  context?: Response
+}
+
+/** استدعاء دالة الاسترداد وترجمة حالتها لرسالة عربية مصممة */
+async function invokeWhatsappRecovery(
+  body: Record<string, unknown>,
+  statusMessages: Record<number, string>,
+  fallbackMessage: string,
+): Promise<void> {
+  const { error } = await db().functions.invoke('send-whatsapp-recovery', { body })
+  if (!error) return
+  const invokeErr = error as FunctionInvokeError
+  let status = 0
+  if (invokeErr.context) {
+    status = invokeErr.context.status
+    // استهلاك جسم الرد يمنع تسريب اتصال معلّق في بعض المتصفحات
+    await invokeErr.context.text().catch(() => '')
+  }
+  throw new Error(statusMessages[status] ?? fallbackMessage)
+}
+
+/**
+ * طلب كود استرداد واتساب للرقم (E.164). رد الدالة محايد: النجاح هنا
+ * لا يؤكد أن الرقم مربوط بحساب (منع التعداد خادمي) — الواجهة تعرض
+ * إشعاراً مشروطاً دائماً وتنتقل لإدخال الكود في كل الأحوال.
+ */
+export async function requestWhatsappRecoveryCode(phoneE164: string): Promise<void> {
+  await invokeWhatsappRecovery(
+    { action: 'request', phone: phoneE164 },
+    {
+      400: t('auth.errInvalidPhone'),
+      429: t('auth.errWaRecoveryRate'),
+      503: t('auth.errWaRecoveryOff'),
+    },
+    t('auth.errWaRecoverySendFailed'),
+  )
+}
+
+/**
+ * تأكيد كود الاسترداد + تعيين كلمة السر الجديدة في طلب واحد:
+ * الدالة تتحقق من الكود (مجزّأ، بصلاحية وسقف محاولات) ثم تعيّن
+ * السر عبر Admin API وتستهلك الكود. كل فشل تحقق يصل برسالة واحدة
+ * عامة مصممة — لا تفصيل يفرّق بين كود خاطئ ومنتهٍ.
+ */
+export async function verifyWhatsappRecoveryCode(
+  phoneE164: string,
+  code: string,
+  newPassword: string,
+): Promise<void> {
+  await invokeWhatsappRecovery(
+    { action: 'verify', phone: phoneE164, code: code.trim(), new_password: newPassword },
+    {
+      400: t('auth.errWaRecoveryInvalid'),
+      429: t('auth.errWaRecoveryRate'),
+      503: t('auth.errWaRecoveryOff'),
+    },
+    t('auth.errWaRecoveryFailed'),
+  )
+}
+
+// ---------------------------------------------------------------------------
 // الحساب التجريبي — حساب مدرس مشترك هدفه تجربة التطبيق فوراً بدون تسجيل.
 // بياناته معلنة عمداً (زرار ثابت في صفحة الدخول)، وبياناته معزولة بـ RLS
 // عن أي مدرس حقيقي. لا تُدخل فيه بيانات حقيقية أبداً.

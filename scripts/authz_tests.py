@@ -3983,6 +3983,75 @@ def main():
                       left74 and int(left74[0]["pf"]) == 0
                       and int(left74[0]["rt"]) == 0
                       and int(left74[0]["ov"]) == 0, f"got {left74}")
+        # ---------- WHATSAPP RECOVERY CODES (0076 — 3A-927 استرداد واتساب) ----------
+        # ⚠️ المهاجرة 0076 مكتوبة في الـPR لكنها **غير مطبّقة على الإنتاج**
+        # بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند بوابة
+        # تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن غاب يطبع
+        # تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى البوابة)،
+        # وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: جدول الأكواد سجلّ أمني خادمي صرف — RLS بلا أي سياسة،
+        # فلا قراءة ولا كتابة لأي دور عميل، ودالتا البحث/العدّاد
+        # الداخليتان service_role فقط (بوابة التنفيذ هي الحارس).
+        print("WHATSAPP RECOVERY (0076):")
+        wr_probe = sql(ref, "select to_regclass('public.whatsapp_recovery_codes') as t")
+        if not wr_probe or not wr_probe[0].get("t"):
+            print("  SKIP 0076 live section — migration 0076 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/WHATSAPP-RECOVERY.md)")
+        else:
+            wr_phone = "+201199999999"
+            try:
+                sql(ref, "insert into whatsapp_recovery_codes "
+                         "(phone, code_hash, expires_at) values "
+                         f"('{wr_phone}', '{'c' * 64}', now() + interval '10 minutes')")
+                # القراءة: الصف المزروع لا يتسرب لأي دور عميل
+                s, b = rest(url, anon, "GET",
+                            f"/rest/v1/whatsapp_recovery_codes?phone=eq.{wr_phone}")
+                check("anon reads no recovery codes",
+                      (s == 200 and b == []) or s >= 400,
+                      f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "GET",
+                            f"/rest/v1/whatsapp_recovery_codes?phone=eq.{wr_phone}",
+                            jwt=demo_jwt)
+                check("a teacher reads no recovery codes",
+                      (s == 200 and b == []) or s >= 400,
+                      f"got {s} {str(b)[:80]}")
+                # الكتابة: مرفوضة من المجهول والمدرّس معاً
+                wr_body = {"phone": wr_phone, "code_hash": "d" * 64,
+                           "expires_at": "2030-01-01T00:00:00Z"}
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/whatsapp_recovery_codes", body=wr_body)
+                check("anon cannot insert a recovery code",
+                      s >= 400, f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/whatsapp_recovery_codes",
+                            jwt=demo_jwt, body=wr_body)
+                check("a teacher cannot insert a recovery code",
+                      s >= 400, f"got {s} {str(b)[:80]}")
+                # الدالتان الداخليتان: التنفيذ service_role فقط
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/find_auth_user_id_by_phone_internal",
+                            body={"p_phone": wr_phone})
+                check("anon cannot execute the phone lookup rpc",
+                      s in (401, 403, 404), f"got {s}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/find_auth_user_id_by_phone_internal",
+                            jwt=demo_jwt, body={"p_phone": wr_phone})
+                check("a teacher cannot execute the phone lookup rpc",
+                      s in (401, 403, 404), f"got {s}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/increment_recovery_attempts_internal",
+                            jwt=demo_jwt,
+                            body={"p_code_id": str(uuid.uuid4())})
+                check("a teacher cannot execute the attempts rpc",
+                      s in (401, 403, 404), f"got {s}")
+            finally:
+                sql(ref, "delete from whatsapp_recovery_codes "
+                         f"where phone = '{wr_phone}'")
+                left = sql(ref, "select count(*) as c from whatsapp_recovery_codes "
+                                f"where phone = '{wr_phone}'")
+                check("0076 fixtures cleaned",
+                      left and int(left[0]["c"]) == 0, f"got {left}")
 
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق

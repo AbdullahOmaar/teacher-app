@@ -10,6 +10,8 @@ import doffyIcon from '../../assets/mascot/icon.webp'
 import { Check, Loader2, Send } from 'lucide-react'
 import { confirmRecoveryWithCode, requestPasswordReset, updatePassword, validateEmailField } from './api'
 import { CodeEntry } from './CodeEntry'
+import { WhatsappRecovery } from './WhatsappRecovery'
+import { WHATSAPP_RECOVERY_ENABLED } from '../../lib/phone'
 import { t } from '../../i18n'
 
 /**
@@ -30,6 +32,9 @@ export function ResetPasswordPage() {
   const carriedEmail = (location.state as { email?: string } | null)?.email ?? ''
   const [emailInput, setEmailInput] = useState(carriedEmail)
   const [codeRequested, setCodeRequested] = useState(Boolean(carriedEmail))
+  // قناة الاسترداد (3A-927): الإيميل افتراضياً دائماً؛ خيار واتساب
+  // (قناة المنصة) لا يظهر إلا بعلم البناء VITE_WHATSAPP_RECOVERY_ENABLED
+  const [channel, setChannel] = useState<'email' | 'whatsapp'>('email')
   // هبوط من رابط قديم منتهٍ/مستخدم: مقطع الرابط يحمل خطأً صريحاً
   const [linkError] = useState(
     () => typeof window !== 'undefined' && window.location.hash.includes('error'),
@@ -153,6 +158,17 @@ export function ResetPasswordPage() {
                 onBack={() => setCodeRequested(false)}
                 backLabel={t('auth.changeEmail')}
               />
+            ) : WHATSAPP_RECOVERY_ENABLED && channel === 'whatsapp' ? (
+              <>
+                <WhatsappRecovery />
+                <button
+                  type="button"
+                  onClick={() => setChannel('email')}
+                  className="block w-full text-center bg-transparent border-0 cursor-pointer text-primary font-bold text-[14px] mt-3"
+                >
+                  {t('auth.waRecoveryBackToEmail')}
+                </button>
+              </>
             ) : (
               <form noValidate onSubmit={handleRequestCode}>
                 {linkError && (
@@ -181,6 +197,15 @@ export function ResetPasswordPage() {
                   {busy ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                   {busy ? t('auth.sending') : t('auth.sendResetCode')}
                 </Button>
+                {WHATSAPP_RECOVERY_ENABLED && (
+                  <button
+                    type="button"
+                    onClick={() => setChannel('whatsapp')}
+                    className="block w-full text-center bg-transparent border-0 cursor-pointer text-primary font-bold text-[14px] mt-3"
+                  >
+                    {t('auth.waRecoveryUseWhatsapp')}
+                  </button>
+                )}
                 <Link to="/login" className="block text-center text-primary font-bold text-[14px] mt-3">
                   {t('auth.backToSignIn')}
                 </Link>

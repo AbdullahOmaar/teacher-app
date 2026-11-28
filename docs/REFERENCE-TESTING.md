@@ -96,7 +96,7 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
   12: ‏271,749) — حاجب لأنه حتمي. الكتالوج §6.20.
 - **اختبارات العقود** (`test:contracts`): أكواد حالة + مغلف
   الخطأ الموحّد `{error:{http_code,message}}` + أشكال نجاح
-  الدوال الحدّية الخمس على `core.ts` الإنتاجي نفسه باعتماديات
+  الدوال الحدّية الست على `core.ts` الإنتاجي نفسه باعتماديات
   وهمية (بلا أسرار ولا شبكة). الكتالوج §6.13.
 - **حدود المعدّل** (`test:ratelimits`): حدّ الإرسال التجريبي
   سلوكياً + حرّاس المهاجرات كأدلة ثابتة (قفل بوابة الدخول
@@ -109,8 +109,9 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 ## 4) مجموعة التفويض الحية (authz) — حالتها الصادقة
 
 `scripts/authz_tests.py`: أقسام حية ضد قاعدة Supabase الفعلية
-(آخر عدّ كامل موثّق: 127/127 + أقسام مهاجرات 0055–0061 تتخطى
-نفسها حتى تُطبَّق مهاجراتها عند بوابة التجميد فتنضم تلقائياً).
+(آخر عدّ كامل موثّق: 127/127 + أقسام مهاجرات 0055–0061 وقسم
+0076 (3A-927) تتخطى نفسها حتى تُطبَّق مهاجراتها عند بوابة
+التجميد فتنضم تلقائياً).
 حالاتها كاملة في الكتالوج §6.16 (قسمًا قسمًا بأسماء فحوصها).
 
 - **في CI: تتخطى نفسها بنعومة** — تحتاج `.env.local` + بيانات
@@ -345,7 +346,7 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 
 ### 6.2 المصادقة والدخول (auth)
 
-**الملف:** `src/features/auth/api.test.ts` — الحالة: أوتوماتيك (36 حالة)
+**الملف:** `src/features/auth/api.test.ts` — الحالة: أوتوماتيك (43 حالة)
 
 - **السيناريو:** «كود 42883 (دالة غير موجودة) غياب» (isMissingRpcFunction) — **الخطوات:** استدعاء بخطأ كوده 42883 — **المتوقع:** true (الدالة غائبة).
 - **السيناريو:** «PGRST202 غياب أيضاً» — **الخطوات:** خطأ PGRST202 — **المتوقع:** true.
@@ -384,6 +385,13 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 - **السيناريو:** «name وحده يُستخدم عند غياب الاثنين، وقيم غير نصية تُتجاهل» — **الخطوات:** name فقط ورقم غير نصي — **المتوقع:** الاسم من name والهاتف فارغ.
 - **السيناريو:** «رقم الحساب نفسه (هاتف) يعبّأ عند غياب رقم البيانات، وبلا مستخدم = فراغ» — **الخطوات:** phone على الحساب + null/undefined — **المتوقع:** رقم الحساب، وفراغ بلا مستخدم.
 
+- **السيناريو:** «طلب الكود: يستدعي الدالة بجسم {action: request, phone} ويمر عند النجاح» — **الخطوات:** invoke وهمي ناجح — **المتوقع:** اسم الدالة والجسم حرفياً.
+- **السيناريو:** «طلب الكود: 503 = رسالة القناة غير المفعّلة المصممة» — **الخطوات:** خطأ invoke بحالة 503 — **المتوقع:** `errWaRecoveryOff`.
+- **السيناريو:** «طلب الكود: 429 = رسالة حد المعدل، و400 = رسالة الرقم غير الصحيح» — **الخطوات:** حالتان متتاليتان — **المتوقع:** رسالة القاموس لكل حالة.
+- **السيناريو:** «طلب الكود: فشل بلا حالة معروفة = رسالة فشل الإرسال العامة» — **الخطوات:** خطأ بلا context — **المتوقع:** `errWaRecoverySendFailed`.
+- **السيناريو:** «التحقق: يرسل الكود مقصوصاً وكلمة السر في جسم واحد» — **الخطوات:** كود بمسافات طرفية — **المتوقع:** الجسم `{action: verify, phone, code, new_password}` بالكود مقصوصاً.
+- **السيناريو:** «التحقق: 400 = رسالة الكود العامة الواحدة» — **الخطوات:** حالة 400 — **المتوقع:** `errWaRecoveryInvalid` بلا تفصيل فارّق.
+- **السيناريو:** «التحقق: 503 = رسالة القناة، وغيرها = رسالة فشل الإتمام» — **الخطوات:** 503 ثم 502 — **المتوقع:** `errWaRecoveryOff` ثم `errWaRecoveryFailed`.
 **الملف:** `src/features/auth/LoginPage.test.tsx` — حالات الدخول بجوجل (3A-931): 6 حالات جديدة (الملف 15 حالة إجمالاً)
 
 - **السيناريو:** «الزر ظاهر في وضع الدخول وضغطته تستدعي OAuth مرة واحدة» — **الخطوات:** رندر وضغط «الدخول بجوجل» — **المتوقع:** signInWithGoogle مرة واحدة.
@@ -392,6 +400,20 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 - **السيناريو:** «فشل بدء التحويل: رسالة مصممة في التنبيه والزر يعود متاحاً» — **الخطوات:** رفض بمزود غير مفعّل — **المتوقع:** التنبيه بالرسالة المصممة والزر غير معطّل.
 - **السيناريو:** «رجوع بإلغاء عند جوجل: رسالة الإلغاء المصممة تظهر والرابط يتنظّف» — **الخطوات:** رابط رجوع ?error=access_denied بوصف خام — **المتوقع:** رسالة الإلغاء بلا الخام ومعاملات الرابط ممسوحة.
 - **السيناريو:** «رجوع نظيف بلا معاملات خطأ: لا تنبيه يظهر» — **الخطوات:** رندر عادي — **المتوقع:** لا alert.
+
+**استرداد واتساب — عقد العميل (3A-927، داخل `api.test.ts`):**
+
+
+**الملف:** `src/features/auth/WhatsappRecovery.test.tsx` — الحالة: أوتوماتيك (8 حالات)
+
+- **السيناريو:** «رقم غير صالح: رسالة الصيغة محلياً وبلا أي نداء» — **الخطوات:** إرسال «12345» — **المتوقع:** تنبيه الصيغة والدالة لا تُستدعى.
+- **السيناريو:** «رقم سليم: يُطبَّع E.164 ويُطلب الكود ثم تظهر خطوة الكود بالإشعار المشروط» — **الخطوات:** إرسال «01012345678» — **المتوقع:** الطلب بـ ‎+201012345678 وخطوة الكود ظاهرة.
+- **السيناريو:** «فشل الطلب (قناة مطفأة): الرسالة المصممة تبقى في خطوة الرقم» — **الخطوات:** الـ api يرفض برسالة القناة — **المتوقع:** التنبيه ظاهر وزر الإرسال باقٍ.
+- **السيناريو:** «كود ناقص: خطأ الطول محلياً وبلا نداء تحقق» — **الخطوات:** كود 3 أرقام — **المتوقع:** `errCodeLength` والتحقق لا يُستدعى.
+- **السيناريو:** «سرّان غير متطابقين: خطأ التطابق محلياً وبلا نداء تحقق» — **الخطوات:** سرّان مختلفان — **المتوقع:** `passwordMismatch`.
+- **السيناريو:** «سر قصير: خطأ الطول محلياً وبلا نداء تحقق» — **الخطوات:** سر 5 أحرف — **المتوقع:** `passwordTooShort`.
+- **السيناريو:** «مسار سعيد: التحقق بالرقم والكود والسر ثم شاشة النجاح» — **الخطوات:** نموذج كامل سليم — **المتوقع:** نداء التحقق بالثلاثة ورسالة النجاح.
+- **السيناريو:** «كود مرفوض خادمياً: الرسالة العامة تظهر ونبقى في خطوة الكود» — **الخطوات:** الـ api يرفض بـ `errWaRecoveryInvalid` — **المتوقع:** التنبيه ظاهر وزر التحقق باقٍ.
 
 ### 6.3 الحضور (attendance)
 
@@ -1117,7 +1139,7 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 
 ### 6.13 اختبارات عقود الدوال الحدّية (contract tests)
 
-**الملف:** `scripts/contract_tests.mjs` — الحالة: أوتوماتيك (وظيفة `check-and-test` في CI؛ `npm run test:contracts`) — 30 سيناريو، كل سيناريو يفحص: كود الحالة + content-type JSON + أن الجسم كائن JSON + شكل مغلف الخطأ الموحّد `{error:{http_code,message}}` عند الخطأ. الأنوية هي `core.ts` الإنتاجية نفسها باعتماديات وهمية (بلا شبكة ولا أسرار).
+**الملف:** `scripts/contract_tests.mjs` — الحالة: أوتوماتيك (وظيفة `check-and-test` في CI؛ `npm run test:contracts`) — 51 سيناريو، كل سيناريو يفحص: كود الحالة + content-type JSON + أن الجسم كائن JSON + شكل مغلف الخطأ الموحّد `{error:{http_code,message}}` عند الخطأ. الأنوية هي `core.ts` الإنتاجية نفسها باعتماديات وهمية (بلا شبكة ولا أسرار).
 
 **دالة `send-whatsapp-otp` (Hook موقّع Standard Webhooks):**
 
@@ -1164,6 +1186,22 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 - **السيناريو:** «assistant stop without run_id» — **الخطوات:** فعل stop بلا run_id — **المتوقع:** 400.
 - **السيناريو:** «assistant read answer» — **الخطوات:** رسالة «unpaid» بمخطط اختبار حتمي واعتماديات وهمية — **المتوقع:** 200 + ثلاثة فحوص: status=answered، وtool=unpaid_students، وrun_id من كتابة التدقيق.
 
+**دالة `send-whatsapp-recovery` (استرداد واتساب بقناة المنصة — 3A-927):** سلوك كامل خلف مخزن ذاكرة بعقد الإنتاج (لا عقد سطحي — الدالة بلا بوابة JWT):
+
+- **السيناريو:** «recovery GET» — **المتوقع:** 405 بمغلف الخطأ.
+- **السيناريو:** «recovery kill switch off» — **الخطوات:** `WHATSAPP_RECOVERY_ENABLED` غير مفتوح — **المتوقع:** 503 قبل أي لمس للمخزن.
+- **السيناريو:** «recovery invalid json» / «recovery unknown action» / «recovery invalid phone» — **المتوقع:** 400 لكل منها.
+- **السيناريو:** «recovery unknown phone neutral» — **الخطوات:** طلب لرقم غير مربوط — **المتوقع:** 200 بجسم فارغ + فحصان: Graph لم يُستدعَ ولا شيء خُزّن (منع التعداد).
+- **السيناريو:** «recovery request ok» — **الخطوات:** طلب لرقم مربوط — **المتوقع:** 200 + إرسال Graph واحد + الكود المرسل 6 أرقام + المخزّن تجزئة SHA-256 له فقط (لا نص صريح).
+- **السيناريو:** «recovery resend too soon» — **الخطوات:** طلب ثانٍ فوري — **المتوقع:** 429 (فاصل 60 ثانية).
+- **السيناريو:** «recovery verify wrong code» — **الخطوات:** كود خاطئ مضمون الاشتقاق من الصحيح — **المتوقع:** 400 عام + المحاولة تُعدّ (attempts=1).
+- **السيناريو:** «recovery verify short password» — **الخطوات:** سر 5 أحرف بكود صحيح — **المتوقع:** 400 والكود لم يُلمس (لا عدّاد ولا استهلاك).
+- **السيناريو:** «recovery verify ok» — **الخطوات:** الكود الصحيح — **المتوقع:** 200 ‏{status:ok} + السر عُيّن لصاحب الرقم + الكود استُهلك.
+- **السيناريو:** «recovery verify replay» — **الخطوات:** نفس الكود مرة ثانية — **المتوقع:** 400.
+- **السيناريو:** «recovery verify expired» — **الخطوات:** قفز بالساعة فوق صلاحية 10 دقائق — **المتوقع:** 400.
+- **السيناريو:** «recovery wrong attempt 1..5» + «recovery correct after cap» — **الخطوات:** خمس محاولات خاطئة ثم الصحيح — **المتوقع:** الكود يُبطل عند الخامسة والصحيح بعدها 400.
+- **السيناريو:** «recovery graph failure» — **الخطوات:** Graph يرفض عند الطلب (بعد قفز فوق نافذة حد الساعة) — **المتوقع:** 502 والكود المخزّن مُبطَل (لا كود حي بلا رسالة).
+
 ### 6.14 فحوص حدود المعدّل (rate-limit checks)
 
 **الملف:** `scripts/rate_limit_checks.mjs` — الحالة: أوتوماتيك (وظيفة `check-and-test`؛ `npm run test:ratelimits`) — 12 فحصاً
@@ -1207,7 +1245,7 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 
 ### 6.16 مجموعة التفويض الحية (authz) — الأقسام الأحد والعشرون
 
-**الملف:** `scripts/authz_tests.py` — الحالة: أوتوماتيك بتشغيل محلي يدوي (تتخطى نفسها في CI — §4)؛ كل قسم يبني fixturesه وينظّفها ويرجع بخط الأساس. أسماء الفحوص كما هي في السكربت؛ «المتوقع» لكل فحص = أن يتحقق الشرط في اسمه (رفض/فراغ/نجاح كما هو مكتوب). الأقسام المرتبطة بمهاجرات 0051–0061 تتخطى نفسها بنعومة حتى تُطبَّق مهاجراتها.
+**الملف:** `scripts/authz_tests.py` — الحالة: أوتوماتيك بتشغيل محلي يدوي (تتخطى نفسها في CI — §4)؛ كل قسم يبني fixturesه وينظّفها ويرجع بخط الأساس. أسماء الفحوص كما هي في السكربت؛ «المتوقع» لكل فحص = أن يتحقق الشرط في اسمه (رفض/فراغ/نجاح كما هو مكتوب). الأقسام المرتبطة بمهاجرات 0051–0061 وقسم 0076 تتخطى نفسها بنعومة حتى تُطبَّق مهاجراتها.
 
 - **القسم: ANON (زائر بلا جلسة)** — الفحوص: «anon reads no students» · «anon reads no invoices» · «anon cannot insert a student» · «anon cannot call generate_teacher_sessions» · «portal overview rejects a bogus token» — **المتوقع:** قراءات فارغة ورفض كتابة/RPC وتوكن بوابة زائف مرفوض.
 - **القسم: OTHER TEACHER (مدرس غريب عن الديمو)** — الفحوص: «other teacher reads none of demo's students» · «other teacher reads no invoices at all» · «other teacher reads none of demo's settings» · «other teacher cannot update a demo student» · «bulk sessions RPC guard rejects non-owner» · «claim_teacher_invites claims nothing for a stranger» — **المتوقع:** عزل مستأجر كامل قراءة وكتابة.
@@ -1231,6 +1269,7 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 - **القسم: ACCOUNT OVERRIDES (0059)** — الفحوص: «a teacher reads NO override rows directly» · «admin reads the overrides table (empty)» · «a teacher cannot set an override» · «admin sets a limit override» · «override wins over the plan in effective_entitlements» · «another teacher cannot read these entitlements» · «feature override with a non-boolean value is rejected» · «rejected override left no feature row» · «admin revokes the override» · «after revoke the plan limit returns (trial 50)» · «set + revoke both left audit rows» · «0059 fixtures cleaned».
 - **القسم: PLATFORM PANEL (0061)** — الفحوص: «a teacher cannot list platform workspaces» · «a teacher cannot read platform indicators» · «a teacher cannot flip account activation» · «anon cannot list platform workspaces» · «admin lists workspaces incl. the demo teacher» · «admin reads indicators; revenue stays null (no prices)» · «admin flips the demo activation flag» · «the flip landed in teachers.account_activated» · «the flip wrote a platform audit row» · «assigning an unknown plan is rejected» · «0061 fixtures cleaned + demo state restored».
 - **القسم: TEACHER PERSONAL PAGE (0074 — 3A-929)** — الفحوص: «0074: anon reads no teacher_profiles rows» · «0074: anon reads no teacher_profile_ratings rows» · «0074: teacher_has_personal_page is not client-callable» · «0074: public+entitled profile is found» · «0074: payload carries published items only» · «0074: payload leaks no private fields» · «0074: hidden profile reads as not found» · «0074: unknown slug reads as not found» · «0074: unentitled profile reads as not found» · «0074: booking page opens by profile slug» · «0074: booking by a hidden slug is refused» · «0074: rating with a bogus token is refused» · «0074: stars outside 1..5 are refused» · «0074: enrolled guardian submits a rating» · «0074: re-submitting updates the same rating row» · «0074: guardian reads back his own rating» · «0074: enrolled student submits his own rating» · «0074: a foreign student cannot be rated through this guardian link» · «0074: a non-owner cannot hide a rating» · «0074: the owner hides a rating» · «0074: a hidden rating leaves the public payload» · «0074: the teacher cannot delete a rating» · «0074: the teacher cannot edit a rating's text» · «0074 fixtures cleaned» — **المتوقع:** الظهور = (مفعّل + مستحق برو) معاً، والحمولة بلا أي حقل خاص، والتقييم من رابط حقيقي لمسجّل فعلي فقط بلا تكرار، والإشراف إخفاء فقط. يتخطى نفسه حتى تُطبَّق 0074 عند بوابة التجميد.
+- **القسم: WHATSAPP RECOVERY (0076 — أكواد استرداد واتساب، 3A-927)** — الفحوص: «anon reads no recovery codes» · «a teacher reads no recovery codes» · «anon cannot insert a recovery code» · «a teacher cannot insert a recovery code» · «anon cannot execute the phone lookup rpc» · «a teacher cannot execute the phone lookup rpc» · «a teacher cannot execute the attempts rpc» · «0076 fixtures cleaned» — **المتوقع:** الجدول سجلّ أمني خادمي صرف (RLS بلا سياسات): لا تسرب قراءة ولا كتابة لأي دور عميل، والدالتان الداخليتان service_role فقط. يتخطى نفسه حتى تطبيق 0076 عند بوابة التجميد.
 - **القسم: SEC-L3 (فرض نوع/حجم إثبات الدفع خادمياً)** — الفحوص: «SEC-L3 wrong mime type rejected server-side» · «SEC-L3 oversize rejected server-side» · «SEC-L3 valid tiny png upload succeeds (control)» · «SEC-L3 fixtures cleaned».
 - **فحص الختام العام:** «baseline restored after cleanup» — **الخطوات:** مقارنة عدّادات خط الأساس قبل المجموعة وبعد تنظيفها — **المتوقع:** تطابق تام (المجموعة لا تترك أثراً في الديمو).
 
@@ -1308,7 +1347,7 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 > حالة — لا أوتوماتيك ولا يدوية** — يُسجَّل كما هو بدل ادعاء
 > تغطية. الحالة لكل بنود هذا القسم: **لسه ما اتكتبتش**.
 
-- **دالتا `send-push` و`receipt-extract` الحدّيتان:** اختبارات العقود (§6.13) تغطي خمساً من الدوال السبع فقط — لا عقد مكتوباً لإرسال الدفع ولا لاستخراج الإيصال (الثانية نايمة بحالة مهذبة أصلاً).
+- **دالتا `send-push` و`receipt-extract` الحدّيتان:** اختبارات العقود (§6.13) تغطي ستاً من الدوال الثماني فقط — لا عقد مكتوباً لإرسال الدفع ولا لاستخراج الإيصال (الثانية نايمة بحالة مهذبة أصلاً).
 - **صفحة السنتر العامة `/centre`** (في الكود فقط): لا حالة وحدة ولا e2e ولا حتى لقطة في السويب البصري (31 شاشة بلا centre).
 - **تدفق أداء الامتحان من جهة الطالب** (دخول بالكود ← حلّ ← تسليم ← نتيجة): الوحدات تغطي حالة الرمز ومصنّف الأخطاء فقط؛ لا حالة لتدفق الحلّ نفسه.
 - **واجهة بوابة الطالب** (قراءة الحضور/الدرجات داخل البوابة): الـ e2e يولّد الرابط ويزوره ويبطله ويسجّل الدخول، لكن محتوى شاشات البوابة نفسها بلا حالة.
@@ -1329,7 +1368,7 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 | المجموعة | الملفات | الحالات | الحالة |
 |---|---|---|---|
 | وحدات المكوّنات (§6.1) | 14 ملفاً | 97 | أوتوماتيك — CI |
-| وحدات المصادقة (§6.2) | 1 | 42 | أوتوماتيك — CI |
+| وحدات المصادقة (§6.2) | 2 | 57 | أوتوماتيك — CI |
 | وحدات الحضور (§6.3) | 4 | 31 | أوتوماتيك — CI |
 | وحدات طلاب/مجموعات/حجز/جدول (§6.4) | 6 | 53 | أوتوماتيك — CI |
 | وحدات امتحانات/درجات/واجبات (§6.5) | 3 | 21 | أوتوماتيك — CI |
@@ -1341,11 +1380,11 @@ oxlint (lint) ← tsc -b strict + vite build ← بوابة i18n
 | وحدات أدمن المنصة (§6.11) | 5 | 51 | أوتوماتيك — CI |
 | وحدات lib + i18n (§6.12) | 13 | 110 مسمّاة + 33 صف it.each = 143 تشغيلاً | أوتوماتيك — CI |
 | وحدات نظام «جديد» (§6.24) | 2 | 10 | أوتوماتيك — CI |
-| **مجموع الوحدات** | **64 ملفاً** | **617 مسمّاة / 650 تشغيلاً** | |
-| عقود الدوال الحدّية (§6.13) | 1 | 30 سيناريو (~85 فحصاً) | أوتوماتيك — CI |
+| **مجموع الوحدات** | **65 ملفاً** | **632 مسمّاة / 665 تشغيلاً** | |
+| عقود الدوال الحدّية (§6.13) | 1 | 51 سيناريو (220 فحصاً) | أوتوماتيك — CI |
 | حدود المعدّل (§6.14) | 1 | 12 فحصاً | أوتوماتيك — CI |
 | حقن الأعطال (§6.15) | 1 | 9 سيناريوهات | أوتوماتيك — CI |
-| التفويض الحي authz (§6.16) | 1 | 22 قسماً + فحص ختام (آخر عدّ موثّق 127/127 على المهاجرات المطبّقة؛ أقسام 0055–0061 تنضم عند تطبيقها، وقسم 0073 ينضم عند تطبيقه، وقسم 0074 «TEACHER PERSONAL PAGE» — 24 فحصاً — ينضم عند تطبيق 0074 عند بوابة التجميد) | أوتوماتيك — تشغيل محلي solo |
+| التفويض الحي authz (§6.16) | 1 | 22 قسماً + فحص ختام (آخر عدّ موثّق 127/127 على المهاجرات المطبّقة؛ أقسام 0055–0061 تنضم عند تطبيقها، وقسم 0073 ينضم عند تطبيقه، وقسم 0074 «TEACHER PERSONAL PAGE» — 24 فحصاً — ينضم عند تطبيق 0074 عند بوابة التجميد، وقسم 0076 «WHATSAPP RECOVERY» — 8 فحوص — ينضم عند تطبيق 0076 عند بوابة التجميد) | أوتوماتيك — تشغيل محلي solo |
 | حذف الحساب الحي (§6.17) | 1 | 14 فحصاً (منها حلقة الجداول) | أوتوماتيك — تشغيل محلي |
 | اعتراض البريد (§6.18) | 1 | 6 فحوص | أوتوماتيك — CI |
 | E2E دخاني (§6.19) | 1 | 8 تدفقات | أوتوماتيك — CI حاجب |

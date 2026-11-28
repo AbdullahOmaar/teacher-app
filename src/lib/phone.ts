@@ -29,6 +29,17 @@ export const WHATSAPP_OTP_ENABLED =
 export const WHATSAPP_VERIFICATION_CHANNEL_ENABLED =
   import.meta.env.VITE_WHATSAPP_VERIFICATION_ENABLED === 'true'
 
+/**
+ * علم استرداد كلمة السر برمز واتساب (3A-927): مقفل افتراضياً، ولا
+ * يُفتح إلا بضبط VITE_WHATSAPP_RECOVERY_ENABLED=true في بيئة البناء
+ * بعد اكتمال تفعيل قناة المنصة خادمياً (أسرار Meta للمنصة + علم
+ * ‏WHATSAPP_RECOVERY_ENABLED عند الدالة — docs/WHATSAPP-RECOVERY.md).
+ * عند قفله لا يظهر خيار الاسترداد بواتساب في صفحة الاسترداد إطلاقاً
+ * ويبقى الاسترداد بالإيميل هو المسار الوحيد كما هو اليوم.
+ */
+export const WHATSAPP_RECOVERY_ENABLED =
+  import.meta.env.VITE_WHATSAPP_RECOVERY_ENABLED === 'true'
+
 /** الجزء الوطني من رقم موبايل مصري: 10 أرقام تبدأ بـ 1 وبادئة صحيحة */
 const EG_NATIONAL_RE = /^1[0125]\d{8}$/
 

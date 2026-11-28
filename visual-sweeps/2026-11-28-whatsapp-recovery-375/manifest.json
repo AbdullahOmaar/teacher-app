@@ -1,0 +1,49 @@
+{
+  "base": "http://127.0.0.1:4174",
+  "note": "لقطات دليل PR #63 (3A-927) من البناء المحلي لفرع feat/whatsapp-recovery-927. البناء تم بعلم VITE_WHATSAPP_RECOVERY_ENABLED=true في بيئة البناء المحلية فقط لغرض اللقطة (العلم مطفأ افتراضياً في الكود ولم يتغيّر أي سطر كود). الصفحة بلا جلسة (زائر) ونداء دالة send-whatsapp-recovery اعترض محلياً ورُدّ عليه بنجاح وهمي داخل المتصفح — لا نداء شبكة خرج من الجهاز.",
+  "startedAt": "2026-11-28T01:52:08.172Z",
+  "theme": "default(saved/auto)",
+  "timezone": "Africa/Cairo",
+  "tool": "visual-capture (one-off puppeteer script, local build + vite preview)",
+  "widths": {
+    "375": [
+      {
+        "id": "reset-password-channel-switch",
+        "file": "375/reset-password-channel-switch.png",
+        "path": "/reset-password (نموذج الاسترداد بالإيميل + رابط التبديل لقناة واتساب أسفله)",
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375,
+          "theme": "light"
+        },
+        "pngWidth": 375,
+        "pngHeight": 844
+      },
+      {
+        "id": "reset-whatsapp-phone-step",
+        "file": "375/reset-whatsapp-phone-step.png",
+        "path": "/reset-password (قناة واتساب — خطوة إدخال الرقم المربوط بالحساب)",
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375,
+          "theme": "light"
+        },
+        "pngWidth": 375,
+        "pngHeight": 844
+      },
+      {
+        "id": "reset-whatsapp-code-step",
+        "file": "375/reset-whatsapp-code-step.png",
+        "path": "/reset-password (قناة واتساب — خطوة إدخال الكود + كلمة السر الجديدة بعد طلب ناجح وهمي)",
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375,
+          "theme": "light"
+        },
+        "pngWidth": 375,
+        "pngHeight": 844
+      }
+    ]
+  },
+  "finishedAt": "2026-11-28T01:52:31.446Z"
+}
