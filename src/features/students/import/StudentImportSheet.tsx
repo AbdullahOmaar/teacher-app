@@ -216,11 +216,13 @@ export function StudentImportSheet({ onClose, teacherId, groups, students }: Stu
           <Field label={t('students.importGroupLabel')}>
             <Select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
               <option value="">{t('students.importNoGroupOption')}</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {t('students.importGroupOption', { name: g.name, price: g.price })}
-                </option>
-              ))}
+              {groups
+                .filter((g) => g.archived_at == null)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {t('students.importGroupOption', { name: g.name, price: g.price })}
+                  </option>
+                ))}
             </Select>
           </Field>
           {groupId && (
