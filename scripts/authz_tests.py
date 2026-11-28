@@ -3573,6 +3573,416 @@ def main():
                                 f"where owner_user_id = '{del_uid}'")
                 check("0075 fixtures cleaned",
                       left and int(left[0]["c"]) == 0, f"got {left}")
+        # ---------- WHATSAPP AUTO-SEND + «جديد» (0073 — المهمة 24 / 3A-900) ----------
+        # ⚠️ المهاجرة 0073 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول/الأعمدة
+        # أولاً: إن غابت يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة
+        # المتوقعة حتى البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً.
+        # الغرض: بوابة المنصة مطفأة افتراضياً + ضوابط السنتر بقيمها
+        # الافتراضية + RLS جدول teacher_feature_seen (المالك يختم/يقرأ،
+        # المجهول لا شيء) + دالة الإرسال الداخلي مسحوبة من كل العملاء.
+        print("WHATSAPP AUTO-SEND + FEATURE SEEN (0073):")
+        probe73 = sql(ref, "select to_regclass('public.teacher_feature_seen') as t, "
+                           "(select count(*) from information_schema.columns "
+                           "where table_schema = 'public' "
+                           "and table_name = 'teacher_whatsapp_config' "
+                           "and column_name in ('auto_send_enabled', "
+                           "'auto_send_daily_quota')) as cols")
+        if not probe73 or not probe73[0].get("t") or int(probe73[0]["cols"]) != 2:
+            print("  SKIP 0073 live section — migration 0073 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/PHASE2-T24-AUTO-NOTIFY.md)")
+        else:
+            try:
+                gate73 = sql(ref, "select value::text as v from platform_settings "
+                                  "where key = 'whatsapp_auto_send_enabled'")
+                check("0073 platform auto-send gate defaults to false",
+                      gate73 and gate73[0]["v"] == "false", f"got {gate73}")
+                # قيم السنتر الافتراضية: opt-in مطفأ + حصة 100 (صف مؤقت
+                # يُحذف في finally — خط الأساس wa_config=0 يُستعاد)
+                sql(ref, "insert into teacher_whatsapp_config (teacher_id) "
+                         f"values ('{demo_teacher}')")
+                cfg73 = sql(ref, "select auto_send_enabled, auto_send_daily_quota "
+                                 "from teacher_whatsapp_config "
+                                 f"where teacher_id = '{demo_teacher}'")
+                check("0073 centre auto-send defaults (off, quota 100)",
+                      cfg73 and cfg73[0]["auto_send_enabled"] is False
+                      and int(cfg73[0]["auto_send_daily_quota"]) == 100,
+                      f"got {cfg73}")
+                # المجهول لا يقرأ جدول «شوهدت» ولا يستدعي الإرسال الداخلي
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/teacher_feature_seen?select=feature_id")
+                check("0073 anon reads no feature-seen rows",
+                      (s == 200 and b == []) or s in (401, 403),
+                      f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/whatsapp_auto_dispatch",
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "absence_notice",
+                                  "p_phone": "01000000000",
+                                  "p_params": ["x", "y"],
+                                  "p_invoice_id": None})
+                check("0073 anon cannot call whatsapp_auto_dispatch",
+                      s in (401, 403, 404), f"got {s}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/whatsapp_auto_dispatch",
+                            jwt=demo_jwt,
+                            body={"p_teacher_id": demo_teacher,
+                                  "p_kind": "absence_notice",
+                                  "p_phone": "01000000000",
+                                  "p_params": ["x", "y"],
+                                  "p_invoice_id": None})
+                check("0073 even the owner cannot call whatsapp_auto_dispatch "
+                      "(internal only)", s in (401, 403, 404), f"got {s}")
+                # المالك يختم خاصية ويقرأ ختمه
+                s, b = rest(url, anon, "POST", "/rest/v1/teacher_feature_seen",
+                            jwt=demo_jwt,
+                            body={"teacher_id": demo_teacher,
+                                  "feature_id": "authz-0073-probe"})
+                check("0073 owner stamps a feature seen",
+                      s in (200, 201, 204), f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/teacher_feature_seen"
+                            "?select=feature_id&feature_id=eq.authz-0073-probe",
+                            jwt=demo_jwt)
+                check("0073 owner reads his stamp back",
+                      s == 200 and isinstance(b, list) and len(b) == 1,
+                      f"got {s} {str(b)[:80]}")
+            finally:
+                sql(ref, "delete from teacher_feature_seen "
+                         f"where teacher_id = '{demo_teacher}' "
+                         "and feature_id = 'authz-0073-probe'")
+                sql(ref, "delete from teacher_whatsapp_config "
+                         f"where teacher_id = '{demo_teacher}'")
+                left73 = sql(ref, "select "
+                                  "(select count(*) from teacher_feature_seen "
+                                  f"where teacher_id = '{demo_teacher}') as fs, "
+                                  "(select count(*) from teacher_whatsapp_config "
+                                  f"where teacher_id = '{demo_teacher}') as wc")
+                check("0073 fixtures cleaned",
+                      left73 and int(left73[0]["fs"]) == 0
+                      and int(left73[0]["wc"]) == 0, f"got {left73}")
+        # ---------- TEACHER PERSONAL PAGE (0074 — 3A-929) ----------
+        # ⚠️ المهاجرة 0074 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود الجدول أولاً: إن
+        # غاب يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض: الصفحة العامة لا تظهر إلا (ظاهرة + مستحقة برو)، وحمولتها
+        # بلا أي حقل خاص، والتقييمات من روابط حقيقية لمسجّلين فعلياً فقط
+        # بلا تكرار، والمدرّس يخفي تقييماً ولا يعدّله ولا يحذفه أبداً.
+        print("TEACHER PERSONAL PAGE (0074):")
+        p74_probe = sql(ref, "select to_regclass('public.teacher_profiles') as t")
+        if not p74_probe or not p74_probe[0].get("t"):
+            print("  SKIP 0074 live section — migration 0074 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate — docs/REFERENCE-FEATURES.md)")
+        else:
+            other_teacher74 = sql(
+                ref, "select id from teachers where owner_user_id = "
+                     f"'{other_uid}'")[0]["id"]
+            g74_raw = "authz74-g-" + secrets.token_urlsafe(24)
+            g74_hash = hashlib.sha256(g74_raw.encode()).hexdigest()
+            s74_raw = "authz74-s-" + secrets.token_urlsafe(24)
+            s74_hash = hashlib.sha256(s74_raw.encode()).hexdigest()
+            link74_hash = hashlib.sha256(
+                ("authz74-link-" + secrets.token_urlsafe(24)).encode()
+            ).hexdigest()
+            made_enrol74 = False
+            made_link74 = False
+            try:
+                # تركيبات: استحقاق برو (تجاوز personal_page) للمعلّمين،
+                # وصفحة الديمو ظاهرة + منشور/كتاب منشوران ومسودّتان،
+                # وصفحة الآخر مستحقة لكن مخفية.
+                for t74 in (demo_teacher, other_teacher74):
+                    sql(ref, "insert into account_overrides (teacher_id, "
+                             "kind, key, value) values "
+                             f"('{t74}', 'feature', 'personal_page', 'true')")
+                sql(ref, "insert into teacher_profiles (teacher_id, slug, "
+                         "headline, bio, is_public) values "
+                         f"('{demo_teacher}', 'authz-profile', 'authz headline', "
+                         "'authz bio', true)")
+                sql(ref, "insert into teacher_profiles (teacher_id, slug, "
+                         "is_public) values "
+                         f"('{other_teacher74}', 'authz-hidden', false)")
+                sql(ref, "insert into teacher_profile_posts (teacher_id, "
+                         "title, body, is_published) values "
+                         f"('{demo_teacher}', 'authz published post', 'body', true), "
+                         f"('{demo_teacher}', 'authz draft post', 'body', false)")
+                sql(ref, "insert into teacher_profile_content (teacher_id, "
+                         "kind, title, external_url, is_published) values "
+                         f"('{demo_teacher}', 'book', 'authz published book', "
+                         "'https://example.com/book.pdf', true), "
+                         f"('{demo_teacher}', 'course', 'authz draft course', "
+                         "'https://example.com/course', false)")
+
+                # الجداول الأساسية مغلقة على المجهول إطلاقاً
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/teacher_profiles?select=id")
+                check("0074: anon reads no teacher_profiles rows",
+                      s in (401, 403) or (s == 200 and b == []), f"got {s}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/teacher_profile_ratings?select=id")
+                check("0074: anon reads no teacher_profile_ratings rows",
+                      s in (401, 403) or (s == 200 and b == []), f"got {s}")
+                # دالة الاستحقاق الداخلية ليست قابلة للتنفيذ من العملاء
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/teacher_has_personal_page",
+                            jwt=demo_jwt, body={"p_teacher_id": demo_teacher})
+                check("0074: teacher_has_personal_page is not client-callable",
+                      s in (401, 403, 404), f"got {s}")
+
+                # الصفحة العامة: ظاهرة + مستحقة ⇒ found، وبلا حقول خاصة،
+                # والمسودّات لا تتسرب
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/public_teacher_profile",
+                            body={"p_slug": "authz-profile"})
+                payload74 = json.dumps(b, ensure_ascii=False) \
+                    if isinstance(b, dict) else ""
+                check("0074: public+entitled profile is found",
+                      s == 200 and isinstance(b, dict) and b.get("found") is True,
+                      f"got {s} {str(b)[:120]}")
+                check("0074: payload carries published items only",
+                      "authz published post" in payload74
+                      and "authz published book" in payload74
+                      and "authz draft post" not in payload74
+                      and "authz draft course" not in payload74,
+                      f"got {str(b)[:160]}")
+                check("0074: payload leaks no private fields",
+                      '"phone"' not in payload74 and '"email"' not in payload74
+                      and '"teacher_id"' not in payload74,
+                      f"got {str(b)[:160]}")
+                # مخفية (وإن كانت مستحقة) ⇒ نفس found=false، ومجهولة كذلك
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/public_teacher_profile",
+                            body={"p_slug": "authz-hidden"})
+                check("0074: hidden profile reads as not found",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("found") is False, f"got {s} {str(b)[:80]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/public_teacher_profile",
+                            body={"p_slug": "authz-no-such-slug"})
+                check("0074: unknown slug reads as not found",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("found") is False, f"got {s}")
+                # بلا استحقاق ⇒ لا تظهر ولو ظاهرة، ثم يُعاد الاستحقاق
+                sql(ref, "delete from account_overrides where teacher_id = "
+                         f"'{demo_teacher}' and key = 'personal_page'")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/public_teacher_profile",
+                            body={"p_slug": "authz-profile"})
+                check("0074: unentitled profile reads as not found",
+                      s == 200 and isinstance(b, dict)
+                      and b.get("found") is False, f"got {s}")
+                sql(ref, "insert into account_overrides (teacher_id, kind, "
+                         "key, value) values "
+                         f"('{demo_teacher}', 'feature', 'personal_page', 'true')")
+
+                # الحجز عبر السلاج: رابط حجز تركيبي مفعّل ⇒ الصفحة تفتح؛
+                # والسلاج المخفي ⇒ رفض
+                link74_existing = sql(
+                    ref, "select teacher_id from enrolment_links where "
+                         f"teacher_id = '{demo_teacher}'")
+                if not link74_existing:
+                    sql(ref, "insert into enrolment_links (teacher_id, "
+                             "token_hash, enabled) values "
+                             f"('{demo_teacher}', '{link74_hash}', true)")
+                    made_link74 = True
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/enrolment_page_by_profile",
+                            body={"p_slug": "authz-profile"})
+                check("0074: booking page opens by profile slug",
+                      s == 200 and isinstance(b, dict) and "groups" in b,
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/rpc/enrolment_page_by_profile",
+                            body={"p_slug": "authz-hidden"})
+                check("0074: booking by a hidden slug is refused",
+                      s >= 400, f"got {s}")
+
+                # التقييمات: وليّ طالب مسجّل فعلياً عند الديمو
+                pair74 = sql(
+                    ref,
+                    "select gs.guardian_id, gs.student_id from "
+                    "guardian_students gs join enrollments e "
+                    "on e.student_id = gs.student_id "
+                    "and e.teacher_id = gs.teacher_id "
+                    f"where gs.teacher_id = '{demo_teacher}' limit 1")
+                if not pair74:
+                    link74 = sql(
+                        ref,
+                        "select guardian_id, student_id from guardian_students "
+                        f"where teacher_id = '{demo_teacher}' limit 1")
+                    grp74 = sql(
+                        ref, "select id from groups where teacher_id = "
+                             f"'{demo_teacher}' limit 1")
+                    if link74 and grp74:
+                        sql(ref, "insert into enrollments (teacher_id, "
+                                 "student_id, group_id) values "
+                                 f"('{demo_teacher}', "
+                                 f"'{link74[0]['student_id']}', "
+                                 f"'{grp74[0]['id']}')")
+                        made_enrol74 = True
+                        pair74 = link74
+                if not pair74:
+                    print("  SKIP 0074 ratings flow — no guardian-linked "
+                          "student fixture available for the demo teacher")
+                else:
+                    g74 = pair74[0]["guardian_id"]
+                    stu74 = pair74[0]["student_id"]
+                    sql(ref, "insert into guardian_access_tokens (teacher_id, "
+                             "guardian_id, student_id, token_hash, expires_at) "
+                             f"values ('{demo_teacher}', '{g74}', '{stu74}', "
+                             f"'{g74_hash}', now() + interval '30 days')")
+                    sql(ref, "insert into student_access_tokens (teacher_id, "
+                             "student_id, token_hash, expires_at) values "
+                             f"('{demo_teacher}', '{stu74}', '{s74_hash}', "
+                             "now() + interval '30 days')")
+                    # رمز فاسد يُرفض
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/submit_teacher_rating_guardian",
+                                body={"p_token": "authz74-bogus",
+                                      "p_student_id": stu74, "p_stars": 5})
+                    check("0074: rating with a bogus token is refused",
+                          s >= 400, f"got {s}")
+                    # نجوم خارج 1..5 تُرفض
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/submit_teacher_rating_guardian",
+                                body={"p_token": g74_raw,
+                                      "p_student_id": stu74, "p_stars": 6})
+                    check("0074: stars outside 1..5 are refused",
+                          s >= 400, f"got {s}")
+                    # إرسال صالح ثم إعادة إرسال = صف واحد محدّث (لا تكرار)
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/submit_teacher_rating_guardian",
+                                body={"p_token": g74_raw,
+                                      "p_student_id": stu74, "p_stars": 4,
+                                      "p_comment": "authz first"})
+                    check("0074: enrolled guardian submits a rating",
+                          s == 200 and isinstance(b, dict)
+                          and b.get("stars") == 4, f"got {s} {str(b)[:120]}")
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/submit_teacher_rating_guardian",
+                                body={"p_token": g74_raw,
+                                      "p_student_id": stu74, "p_stars": 5,
+                                      "p_comment": "authz updated"})
+                    rows74 = sql(ref, "select stars from teacher_profile_ratings "
+                                      f"where teacher_id = '{demo_teacher}' "
+                                      "and reviewer_kind = 'guardian'")
+                    check("0074: re-submitting updates the same rating row",
+                          s == 200 and len(rows74) == 1
+                          and int(rows74[0]["stars"]) == 5,
+                          f"got {s} rows={rows74}")
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/my_teacher_rating_guardian",
+                                body={"p_token": g74_raw,
+                                      "p_student_id": stu74})
+                    check("0074: guardian reads back his own rating",
+                          s == 200 and isinstance(b, dict)
+                          and b.get("stars") == 5, f"got {s} {str(b)[:80]}")
+                    # تقييم الطالب نفسه برابطه
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/submit_teacher_rating_student",
+                                body={"p_token": s74_raw, "p_stars": 3})
+                    srows74 = sql(ref, "select count(*) as c from "
+                                       "teacher_profile_ratings where "
+                                       f"teacher_id = '{demo_teacher}' "
+                                       "and reviewer_kind = 'student'")
+                    check("0074: enrolled student submits his own rating",
+                          s == 200 and int(srows74[0]["c"]) == 1,
+                          f"got {s} {str(b)[:120]}")
+                    # طالب آخر غير مسجّل عند الديمو: رابط وليّه لا يقيّم هنا
+                    alien74 = sql(
+                        ref, "select id from students where teacher_id = "
+                             f"'{other_teacher74}' limit 1")
+                    if alien74:
+                        s, b = rest(
+                            url, anon, "POST",
+                            "/rest/v1/rpc/submit_teacher_rating_guardian",
+                            body={"p_token": g74_raw,
+                                  "p_student_id": alien74[0]["id"],
+                                  "p_stars": 5})
+                        check("0074: a foreign student cannot be rated "
+                              "through this guardian link",
+                              s >= 400, f"got {s}")
+                    # الإشراف: غير المالك لا يخفي، والمالك يخفي فتختفي من
+                    # العامة، ولا حذف ولا تعديل عبر REST أبداً
+                    rid74 = sql(ref, "select id from teacher_profile_ratings "
+                                     f"where teacher_id = '{demo_teacher}' "
+                                     "and reviewer_kind = 'guardian'")[0]["id"]
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/set_teacher_rating_hidden",
+                                jwt=other_jwt,
+                                body={"p_rating_id": rid74, "p_hidden": True})
+                    check("0074: a non-owner cannot hide a rating",
+                          s >= 400, f"got {s}")
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/set_teacher_rating_hidden",
+                                jwt=demo_jwt,
+                                body={"p_rating_id": rid74, "p_hidden": True})
+                    check("0074: the owner hides a rating",
+                          s == 200 and isinstance(b, dict)
+                          and b.get("is_hidden") is True,
+                          f"got {s} {str(b)[:120]}")
+                    s, b = rest(url, anon, "POST",
+                                "/rest/v1/rpc/public_teacher_profile",
+                                body={"p_slug": "authz-profile"})
+                    items74 = (b.get("ratings") or {}).get("items") \
+                        if isinstance(b, dict) else None
+                    check("0074: a hidden rating leaves the public payload",
+                          isinstance(items74, list)
+                          and all(i.get("id") != rid74 for i in items74),
+                          f"got {str(b)[:160]}")
+                    s, b = rest(url, anon, "DELETE",
+                                "/rest/v1/teacher_profile_ratings"
+                                f"?id=eq.{rid74}", jwt=demo_jwt)
+                    check("0074: the teacher cannot delete a rating",
+                          s in (401, 403), f"got {s}")
+                    s, b = rest(url, anon, "PATCH",
+                                "/rest/v1/teacher_profile_ratings"
+                                f"?id=eq.{rid74}", jwt=demo_jwt,
+                                body={"comment": "authz tampered"})
+                    check("0074: the teacher cannot edit a rating's text",
+                          s in (401, 403), f"got {s}")
+            finally:
+                sql(ref, "delete from teacher_profile_ratings where "
+                         f"teacher_id in ('{demo_teacher}', '{other_teacher74}')")
+                sql(ref, "delete from teacher_profile_posts where "
+                         f"teacher_id in ('{demo_teacher}', '{other_teacher74}')")
+                sql(ref, "delete from teacher_profile_content where "
+                         f"teacher_id in ('{demo_teacher}', '{other_teacher74}')")
+                sql(ref, "delete from teacher_profiles where "
+                         f"teacher_id in ('{demo_teacher}', '{other_teacher74}')")
+                sql(ref, "delete from account_overrides where "
+                         f"teacher_id in ('{demo_teacher}', '{other_teacher74}') "
+                         "and key = 'personal_page'")
+                sql(ref, "delete from guardian_access_tokens where "
+                         f"token_hash = '{g74_hash}'")
+                sql(ref, "delete from student_access_tokens where "
+                         f"token_hash = '{s74_hash}'")
+                if made_link74:
+                    sql(ref, "delete from enrolment_links where teacher_id = "
+                             f"'{demo_teacher}'")
+                if made_enrol74:
+                    sql(ref, "delete from enrollments where teacher_id = "
+                             f"'{demo_teacher}' and student_id = "
+                             f"'{pair74[0]['student_id']}'")
+                left74 = sql(ref, "select "
+                                  "(select count(*) from teacher_profiles "
+                                  f"where teacher_id in ('{demo_teacher}', "
+                                  f"'{other_teacher74}')) as pf, "
+                                  "(select count(*) from teacher_profile_ratings "
+                                  f"where teacher_id in ('{demo_teacher}', "
+                                  f"'{other_teacher74}')) as rt, "
+                                  "(select count(*) from account_overrides "
+                                  f"where teacher_id in ('{demo_teacher}', "
+                                  f"'{other_teacher74}') "
+                                  "and key = 'personal_page') as ov")
+                check("0074 fixtures cleaned",
+                      left74 and int(left74[0]["pf"]) == 0
+                      and int(left74[0]["rt"]) == 0
+                      and int(left74[0]["ov"]) == 0, f"got {left74}")
 
         # ---------- SEC-L3 (3A-383 — فرض نوع/حجم إثبات الدفع خادمياً) ----------
         # الـ bucket نفسه (0005) يفرض 5MB + jpeg/png/webp على الخادم فوق

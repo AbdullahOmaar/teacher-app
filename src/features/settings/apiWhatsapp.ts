@@ -25,7 +25,44 @@ import type { WhatsappMessageKind, WhatsappTemplateStatus } from './whatsappTemp
 // ---------------------------------------------------------------------------
 
 const WHATSAPP_CONFIG_COLS =
+  'teacher_id, enabled, phone_number_id, waba_id, template_name, template_language, token_updated_at, last_test_at, created_at, updated_at, auto_send_enabled, auto_send_daily_quota'
+/** قائمة الأعمدة قبل مهاجرة 0073 — تُستخدم عند كشف غياب عمودي الإرسال الآلي (نمط #27) */
+const WHATSAPP_CONFIG_COLS_LEGACY =
   'teacher_id, enabled, phone_number_id, waba_id, template_name, template_language, token_updated_at, last_test_at, created_at, updated_at'
+
+/**
+ * قراءة/كتابة متسامحة لعمودي الإرسال الآلي (مهاجرة 0073، بوابة
+ * التجميد — نمط #27): على قاعدة بلا المهاجرة يرفض PostgREST أي select
+ * أو upsert يلمس auto_send_enabled/auto_send_daily_quota بـ PGRST204 —
+ * فتنهار قراءة بطاقة الإعدادات وحفظ أي إعداد واتساب. نرجع لقائمة
+ * الأعمدة القديمة ونكمل الصف بافتراضيي المهاجرة (مطفأ / حصة 100).
+ */
+export function isMissingAutoSendColumns(error: {
+  code?: string
+  message?: string
+} | null): boolean {
+  if (!error) return false
+  const message = error.message ?? ''
+  return (
+    error.code === 'PGRST204' ||
+    message.includes('auto_send_enabled') ||
+    message.includes('auto_send_daily_quota')
+  )
+}
+
+/** إكمال صف إعداد قديم (بلا عمودي 0073) بافتراضيي المهاجرة */
+export function withAutoSendDefaults(
+  row: Omit<TeacherWhatsappConfigRow, 'auto_send_enabled' | 'auto_send_daily_quota'> & {
+    auto_send_enabled?: boolean
+    auto_send_daily_quota?: number
+  },
+): TeacherWhatsappConfigRow {
+  return {
+    ...row,
+    auto_send_enabled: row.auto_send_enabled ?? false,
+    auto_send_daily_quota: row.auto_send_daily_quota ?? 100,
+  }
+}
 
 export interface WhatsappConfigInput {
   enabled: boolean
@@ -33,6 +70,9 @@ export interface WhatsappConfigInput {
   waba_id: string
   template_name: string
   template_language: string
+  /** استعداد الإرسال الآلي (0073): opt-in السنتر + حصته اليومية */
+  auto_send_enabled: boolean
+  auto_send_daily_quota: number
 }
 
 /** قراءة إعداد واتساب السنتر (null = لم يُنشأ صف بعد — الميزة غير مهيأة) */
@@ -44,8 +84,19 @@ export async function fetchWhatsappConfig(
     .select(WHATSAPP_CONFIG_COLS)
     .eq('teacher_id', teacherId)
     .maybeSingle()
-  if (error) throw error
-  return data ?? null
+  if (error) {
+    if (isMissingAutoSendColumns(error)) {
+      const retry = await db()
+        .from('teacher_whatsapp_config')
+        .select(WHATSAPP_CONFIG_COLS_LEGACY)
+        .eq('teacher_id', teacherId)
+        .maybeSingle()
+      if (retry.error) throw retry.error
+      return retry.data ? withAutoSendDefaults(retry.data) : null
+    }
+    throw error
+  }
+  return data ? withAutoSendDefaults(data) : null
 }
 
 /** حفظ الحقول غير السرية (upsert بسياسة المالك) */
@@ -69,23 +120,42 @@ export async function upsertWhatsappConfig(
       .maybeSingle()
     if (!existing?.token_updated_at) throw new Error(t('settings.waEnableBlocked'))
   }
+  const payload = {
+    teacher_id: teacherId,
+    enabled: input.enabled,
+    phone_number_id: input.phone_number_id.trim(),
+    waba_id: input.waba_id.trim(),
+    template_name: templateName,
+    template_language: templateLang,
+    auto_send_enabled: input.auto_send_enabled,
+    // الحصة عدد صحيح موجب دائماً (قيد القاعدة > 0 أيضاً)
+    auto_send_daily_quota: Math.max(1, Math.floor(input.auto_send_daily_quota) || 100),
+  }
   const { data, error } = await db()
     .from('teacher_whatsapp_config')
-    .upsert(
-      {
-        teacher_id: teacherId,
-        enabled: input.enabled,
-        phone_number_id: input.phone_number_id.trim(),
-        waba_id: input.waba_id.trim(),
-        template_name: templateName,
-        template_language: templateLang,
-      },
-      { onConflict: 'teacher_id' },
-    )
+    .upsert(payload, { onConflict: 'teacher_id' })
     .select(WHATSAPP_CONFIG_COLS)
     .single()
-  if (error) throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
-  return data
+  if (error) {
+    if (isMissingAutoSendColumns(error)) {
+      // قاعدة بلا 0073: نسقط عمودي الإرسال الآلي من الحمولة ونعيد —
+      // بقية الإعدادات تُحفَظ عادياً فلا ينهار حفظ أي إعداد واتساب،
+      // وقيم الآلي تسري فعلياً من يوم تطبيق المهاجرة (نمط #64).
+      const { auto_send_enabled: _auto, auto_send_daily_quota: _quota, ...legacyPayload } = payload
+      void _auto
+      void _quota
+      const retry = await db()
+        .from('teacher_whatsapp_config')
+        .upsert(legacyPayload, { onConflict: 'teacher_id' })
+        .select(WHATSAPP_CONFIG_COLS_LEGACY)
+        .single()
+      if (retry.error)
+        throw friendlyDbError(retry.error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+      return withAutoSendDefaults(retry.data)
+    }
+    throw friendlyDbError(error, t('common.saveError'), t('common.saveBlockedByMissingLink'))
+  }
+  return withAutoSendDefaults(data)
 }
 
 /**
@@ -142,7 +212,31 @@ const WHATSAPP_TEMPLATES_COLS =
   'teacher_id, kind, template_name, language, status, created_at, updated_at'
 
 const WHATSAPP_LOG_COLS =
+  'id, teacher_id, kind, template_name, recipient_phone, status, meta_message_id, error_code, error_message, created_at, updated_at, source'
+/** قائمة الأعمدة قبل مهاجرة 0073 — تُستخدم عند كشف غياب عمود source (نمط #27) */
+const WHATSAPP_LOG_COLS_LEGACY =
   'id, teacher_id, kind, template_name, recipient_phone, status, meta_message_id, error_code, error_message, created_at, updated_at'
+
+/**
+ * قراءة متسامحة لعمود source (مهاجرة 0073 — نمط #27): على قاعدة بلا
+ * المهاجرة يرفض PostgREST الـ select بـ PGRST204 فينهار تحميل سجل
+ * الرسائل كله — نرجع لقائمة الأعمدة القديمة ونكمل كل صف بالافتراضي
+ * 'manual' كما في المهاجرة (العرض يعامل غيابه كيدوي أصلاً).
+ */
+export function isMissingLogSourceColumn(error: {
+  code?: string
+  message?: string
+} | null): boolean {
+  if (!error) return false
+  return error.code === 'PGRST204' || (error.message ?? '').includes('source')
+}
+
+/** إكمال صف سجل قديم (بلا source) بالافتراضي 'manual' */
+export function withLogSourceDefault(
+  row: Omit<WhatsappMessageLogRow, 'source'> & { source?: string },
+): WhatsappMessageLogRow {
+  return { ...row, source: row.source ?? 'manual' }
+}
 
 /** سجل قوالب السنتر (صف لكل نوع أُدخل — الغائب يعني «غير محدّد») */
 export async function fetchWhatsappTemplates(
@@ -197,8 +291,20 @@ export async function fetchWhatsappMessageLog(
     .eq('teacher_id', teacherId)
     .order('created_at', { ascending: false })
     .limit(limit)
-  if (error) throw error
-  return data ?? []
+  if (error) {
+    if (isMissingLogSourceColumn(error)) {
+      const retry = await db()
+        .from('whatsapp_message_log')
+        .select(WHATSAPP_LOG_COLS_LEGACY)
+        .eq('teacher_id', teacherId)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+      if (retry.error) throw retry.error
+      return (retry.data ?? []).map(withLogSourceDefault)
+    }
+    throw error
+  }
+  return (data ?? []).map(withLogSourceDefault)
 }
 
 /**

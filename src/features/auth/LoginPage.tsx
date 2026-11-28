@@ -17,12 +17,15 @@ import {
   claimTeacherInvites,
   confirmSignUpWithCode,
   ensureTeacherProfile,
+  googleReturnErrorMessage,
   signInDemo,
+  signInWithGoogle,
   requestPasswordReset,
   resendConfirmation,
   signInWithEmail,
   signUpNextStep,
   signUpWithEmail,
+  validateEmailField,
 } from './api'
 import { CodeEntry } from './CodeEntry'
 import { t } from '../../i18n'
@@ -44,8 +47,34 @@ import {
 type Mode = 'signin' | 'signup' | 'forgot'
 type Method = 'email' | 'phone'
 
+/** علامة جوجل الرسمية بألوانها الأربعة — أصل ثابت مضمّن، بلا أي طلب شبكة */
+function GoogleMark() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <path
+        fill="#FFC107"
+        d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3l5.7-5.7C34.3 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"
+      />
+      <path
+        fill="#FF3D00"
+        d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 8 3l5.7-5.7C34.3 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.1 5.6l6.2 5.2C36.9 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"
+      />
+    </svg>
+  )
+}
+
 /**
- * الدخول والتسجيل الحقيقي بـ Supabase Auth (بريد + كلمة مرور).
+ * الدخول والتسجيل الحقيقي بـ Supabase Auth (بريد + كلمة مرور،
+ * وجوجل OAuth بزر واحد للوضعين منذ 3A-931 — جلسته تدخل نفس
+ * مسار الجلسة هنا وتكمل للإعداد بنفس العقد).
  * عند أول تسجيل يُنشأ صف teachers + إعدادات افتراضية بعد قيام
  * الجلسة (فورية أو بدخول فوري بنفس البيانات)؛ وإن كان نظام التأكيد
  * مفعّلاً من إدارة المنصة تظهر شاشة إدخال كود التأكيد الإلزامية
@@ -92,7 +121,14 @@ export function LoginPage() {
   // إظهار زر «إدخال كود التأكيد» بعد خطأ «بريد غير مؤكد» عند الدخول
   const [showCodeCta, setShowCodeCta] = useState(false)
   const [demoBusy, setDemoBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [googleBusy, setGoogleBusy] = useState(false)
+  // خطأ رجوع OAuth (3A-931) يُقرأ تهيئةً كسولة من الرابط نفسه:
+  // إلغاء عند جوجل أو فشل المزوّد يرجع إلى /login حاملاً معاملات
+  // خطأ في الاستعلام أو المقطع، فتكون الرسالة المصممة هي حالة
+  // الخطأ الابتدائية — بلا أثر جانبي عند أول تصيير.
+  const [error, setError] = useState<string | null>(() =>
+    googleReturnErrorMessage(window.location.search, window.location.hash),
+  )
   const [notice, setNotice] = useState<string | null>(null)
   // لوك أب الدخول (خطة الهوية P-1): وش دُفّي هو وجه التطبيق — وقبل
   // الجلسة يحسم القرار مرآة الجهاز المحلية/الافتراضي (نفس نمط سبلاش
@@ -140,6 +176,15 @@ export function LoginPage() {
     }
     // captcha.siteKey ثابت لعمر البناء كله (متغير بيئة بناء)
   }, [captcha.enabled, captcha.siteKey, mode, method])
+  // تنظيف رابط رجوع OAuth الخاطئ (3A-931): الرسالة عُرضت من
+  // التهيئة الكسولة فوق، وهنا تُمسح معاملات الخطأ من الرابط حتى
+  // لا تتكرر مع تحديث الصفحة أو مشاركته. رجوع النجاح لا يحمل
+  // خطأً فلا يفعل شيئاً — جلسته يلتقطها AuthProvider وحده.
+  useEffect(() => {
+    if (googleReturnErrorMessage(window.location.search, window.location.hash)) {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
 
   if (!loading && session) {
     return <Navigate to={from} replace />
@@ -197,9 +242,16 @@ export function LoginPage() {
 
   const handleForgot = async (e: FormEvent) => {
     e.preventDefault()
-    if (!beginBusy()) return
     setError(null)
     setNotice(null)
+    // النموذج noValidate (3A-911): فحص البريد هنا بالعربية بدل فقاعة
+    // المتصفح الإنجليزية التي كانت تسبق المعالج
+    const emailError = validateEmailField(email)
+    if (emailError) {
+      setError(emailError)
+      return
+    }
+    if (!beginBusy()) return
     try {
       await requestPasswordReset(email)
       // الرد محايد دائماً: لا نؤكد ولا ننفي تسجيل البريد — والانتقال
@@ -227,9 +279,20 @@ export function LoginPage() {
       setNotice(null)
       return
     }
-    if (!beginBusy()) return
     setError(null)
     setNotice(null)
+    // النموذج noValidate (3A-911): فحوص JS بالعربية بدل فقاعات
+    // المتصفح الإنجليزية (required/type=email كانت الطبقة الوحيدة)
+    const emailError = validateEmailField(email)
+    if (emailError) {
+      setError(emailError)
+      return
+    }
+    if (!password) {
+      setError(t('auth.passwordRequired'))
+      return
+    }
+    if (!beginBusy()) return
     try {
       await signInWithEmail(email, password)
       clearLoginThrottle(localStorage, email)
@@ -260,12 +323,35 @@ export function LoginPage() {
     }
   }
 
+  /**
+   * الدخول بجوجل (3A-931): زر واحد لوضعي الدخول والتسجيل — النجاح
+   * يحوّل المتصفح لجوجل فلا تُصفّى حالة الانتظار (الصفحة تُترك)،
+   * والفشل قبل التحويل (مزود غير مفعّل/شبكة) يظهر برسالة api
+   * المترجمة المصممة وتتصفّر الحالة فيبقى المسار قابلاً للمحاولة.
+   */
+  const handleGoogle = async () => {
+    setError(null)
+    setNotice(null)
+    setGoogleBusy(true)
+    try {
+      await signInWithGoogle()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.errGoogleFailed'))
+      setGoogleBusy(false)
+    }
+  }
+
   const handleSignUp = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     setNotice(null)
     if (!displayName.trim()) {
       setError(t('auth.nameRequired'))
+      return
+    }
+    const emailError = validateEmailField(email)
+    if (emailError) {
+      setError(emailError)
       return
     }
     if (password.length < 8) {
@@ -358,7 +444,7 @@ export function LoginPage() {
       >
         <Logo decorative size={430} className="opacity-[0.06]" />
       </div>
-      <div className="relative w-full max-w-[640px] px-4 pt-14 pb-10">
+      <div className="relative w-full max-w-[640px] lg:max-w-[420px] px-4 pt-14 pb-10">
         <div className="text-center mb-6 rise-in">
           <div className="flex justify-center mb-3">
             {mascotVisible ? (
@@ -467,7 +553,7 @@ export function LoginPage() {
           ) : method === 'phone' ? (
             <PhoneAuth />
           ) : mode === 'signin' ? (
-            <form onSubmit={handleSignIn}>
+            <form noValidate onSubmit={handleSignIn}>
               <Field label={t('auth.emailLabel')}>
                 <TextInput
                   type="email"
@@ -518,7 +604,7 @@ export function LoginPage() {
               )}
             </form>
           ) : mode === 'forgot' ? (
-            <form onSubmit={handleForgot}>
+            <form noValidate onSubmit={handleForgot}>
               <Field label={t('auth.emailLabel')}>
                 <TextInput
                   type="email"
@@ -543,7 +629,7 @@ export function LoginPage() {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleSignUp}>
+            <form noValidate onSubmit={handleSignUp}>
               <Field label={t('auth.teacherNameLabel')}>
                 <TextInput
                   autoComplete="name"
@@ -607,6 +693,27 @@ export function LoginPage() {
                 {t('auth.signUpNote')}
               </p>
             </form>
+          )}
+
+          {method === 'email' && mode !== 'forgot' && !pendingConfirmEmail && (
+            <>
+              <div className="flex items-center gap-3 mt-5 mb-3" aria-hidden="true">
+                <span className="flex-1 h-px bg-border" />
+                <span className="text-muted text-[12px]">{t('auth.orDivider')}</span>
+                <span className="flex-1 h-px bg-border" />
+              </div>
+              <Button
+                full
+                variant="ghost"
+                type="button"
+                onClick={handleGoogle}
+                disabled={googleBusy || busy || demoBusy || !configured}
+                aria-busy={googleBusy}
+              >
+                {googleBusy ? <Loader2 size={18} className="animate-spin" /> : <GoogleMark />}
+                {googleBusy ? t('auth.googleRedirecting') : t('auth.googleCta')}
+              </Button>
+            </>
           )}
 
           {!pendingConfirmEmail && (

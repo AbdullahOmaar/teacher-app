@@ -11,9 +11,10 @@ import { Fab } from '../../components/ui/Fab'
 import { Chip, ChipRow } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
-import { BILLING_LABELS, daysLabel, formatMoney, formatTime12 } from '../../lib/format'
+import { BILLING_LABELS, DAY_NAMES, formatMoney, formatTime12 } from '../../lib/format'
 import { SG, useEnrollments } from '../students/hooks'
 import { countByGroup } from './api'
+import { groupSlotsOf } from './slots'
 import { useGroups } from './hooks'
 import { GroupFormSheet } from './GroupFormSheet'
 
@@ -90,36 +91,53 @@ export function GroupsPage() {
           }
         />
       ) : (
-        groups.map((g, i) => {
+        /* شبكة بطاقات عند الديسكتوب (3A-930): عمودان عند lg وثلاثة
+           عند xl؛ على الموبايل تبقى البطاقات مكدّسة كما هي */
+        <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-3 lg:items-stretch">
+        {groups.map((g, i) => {
           const cnt = counts.get(g.id) ?? 0
           const pct = g.capacity ? Math.min(100, Math.round((cnt / g.capacity) * 100)) : null
           return (
-            <Link key={g.id} to={`/groups/${g.id}`} className="block no-underline text-text">
+            <Link key={g.id} to={`/groups/${g.id}`} className="block no-underline text-text lg:h-full">
               <Card
-                className={`rise-in ${g.archived_at != null ? 'opacity-70' : ''}`}
+                className={`rise-in lg:h-full lg:mb-0 ${g.archived_at != null ? 'opacity-70' : ''}`}
                 style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
               >
-                {/* التفاف مقصود: اسم مجموعة طويل + شارة مساعد كانا ينضغطان
-                    في صف واحد فتلتف الشارة داخل كبسولتها لسطرين */}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                {/* (مراجعة المالك الحية 2026-11-28 — تخطيط كارت المجموعة،
+                    نفس نمط شارة الفاتورة في PR #76): سطر الاسم أولاً وشارة
+                    الحالة قصاده في الطرف المقابل (أقصى الشمال بصرياً) في
+                    نفس السطر — لا سطر مستقل للشارة. الاسم يُختصر بنقاط قبل
+                    الشارتين دائماً والشارتان ثابتتا الانكماش، فيحلّ هذا محل
+                    الالتفاف المقصود القديم (اسم طويل + شارة مساعد كانا
+                    ينضغطان فتلتف الشارة داخل كبسولتها لسطرين). */}
+                <div className="flex items-center gap-x-3">
                   <span className="shrink-0 w-10 h-10 rounded-full bg-soft text-primary flex items-center justify-center">
                     <Users size={20} />
                   </span>
-                  <span className="font-bold text-[16px] min-w-0">{g.name}</span>
-                  {g.archived_at != null && (
-                    <span className="text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 whitespace-nowrap">
-                      {t('groups.badgeArchived')}
-                    </span>
-                  )}
+                  <span className="font-bold text-[16px] flex-1 min-w-0 truncate">{g.name}</span>
                   {g.assistant_name && (
-                    <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5 max-w-full truncate">
+                    <span className="shrink-0 max-w-[38%] truncate text-[12px] font-bold bg-soft text-primary rounded-full px-2 py-0.5">
                       {t('groups.detailAssistant', { name: g.assistant_name })}
                     </span>
                   )}
+                  {g.archived_at != null && (
+                    <span className="shrink-0 text-[12px] font-bold bg-warn/15 text-warn-text border border-warn/40 rounded-full px-2 py-0.5 whitespace-nowrap">
+                      {t('groups.badgeArchived')}
+                    </span>
+                  )}
                 </div>
-                <div className="text-muted text-[13.5px] mt-0.5">
-                  {BILLING_LABELS[g.billing_type]} · {formatMoney(g.price)} · {daysLabel(g.days)} ·{' '}
-                  {formatTime12(g.start_time)} {t('groups.listDuration', { minutes: g.duration_minutes })}
+                {/* البيانات الوصفية سطراً سطراً (قاعدة المالك نفسها):
+                    سطر الوصف (نظام الفوترة · السعر · الميعاد والمدة ·
+                    القاعة) في سطر واحد، والأيام في سطر لوحدها — كانت
+                    كلها مدموجة في سطر واحد مع الأيام. */}
+                <div className="text-muted text-[13.5px] mt-1">
+                  {BILLING_LABELS[g.billing_type]} · {formatMoney(g.price)} ·{' '}
+                  {groupSlotsOf(g)
+                    .map(
+                      (s) =>
+                        `${DAY_NAMES[s.day]} ${formatTime12(s.start_time)} ${t('groups.listDuration', { minutes: s.duration_minutes })}`,
+                    )
+                    .join(' · ')}
                   {g.room ? (
                     <>
                       {' · '}
@@ -150,7 +168,8 @@ export function GroupsPage() {
               </Card>
             </Link>
           )
-        })
+        })}
+        </div>
       )}
 
       <Fab onClick={() => setFormOpen(true)} ariaLabel={t('groups.fabAria')} label={t('groups.formCreateTitle')} />

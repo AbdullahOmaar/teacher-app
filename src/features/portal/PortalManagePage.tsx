@@ -201,10 +201,12 @@ export function PortalManagePage() {
           <EmptyState icon={Users} title={t('portal.manageNoMatchTitle')} hint={t('portal.manageNoMatchHint')} />
         </Card>
       ) : (
-        filtered.map((s, i) => {
+        /* شبكة بطاقات عند الديسكتوب (3A-930) */
+        <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-3 lg:items-stretch">
+        {filtered.map((s, i) => {
           const expiresAt = activeByStudent.get(s.id)
           return (
-            <Card key={s.id} className="rise-in" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
+            <Card key={s.id} className="rise-in lg:mb-0 lg:h-full" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
               {/* «إدارة الرابط»: زر صغير في طرف البطاقة بجانب بيانات
                   الطالب (3A-384 — قاعدة المالك ٦-١) بدل زر وحيد على
                   سطر كامل تحتها */}
@@ -246,7 +248,8 @@ export function PortalManagePage() {
               </div>
             </Card>
           )
-        })
+        })}
+        </div>
       )}
 
       {selected && (

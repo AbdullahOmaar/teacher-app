@@ -25,10 +25,37 @@ import { useUsageSummary } from '../platform-admin/hooks'
 import { UsageBarrier } from '../platform-admin/UsageBarrier'
 import { SG, useEnrollments, useStudentBalances, useStudents } from './hooks'
 import { StudentDetailPage } from './StudentDetailPage'
+import { StudentsDesktopTable, type StudentTableRow } from './StudentsDesktopTable'
 import { StudentFormSheet } from './StudentFormSheet'
 import { StudentImportSheet } from './import/StudentImportSheet'
 
 type StatusFilter = 'all' | 'late' | 'ok' | 'paused'
+
+/**
+ * شارة حالة الدفع في سطر/صف الطالب — مكوّن واحد لقائمة الموبايل
+ * وجدول الديسكتوب (3A-930) حتى لا تنفصل صياغة الحالة بين السطحين.
+ * (وجود صف في خريطة الأرصدة = للطالب فواتير أصلاً — غيابه حالة
+ * محايدة «لا فواتير بعد» لا «مسدد»، L1)
+ */
+function BalanceBadge({ balance, hasInvoices }: { balance: number; hasInvoices: boolean }) {
+  if (balance > 0)
+    return (
+      <span className="shrink-0 type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
+        {t('common.remaining', { amount: formatMoney(balance) })}
+      </span>
+    )
+  if (hasInvoices)
+    return (
+      <span className="shrink-0 type-badge bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
+        {t('common.paid')}
+      </span>
+    )
+  return (
+    <span className="shrink-0 type-badge bg-soft text-muted border border-border rounded-full px-2 py-0.5">
+      {t('students.badgeNoInvoices')}
+    </span>
+  )
+}
 
 const STATUS_CHIPS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: t('students.statusAll') },
@@ -173,9 +200,20 @@ export function StudentsPage() {
       ? selectedId
       : (filtered[0]?.id ?? null)
 
+  // تفعيل طالب واحد — قرار واحد لسطحَي العرض (قائمة الموبايل وجدول
+  // الديسكتوب 3A-930): عند ≥1024px الاختيار يعرض التفاصيل في
+  // اللوحة الجانبية بلا تنقّل؛ تحت هذا العرض يبقى الرابط تنقّلاً
+  // عادياً لصفحة التفاصيل
+  const activateStudent = (e: { preventDefault: () => void }, id: string) => {
+    if (window.matchMedia('(min-width: 1024px)').matches) {
+      e.preventDefault()
+      setSelectedId(id)
+    }
+  }
+
   return (
     <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [SG])}>
-    <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-5 lg:items-start">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-5 lg:items-start">
       <div className="min-w-0">
       {/* شريط الأدوات الموحّد (W3 — R-10): بحث + رقائق حالة + تصفية
           المجموعة من Sheet، وفلتر المجموعة المفعّل رقاقة قابلة للإزالة */}
@@ -249,7 +287,7 @@ export function StudentsPage() {
               </StickyGroupHeader>
             )}
             <Card
-              className="rise-in p-0 overflow-hidden"
+              className="rise-in p-0 overflow-hidden lg:hidden"
               style={{ animationDelay: `${Math.min(si, 8) * 35}ms` }}
             >
               {section.items.map((s, i) => {
@@ -264,14 +302,7 @@ export function StudentsPage() {
                 key={s.id}
                 to={`/students/${s.id}`}
                 className="block no-underline text-text"
-                onClick={(e) => {
-                  // عند ≥1024px الاختيار يعرض التفاصيل في اللوحة الجانبية بلا تنقل؛
-                  // تحت هذا العرض يبقى الرابط تنقلاً عادياً لصفحة التفاصيل
-                  if (window.matchMedia('(min-width: 1024px)').matches) {
-                    e.preventDefault()
-                    setSelectedId(s.id)
-                  }
-                }}
+                onClick={(e) => activateStudent(e, s.id)}
               >
                 <ListRow
                   first={i === 0}
@@ -302,25 +333,42 @@ export function StudentsPage() {
                   }
                   trailing={
                     !isAssistant && balancesQ.data ? (
-                      balance > 0 ? (
-                        <span className="shrink-0 type-badge bg-warn-soft text-warn-text border border-warn/40 rounded-full px-2 py-0.5">
-                          {t('common.remaining', { amount: formatMoney(balance) })}
-                        </span>
-                      ) : hasInvoices ? (
-                        <span className="shrink-0 type-badge bg-ok-soft text-ok-text border border-ok/30 rounded-full px-2 py-0.5">
-                          {t('common.paid')}
-                        </span>
-                      ) : (
-                        <span className="shrink-0 type-badge bg-soft text-muted border border-border rounded-full px-2 py-0.5">
-                          {t('students.badgeNoInvoices')}
-                        </span>
-                      )
+                      <BalanceBadge balance={balance} hasInvoices={hasInvoices} />
                     ) : undefined
                   }
                 />
               </Link>
                 )
               })}
+            </Card>
+            {/* جدول بيانات الديسكتوب (3A-930): نفس طلاب القسم بنفس
+                الاشتقاقات (رصيد/مجموعات/اختيار) — سطح عرض ثانٍ عند
+                ≥1024px فقط، والقائمة أعلاه سطح الموبايل الوحيد */}
+            <Card
+              className="rise-in p-0 overflow-hidden hidden lg:block"
+              style={{ animationDelay: `${Math.min(si, 8) * 35}ms` }}
+            >
+              <StudentsDesktopTable
+                rows={section.items.map((s): StudentTableRow => {
+                  const balance = balancesQ.data?.get(s.id) ?? 0
+                  const hasInvoices = balancesQ.data?.has(s.id) ?? false
+                  return {
+                    id: s.id,
+                    name: s.name,
+                    paused: s.paused,
+                    grade: s.grade,
+                    groupNames: groupNamesByStudent.get(s.id) ?? [],
+                    phone: s.phone ?? s.guardian_phone ?? null,
+                    selected: paneStudentId === s.id,
+                    balanceBadge:
+                      !isAssistant && balancesQ.data ? (
+                        <BalanceBadge balance={balance} hasInvoices={hasInvoices} />
+                      ) : null,
+                  }
+                })}
+                showBalance={!isAssistant}
+                onActivate={activateStudent}
+              />
             </Card>
           </div>
         ))}

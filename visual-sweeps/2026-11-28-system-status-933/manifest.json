@@ -1,0 +1,72 @@
+{
+  "tool": "visual-capture (one-off puppeteer script, local build of feat/system-status-933 + vite preview + fully intercepted fake platform-admin session)",
+  "note": "قسم «حالة النظام» خلف بوابة أدمن المنصة ولا يوجد حساب أدمن حي قبل بوابة التجميد — فالتقط من البناء المحلي بجلسة أدمن وهمية كاملة الاعتراض (auth + REST يُردّ عليهما داخل المتصفح؛ لا نداء شبكة خرج من الجهاز)، بنفس نمط سويب حذف الحساب 2026-11-28. ‏VITE_PRODUCTION_URL مضبوط على رابط البرودكشن الرسمي الحقيقي فتظهر الروابط الثلاثة بأزرار النسخ. قراءة platform_settings ترجع بلا صف last_backup_at عمداً: حالة «لسه مش مفعّلة» المعروضة هي الحالة المصممة الحقيقية لا قيمة مزروعة. ‏/api/health يردّ عليه الحarness بشكل نجاح الدالة (vite preview بلا runtime دوال) — موثّق هنا لا مخفي.",
+  "base": "http://127.0.0.1:4188",
+  "branch": "feat/system-status-933",
+  "timezone": "Africa/Cairo",
+  "theme": "default(saved/auto)",
+  "startedAt": "2026-11-28T02:05:11.265Z",
+  "widths": {
+    "375": [
+      {
+        "id": "system-status-links",
+        "file": "375/system-status-links.png",
+        "path": "/admin (بطاقة الروابط الرسمية: برودكشن/ديمو/حجز + أزرار نسخ)",
+        "bytes": 23173,
+        "pngWidth": 343,
+        "pngHeight": 333,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 375,
+          "vw": 375,
+          "theme": "light"
+        }
+      },
+      {
+        "id": "system-status-health",
+        "file": "375/system-status-health.png",
+        "path": "/admin (بطاقة الفحوص الحية: التطبيق بيرد «شغال» + زمن الرد، قاعدة البيانات بترد «شغال»)",
+        "bytes": 12975,
+        "pngWidth": 343,
+        "pngHeight": 148,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 375,
+          "vw": 375,
+          "theme": "light"
+        },
+        "note": "قصّ موثّق من لقطة القسم الكاملة (system-status-section.png) عند حدود البطاقة نفسها — المحتوى كما رُسم بلا أي تعديل."
+      },
+      {
+        "id": "system-status-backup",
+        "file": "375/system-status-backup.png",
+        "path": "/admin (بطاقة النسخ الاحتياطي: حالة «لسه مش مفعّلة» المصممة — لا صف last_backup_at)",
+        "bytes": 11924,
+        "pngWidth": 343,
+        "pngHeight": 140,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 375,
+          "vw": 375,
+          "theme": "light"
+        },
+        "note": "قصّ موثّق من لقطة القسم الكاملة (system-status-section.png) عند حدود البطاقة نفسها — المحتوى كما رُسم بلا أي تعديل."
+      },
+      {
+        "id": "system-status-section",
+        "file": "375/system-status-section.png",
+        "path": "/admin (قسم «حالة النظام» كاملاً)",
+        "bytes": 55266,
+        "pngWidth": 343,
+        "pngHeight": 780,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 375,
+          "vw": 375,
+          "theme": "light"
+        }
+      }
+    ]
+  },
+  "finishedAt": "2026-11-28T02:05:18.460Z"
+}

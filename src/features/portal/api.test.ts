@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { t } from '../../i18n'
-import { portalNotifMeta, portalProofStatusMeta, proofErrorMessage } from './api'
+import type { GuardianRow } from '../../types/database'
+import {
+  isMissingWhatsappOptOutColumn,
+  portalAttMeta,
+  portalMoneyState,
+  portalNotifMeta,
+  portalProofStatusMeta,
+  proofErrorMessage,
+  withWhatsappOptOutDefault,
+} from './api'
 
 // اختبارات وحدة لمساعدات بوابة ولي الأمر النقية (3A-909): حسم ميتا
 // التنبيهات/حالات الإثبات بأمان ضد انحراف نسخ العميل/الخادم، وربط
@@ -72,5 +81,94 @@ describe('proofErrorMessage (3A-909)', () => {
 
   it('خطأ غير معروف يقع على الرسالة العامة المهذبة', () => {
     expect(proofErrorMessage(new Error('boom'))).toBe(t('portal.apiProofErrorGeneric'))
+  })
+})
+
+describe('isMissingWhatsappOptOutColumn — كشف غياب عمود whatsapp_opt_out (0073)', () => {
+  it('PGRST204 = عمود مفقود', () => {
+    expect(
+      isMissingWhatsappOptOutColumn({
+        code: 'PGRST204',
+        message: "Could not find the 'whatsapp_opt_out' column of 'guardians' in the schema cache",
+      }),
+    ).toBe(true)
+  })
+  it('رسالة تذكر whatsapp_opt_out = عمود مفقود', () => {
+    expect(
+      isMissingWhatsappOptOutColumn({ code: '42703', message: 'column "whatsapp_opt_out" does not exist' }),
+    ).toBe(true)
+  })
+  it('خطأ آخر = ليس غياب عمود', () => {
+    expect(isMissingWhatsappOptOutColumn({ code: '23505', message: 'duplicate key' })).toBe(false)
+    expect(isMissingWhatsappOptOutColumn({ code: 'PGRST204', message: 'some other column' })).toBe(true)
+    expect(isMissingWhatsappOptOutColumn(null)).toBe(false)
+  })
+})
+
+describe('withWhatsappOptOutDefault — إكمال صف قديم بالافتراضي', () => {
+  const legacyRow = {
+    id: 'g1',
+    teacher_id: 't1',
+    user_id: null,
+    display_name: 'ولي أمر',
+    phone: '+201012345678',
+    created_at: '2026-11-01T00:00:00.000Z',
+    updated_at: '2026-11-01T00:00:00.000Z',
+  } as Omit<GuardianRow, 'whatsapp_opt_out'>
+
+  it('غياب العمود = لا انسحاب (false) كما في افتراضي المهاجرة', () => {
+    expect(withWhatsappOptOutDefault(legacyRow).whatsapp_opt_out).toBe(false)
+  })
+
+  it('قيمة موجودة تُحفَظ كما هي', () => {
+    expect(withWhatsappOptOutDefault({ ...legacyRow, whatsapp_opt_out: true }).whatsapp_opt_out).toBe(true)
+    expect(withWhatsappOptOutDefault({ ...legacyRow, whatsapp_opt_out: false }).whatsapp_opt_out).toBe(false)
+  })
+})
+
+describe('portalMoneyState — حالة مال البوابة (3A-925 بند ٤)', () => {
+  it('رصيد موجب = مستحقّ مهما كانت الفواتير', () => {
+    expect(portalMoneyState({ balance: 150, has_invoices: true })).toBe('due')
+    expect(portalMoneyState({ balance: 150, has_invoices: false })).toBe('due')
+  })
+  it('فواتير موجودة ورصيد صفر = مسدد', () => {
+    expect(portalMoneyState({ balance: 0, has_invoices: true })).toBe('paid')
+  })
+  it('لا فواتير أصلاً ورصيد صفر = لا فواتير (لا «مسدد» الخاطئة)', () => {
+    expect(portalMoneyState({ balance: 0, has_invoices: false })).toBe('none')
+  })
+})
+
+describe('حسم الميتا ضد حالات الكراش (3A-928 — عائلة 3A-909)', () => {
+  // حالة الريفيو الحي: قيمة badge تُقرأ من ميتا غير موجودة فتقع البوابة
+  // كلها على شاشة الخطأ العامة — الحسم لازم يرجّع شارة محايدة دائماً.
+  const asStr = (v: unknown) => v as string
+
+  it('قيم غير نصية (null/undefined من JSONB) تتحل للبديل في الحاسّات الثلاثة', () => {
+    for (const bad of [null, undefined]) {
+      expect(portalNotifMeta(asStr(bad))).toEqual({ label: t('portal.apiNotifFallback'), badge: FALLBACK_BADGE })
+      expect(portalProofStatusMeta(asStr(bad))).toEqual({
+        label: t('portal.apiProofStatusFallback'),
+        badge: FALLBACK_BADGE,
+      })
+      expect(portalAttMeta(asStr(bad))).toEqual({ label: t('portal.apiAttFallback'), badge: FALLBACK_BADGE })
+    }
+  })
+
+  it('مفاتيح موروثة من النموذج الأولي (toString/constructor) لا تتسرب كميتا', () => {
+    for (const key of ['toString', 'constructor', 'hasOwnProperty']) {
+      expect(portalNotifMeta(key).badge).toBe(FALLBACK_BADGE)
+      expect(portalProofStatusMeta(key).badge).toBe(FALLBACK_BADGE)
+      expect(portalAttMeta(key).badge).toBe(FALLBACK_BADGE)
+    }
+  })
+
+  it('portalAttMeta: الحالات الأربع المعروفة بشاراتها، وغيرها محايد', () => {
+    expect(portalAttMeta('p').label).toBe(t('portal.apiAttPresent'))
+    expect(portalAttMeta('a').label).toBe(t('portal.apiAttAbsent'))
+    expect(portalAttMeta('l').label).toBe(t('portal.apiAttLate'))
+    expect(portalAttMeta('m').label).toBe(t('portal.apiAttMakeup'))
+    expect(portalAttMeta('x')).toEqual({ label: t('portal.apiAttFallback'), badge: FALLBACK_BADGE })
+    expect(portalAttMeta('')).toEqual({ label: t('portal.apiAttFallback'), badge: FALLBACK_BADGE })
   })
 })

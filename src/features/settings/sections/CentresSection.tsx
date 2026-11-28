@@ -76,7 +76,7 @@ export function CentresSection({
       {/* إنشاء سنتر جديد لنفس الحساب — يبدأ فاضياً بإعدادات افتراضية
           وننتقل إليه فوراً */}
       {user && (
-        <form onSubmit={handleCreateCentre} className="mt-4 border-t border-border pt-4">
+        <form noValidate onSubmit={handleCreateCentre} className="mt-4 border-t border-border pt-4">
           <div className="text-[13.5px] text-muted font-semibold mb-2">{t('settings.createCentreTitle')}</div>
           <Field label={t('settings.newCentreNameLabel')}>
             <TextInput

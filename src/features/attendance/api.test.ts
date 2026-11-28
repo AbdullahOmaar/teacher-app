@@ -4,8 +4,10 @@ import {
   arrivalWaUrl,
   departureMessage,
   departureWaUrl,
+  markAllPresentEntries,
   resolveGuardian,
   type ArrivalWaContext,
+  type AttendanceValue,
   type RosterStudent,
 } from './api'
 
@@ -116,5 +118,36 @@ describe('اسم سنتر فارغ نصياً (تعميق PAT-4)', () => {
     expect(arrivalMessage(student, undefined, emptyCentre)).toBe(
       arrivalMessage(student, undefined, { ...ctx, centreName: null }),
     )
+  })
+})
+
+describe('markAllPresentEntries — «الكل حاضر» لمن لا حالة لهم فقط (3A-925 بند ٣)', () => {
+  const roster = [{ id: 's1' }, { id: 's2' }, { id: 's3' }, { id: 's4' }]
+  const values: Record<string, AttendanceValue> = {
+    s1: { status: null, homework_done: true, starred: false },
+    s2: { status: 'a', homework_done: false, starred: false },
+    s3: { status: 'p', homework_done: false, starred: true },
+    s4: { status: null, homework_done: false, starred: false },
+  }
+  const valueOf = (id: string): AttendanceValue =>
+    values[id] ?? { status: null, homework_done: false, starred: false }
+
+  it('يعلّم غير المُعلَّمين فقط — الغائب والحاضر القائمان لا يُمَسّان', () => {
+    const entries = markAllPresentEntries(roster, valueOf)
+    expect(entries.map((e) => e.studentId)).toEqual(['s1', 's4'])
+  })
+
+  it('القيمة المبنية تحفظ الواجب/التمييز وتبدّل الحالة وحدها لحاضر', () => {
+    const entries = markAllPresentEntries(roster, valueOf)
+    expect(entries[0].value).toEqual({ status: 'p', homework_done: true, starred: false })
+  })
+
+  it('الكل مُعلَّم = لا مدخلات (لا كتابة ولا قائمة مزامنة)', () => {
+    const allMarked = (_id: string): AttendanceValue => ({ status: 'l', homework_done: false, starred: false })
+    expect(markAllPresentEntries(roster, allMarked)).toEqual([])
+  })
+
+  it('قائمة فارغة = لا مدخلات', () => {
+    expect(markAllPresentEntries([], valueOf)).toEqual([])
   })
 })

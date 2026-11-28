@@ -26,10 +26,11 @@ import type { PaymentMethod } from '../../types/database'
 import { fmtScore, pctOf } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
 import {
-  PORTAL_ATT_META,
+  portalAttMeta,
   PROOF_METHODS,
   fetchGuardianPushStatus,
   portalErrorInfo,
+  portalMoneyState,
   portalNotifMeta,
   portalProofStatusMeta,
   subscribeGuardianPush,
@@ -50,6 +51,8 @@ import {
   type PortalSessionInfo,
 } from './accounts'
 import { ClaimPasswordCard, PortalLoginForm, SessionAccountCard } from './accessUi'
+import { TeacherRatingCard } from '../profile/TeacherRatingCard'
+import { PortalInstallCard } from './PortalInstallCard'
 import {
   PORTAL,
   useMarkPortalNotificationsRead,
@@ -122,7 +125,18 @@ function PortalEmptyNote({ text, showMascot }: { text: string; showMascot: boole
   )
 }
 
-function PortalMessage({ icon: Icon, title, hint }: { icon: IconComponent; title: string; hint: string }) {
+function PortalMessage({
+  icon: Icon,
+  title,
+  hint,
+  extra,
+}: {
+  icon: IconComponent
+  title: string
+  hint: string
+  /** محتوى إضافي تحت بطاقة الرسالة (نموذج الدخول عند موت الرابط) */
+  extra?: React.ReactNode
+}) {
   return (
     <PortalShell>
       <Card className="text-center py-8">
@@ -132,6 +146,7 @@ function PortalMessage({ icon: Icon, title, hint }: { icon: IconComponent; title
         <div className="type-section mb-1">{title}</div>
         <p className="text-muted type-secondary mb-0">{hint}</p>
       </Card>
+      {extra}
     </PortalShell>
   )
 }
@@ -188,7 +203,7 @@ function PaymentProofSection({
           </p>
         )}
 
-        <form
+        <form noValidate
           onSubmit={(e) => {
             e.preventDefault()
             if (!file) return
@@ -278,17 +293,17 @@ function PaymentProofSection({
                 key={p.id}
                 className={`px-[14px] py-2.5 ${i < proofs.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[15px]">
-                      {formatMoney(p.amount)} · {PAYMENT_METHOD_LABELS[p.method]}
-                    </div>
-                    <div className="text-muted text-[12px]">{p.created_at.slice(0, 10)}</div>
-                  </div>
-                  <span className={`text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
+                {/* تخطيط كروت البوابة الموحّد: المبلغ/الطريقة وشارة
+                    الحالة في سطر، والتاريخ في سطر البيانات */}
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">
+                    {formatMoney(p.amount)} · {PAYMENT_METHOD_LABELS[p.method]}
+                  </span>
+                  <span className={`shrink-0 text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
                     {meta.label}
                   </span>
                 </div>
+                <div className="text-muted text-[12px] mt-0.5">{p.created_at.slice(0, 10)}</div>
                 {p.status === 'rejected' && p.rejection_reason && (
                   <p className="text-bad-text text-[13.5px] mt-1 mb-0">{t('portal.pageProofRejectionReason', { reason: p.rejection_reason })}</p>
                 )}
@@ -365,33 +380,36 @@ function NotificationsSection({
               return (
                 <div
                   key={n.id}
-                  className={`flex items-center gap-3 px-[14px] py-2.5 ${
+                  className={`px-[14px] py-2.5 ${
                     i < notifications.length - 1 ? 'border-b border-border' : ''
                   } ${isUnread ? 'bg-soft/60' : ''}`}
                 >
-                  <span
-                    className={`text-[12px] font-bold border rounded-full px-2.5 py-1 shrink-0 ${meta.badge}`}
-                  >
-                    {meta.label}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[15px] break-words">{n.group_name ?? ''}</div>
-                    <div className="text-muted text-[12px]">
-                      {n.kind === 'invoice_issued'
-                        ? t('portal.pageNotifInvoiceLine', {
-                            period: n.invoice_period ?? '',
-                            total: formatMoney(n.invoice_total),
-                            balance: formatMoney(n.invoice_balance),
-                          })
-                        : t('portal.pageNotifSessionLine', {
-                            date: n.session_date ?? '',
-                            time: fmtEventTime(n.event_at),
-                          })}
-                    </div>
+                  {/* تخطيط كروت البوابة الموحّد: اسم المجموعة وشارة
+                      نوع التنبيه في سطر قصاد بعض (كانت الشارة تسبق
+                      الاسم)، وسطر التفاصيل تحتها */}
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">{n.group_name ?? ''}</span>
+                    <span
+                      className={`shrink-0 text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}
+                    >
+                      {meta.label}
+                    </span>
+                    {isUnread && (
+                      <span className="w-2.5 h-2.5 rounded-full bg-bad shrink-0" aria-label={t('portal.pageNotifUnreadAria')} />
+                    )}
                   </div>
-                  {isUnread && (
-                    <span className="w-2.5 h-2.5 rounded-full bg-bad shrink-0" aria-label={t('portal.pageNotifUnreadAria')} />
-                  )}
+                  <div className="text-muted text-[12px] mt-0.5">
+                    {n.kind === 'invoice_issued'
+                      ? t('portal.pageNotifInvoiceLine', {
+                          period: n.invoice_period ?? '',
+                          total: formatMoney(n.invoice_total),
+                          balance: formatMoney(n.invoice_balance),
+                        })
+                      : t('portal.pageNotifSessionLine', {
+                          date: n.session_date ?? '',
+                          time: fmtEventTime(n.event_at),
+                        })}
+                  </div>
                 </div>
               )
             })}
@@ -494,6 +512,25 @@ export function PortalPage() {
 
   const overviewQ = usePortalOverview(studentId, rawToken)
 
+  // بطاقة الدخول باسم الدخول وكلمة السر — تظهر عند فتح البوابة من غير
+  // رابط، وتحت رسالة «الرابط غير صالح» أيضاً (لمن لا جلسة له) حتى لا
+  // يكون الرابط الميت طريقاً مسدوداً لمن عنده حساب.
+  const loginCard = (
+    <Card>
+      <div className="type-section mb-1">{t('portal.loginTitle')}</div>
+      <p className="text-muted text-[13.5px] mt-0">{t('portal.loginIntro')}</p>
+      <PortalLoginForm
+        role="guardian"
+        usernameLabel={t('portal.loginUsernameGuardian')}
+        usernamePlaceholder={t('portal.loginUsernameGuardianPlaceholder')}
+        onLoggedIn={(res) => {
+          clearCredentialCaches()
+          setSession({ token: res.session_token, info: res })
+        }}
+      />
+    </Card>
+  )
+
   if (urlToken && !urlStudentId) {
     return (
       <PortalMessage
@@ -513,23 +550,7 @@ export function PortalPage() {
   }
 
   if (!urlToken && !session) {
-    return (
-      <PortalShell>
-        <Card>
-          <div className="type-section mb-1">{t('portal.loginTitle')}</div>
-          <p className="text-muted text-[13.5px] mt-0">{t('portal.loginIntro')}</p>
-          <PortalLoginForm
-            role="guardian"
-            usernameLabel={t('portal.loginUsernameGuardian')}
-            usernamePlaceholder={t('portal.loginUsernameGuardianPlaceholder')}
-            onLoggedIn={(res) => {
-              clearCredentialCaches()
-              setSession({ token: res.session_token, info: res })
-            }}
-          />
-        </Card>
-      </PortalShell>
-    )
+    return <PortalShell>{loginCard}</PortalShell>
   }
 
   if (session && sessionStudents.length === 0) {
@@ -570,7 +591,24 @@ export function PortalPage() {
 
   if (overviewQ.isError || !overviewQ.data) {
     const info = portalErrorInfo(overviewQ.error)
-    return <PortalMessage icon={Clock} title={info.title} hint={info.hint} />
+    // نموذج الدخول يظهر تحت الرسالة عند موت الاعتماد فقط ولمن لا جلسة
+    // له — أخطاء الشبكة العابرة تبقى رسالة بلا نموذج. رسالة الخطأ تُقرأ
+    // من خاصية message مباشرة: أخطاء PostgREST كائنات عادية لا مثيلات
+    // Error فـ instanceof لا يكفي.
+    const errMsg =
+      (overviewQ.error as { message?: string } | null)?.message ?? String(overviewQ.error ?? '')
+    const credentialDead =
+      errMsg.includes('invalid or expired') ||
+      errMsg.includes('not authorized') ||
+      errMsg.includes('token not valid')
+    return (
+      <PortalMessage
+        icon={Clock}
+        title={info.title}
+        hint={info.hint}
+        extra={!session && credentialDead ? loginCard : undefined}
+      />
+    )
   }
 
   const o = overviewQ.data
@@ -613,10 +651,12 @@ export function PortalPage() {
             {o.sections.money && (
               <div className="rounded-xl border border-border bg-bg p-3 text-center">
                 <div className="text-muted text-[12px] font-semibold mb-0.5">{t('portal.pageBalanceLabel')}</div>
-                {o.balance > 0 ? (
+                {portalMoneyState(o) === 'due' ? (
                   <div className="text-[20px] font-extrabold text-bad-text">{formatMoney(o.balance)}</div>
-                ) : (
+                ) : portalMoneyState(o) === 'paid' ? (
                   <div className="text-[20px] font-extrabold text-ok-text flex items-center justify-center gap-1.5">{t('portal.pagePaid')} <Check size={22} /></div>
+                ) : (
+                  <div className="text-[20px] font-extrabold text-muted">{t('portal.pageNoInvoices')}</div>
                 )}
               </div>
             )}
@@ -641,6 +681,12 @@ export function PortalPage() {
           </ChipRow>
         </div>
       )}
+
+      {/* تثبيت التطبيق على الجهاز (ملاحظة المالك 2026-11-28) — فوق
+          مفتاح الإشعارات كمجموعة واحدة «ثبّت وفعّل» */}
+      <div className="rise-in" style={{ animationDelay: '40ms' }}>
+        <PortalInstallCard />
+      </div>
 
       {/* إشعارات Push الفورية — اشتراك اختياري من البوابة (Phase 4 خطوة 2)؛
           محورها الحضور فتختفي مع إخفاء المدرس لقسم الحضور (3A-385) */}
@@ -672,9 +718,16 @@ export function PortalPage() {
         o.groups.map((g) => (
           <Card key={g.name}>
             <div className="font-bold text-[15px]">{g.name}</div>
-            <div className="text-muted text-[13.5px] mt-0.5">
-              {t('portal.pageGroupSchedule', { days: daysLabel(g.days), time: formatTime12(g.start_time) })}
-              {g.room ? t('portal.pageGroupRoom', { room: g.room }) : ''}
+            {/* البيانات الوصفية سطراً سطراً (قاعدة كروت البوابة —
+                ملاحظة المالك 2026-11-28): كل موعد في سطر بيومه وميعاده،
+                والقاعة في سطر آخر موعد — مواعيد المجموعة الكاملة (3A-926) */}
+            <div className="text-muted text-[13.5px] mt-1">
+              {g.slots.map((s, i) => (
+                <div key={i}>
+                  {t('portal.pageGroupSchedule', { days: daysLabel([s.day]), time: formatTime12(s.start_time) })}
+                  {i === g.slots.length - 1 && g.room ? t('portal.pageGroupRoom', { room: g.room }) : ''}
+                </div>
+              ))}
             </div>
             {g.links.some((link) => safeExternalUrl(link) !== null) && (
               <div className="flex flex-wrap gap-2 mt-2">
@@ -718,22 +771,26 @@ export function PortalPage() {
             return (
               <div
                 key={`${s.title}-${s.date}-${i}`}
-                className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.latest_scores.length - 1 ? 'border-b border-border' : ''}`}
+                className={`px-[14px] py-2.5 ${i < o.latest_scores.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] break-words">{s.title}</div>
-                  <div className="text-muted text-[12px]">{s.date}</div>
+                {/* تخطيط كروت البوابة الموحّد: العنوان وشارة النسبة في
+                    سطر، والتاريخ والدرجة في سطر البيانات */}
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">{s.title}</span>
+                  {pct != null && (
+                    <span
+                      className={`shrink-0 min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${pct >= 50 ? 'bg-ok-text' : 'bg-bad-text'}`}
+                    >
+                      {pct}%
+                    </span>
+                  )}
                 </div>
-                <div className="text-[13.5px] font-semibold whitespace-nowrap">
-                  {t('portal.pageScoreOf', { score: fmtScore(s.score), max: fmtScore(s.max_score) })}
-                </div>
-                {pct != null && (
-                  <span
-                    className={`min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${pct >= 50 ? 'bg-ok-text' : 'bg-bad-text'}`}
-                  >
-                    {pct}%
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-muted text-[12px] flex-1 min-w-0">{s.date}</span>
+                  <span className="shrink-0 text-[13.5px] font-semibold whitespace-nowrap">
+                    {t('portal.pageScoreOf', { score: fmtScore(s.score), max: fmtScore(s.max_score) })}
                   </span>
-                )}
+                </div>
               </div>
             )
           })}
@@ -771,19 +828,21 @@ export function PortalPage() {
       ) : (
         <Card className="p-0 overflow-hidden">
           {o.recent_attendance.map((a, i) => {
-            const meta = PORTAL_ATT_META[a.status] ?? { label: a.status, badge: 'bg-soft text-muted border-border' }
+            const meta = portalAttMeta(a.status)
             return (
               <div
                 key={`${a.date}-${a.group_name}-${i}`}
-                className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.recent_attendance.length - 1 ? 'border-b border-border' : ''}`}
+                className={`px-[14px] py-2.5 ${i < o.recent_attendance.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] break-words">{a.group_name}</div>
-                  <div className="text-muted text-[12px]">{a.date}</div>
+                {/* تخطيط كروت البوابة الموحّد: الاسم وشارة الحالة في
+                    سطر، والتاريخ في سطر البيانات */}
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">{a.group_name}</span>
+                  <span className={`shrink-0 text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
+                    {meta.label}
+                  </span>
                 </div>
-                <span className={`text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
-                  {meta.label}
-                </span>
+                <div className="text-muted text-[12px] mt-0.5">{a.date}</div>
               </div>
             )
           })}
@@ -791,6 +850,12 @@ export function PortalPage() {
           )}
         </>
       )}
+
+      {/* تقييم المدرّس (0074 — 3A-929): بطاقة اختيارية تتدهور بصمت —
+          تظهر فقط لوليّ طالب مسجّل فعلياً عند هذا المدرّس */}
+      <div className="mt-5">
+        <TeacherRatingCard mode="guardian" rawToken={rawToken} studentId={studentId} />
+      </div>
 
       {/* بطاقة الحساب (3A-385 + 0056): الواصل برابط يعيّن كلمة سر
           للدخول الجاي — والـ claim يستهلك الرابط ويبدّل الاعتماد لجلسة
@@ -804,7 +869,11 @@ export function PortalPage() {
             <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
             <span>
               {t('portal.claimDone', { username: justClaimed.username })}{' '}
-              {justClaimed.linkClosed ? t('portal.claimLinkDone') : t('portal.claimLinkStillValid')}
+              {justClaimed.linkClosed ? t('portal.claimLinkDone') : t('portal.claimLinkStillValid')}{' '}
+              {t('portal.claimLoginAtLabel')}{' '}
+              <span dir="ltr" className="font-semibold">
+                {`${window.location.origin}/portal`}
+              </span>
             </span>
           </p>
         )}
@@ -821,6 +890,8 @@ export function PortalPage() {
             />
           ) : (
             <ClaimPasswordCard
+              loginPath="/portal"
+              loginNameHint={t('portal.claimLoginNameHintGuardian')}
               claim={(pw) =>
                 portalClaimGuardian(rawToken, studentId, pw).then((res) => {
                   const outcome = resolveClaimOutcome(res)

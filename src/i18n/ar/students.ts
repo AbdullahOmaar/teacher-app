@@ -19,6 +19,10 @@ export const students = {
   nameSeparator: '، ',
   selectTitle: 'اختر طالباً من القائمة',
   selectHint: 'تفاصيل الطالب المحدد هتظهر هنا — أو عدّل البحث والفلاتر.',
+  /* ترويسات جدول الديسكتوب (3A-930) */
+  tableStudent: 'الطالب',
+  tableGroups: 'المجموعات',
+  tableStatus: 'الحالة',
   fabNew: 'طالب جديد',
   fabAddAria: 'إضافة طالب جديد',
   filterByGroup: 'تصفية حسب المجموعة',
@@ -104,6 +108,9 @@ export const students = {
   enrollPriceError: 'السعر الخاص لازم يكون رقماً صحيحاً (أو اتركه فارغاً لسعر المجموعة)',
   enrollPrepaidError: 'عدد الحصص المدفوعة مسبقاً لازم يكون عدداً صحيحاً',
   enrollError: 'حصلت مشكلة أثناء التسجيل',
+  /** رفض تسجيل جديد في مجموعة ممتلئة (3A-925 بند ١ — قرار المالك: لا قائمة انتظار) */
+  enrollGroupFull:
+    'المجموعة دي ممتلئة — وصلت لسعتها القصوى ({capacity} طالب). كبّر السعة من تعديل المجموعة أو اختار مجموعة تانية.',
   enrollStudentLabel: 'الطالب',
   enrollStudentPlaceholder: '— اختار الطالب —',
   enrollGroupLabel: 'المجموعة',

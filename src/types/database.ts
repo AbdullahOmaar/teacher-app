@@ -87,6 +87,9 @@ export type TeacherSettingsRow = Tables<'teacher_settings'>
  */
 export type TeacherWhatsappConfigRow = Omit<Tables<'teacher_whatsapp_config'>, 'token_vault_secret_id'>
 
+/** حالة «شوهدت» لخاصية في نظام «جديد» العام (migration ‏0073 — مهمة 24) */
+export type TeacherFeatureSeenRow = Tables<'teacher_feature_seen'>
+
 /** سجل قوالب Utility لواتساب لكل سنتر (migration ‏0045 — 3A-300) */
 export type TeacherWhatsappTemplateRow = Tables<'teacher_whatsapp_templates'>
 
@@ -262,6 +265,39 @@ export type SupplierPayableRow = Tables<'supplier_payables'>
 export type MonthlyCentreFinanceRow = NonNullRow<Tables<'monthly_centre_finance'>>
 
 // ---------------------------------------------------------------------------
+// صفحة المدرّس الشخصية العامة (migration ‏0074، 3A-929).
+// ⚠️ أنواع الجداول في database.generated.ts كُتبت يدوياً مطابقةً لملف
+// المهاجرة حرفياً لأن المهاجرة غير مطبّقة على القاعدة بعد (قاعدة
+// تجميد الفيز 2026-11-25) فلا يستطيع المولّد رؤيتها؛ عند تطبيقها عند
+// بوابة التجميد تُعاد التوليدة بـ scripts/gen_db_types.py للتحقق
+// النهائي — أي اختلاف يظهر هناك يُصحَّح لصالح المخطط الحي.
+// ---------------------------------------------------------------------------
+
+/** نوع محتوى الصفحة — قيد CHECK في المخطط (مقال نصي/كتاب/كورس/قائمة روابط) */
+export type ProfileContentKind = 'article' | 'book' | 'course' | 'playlist'
+
+/** نوع مقيّم الصفحة — قيد CHECK في المخطط (ولي أمر/طالب برابط حقيقي فقط) */
+export type ProfileReviewerKind = 'guardian' | 'student'
+
+/** صفحة المدرّس الشخصية — جدول teacher_profiles (ظهورها افتراضياً مطفأ) */
+export type TeacherProfileRow = Tables<'teacher_profiles'>
+
+/** منشور صفحة — جدول teacher_profile_posts */
+export type TeacherProfilePostRow = Tables<'teacher_profile_posts'>
+
+/** عنصر محتوى صفحة — ‏kind مقيد بقيد CHECK لوحدة ProfileContentKind */
+export type TeacherProfileContentRow = WithFields<
+  Tables<'teacher_profile_content'>,
+  { kind: ProfileContentKind }
+>
+
+/** تقييم صفحة — ‏reviewer_kind مقيد بقيد CHECK لوحدة ProfileReviewerKind */
+export type TeacherProfileRatingRow = WithFields<
+  Tables<'teacher_profile_ratings'>,
+  { reviewer_kind: ProfileReviewerKind }
+>
+
+// ---------------------------------------------------------------------------
 // سجل النشاط — جدول activity_log (migration ‏0009)
 // ---------------------------------------------------------------------------
 
@@ -336,6 +372,18 @@ export interface StudentInput {
   paused: boolean
 }
 
+/**
+ * موعد أسبوعي واحد للمجموعة (3A-926 — عمود groups.slots من 0070):
+ * day برقم dow (0=الأحد..6=السبت — نفس ترقيم days وextract(dow) في القاعدة)،
+ * وstart_time بصيغة "HH:MM". المجموعة قد تحمل عدة مواعيد بأيام وأوقات ومدد
+ * مختلفة، وتوليد الحصص يمرّ عليها كلها.
+ */
+export interface GroupSlot {
+  day: number
+  start_time: string // "HH:MM"
+  duration_minutes: number
+}
+
 export interface GroupInput {
   name: string
   billing_type: BillingType
@@ -343,6 +391,9 @@ export interface GroupInput {
   days: number[]
   start_time: string // "HH:MM"
   duration_minutes: number
+  /** المواعيد الأسبوعية الكاملة (3A-926) — مصدر الحقيقة؛ days/start_time/
+   * duration_minutes أعلاها مرايا مشتقة منها (slotsToMirrors) لتوافق القراء */
+  slots: GroupSlot[]
   room: string | null
   capacity: number | null
   assistant_name: string | null

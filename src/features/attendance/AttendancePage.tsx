@@ -11,11 +11,11 @@ import { ErrorState, LoadingState, NoTeacherProfile, PageLoadingOverlay, SignInR
 import { PullToRefresh } from '../../components/ui/PullToRefresh'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatTime12, safeExternalUrl } from '../../lib/format'
-import type { AttendanceStatus } from '../../types/database'
 import { useGroups } from '../groups/hooks'
 import { SG } from '../students/hooks'
 import { formatDateLabel, generationWindowMonths, monthStartStr, todayStr } from '../schedule/api'
-import { SCHED, useGeneration, useSetSessionStatus } from '../schedule/hooks'
+import { SCHED, useGeneration, useHolidays, useSetSessionStatus } from '../schedule/hooks'
+import { ExtraSessionSheet } from '../schedule/sheets'
 import {
   EMPTY_VALUE,
   arrivalMessage,
@@ -23,6 +23,7 @@ import {
   departureMessage,
   departureWaUrl,
   isAttended,
+  markAllPresentEntries,
   resolveGuardian,
   type AttendanceValue,
   type SessionWithGroup,
@@ -73,6 +74,7 @@ export function AttendancePage() {
   // وضع مسح QR (خطوة 4): الكاميرا لا تُفتح إلا بضغط الزر صراحةً، وصفّ آخر
   // طالب سُجّل بالمسح يومض في القائمة بعد إغلاق الماسح (flashId)
   const [scanOpen, setScanOpen] = useState(false)
+  const [extraOpen, setExtraOpen] = useState(false)
   // ارتفاع الشريط اللاصق السفلي مقاساً فعلياً — يُبنى به فاصل سفلي
   // بنفس الارتفاع حتى يمرّ آخر محتوى بالكامل فوق الشريط (3A-324)
   const [barEl, setBarEl] = useState<HTMLDivElement | null>(null)
@@ -137,6 +139,14 @@ export function AttendancePage() {
   const groupsQ = useGroups(teacherId)
   const groups = useMemo(() => groupsQ.data ?? [], [groupsQ.data])
   const groupById = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups])
+
+  // إجازات المدرس — تُمرَّر لورقة الحصة الإضافية (3A-911) لتحذير
+  // الإضافة في يوم إجازة، بنفس عقد شاشة الجدول
+  const holidaysQ = useHolidays(teacherId)
+  const holidayDates = useMemo(
+    () => new Set((holidaysQ.data ?? []).map((h) => h.holiday_date)),
+    [holidaysQ.data],
+  )
 
   // توليد حصص شهور العرض (نفس آلية الجدول) قبل قراءة حصص اليوم المختار
   const neededMonths = useMemo(() => {
@@ -226,6 +236,13 @@ export function AttendancePage() {
   }
   const group = selected ? groupById.get(selected.group_id) : undefined
   const rowsReady = Boolean(selected && attQ.data)
+  // جاهزية القائمة بنفس شروط سلسلة العرض حرفياً (لا تحميل/لا خطأ/
+  // قائمة غير فارغة) — تحكم سكة الديسكتوب الجانبية (3A-930) فلا
+  // تظهر الواجب/واتساب/الملخص إلا حيث كانت تظهر في التدفق الأصلي
+  const rosterSettled =
+    !(rosterQ.isPending || attQ.isPending || !rowsReady) &&
+    !(rosterQ.error || attQ.error) &&
+    roster.length > 0
   // قيم القائمة المعلّقة للحصة المختارة — طبقة بين التجاوز المحلي
   // وبيانات الخادم: التغيير المعلّق يظهر كما كتبه المستخدم حتى يُزامَن،
   // وصفّ صاحبه يُعلَّم «قيد الانتظار» (أو «فشل الحفظ» إن استنفد محاولاته)
@@ -304,10 +321,10 @@ export function AttendancePage() {
 
   const markAllPresent = () => {
     if (!selected || cancelled || !teacherId) return
-    const entries = roster.map((s) => ({
-      studentId: s.id,
-      value: { ...valueOf(s.id), status: 'p' as AttendanceStatus },
-    }))
+    // «الكل حاضر» = من لا حالة لهم بعد فقط (3A-925 بند ٣): غائب قائم لا
+    // يُستبدل أبداً — البناء كله في markAllPresentEntries النقية المُختبَرة
+    const entries = markAllPresentEntries(roster, valueOf)
+    if (entries.length === 0) return
     applyOverride(entries)
     // كل طالب عنصر مستقل في قائمة المزامنة (نفس مفتاح الدمج الفردي)،
     // والمحرك يرسلهم دفعة حصة واحدة — متصلاً كان أو غير متصل (3A-296)
@@ -419,6 +436,11 @@ export function AttendancePage() {
         }
       />
 
+      {/* شبكة الديسكتوب (3A-930): عند ≥1024px — المنتقي بعرض كامل،
+          والقائمة عمود رئيسي، والواجب/واتساب/الملخص سكة جانبية لاصقة.
+          تحت نقطة الكسر تبقى الكتل مكدّسة بنفس ترتيب DOM حرفياً */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-4 lg:items-start">
+      <div className="lg:col-span-2 min-w-0">
       <SessionPickerCard
         date={date}
         dateInputRef={dateInputRef}
@@ -438,25 +460,28 @@ export function AttendancePage() {
         cancelled={cancelled}
         onToggleSessionStatus={toggleSessionStatus}
         statusPending={statusMut.isPending}
+        onAddExtra={() => setExtraOpen(true)}
       />
+      </div>
 
       {/* تحميل المنتقي: مؤشر دُفّي الموحّد من أول لحظة (3A-384 —
           ملاحظة المالك ١: اللودر كان يظهر متأخراً جداً لأن سلسلة
           مجموعات ← توليد ← حصص اليوم كانت تترك الصفحة بلا أي مؤشر
           حتى تُختار الحصة وتُجلب قائمتها) */}
       {pickerPending && (
-        <>
+        <div className="lg:col-span-2 min-w-0">
           <PageLoadingOverlay />
           <div className="mt-3">
             <Skeleton className="h-[72px] mb-3" />
             <Skeleton className="h-[72px] mb-3" />
             <Skeleton className="h-[72px]" />
           </div>
-        </>
+        </div>
       )}
 
       {selected && (
         <>
+        <div className="min-w-0">
           {cancelled && (
             <div className="border border-border bg-soft rounded-xl px-3 py-2.5 mb-3 text-[13.5px] font-semibold text-muted flex items-start gap-2">
               <Ban size={20} className="shrink-0 mt-0.5" />
@@ -536,50 +561,71 @@ export function AttendancePage() {
               />
             </Card>
           ) : (
-            <>
-              <RosterCard
-                students={roster}
-                valueOf={valueOf}
-                queueMap={queueMap}
-                leftMap={leftMap}
-                contacts={contactsQ.data}
-                sessionDate={selected.session_date}
-                flashId={flashId}
-                cancelled={cancelled}
-                online={online}
-                markLeftPending={markLeftMut.isPending}
-                clearLeftPending={clearLeftMut.isPending}
-                onChangeValue={changeValue}
-                onToggleLeft={toggleLeft}
-              />
-
-              <HomeworkCard
-                students={roster}
-                groupId={selected.group_id}
-                sessionId={selected.id}
-                valueOf={valueOf}
-                cancelled={cancelled}
-                onChangeValue={changeValue}
-              />
-
-              {/* قائمة إرسال واتساب وصل/غادر (خطوة 6) */}
-              {waRows.length > 0 && (
-                <WaSendCard rows={waRows} onCopyAll={copyAllWaMessages} />
-              )}
-
-              <SummaryBar
-                barRef={setBarEl}
-                barH={barH}
-                statusCounts={statusCounts}
-                cancelled={cancelled}
-                anyNotPresent={anyNotPresent}
-                syncing={sync.syncing}
-                onScanOpen={() => setScanOpen(true)}
-                onMarkAllPresent={markAllPresent}
-              />
-            </>
+            <RosterCard
+              students={roster}
+              valueOf={valueOf}
+              queueMap={queueMap}
+              leftMap={leftMap}
+              contacts={contactsQ.data}
+              sessionDate={selected.session_date}
+              flashId={flashId}
+              cancelled={cancelled}
+              online={online}
+              markLeftPending={markLeftMut.isPending}
+              clearLeftPending={clearLeftMut.isPending}
+              onChangeValue={changeValue}
+              onToggleLeft={toggleLeft}
+            />
           )}
+        </div>
+
+        {/* سكة جانبية عند الديسكتوب (3A-930): الواجب + إرسال واتساب +
+            شريط الملخص لاصقة بجانب القائمة؛ على الموبايل تتبعها في
+            نفس موضعها الأصلي من التدفق بعد القائمة مباشرة */}
+        {rosterSettled && (
+          <div className="min-w-0 lg:sticky lg:top-[76px]">
+            <HomeworkCard
+              students={roster}
+              groupId={selected.group_id}
+              sessionId={selected.id}
+              valueOf={valueOf}
+              cancelled={cancelled}
+              onChangeValue={changeValue}
+            />
+
+            {/* قائمة إرسال واتساب وصل/غادر (خطوة 6) */}
+            {waRows.length > 0 && (
+              <WaSendCard rows={waRows} onCopyAll={copyAllWaMessages} />
+            )}
+
+            <SummaryBar
+              barRef={setBarEl}
+              barH={barH}
+              statusCounts={statusCounts}
+              cancelled={cancelled}
+              anyNotPresent={anyNotPresent}
+              syncing={sync.syncing}
+              onScanOpen={() => setScanOpen(true)}
+              onMarkAllPresent={markAllPresent}
+            />
+          </div>
+        )}
         </>
+      )}
+      </div>
+
+      {/* حصة إضافية من الحضور مباشرة (3A-911): يوم بلا حصص مجدولة
+          لم يعد طريقاً مسدوداً — نفس ورقة الجدول بتاريخ اليوم
+          المختار ابتدائياً، وإبطال الكاش يشمل الحضور أصلاً */}
+      {extraOpen && teacherId && (
+        <ExtraSessionSheet
+          groups={groups}
+          holidayDates={holidayDates}
+          teacherId={teacherId}
+          initialDate={date}
+          onClose={() => setExtraOpen(false)}
+          onDone={toast}
+        />
       )}
 
       {/* ماسح QR (خطوة 4): يُركّب فقط عند الفتح الصريح — الكاميرا تُطلب

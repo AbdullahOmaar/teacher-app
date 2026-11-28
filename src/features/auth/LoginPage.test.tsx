@@ -31,6 +31,21 @@ vi.mock('../../components/mascot/useMascotVisible', () => ({
 // الانتظار، ثم يحسمه نجاحاً أو خطأ ليرى تصفير الحالة (3A-914)
 const api = vi.hoisted(() => ({
   signInWithEmail: vi.fn(),
+  signInWithGoogle: vi.fn(),
+  // نفس عقد الدالة الحقيقية (3A-931): تصنيف خطأ رجوع OAuth من
+  // الاستعلام/المقطع لرسالة مصممة — الإلغاء نصّه والفشل نصّه،
+  // والوصف الخام لا يظهر في أيٍّ منهما
+  googleReturnErrorMessage: (search: string, hash: string): string | null => {
+    const read = (raw: string) => {
+      const p = new URLSearchParams(raw.replace(/^[?#]/, ''))
+      return p.get('error') ?? p.get('error_code')
+    }
+    const err = read(search) ?? read(hash)
+    if (!err) return null
+    return err === 'access_denied'
+      ? 'اتلغى الدخول بجوجل — تقدر تحاول تاني أو تدخل بالإيميل وكلمة المرور.'
+      : 'تعذّر إتمام الدخول بجوجل — حاول تاني، أو ادخل بالإيميل وكلمة المرور.'
+  },
   signUpWithEmail: vi.fn(),
   requestPasswordReset: vi.fn(),
   resendConfirmation: vi.fn(),
@@ -41,6 +56,14 @@ const api = vi.hoisted(() => ({
   ensureTeacherProfile: vi.fn(),
   signUpNextStep: (hasSession: boolean, instantSignInOk: boolean): 'enter' | 'code' =>
     hasSession || instantSignInOk ? 'enter' : 'code',
+  // نفس عقد الدالة الحقيقية (3A-911): رسالة عربية أو null — النصوص
+  // هنا نسخة الاختبار من رسائل القاموس
+  validateEmailField: (raw: string): string | null => {
+    const email = raw.trim()
+    if (!email) return 'اكتب بريدك الإلكتروني الأول.'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'صيغة البريد الإلكتروني غير صحيحة.'
+    return null
+  },
 }))
 vi.mock('./api', () => api)
 
@@ -241,5 +264,121 @@ describe('LoginPage — حالة تحميل أزرار الإرسال (3A-914)',
     const idleBtn = screen.getByRole('button', { name: 'إرسال كود الاستعادة' }) as HTMLButtonElement
     expect(idleBtn.disabled).toBe(false)
     expect(screen.getByRole('alert').textContent).toContain('تعذّر إرسال رسالة الاستعادة')
+  })
+})
+
+describe('LoginPage — تحقق البريد بالعربية بدل فقاعات المتصفح (3A-911)', () => {
+  afterEach(() => {
+    cleanup()
+  })
+  beforeEach(() => {
+    api.signInWithEmail.mockReset()
+    api.requestPasswordReset.mockReset()
+  })
+
+  it('دخول بلا بريد: رسالة عربية ولا يُستدعى الدخول', () => {
+    renderLogin()
+    fireEvent.change(screen.getByLabelText('كلمة المرور'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'دخول' }))
+    expect(screen.getByRole('alert').textContent).toContain('اكتب بريدك الإلكتروني الأول')
+    expect(api.signInWithEmail.mock.calls.length).toBe(0)
+  })
+
+  it('دخول ببريد فاسد الصيغة: رسالة الصيغة ولا يُستدعى الدخول', () => {
+    renderLogin()
+    fireEvent.change(screen.getByLabelText('البريد الإلكتروني'), {
+      target: { value: 'not-an-email' },
+    })
+    fireEvent.change(screen.getByLabelText('كلمة المرور'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'دخول' }))
+    expect(screen.getByRole('alert').textContent).toContain('صيغة البريد الإلكتروني غير صحيحة')
+    expect(api.signInWithEmail.mock.calls.length).toBe(0)
+  })
+
+  it('دخول بلا كلمة مرور: رسالة عربية ولا يُستدعى الدخول', () => {
+    renderLogin()
+    fireEvent.change(screen.getByLabelText('البريد الإلكتروني'), {
+      target: { value: 'teacher@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'دخول' }))
+    expect(screen.getByRole('alert').textContent).toContain('اكتب كلمة المرور الأول')
+    expect(api.signInWithEmail.mock.calls.length).toBe(0)
+  })
+
+  it('نسيت كلمة المرور بلا بريد: رسالة عربية ولا يُطلب الكود', () => {
+    renderLogin()
+    fireEvent.click(screen.getByRole('button', { name: 'نسيت كلمة المرور؟' }))
+    fireEvent.click(screen.getByRole('button', { name: 'إرسال كود الاستعادة' }))
+    expect(screen.getByRole('alert').textContent).toContain('اكتب بريدك الإلكتروني الأول')
+    expect(api.requestPasswordReset.mock.calls.length).toBe(0)
+  })
+})
+
+describe('LoginPage — الدخول بجوجل (3A-931)', () => {
+  afterEach(() => {
+    cleanup()
+    window.history.pushState(null, '', '/')
+  })
+  beforeEach(() => {
+    api.signInWithGoogle.mockReset()
+    api.signInWithGoogle.mockResolvedValue(undefined)
+  })
+
+  it('الزر ظاهر في وضع الدخول وضغطته تستدعي OAuth مرة واحدة', async () => {
+    renderLogin()
+    fireEvent.click(screen.getByRole('button', { name: /الدخول بجوجل/ }))
+    await flush()
+    expect(api.signInWithGoogle.mock.calls.length).toBe(1)
+  })
+
+  it('الزر ظاهر في وضع التسجيل أيضاً — نفس الزر للوضعين', async () => {
+    renderLogin()
+    fireEvent.click(screen.getByRole('tab', { name: 'حساب جديد' }))
+    fireEvent.click(screen.getByRole('button', { name: /الدخول بجوجل/ }))
+    await flush()
+    expect(api.signInWithGoogle.mock.calls.length).toBe(1)
+  })
+
+  it('الزر غائب في وضع نسيت كلمة المرور', () => {
+    renderLogin()
+    fireEvent.click(screen.getByRole('button', { name: 'نسيت كلمة المرور؟' }))
+    expect(screen.queryByRole('button', { name: /الدخول بجوجل/ })).toBeNull()
+  })
+
+  it('فشل بدء التحويل: رسالة مصممة في التنبيه والزر يعود متاحاً', async () => {
+    api.signInWithGoogle.mockRejectedValue(
+      new Error('الدخول بجوجل مش مفعّل على المنصة لسه — ادخل بالإيميل وكلمة المرور دلوقتي.'),
+    )
+    renderLogin()
+    fireEvent.click(screen.getByRole('button', { name: /الدخول بجوجل/ }))
+    await flush()
+    expect(screen.getByRole('alert').textContent).toContain('مش مفعّل على المنصة')
+    expect(
+      (screen.getByRole('button', { name: /الدخول بجوجل/ }) as HTMLButtonElement).disabled,
+    ).toBe(false)
+  })
+
+  it('رجوع بإلغاء عند جوجل: رسالة الإلغاء المصممة تظهر والرابط يتنظّف', async () => {
+    window.history.pushState(
+      null,
+      '',
+      '/login?error=access_denied&error_description=User%20cancelled%20RAW',
+    )
+    renderLogin()
+    await flush()
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('اتلغى الدخول بجوجل')
+    expect(alert.textContent).not.toContain('RAW')
+    expect(window.location.search).toBe('')
+  })
+
+  it('رجوع نظيف بلا معاملات خطأ: لا تنبيه يظهر', async () => {
+    renderLogin()
+    await flush()
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 })

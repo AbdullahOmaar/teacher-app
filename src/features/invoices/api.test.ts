@@ -6,12 +6,16 @@ import {
   calendarSessionsInMonth,
   clampedDiscount,
   DEFAULT_WA_TEMPLATE,
+  filterInvoiceList,
+  INVOICE_MONTH_ALL,
+  invoiceMonthOptions,
   isUnpaid,
   payStateOf,
   periodLabel,
   periodYm,
   RECEIPT_TEMPLATE_KEYS,
   receiptWaUrl,
+  resolveInvoiceMonthFilter,
   splitArrears,
   summarizeStudentInvoices,
   summarizeUnpaidByStudent,
@@ -279,5 +283,103 @@ describe('summarizeStudentInvoices — ملخص فواتير طالب واحد',
   })
   it('قائمة فارغة: أصفار', () => {
     expect(summarizeStudentInvoices([])).toEqual({ dueTotal: 0, dueCount: 0, totalPaid: 0 })
+  })
+})
+
+describe('invoiceMonthOptions — شهور البيانات الفعلية', () => {
+  it('شهور مميزة بلا تكرار، الأحدث أولاً', () => {
+    const out = invoiceMonthOptions([
+      invItem({ invoice_id: 'a', period_month: '2026-09-01' }),
+      invItem({ invoice_id: 'b', period_month: '2026-11-01' }),
+      invItem({ invoice_id: 'c', period_month: '2026-11-01' }),
+      invItem({ invoice_id: 'd', period_month: '2026-10-01' }),
+    ])
+    expect(out).toEqual(['2026-11-01', '2026-10-01', '2026-09-01'])
+  })
+  it('شهر واحد فقط: خيار واحد (شرط إخفاء المنتقي في الصفحة)', () => {
+    const out = invoiceMonthOptions([
+      invItem({ invoice_id: 'a' }),
+      invItem({ invoice_id: 'b' }),
+    ])
+    expect(out).toEqual(['2026-11-01'])
+  })
+  it('قائمة فارغة: لا شهور', () => {
+    expect(invoiceMonthOptions([])).toEqual([])
+  })
+})
+
+describe('resolveInvoiceMonthFilter — القيمة الفعّالة لفلتر الشهر', () => {
+  const months = ['2026-11-01', '2026-10-01', '2026-09-01']
+  it('بلا اختيار والشهر الحالي موجود: الافتراضي هو الشهر الحالي', () => {
+    expect(resolveInvoiceMonthFilter(null, months, '2026-11-01')).toBe('2026-11-01')
+  })
+  it('بلا اختيار والشهر الحالي غائب من البيانات: «كل الشهور» حتى لا تفتح الصفحة فارغة', () => {
+    expect(resolveInvoiceMonthFilter(null, months, '2026-12-01')).toBe(INVOICE_MONTH_ALL)
+  })
+  it('اختيار صريح «كل الشهور» يُحترم دائماً', () => {
+    expect(resolveInvoiceMonthFilter(INVOICE_MONTH_ALL, months, '2026-11-01')).toBe(
+      INVOICE_MONTH_ALL,
+    )
+  })
+  it('اختيار صريح لشهر موجود يُحترم', () => {
+    expect(resolveInvoiceMonthFilter('2026-09-01', months, '2026-11-01')).toBe('2026-09-01')
+  })
+  it('اختيار لشهر اختفى من البيانات: رجوع للافتراضي (الحالي إن وُجد وإلا الكل)', () => {
+    expect(resolveInvoiceMonthFilter('2026-08-01', months, '2026-11-01')).toBe('2026-11-01')
+    expect(resolveInvoiceMonthFilter('2026-08-01', months, '2026-12-01')).toBe(INVOICE_MONTH_ALL)
+  })
+  it('لا بيانات أصلاً: «كل الشهور»', () => {
+    expect(resolveInvoiceMonthFilter(null, [], '2026-11-01')).toBe(INVOICE_MONTH_ALL)
+  })
+})
+
+describe('filterInvoiceList — شهر ∩ حالة ∩ بحث', () => {
+  const rows = [
+    invItem({ invoice_id: 'nov-due', period_month: '2026-11-01', balance: 300, paid: 0 }),
+    invItem({
+      invoice_id: 'nov-paid',
+      period_month: '2026-11-01',
+      student_name: 'خالد',
+      balance: 0,
+      paid: 300,
+      is_paid: true,
+    }),
+    invItem({ invoice_id: 'oct-partial', period_month: '2026-10-01', balance: 100, paid: 200 }),
+    invItem({ invoice_id: 'sep-due', period_month: '2026-09-01', balance: 250, paid: 0 }),
+  ]
+  const ids = (list: InvoiceListItem[]) => list.map((i) => i.invoice_id)
+  it('شهر محدد: فواتيره فقط', () => {
+    expect(
+      ids(filterInvoiceList(rows, { month: '2026-11-01', status: 'all', query: '' })),
+    ).toEqual(['nov-due', 'nov-paid'])
+  })
+  it('«كل الشهور»: لا قيد على الفترة', () => {
+    expect(
+      ids(filterInvoiceList(rows, { month: INVOICE_MONTH_ALL, status: 'all', query: '' })),
+    ).toEqual(['nov-due', 'nov-paid', 'oct-partial', 'sep-due'])
+  })
+  it('شهر ∩ حالة: مسددة نوفمبر فقط', () => {
+    expect(
+      ids(filterInvoiceList(rows, { month: '2026-11-01', status: 'paid', query: '' })),
+    ).toEqual(['nov-paid'])
+    expect(
+      ids(filterInvoiceList(rows, { month: INVOICE_MONTH_ALL, status: 'partial', query: '' })),
+    ).toEqual(['oct-partial'])
+    expect(
+      ids(filterInvoiceList(rows, { month: '2026-10-01', status: 'due', query: '' })),
+    ).toEqual(['oct-partial'])
+  })
+  it('شهر ∩ بحث: الاسم داخل الشهر المختار فقط', () => {
+    expect(
+      ids(filterInvoiceList(rows, { month: INVOICE_MONTH_ALL, status: 'all', query: 'خالد' })),
+    ).toEqual(['nov-paid'])
+    expect(
+      ids(filterInvoiceList(rows, { month: '2026-10-01', status: 'all', query: 'خالد' })),
+    ).toEqual([])
+  })
+  it('البحث باسم الشهر يعمل مع «كل الشهور» كما كان', () => {
+    expect(
+      ids(filterInvoiceList(rows, { month: INVOICE_MONTH_ALL, status: 'all', query: 'أكتوبر' })),
+    ).toEqual(['oct-partial'])
   })
 })

@@ -14,6 +14,7 @@ import { invalidatePrefixes } from '../../lib/invalidate'
 import { useQueryClient } from '@tanstack/react-query'
 import { announcementKindLabel, type AnnouncementKind } from './api'
 import { SUPPORT, useMyAnnouncements } from './hooks'
+import { FeatureIntro } from '../newFeatures/FeatureIntro'
 import { formatDateLabel } from '../schedule/api'
 
 const KIND_ICON: Record<AnnouncementKind, typeof Info> = {
@@ -41,6 +42,7 @@ export function AnnouncementsPage() {
   return (
     <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [SUPPORT])}>
       <div>
+        <FeatureIntro featureId="platform-announcements" />
         <p className="text-muted text-[13.5px] leading-[1.8] mb-3 mt-0 rise-in">
           {t('support.announcementsIntro')}
         </p>
@@ -68,12 +70,14 @@ export function AnnouncementsPage() {
             />
           </Card>
         ) : (
-          items.map((row, i) => {
+          /* شبكة بطاقات عند الديسكتوب (3A-930) */
+          <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-3 lg:items-stretch">
+          {items.map((row, i) => {
             const Icon = KIND_ICON[row.kind]
             return (
               <Card
                 key={row.id}
-                className="rise-in mb-3"
+                className="rise-in mb-3 lg:mb-0 lg:h-full"
                 style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
               >
                 <div className="flex items-center gap-2 mb-2">
@@ -96,7 +100,8 @@ export function AnnouncementsPage() {
                 </p>
               </Card>
             )
-          })
+          })}
+          </div>
         )}
       </div>
     </PullToRefresh>

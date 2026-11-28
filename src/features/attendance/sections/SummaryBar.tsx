@@ -34,7 +34,7 @@ export function SummaryBar({
 }) {
   return (
     <>
-      <div ref={barRef} className="sticky bottom-[calc(84px+env(safe-area-inset-bottom,0px))] z-10 mt-1">
+      <div ref={barRef} className="sticky bottom-[calc(84px+env(safe-area-inset-bottom,0px))] lg:static z-10 mt-1">
         <div className="bg-card border border-border shadow-raised rounded-2xl px-3 py-2">
           <div className="flex items-center gap-x-3 gap-y-1 flex-wrap">
             {ATTENDANCE_STATUSES.map(({ code, label }) => (
@@ -100,7 +100,9 @@ export function SummaryBar({
           )}
         </div>
       </div>
-      <div aria-hidden="true" style={{ height: barH }} />
+      {/* الفاصل بلا معنى على الديسكتوب: الشريط هناك ثابت داخل السكة
+          الجانبية اللاصقة لا عائم فوق المحتوى (3A-930) */}
+      <div aria-hidden="true" className="lg:hidden" style={{ height: barH }} />
     </>
   )
 }

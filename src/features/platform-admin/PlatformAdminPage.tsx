@@ -83,6 +83,7 @@ import {
 } from './panel'
 import type { TicketStatus } from '../support/api'
 import { ComingSoonCard, PanelSection } from './PanelSection'
+import { SystemStatusSection } from './SystemStatusSection'
 import { MfaSection } from './MfaScreens'
 import {
   buildTemplateEntitlements,
@@ -106,7 +107,8 @@ import {
  * 0065، الخطوة 8): نظرة عامة ومؤشرات تجميعية + مساحات عمل
  * بإجراءات إدارة (تفعيل/باقة/تجاوزات) + قائمة سماح وقلب قفل
  * التسجيل + سجل تدقيق المنصة + إعلانات المنصة وتذاكر الدعم +
- * قسم واتساب نائم بحالة «قريباً» مصممة. الصفحة لا تُرسم إلا
+ * قسم واتساب نائم بحالة «قريباً» مصممة + قسم «حالة النظام»
+ * (3A-933: روابط رسمية وفحوص سلامة حية وآخر نسخة ليلية). الصفحة لا تُرسم إلا
  * خلف RequirePlatformAdmin، وكل RPC بحارس أدمن خادمي — الدفاع
  * مزدوج (بوابة + قاعدة).
  * «قريباً» مصممة — لا خطأ خام أبداً؛ والإيراد المتوقع «—» حتى
@@ -115,8 +117,12 @@ import {
 export function PlatformAdminPage() {
   return (
     <div className="min-h-screen bg-bg text-text">
-      <div className="mx-auto max-w-3xl px-4 py-6 space-y-6">
-        <header className="flex items-center gap-3">
+      {/* لوحة الأدمن عند الديسكتوب (3A-930): حاوية أوسع وأقسام في
+          شبكة عمودين عند xl — الأقسام كثيفة البيانات (مساحات العمل
+          والتذاكر وسجل التدقيق والمؤشرات) بعرض كامل، والباقي
+          أزواجاً؛ على الموبايل تبقى مكدّسة بمسافاتها كما هي */}
+      <div className="mx-auto max-w-3xl lg:max-w-6xl px-4 py-6 space-y-6 xl:space-y-0 xl:grid xl:grid-cols-2 xl:gap-6 xl:items-start">
+        <header className="flex items-center gap-3 xl:col-span-2">
           <span className="w-11 h-11 rounded-full bg-card shadow-card flex items-center justify-center text-primary">
             <ShieldCheck size={22} />
           </span>
@@ -126,21 +132,22 @@ export function PlatformAdminPage() {
           </div>
         </header>
 
-        <NewDeviceBanner />
-        <OverviewSection />
-        <MfaSection />
-        <IndicatorsSection />
-        <WorkspacesSection />
-        <TemplatesSection />
-        <AllowlistSection />
-        <DevicesSection />
-        <AnnouncementsSection />
-        <TicketsSection />
-        <AuditLogSection />
-        <ExcelSection />
-        <WhatsappSection />
+        <div className="xl:col-span-2 min-w-0"><NewDeviceBanner /></div>
+        <div className="xl:col-span-2 min-w-0"><OverviewSection /></div>
+        <div className="min-w-0"><SystemStatusSection /></div>
+        <div className="min-w-0"><MfaSection /></div>
+        <div className="xl:col-span-2 min-w-0"><IndicatorsSection /></div>
+        <div className="xl:col-span-2 min-w-0"><WorkspacesSection /></div>
+        <div className="min-w-0"><TemplatesSection /></div>
+        <div className="min-w-0"><AllowlistSection /></div>
+        <div className="min-w-0"><DevicesSection /></div>
+        <div className="min-w-0"><AnnouncementsSection /></div>
+        <div className="xl:col-span-2 min-w-0"><TicketsSection /></div>
+        <div className="xl:col-span-2 min-w-0"><AuditLogSection /></div>
+        <div className="min-w-0"><ExcelSection /></div>
+        <div className="min-w-0"><WhatsappSection /></div>
 
-        <Card>
+        <Card className="xl:col-span-2">
           <p className="text-muted type-secondary">{t('platformAdmin.foundationNote')}</p>
         </Card>
       </div>

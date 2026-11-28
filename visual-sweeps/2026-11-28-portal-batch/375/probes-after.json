@@ -1,0 +1,49 @@
+[
+  {
+    "id": "student-portal-after",
+    "file": "student-portal-after.png",
+    "dom": {
+      "docOverflowX": false,
+      "vw": 375,
+      "invoiceProbe": {
+        "sameRow": true,
+        "nameTop": 2765,
+        "badgeTop": 2763,
+        "badgeLeftGap": 14
+      },
+      "calendar": {
+        "cellsWithSessions": 6,
+        "selectedDay": "السبت 28 نوفمبر 2026"
+      },
+      "hasInstallCard": true
+    }
+  },
+  {
+    "id": "student-portal-calendar-dec",
+    "file": "student-portal-calendar-dec.png",
+    "dom": {
+      "docOverflowX": false,
+      "vw": 375,
+      "invoiceProbe": {
+        "sameRow": true,
+        "nameTop": 2232,
+        "badgeTop": 2230,
+        "badgeLeftGap": 14
+      },
+      "calendar": {
+        "cellsWithSessions": 5,
+        "selectedDay": "الأربعاء 2 ديسمبر 2026"
+      },
+      "hasInstallCard": true
+    }
+  },
+  {
+    "id": "guardian-portal-after",
+    "file": "guardian-portal-after.png",
+    "dom": {
+      "docOverflowX": false,
+      "vw": 375,
+      "hasInstallCard": true
+    }
+  }
+]

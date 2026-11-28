@@ -1,0 +1,60 @@
+{
+  "base": "http://localhost:4173",
+  "note": "حالات «قريباً» المصممة للصفحة الشخصية (0074 غير مطبّقة): التقطت من البناء المحلي لفرع PR #67 بجلسة مالك وهمية كاملة الاعتراض — مخطط 0074 غائب بمحاكاة أخطاء PostgREST الحقيقية (PGRST205 للجداول الأربعة + PGRST202 لدالة public_teacher_profile) فعرضت الأسطح حالاتها المصممة كما ستظهر على أي بيئة قبل بوابة التجميد؛ حساب «المدرّس» وهمي غير مستحق (باقة أساسية بلا personal_page) لالتقاط شارة «برو» وحالة القفل. لا نداء شبكة خرج من الجهاز ولا كود تطبيق عُدّل.",
+  "startedAt": "2026-11-28T01:45:00.000Z",
+  "theme": "default(saved/auto)",
+  "timezone": "Africa/Cairo",
+  "tool": "visual-capture (one-off puppeteer script, local build + vite preview, full local interception)",
+  "widths": {
+    "375": [
+      {
+        "id": "settings-profile-card",
+        "file": "375/settings-profile-card.png",
+        "path": "/settings (بطاقة الصفحة الشخصية لغير المستحق: شارة «برو» + تلميح القفل)",
+        "dom": {
+          "vw": 375,
+          "docOverflowX": false
+        },
+        "pngWidth": 375,
+        "assertText": "الصفحة الشخصية من مميزات خطة «برو»",
+        "assertOk": true
+      },
+      {
+        "id": "settings-profile-card-viewport",
+        "file": "375/settings-profile-card-viewport.png",
+        "path": "/settings (نفس البطاقة داخل الصفحة)",
+        "dom": {
+          "vw": 375,
+          "docOverflowX": false
+        },
+        "pngWidth": 375,
+        "assertText": "صفحتي الشخصية العامة",
+        "assertOk": true
+      },
+      {
+        "id": "profile-posts-coming-soon",
+        "file": "375/profile-posts-coming-soon.png",
+        "path": "/profile-page/posts (حالة «قريباً» المصممة عند غياب 0074 + شريط قفل الباقة)",
+        "dom": {
+          "vw": 375,
+          "docOverflowX": false
+        },
+        "pngWidth": 375,
+        "assertText": "قريباً",
+        "assertOk": true
+      },
+      {
+        "id": "public-profile-not-available",
+        "file": "375/public-profile-not-available.png",
+        "path": "/t/capture-teacher (زائر مجهول — حالة «الصفحة غير متاحة» المصممة أثناء غياب المخطط)",
+        "dom": {
+          "vw": 375,
+          "docOverflowX": false
+        },
+        "pngWidth": 375,
+        "assertText": "الصفحة غير متاحة",
+        "assertOk": true
+      }
+    ]
+  }
+}

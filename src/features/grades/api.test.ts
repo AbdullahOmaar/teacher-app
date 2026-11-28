@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { fmtScore, passPctOf, pctOf, pctTone, scoreWaUrl, validateScoreEntries } from './api'
+import { t } from '../../i18n'
+import { fmtScore, passPctOf, pctOf, pctTone, scoreWaUrl, validateAssessmentInput, validateScoreEntries } from './api'
 import type { RosterStudent } from '../attendance/api'
 
 describe('نسب الدرجات', () => {
@@ -107,5 +108,27 @@ describe('validateScoreEntries — حد النهائية (3A-913)', () => {
       studentId: 'a',
       score: Number.NaN,
     })
+  })
+})
+
+describe('validateAssessmentInput — درجة النجاح ≤ النهائية (3A-928)', () => {
+  it('الحالة المرصودة حية: نهائية 20 ونجاح 30 تُرفض برسالة واضحة', () => {
+    expect(validateAssessmentInput({ max_score: 20, pass_score: 30 })).toBe(
+      t('grades.passAboveMax', { pass: '30', max: '20' }),
+    )
+  })
+  it('نجاح مساوٍ للنهائية أو أقل منها يمر', () => {
+    expect(validateAssessmentInput({ max_score: 20, pass_score: 20 })).toBeNull()
+    expect(validateAssessmentInput({ max_score: 20, pass_score: 10 })).toBeNull()
+    expect(validateAssessmentInput({ max_score: 20, pass_score: 0 })).toBeNull()
+  })
+  it('نهائية صفر/سالبة/NaN مرفوضة', () => {
+    expect(validateAssessmentInput({ max_score: 0, pass_score: 0 })).toBe(t('grades.maxScoreInvalid'))
+    expect(validateAssessmentInput({ max_score: -5, pass_score: 0 })).toBe(t('grades.maxScoreInvalid'))
+    expect(validateAssessmentInput({ max_score: Number.NaN, pass_score: 0 })).toBe(t('grades.maxScoreInvalid'))
+  })
+  it('نجاح سالب/NaN مرفوض', () => {
+    expect(validateAssessmentInput({ max_score: 20, pass_score: -1 })).toBe(t('grades.passScoreInvalid'))
+    expect(validateAssessmentInput({ max_score: 20, pass_score: Number.NaN })).toBe(t('grades.passScoreInvalid'))
   })
 })

@@ -108,7 +108,7 @@ export function BackupPage() {
   const countedTables = BACKUP_TABLES.filter((tok) => (counts[tok.key] ?? 0) > 0)
 
   return (
-    <div>
+    <div className="lg:grid lg:grid-cols-2 lg:gap-x-4 lg:items-start [&>*]:min-w-0">
       {/* حالة النسخ الاحتياطي */}
       <Card className="rise-in">
         <h2 className="type-section mt-0 mb-1 flex items-center gap-2"><DatabaseBackup size={22} className="text-primary" /> {t('settings.backupStatusTitle')}</h2>

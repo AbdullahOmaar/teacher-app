@@ -22,8 +22,10 @@ import {
   EG_MOBILE_RE,
   enrolErrorInfo,
   fetchEnrolPage,
+  fetchEnrolPageByProfile,
   normalizeEgPhone,
   submitBooking,
+  submitBookingByProfile,
   type EnrolBrand,
 } from './api'
 
@@ -36,6 +38,9 @@ import {
  * لا وصول مباشر لأي جدول. الصفحة تعرض هوية السنتر البيضاء ومجموعاته
  * النشطة فقط، والإرسال يهبط طلباً في قائمة انتظار المجموعة بمصدر
  * «صفحة الحجز» ليراجعه المدرس ويقبله من واجهة المجموعة.
+ *
+ * اعتماد بديل (0074 — 3A-929): /book?p=<slug> من زر الحجز في صفحة
+ * المدرّس الشخصية ‎/t/:slug‎ — دالتا by_profile بنفس الحاكم والحدود.
  */
 
 function EnrolShell({
@@ -87,11 +92,16 @@ function EnrolMessage({
 export function EnrolPage() {
   const [params] = useSearchParams()
   const token = params.get('t') ?? params.get('token') ?? ''
+  // اعتماد بديل (0074): سلاج الصفحة الشخصية العامة ‎?p=<slug>‎ — من زر
+  // الحجز في ‎/t/:slug‎؛ الحاكم والحدود نفسها عبر دالتي by_profile.
+  const profileSlug = params.get('p') ?? ''
+  const credential = token || profileSlug
 
   const pageQ = useQuery({
-    queryKey: ['enrol-page', token],
-    enabled: Boolean(token),
-    queryFn: () => fetchEnrolPage(token),
+    queryKey: ['enrol-page', token ? `t:${token}` : `p:${profileSlug}`],
+    enabled: Boolean(credential),
+    queryFn: () =>
+      token ? fetchEnrolPage(token) : fetchEnrolPageByProfile(profileSlug),
     retry: false,
   })
 
@@ -105,7 +115,7 @@ export function EnrolPage() {
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
 
-  if (!token) {
+  if (!credential) {
     return (
       <EnrolMessage
         icon={Link2Off}
@@ -168,14 +178,19 @@ export function EnrolPage() {
     if (!groupId) return setFormError(t('enrol.pageGroupError'))
     setSubmitting(true)
     try {
-      await submitBooking(token, {
+      const input = {
         studentName: name,
         guardianPhone: phone,
         groupId,
         wantsTrial,
         note: note.trim() === '' ? null : note.trim(),
         honeypot: website,
-      })
+      }
+      if (token) {
+        await submitBooking(token, input)
+      } else {
+        await submitBookingByProfile(profileSlug, input)
+      }
       setDone(true)
     } catch (e) {
       const info = enrolErrorInfo(e)

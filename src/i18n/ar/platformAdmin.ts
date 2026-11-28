@@ -89,6 +89,7 @@ export const platformAdmin = {
   featureAiAssistant: 'مساعد الذكاء',
   featureTeamAccounts: 'حسابات الفريق',
   featureOnlinePayments: 'الدفع الأونلاين',
+  featurePersonalPage: 'الصفحة الشخصية العامة',
   featureVerificationRequired: 'التأكيد الإلزامي',
   featureVerificationChannelEmail: 'قناة تأكيد: إيميل',
   featureVerificationChannelWhatsapp: 'قناة تأكيد: واتساب',
@@ -264,6 +265,35 @@ export const platformAdmin = {
   ticketNoMessages: 'لا توجد رسائل في التذكرة دي لسه.',
 
   // إعدادات واتساب المنصة — حالة «قريباً» المصممة (لا رقم منصة بعد)
+  // حالة النظام (3A-933): روابط رسمية + نسخة البناء + فحوص حية +
+  // آخر نسخة ليلية — كل قيمة من مصدرها الحي، والغائب حالة مصممة
+  systemStatusTitle: 'حالة النظام',
+  systemLinksTitle: 'الروابط الرسمية',
+  systemProductionLink: 'رابط البرودكشن',
+  systemDemoLink: 'رابط الديمو — البيئة الحالية',
+  systemBookingLink: 'صفحة الحجز العامة',
+  systemProductionUnpublished:
+    'لسه مش منشور — بيئة البرودكشن بتتجهز مع إعداد الإطلاق، ورابطها هيظهر هنا أول ما تتضبط.',
+  systemCopyLink: 'نسخ الرابط',
+  systemCopied: 'اتنسخ',
+  systemCopyFailed: 'تعذّر النسخ التلقائي — حدّد الرابط وانسخه يدوياً.',
+  systemVersionTitle: 'النسخة المنشورة',
+  systemHealthTitle: 'الفحوص الحية',
+  systemAppResponds: 'التطبيق بيرد',
+  systemDbResponds: 'قاعدة البيانات بترد',
+  systemHealthOk: 'شغال',
+  systemHealthDown: 'لا يرد',
+  systemHealthChecking: 'جارٍ الفحص',
+  systemHealthLatency: 'زمن الرد {ms} مللي ثانية',
+  systemRecheck: 'إعادة الفحص',
+  systemBackupTitle: 'النسخ الاحتياطي الليلي',
+  systemBackupLastLabel: 'آخر نسخة ناجحة',
+  systemBackupDormant: 'لسه مش مفعّلة',
+  systemBackupDormantHint:
+    'النسخ الليلي بيشتغل مع إعداد البرودكشن — وقت أول نسخة ناجحة هيظهر هنا تلقائياً.',
+  systemBackupReadError:
+    'تعذّر قراءة حالة النسخ دلوقتي — إعادة الفحص من زرار الفحوص بتحاول تاني.',
+
   whatsappTitle: 'إعدادات واتساب المنصة',
   whatsappComingSoon: 'قريباً — لا يوجد رقم واتساب للمنصة بعد',
   whatsappComingSoonHint:

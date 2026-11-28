@@ -1,13 +1,16 @@
 import { db } from '../../lib/supabase'
 import { brandLogoUrl, isValidAccent } from '../../lib/brand'
 import type { Database } from '../../types/database'
+import { parseGroupSlots } from '../groups/slots'
 
 // ===========================================================================
 // دورة حياة توكنات الروابط الموقّعة — وحدة مشتركة بين بوابة ولي الأمر
 // (portal/api.ts) وبوابة الطالب (student-portal/api.ts) — COD-3 / 3A-362.
 //
 // البوابتان تتشاركان الشكل نفسه حرفياً: رمز خام ← هاش SHA-256 ← انتهاء
-// بمدة يحددها المدرس (3A-385؛ الافتراضي 30 يوماً) ← إبطال النشط السابق ← إدراج؛ جلب/إلغاء بنفس الاستعلامات؛
+// بمدة يحددها المدرس (3A-385؛ الافتراضي 30 يوماً) ← إدراج (التوليد لا
+// يُبطل أي رابط قائم — الرابط يموت بانتهائه أو بإلغاء صريح من المدرس
+// فقط، إصلاح 2026-11-28)؛ جلب/إلغاء بنفس الاستعلامات؛
 // قراءة بالرمز عبر RPC؛ وPush بنفس الشكل مع اختلاف أسماء الـ RPC فقط.
 // الفروق الحقيقية (اسم الجدول، أعمدة الإدراج الزائدة مثل guardian_id،
 // باني الرابط، أسماء RPC) تُمرَّر هنا كبرمترات — صفر تغيير سلوكي:
@@ -157,22 +160,19 @@ export interface CreateTokenLinkInput extends CreateTokenLinkDeps {
 
 /**
  * توليد رابط جديد: رمز عشوائي في العميل → هاش SHA-256 فقط يُرسل
- * ويُخزّن، وأي روابط نشطة سابقة لنفس الطالب تُبطَل أولاً (إعادة
- * التوليد = إبطال القديم). يعيد الرابط الكامل وتاريخ الانتهاء.
+ * ويُخزّن. التوليد إضافي فقط: لا يُبطل أي رابط قائم لنفس الطالب —
+ * الرابط الذي بيد الطالب/ولي الأمر يفضل صالحاً وقابلاً لإعادة
+ * الاستخدام لحد انتهائه أو إلغاء المدرس له صراحة من قائمة الروابط
+ * (revokeTokenRow). قبل إصلاح 2026-11-28 كان التوليد يُبطل كل النشط
+ * قبله، فأي إعادة توليد (حتى من جلسة أخرى) كانت تقتل رابط الطالب
+ * فوراً — وهو الباج الذي أبلغ عنه المالك حياً. يعيد الرابط الكامل
+ * وتاريخ الانتهاء.
  */
 export async function createTokenLink(input: CreateTokenLinkInput): Promise<{ link: string; expiresAt: string }> {
   const supa = db()
   const rawToken = input.generateRawToken()
   const tokenHash = await input.sha256Hex(rawToken)
   const expiresAt = tokenExpiresAt(input.ttlDays ?? TOKEN_TTL_DAYS)
-
-  const { error: revokeErr } = await supa
-    .from(input.table)
-    .update({ revoked_at: new Date().toISOString() })
-    .eq('teacher_id', input.teacherId)
-    .eq('student_id', input.studentId)
-    .is('revoked_at', null)
-  if (revokeErr) throw revokeErr
 
   const { error: insErr } = await supa.from(input.table).insert({
     teacher_id: input.teacherId,
@@ -287,6 +287,8 @@ interface PortalGroupLike {
   start_time: string
   room: string | null
   links: string[]
+  /** مواعيد المجموعة الكاملة (0071) — غيابها (خادم أقدم) = اشتقاق من الأيام/الوقت */
+  slots?: unknown
 }
 
 export interface OverviewHeadRaw {
@@ -294,6 +296,9 @@ export interface OverviewHeadRaw {
   brand?: RawPortalBrand | null
   attendance_rate?: unknown
   balance?: unknown
+  /** وجود أي فاتورة للطالب (0071) — غيابه (خادم أقدم) يُقرأ «توجد» حتى لا
+   * تتحول «مسدد» الصحيحة إلى «لا فواتير» بالخطأ أثناء نافذة الترحيل */
+  has_invoices?: unknown
   groups?: PortalGroupLike[] | null
 }
 
@@ -303,10 +308,18 @@ export function normalizeOverviewHead(raw: OverviewHeadRaw) {
     brand: normalizePortalBrand(raw.brand),
     attendance_rate: raw.attendance_rate == null ? null : num(raw.attendance_rate),
     balance: num(raw.balance),
+    has_invoices: raw.has_invoices !== false,
     groups: (raw.groups ?? []).map((g) => ({
       name: g.name,
       days: (g.days ?? []).map((d) => Number(d)),
       start_time: g.start_time,
+      // المواعيد الكاملة للعرض سطراً لكل موعد — مدة الاشتقاق الاحتياطي
+      // 60 افتراضية لأن البوابتين تعرضان اليوم والوقت فقط لا المدة
+      slots: parseGroupSlots(g.slots, {
+        days: (g.days ?? []).map((d) => Number(d)),
+        start_time: g.start_time,
+        duration_minutes: 60,
+      }),
       room: g.room ?? null,
       links: g.links ?? [],
     })),

@@ -406,12 +406,15 @@ function WeekView({
         </div>
       )}
 
+      {/* لوحة الأسبوع عند الديسكتوب (3A-930): الأيام السبعة أعمدة
+          متوازية بدل التكديس الرأسي — كل عمود يوم بحصصه */}
+      <div className="lg:grid lg:grid-cols-7 lg:gap-2.5 lg:items-start">
       {dates.map((date) => {
         const daySessions = sessionsByDate.get(date) ?? []
         const holiday = holidayByDate.get(date)
         const isToday = date === today
         return (
-          <div key={date} className="mb-3">
+          <div key={date} className="mb-3 lg:mb-0 min-w-0">
             <div className="flex items-center gap-2 mb-1.5 px-0.5">
               <span className={`font-extrabold text-[15px] ${isToday ? 'text-primary' : ''}`}>
                 {DAY_NAMES[parseDate(date).getDay()]} {formatDayMonth(date)}
@@ -439,6 +442,7 @@ function WeekView({
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
