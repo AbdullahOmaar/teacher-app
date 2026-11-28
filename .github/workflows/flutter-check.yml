@@ -27,8 +27,8 @@ jobs:
       SUPABASE_URL: ${{ secrets.DEMO_SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.DEMO_SUPABASE_ANON_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
       - name: Install dependencies
@@ -42,9 +42,11 @@ jobs:
       - name: Tests
         run: flutter test
       - name: Build APK (smoke — يثبت أن الهيكل يُبنى)
+        env:
+          APP_VERSION_REF: ${{ github.ref_name }}
         run: >-
           flutter build apk --release --obfuscate --split-debug-info=build/debug-info
-          --dart-define=APP_VERSION=${{ github.ref_name }}
+          --dart-define=APP_VERSION="$APP_VERSION_REF"
           --dart-define=APP_BUILT_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           --dart-define=SUPABASE_URL=$SUPABASE_URL
           --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
