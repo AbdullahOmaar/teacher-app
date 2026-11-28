@@ -242,6 +242,9 @@ console.log('contract: send-whatsapp-message')
     // حد رسائل الشهر (0062 — الخطوة 5): null = نظام الحدود غائب (قبل
     // تطبيق المهاجرة) فيُسمح — نفس دلالة الإنتاج (index.ts) والمحاكي.
     checkMessageLimit: async () => null,
+    // مبلغ الفاتورة لحظة التنفيذ (0073): الوضع الداخلي وحده يستخدمه —
+    // سيناريوهات هذا الملف يدوية فتكفي قيمة null.
+    loadInvoiceAmountText: async () => null,
     insertLog: async () => 'log-1',
     updateLog: async () => {},
     fetchFn: async () =>

@@ -440,6 +440,14 @@ a,
     border: none !important;
     border-radius: 0 !important;
   }
+  /* المعاينة على الشاشة تتبع مظهر التطبيق (3A-925 بند ١٠) فألوان رموز
+     الثيم داخل منطقة الطباعة تُعاد لألوان ورقية عند الطباعة نفسها */
+  .print-area .text-muted {
+    color: #64748b !important;
+  }
+  .print-area .text-bad-text {
+    color: #dc2626 !important;
+  }
   .print-area.paper-thermal {
     width: 80mm;
     margin: 0 auto;

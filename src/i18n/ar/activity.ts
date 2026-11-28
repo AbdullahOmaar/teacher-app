@@ -2,7 +2,8 @@
 export const activity = {
   event: {
     payment_created: 'تسجيل دفعة',
-    payment_voided: 'عكس دفعة',
+    /** صياغة حالة لا فعل حذف (3A-925): الدفعة «اتعكست» بدفعة سالبة وأصليتها باقية */
+    payment_voided: 'دفعة اتعكست',
     invoice_created: 'إنشاء فاتورة',
     invoices_generated: 'توليد فواتير',
     attendance_saved: 'تسجيل حضور',
@@ -40,6 +41,9 @@ export const activity = {
     counted: 'المعدود: {amount}',
     expected: 'المتوقع: {amount}',
     reason: 'السبب: {reason}',
+    /** توضيح العكس في سجل النشاط (3A-925): عكسٌ محاسبي لا حذف */
+    reversalReceipt: 'إيصال العكس {receipt}',
+    voidedNote: 'اتعكست بدفعة سالبة — الدفعة الأصلية موجودة ولم تُحذف',
   },
   page: {
     title: 'سجل النشاط',

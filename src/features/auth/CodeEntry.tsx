@@ -119,7 +119,7 @@ export function CodeEntry({
           {error}
         </p>
       )}
-      <form onSubmit={handleVerify}>
+      <form noValidate onSubmit={handleVerify}>
         <Field label={t('auth.codeLabel')}>
           <TextInput
             type="text"

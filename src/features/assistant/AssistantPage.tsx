@@ -26,6 +26,7 @@ import {
 } from './apiAssistant'
 import { fetchAiUsage } from './aiUsage'
 import { AssistantQuickActions } from './AssistantQuickActions'
+import { FeatureIntro } from '../newFeatures/FeatureIntro'
 
 // ============================================================================
 // شاشة محادثة المساعد الذكي (Phase 2 T6 — ق5 ‏BYOK)
@@ -515,8 +516,11 @@ export function AssistantPage() {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <Card>
+    <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-4 lg:items-start lg:grid-flow-dense">
+      <FeatureIntro featureId="assistant-deterministic" />
+      {/* بطاقة التعريف والحالة: سكة جانبية عند الديسكتوب (3A-930)،
+          والمحادثة العمود الرئيسي */}
+      <Card className="lg:col-start-2 min-w-0">
         <h2 className="type-section mt-0 mb-2 flex items-center gap-2">
           <Sparkles size={22} className="text-primary" /> {t('assistant.title')}
         </h2>
@@ -543,29 +547,29 @@ export function AssistantPage() {
       </Card>
 
       {statusQ.isLoading && (
-        <p className="text-muted text-[13.5px]">{t('assistant.loadingStatus')}</p>
+        <p className="text-muted text-[13.5px] lg:col-start-2 min-w-0">{t('assistant.loadingStatus')}</p>
       )}
       {statusQ.isError &&
         (statusErrKind === 'disabled' ? (
-          <Card>
+          <Card className="lg:col-start-2 min-w-0">
             <p className="mt-0 mb-1 font-semibold text-[15px]">{t('assistant.disabledTitle')}</p>
             <p className="text-muted text-[13.5px] mt-0 mb-0">{t('assistant.disabledBody')}</p>
           </Card>
         ) : (
-          <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2" role="alert">
+          <p className="text-[13.5px] bg-soft rounded-xl px-3 py-2 lg:col-start-2 min-w-0" role="alert">
             {statusErrKind === 'network'
               ? t('assistant.errNetwork')
               : t('assistant.errGeneric')}
           </p>
         ))}
       {status && !status.enabled && (
-        <Card>
+        <Card className="lg:col-start-2 min-w-0">
           <p className="mt-0 mb-1 font-semibold text-[15px]">{t('assistant.disabledTitle')}</p>
           <p className="text-muted text-[13.5px] mt-0 mb-0">{t('assistant.disabledBody')}</p>
         </Card>
       )}
       {status?.enabled && !status.has_key && status.needs_key && (
-        <Card>
+        <Card className="lg:col-start-2 min-w-0">
           <p className="mt-0 mb-1 font-semibold text-[15px]">{t('assistant.noKeyTitle')}</p>
           <p className="text-muted text-[13.5px] mt-0 mb-3">{t('assistant.noKeyBody')}</p>
           <Button size="sm" variant="soft" onClick={() => navigate('/settings')}>
@@ -576,7 +580,7 @@ export function AssistantPage() {
       )}
 
       {matrix && (
-        <Card>
+        <Card className="lg:col-start-2 min-w-0">
           <p className="mt-0 mb-1 font-semibold text-[15px]">{t('assistant.matrixTitle')}</p>
           <p className="text-muted text-[13.5px] mt-0 mb-0">{t('assistant.matrixIntro')}</p>
           {matrix.reads.length === 0 && matrix.confirm.length === 0 ? (
@@ -595,7 +599,7 @@ export function AssistantPage() {
         </Card>
       )}
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 lg:col-start-1 min-w-0">
         {messages.length === 0 && chatReady && (
           <p className="text-muted text-[13.5px] bg-soft rounded-xl px-3 py-2">
             {t('assistant.emptyState')}
@@ -722,7 +726,7 @@ export function AssistantPage() {
       </div>
 
       {chatReady && (
-        <>
+        <div className="flex flex-col gap-3 lg:col-start-1 min-w-0">
           <AssistantQuickActions
             teacherId={teacherId}
             disabled={busy}
@@ -761,10 +765,10 @@ export function AssistantPage() {
             </Button>
           )}
           </div>
-        </>
+        </div>
       )}
       {busy && (
-        <p className="text-muted text-[12.5px] mt-0 mb-0">{t('assistant.sending')}</p>
+        <p className="text-muted text-[12.5px] mt-0 mb-0 lg:col-start-1 min-w-0">{t('assistant.sending')}</p>
       )}
     </div>
   )

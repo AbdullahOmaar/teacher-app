@@ -131,7 +131,23 @@ export async function fetchEnrolPage(rawToken: string): Promise<EnrolPageData> {
   const { data, error } = await db().rpc('enrolment_page_by_token', { p_token: rawToken })
   if (error) throw error
   if (!data) throw new Error('invalid or disabled link')
-  const raw = data as unknown as {
+  return parseEnrolPagePayload(data)
+}
+
+/**
+ * بيانات صفحة الحجز عبر سلاج الصفحة الشخصية (0074 — 3A-929): نفس
+ * الحمولة والحاكم، والاعتماد هو سلاج صفحة عامة + مستحقة + رابط حجز
+ * مفعّل (enrolment_page_by_profile) — مسار زر الحجز في ‎/t/:slug‎.
+ */
+export async function fetchEnrolPageByProfile(slug: string): Promise<EnrolPageData> {
+  const { data, error } = await db().rpc('enrolment_page_by_profile', { p_slug: slug })
+  if (error) throw error
+  if (!data) throw new Error('invalid or disabled link')
+  return parseEnrolPagePayload(data)
+}
+
+function parseEnrolPagePayload(data: unknown): EnrolPageData {
+  const raw = data as {
     brand?: {
       name?: string | null
       teacher_name?: string | null
@@ -189,6 +205,20 @@ export async function submitBooking(rawToken: string, input: BookingInput): Prom
     p_wants_trial: input.wantsTrial,
     // الوسيطان اختياريان بقيمة افتراضية NULL في المخطط: غيابهما ≡ تمرير
     // NULL حرفياً، فيُحوَّل null المحلي لغياب (COD-1 — بلا تغيير سلوكي)
+    p_note: input.note ?? undefined,
+    p_honeypot: input.honeypot ?? undefined,
+  })
+  if (error) throw error
+}
+
+/** إرسال طلب حجز عبر سلاج الصفحة الشخصية (0074) — نفس الحاكم والحدود */
+export async function submitBookingByProfile(slug: string, input: BookingInput): Promise<void> {
+  const { error } = await db().rpc('enrolment_submit_by_profile', {
+    p_slug: slug,
+    p_student_name: input.studentName,
+    p_guardian_phone: input.guardianPhone,
+    p_group_id: input.groupId,
+    p_wants_trial: input.wantsTrial,
     p_note: input.note ?? undefined,
     p_honeypot: input.honeypot ?? undefined,
   })

@@ -32,6 +32,7 @@ export const FEATURE_KEYS = [
   'ai_assistant',
   'team_accounts',
   'online_payments',
+  'personal_page',
   'verification_required',
   'verification_channel_email',
   'verification_channel_whatsapp',

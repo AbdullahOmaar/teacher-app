@@ -1,0 +1,103 @@
+{
+  "base": "http://127.0.0.1:4199 (vite preview للبناء المحلي من فرع fix/owner-defects-925 @ 515561e)",
+  "note": "لقطات أدلة PR #64 (3A-925/926/928) من البناء المحلي بجلسة مالك وهمية كاملة الاعتراض محلياً (auth + REST يُردّ عليهما داخل المتصفح) واستجابات RPC مصممة للحالات المالية الثلاث في البوابة — لا نداء شبكة خرج من الجهاز، والبيانات الظاهرة وهمية بالكامل ومصممة لإظهار الحالات التي طلبتها QA. ورقة الإيصال لقطة viewport عمداً: إثبات أن العنوان والرقم وأزرار الإجراءات المثبتة ظاهرة بلا تمرير. نموذج المجموعة له لقطتان: صفّا المواعيد، وصندوق تنبيه التعارض ممرّراً لمنتصف الشاشة (الصندوق أسفل حقول التفاصيل فلا يجمعه إطار 375 واحد مع الصفوف).",
+  "startedAt": "2026-11-28T01:47:00.000Z",
+  "theme": "default(saved/auto)",
+  "timezone": "Africa/Cairo",
+  "tool": "visual-capture (one-off puppeteer script, local build + vite preview, full local interception)",
+  "widths": {
+    "375": [
+      {
+        "id": "group-form-conflict-warning",
+        "file": "375/group-form-conflict-warning.png",
+        "path": "/groups ← نفس النموذج ممرّراً لصندوق «تعارض في المواعيد» (يتداخل مع مجموعة الأحد والثلاثاء — الأحد 3:00 م)",
+        "pngWidth": 375,
+        "pngHeight": 844,
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375
+        }
+      },
+      {
+        "id": "group-form-slots-conflict",
+        "file": "375/group-form-slots-conflict.png",
+        "path": "/groups ← نموذج «مجموعة جديدة» بعد إضافة موعد ثانٍ — صفّا مواعيد (الأحد 3:00 م) وتنبيه التعارض مولّد في النموذج (لقطته المقربة منفصلة)",
+        "pngWidth": 375,
+        "pngHeight": 844,
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375
+        }
+      },
+      {
+        "id": "receipt-sheet-pinned-actions",
+        "file": "375/receipt-sheet-pinned-actions.png",
+        "path": "/invoices/<id> ← ورقة الإيصال (لقطة viewport: العنوان والرقم 2026-11042 وأزرار الطباعة/واتساب المثبتة ظاهرة بلا تمرير)",
+        "pngWidth": 375,
+        "pngHeight": 844,
+        "viewport": true,
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375
+        }
+      },
+      {
+        "id": "attendance-empty-day",
+        "file": "375/attendance-empty-day.png",
+        "path": "/attendance عند اليوم المجمّد (لا حصص مولّدة في البيانات الوهمية) — حالة الفراغ مع زر «إضافة حصة إضافية»",
+        "pngWidth": 375,
+        "pngHeight": 844,
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375
+        }
+      },
+      {
+        "id": "portal-money-none",
+        "file": "375/portal-money-none.png",
+        "path": "/portal?student=portal-none (استجابة RPC وهمية محلية بحالة مالية مصممة)",
+        "pngWidth": 375,
+        "pngHeight": 1898,
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375
+        }
+      },
+      {
+        "id": "portal-money-paid",
+        "file": "375/portal-money-paid.png",
+        "path": "/portal?student=portal-paid (استجابة RPC وهمية محلية بحالة مالية مصممة)",
+        "pngWidth": 375,
+        "pngHeight": 1898,
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375
+        }
+      },
+      {
+        "id": "portal-money-due",
+        "file": "375/portal-money-due.png",
+        "path": "/portal?student=portal-due (استجابة RPC وهمية محلية بحالة مالية مصممة)",
+        "pngWidth": 375,
+        "pngHeight": 1948,
+        "dom": {
+          "docOverflowX": false,
+          "vw": 375
+        }
+      }
+    ],
+    "1440": [
+      {
+        "id": "group-form-wide-1440",
+        "file": "1440/group-form-wide.png",
+        "path": "/groups ← نفس نموذج المجموعة عند 1440px — النافذة ممركزة والمحتوى داخل العرض الأقصى",
+        "pngWidth": 1440,
+        "pngHeight": 900,
+        "dom": {
+          "docOverflowX": false,
+          "vw": 1440
+        }
+      }
+    ]
+  }
+}

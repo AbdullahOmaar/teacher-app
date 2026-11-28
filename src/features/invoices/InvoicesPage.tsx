@@ -9,7 +9,8 @@ import { Card } from '../../components/ui/Card'
 import { OwnerOnlyCard } from '../../components/OwnerOnlyCard'
 import { useToast } from '../../components/ui/toast'
 import { Button } from '../../components/ui/Button'
-import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, ReceiptText } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, ReceiptText, X } from 'lucide-react'
+import { Sheet } from '../../components/ui/Sheet'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
 import { Chip } from '../../components/ui/form'
@@ -24,13 +25,22 @@ import { ListRow } from '../../components/ui/ListRow'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import { monthStartStr, todayStr } from '../home/api'
-import { payStateOf, periodLabel, periodYm, type InvoiceListItem } from './api'
+import {
+  filterInvoiceList,
+  INVOICE_MONTH_ALL,
+  invoiceMonthOptions,
+  payStateOf,
+  periodLabel,
+  resolveInvoiceMonthFilter,
+  type InvoiceListItem,
+  type InvoiceStatusFilter,
+} from './api'
 import { INV, useInvoices } from './hooks'
 import { InvoiceDetailPage } from './InvoiceDetailPage'
 import { IssueInvoicesSheet } from './sheets'
 import { ProofsReviewSection } from '../payment-proofs/components'
 
-type FilterKey = 'all' | 'due' | 'partial' | 'paid'
+type FilterKey = InvoiceStatusFilter
 
 /** حجم صفحة قائمة الفواتير (و-7ب) — ترقيم عميل فوق القائمة المفلترة */
 const PAGE_SIZE = 25
@@ -133,7 +143,8 @@ export function InvoiceCard({
 /**
  * الفواتير (المواصفات §3.5): بحث فوري (طالب/شهر)، فلاتر حالة من view
  * ‏invoice_balances (الكل/مستحقة/جزئية/مسددة — و?filter=due من الرئيسية
- * يفتح على «مستحقة»)، بطاقة متأخرات، وزر إصدار فواتير الشهر.
+ * يفتح على «مستحقة»)، فلتر شهر عند تعدد الشهور (افتراضيه الشهر الحالي)،
+ * بطاقة متأخرات، وزر إصدار فواتير الشهر.
  * المالية محجوبة عن المساعد: RLS تمنع القراءة أصلاً، والواجهة تعرض قفلاً.
  */
 export function InvoicesPage() {
@@ -154,6 +165,13 @@ export function InvoicesPage() {
   const [filterChoice, setFilter] = useState<FilterKey | null>(null)
   const filter: FilterKey =
     filterChoice ?? (params.get('filter') === 'due' ? 'due' : 'all')
+  // فلتر الشهر (ملاحظة المالك 2026-11-28): null = لم يختر المستخدم بعد،
+  // فتُحسم القيمة الفعّالة من البيانات (الشهر الحالي إن وُجد، وإلا الكل)
+  const [monthChoice, setMonthChoice] = useState<string | null>(null)
+  // Sheet «تصفية حسب الشهر» — النمط الموحّد لشاشات القوائم (كفلتر مجموعات
+  // الطلاب): زر تصفية الشريط يفتحها، والاختيار غير الافتراضي يُشار إليه
+  // بشارة على الزر وبرقاقة إزالة في صف الرقائق
+  const [monthOpen, setMonthOpen] = useState(false)
   const [issueOpen, setIssueOpen] = useState(false)
   const [showOverdue, setShowOverdue] = useState(false)
   const [showCurrentDue, setShowCurrentDue] = useState(false)
@@ -164,27 +182,23 @@ export function InvoicesPage() {
   const invoicesQ = useInvoices(teacherId, isOwner)
   const invoices = useMemo(() => invoicesQ.data ?? [], [invoicesQ.data])
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return invoices.filter((inv) => {
-      if (filter === 'due' && !(inv.balance > 0)) return false
-      if (filter === 'partial' && !(inv.paid > 0 && inv.balance > 0)) return false
-      if (filter === 'paid' && !(inv.balance <= 0)) return false
-      if (!q) return true
-      return (
-        inv.student_name.toLowerCase().includes(q) ||
-        periodYm(inv.period_month).includes(q) ||
-        periodLabel(inv.period_month).includes(q)
-      )
-    })
-  }, [invoices, search, filter])
+  const currentMonth = monthStartStr(todayStr())
+  // شهور البيانات الفعلية (الأحدث أولاً) — أكثر من شهر = زر التصفية يظهر
+  const months = useMemo(() => invoiceMonthOptions(invoices), [invoices])
+  const defaultMonthFilter = resolveInvoiceMonthFilter(null, months, currentMonth)
+  const monthFilter = resolveInvoiceMonthFilter(monthChoice, months, currentMonth)
+
+  // القائمة المعروضة = شهر ∩ حالة ∩ بحث (دلالات الفلاتر في filterInvoiceList)
+  const filtered = useMemo(
+    () => filterInvoiceList(invoices, { month: monthFilter, status: filter, query: search }),
+    [invoices, monthFilter, filter, search],
+  )
 
   // تعريف «متأخر» المعتمد في التطبيق (تدقيق أول استخدام — M4): فاتورة
   // شهرٍ سابق برصيد موجب — هكذا يحسب الملخص اليومي في migration ‏0015
   // حرفياً (period_month < أول الشهر الحالي). فواتير الشهر الحالي غير
   // المسددة «مستحقات جارية» لا «متأخرات»، فلا تدخل بطاقة المتأخرات
   // (كانت فواتير تُصدر للتوّ تظهر «متأخرات مستحقة» بعد دقيقة من إصدارها).
-  const currentMonth = monthStartStr(todayStr())
   const { overdue, currentDue } = useMemo(
     () => summarizeUnpaidByStudent(invoices, currentMonth),
     [invoices, currentMonth],
@@ -228,7 +242,7 @@ export function InvoicesPage() {
 
   return (
     <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [INV])}>
-    <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-5 lg:items-start">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_440px] lg:gap-5 lg:items-start">
       <div className="min-w-0">
       {/* شريط الأدوات الموحّد (W3 — R-10): بحث + رقائق حالة + عدّاد */}
       <PageToolBar
@@ -238,18 +252,41 @@ export function InvoicesPage() {
           onChange: onSearchChange,
           placeholder: t('invoices.searchPlaceholder'),
         }}
-        chips={FILTERS.map((f) => (
-          <Chip
-            key={f.key}
-            active={filter === f.key}
-            onClick={() => {
-              setFilter(f.key)
-              setPage(0)
-            }}
-          >
-            {f.label}
-          </Chip>
-        ))}
+        chips={
+          <>
+            {/* رقاقة الشهر المفعّل القابلة للإزالة (نمط فلتر مجموعة الطلاب
+                الموحّد): تظهر فقط حين يختلف الاختيار الفعّال عن الافتراضي،
+                وضغطها يعيد الافتراضي */}
+            {months.length > 1 && monthFilter !== defaultMonthFilter && (
+              <Chip
+                active
+                onClick={() => {
+                  setMonthChoice(null)
+                  setPage(0)
+                }}
+              >
+                {monthFilter === INVOICE_MONTH_ALL
+                  ? t('invoices.monthFilterAll')
+                  : periodLabel(monthFilter)}{' '}
+                <X size={14} />
+              </Chip>
+            )}
+            {FILTERS.map((f) => (
+              <Chip
+                key={f.key}
+                active={filter === f.key}
+                onClick={() => {
+                  setFilter(f.key)
+                  setPage(0)
+                }}
+              >
+                {f.label}
+              </Chip>
+            ))}
+          </>
+        }
+        onFilter={months.length > 1 ? () => setMonthOpen(true) : undefined}
+        activeFilterCount={monthFilter !== defaultMonthFilter ? 1 : 0}
         resultCount={invoicesQ.isPending ? undefined : filtered.length}
       />
 
@@ -460,6 +497,36 @@ export function InvoicesPage() {
         label={t('invoices.issueAction')}
         icon={ReceiptText}
       />
+
+      {/* Sheet «تصفية حسب الشهر» — النمط الموحّد (كـSheet مجموعات الطلاب
+          حرفياً): «كل الشهور» أولاً ثم الشهور الفعلية الأحدث أولاً،
+          والفعّال مميّز بخلفية ناعمة وعلامة ✓ */}
+      <Sheet open={monthOpen} onClose={() => setMonthOpen(false)} title={t('invoices.monthFilterTitle')}>
+        <div className="flex flex-col gap-2 pb-2">
+          {[
+            { value: INVOICE_MONTH_ALL, label: t('invoices.monthFilterAll') },
+            ...months.map((m) => ({ value: m, label: periodLabel(m) })),
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => {
+                setMonthChoice(opt.value)
+                setPage(0)
+                setMonthOpen(false)
+              }}
+              className={`flex items-center justify-between min-h-[52px] px-3 rounded-xl border text-[15px] font-semibold cursor-pointer ${
+                monthFilter === opt.value
+                  ? 'bg-soft border-primary/40 text-primary'
+                  : 'bg-card border-border text-text'
+              }`}
+            >
+              {opt.label}
+              {monthFilter === opt.value && <Check size={19} />}
+            </button>
+          ))}
+        </div>
+      </Sheet>
 
       {issueOpen && teacherId && (
         <IssueInvoicesSheet teacherId={teacherId} onClose={() => setIssueOpen(false)} />

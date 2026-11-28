@@ -130,6 +130,31 @@ const AnalyticsPage = lazy(() =>
 const AtRiskPage = lazy(() =>
   import('./features/atrisk/AtRiskPage').then((m) => ({ default: m.AtRiskPage })),
 )
+const PublicProfilePage = lazy(() =>
+  import('./features/profile/PublicProfilePage').then((m) => ({
+    default: m.PublicProfilePage,
+  })),
+)
+const ProfileManagePage = lazy(() =>
+  import('./features/profile/ProfileManagePage').then((m) => ({
+    default: m.ProfileManagePage,
+  })),
+)
+const ProfilePostsPage = lazy(() =>
+  import('./features/profile/ProfilePostsPage').then((m) => ({
+    default: m.ProfilePostsPage,
+  })),
+)
+const ProfileContentPage = lazy(() =>
+  import('./features/profile/ProfileContentPage').then((m) => ({
+    default: m.ProfileContentPage,
+  })),
+)
+const ProfileRatingsPage = lazy(() =>
+  import('./features/profile/ProfileRatingsPage').then((m) => ({
+    default: m.ProfileRatingsPage,
+  })),
+)
 /* صفحة 404 لا تُعرَّف هنا: بوابتها (features/notfound/NotFoundGate)
    تحملها كسولاً بنفسها — انظر تعليق مسار `*` العلوي أسفل الشجرة */
 
@@ -163,6 +188,7 @@ registerRouteLoaders({
   '/analytics': () => import('./features/analytics/AnalyticsPage'),
   '/at-risk': () => import('./features/atrisk/AtRiskPage'),
   '/portal-links': () => import('./features/portal/PortalManagePage'),
+  '/profile-page': () => import('./features/profile/ProfileManagePage'),
 })
 
 /** غلاف Suspense بسقوط Skeleton الموحّد — يُستخدم لكل مسار كسول */
@@ -273,6 +299,18 @@ export default function App() {
               element={
                 <LazyRoute>
                   <CentrePage />
+                </LazyRoute>
+              }
+            />
+            {/* صفحة المدرّس الشخصية العامة (0074 — 3A-929): بلا جلسة —
+                الاعتماد هو السلاج وحده عبر RPC مقيدة الحقول؛ لا تظهر
+                إلا لصفحة ظاهرة + مستحقة برو، وزر حجزها ينقل لصفحة
+                الحجز بمسار السلاج ‎/book?p=<slug>‎ */}
+            <Route
+              path="/t/:slug"
+              element={
+                <LazyRoute>
+                  <PublicProfilePage />
                 </LazyRoute>
               }
             />
@@ -467,6 +505,41 @@ export default function App() {
                 element={
                   <LazyRoute>
                     <PortalManagePage />
+                  </LazyRoute>
+                }
+              />
+              {/* إدارة الصفحة الشخصية (0074 — 3A-929): أربع شاشات
+                  مستقلة تحت الإعدادات — بيانات/ظهور، منشورات، محتوى،
+                  تقييمات (لا صفحة مجمّعة طويلة) */}
+              <Route
+                path="profile-page"
+                element={
+                  <LazyRoute>
+                    <ProfileManagePage />
+                  </LazyRoute>
+                }
+              />
+              <Route
+                path="profile-page/posts"
+                element={
+                  <LazyRoute>
+                    <ProfilePostsPage />
+                  </LazyRoute>
+                }
+              />
+              <Route
+                path="profile-page/content"
+                element={
+                  <LazyRoute>
+                    <ProfileContentPage />
+                  </LazyRoute>
+                }
+              />
+              <Route
+                path="profile-page/ratings"
+                element={
+                  <LazyRoute>
+                    <ProfileRatingsPage />
                   </LazyRoute>
                 }
               />

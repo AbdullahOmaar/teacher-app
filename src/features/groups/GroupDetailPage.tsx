@@ -16,7 +16,7 @@ import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../.
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { Avatar } from '../../components/ui/Avatar'
 import { ListRow } from '../../components/ui/ListRow'
-import { BILLING_LABELS, daysLabel, formatMoney, formatTime12, safeExternalUrl } from '../../lib/format'
+import { BILLING_LABELS, DAY_NAMES, formatMoney, formatTime12, safeExternalUrl } from '../../lib/format'
 import { SG, useStudents } from '../students/hooks'
 import { EnrollStudentSheet } from '../students/EnrollStudentSheet'
 import {
@@ -31,6 +31,7 @@ import {
   useSetGroupArchived,
   useWaitlist,
 } from './hooks'
+import { groupSlotsOf } from './slots'
 import { GroupFormSheet } from './GroupFormSheet'
 import { GroupStarCheer } from './GroupStarCheer'
 
@@ -166,18 +167,20 @@ export function GroupDetailPage() {
 
   return (
     <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [SG])}>
-    <div>
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-4 lg:items-start lg:grid-flow-dense">
       {/* احتفال النجم عند محطات المجموعة (خطة الهوية P-12): يُشتق من
           قائمة المجموعة المحمّلة هنا وبصمتها — مرة واحدة لكل محطة */}
       {teacherId && id && (
+        <div className="lg:col-span-2 min-w-0">
         <GroupStarCheer
           teacherId={teacherId}
           groupId={id}
           studentsCount={roster.length}
           sessionsCount={footprintQ.data?.sessionCount ?? null}
         />
+        </div>
       )}
-      <Card className="rise-in">
+      <Card className="rise-in lg:col-span-2 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="text-[16px] font-extrabold">
             {group.name}
@@ -207,7 +210,12 @@ export function GroupDetailPage() {
         <div className="text-muted text-[13.5px] mt-1 leading-relaxed">
           {BILLING_LABELS[group.billing_type]} · {formatMoney(group.price)}
           <br />
-          {daysLabel(group.days)} · {formatTime12(group.start_time)} {t('groups.detailDuration', { minutes: group.duration_minutes })}
+          {groupSlotsOf(group).map((s, i) => (
+            <span key={i}>
+              {i > 0 && <br />}
+              {DAY_NAMES[s.day]} · {formatTime12(s.start_time)} {t('groups.detailDuration', { minutes: s.duration_minutes })}
+            </span>
+          ))}
           {group.room ? <br /> : null}
           {group.room ? (<span className="inline-flex items-center gap-1"><MapPin size={16} /> {group.room}</span>) : ''}
           {group.assistant_name ? <><br />{t('groups.detailAssistant', { name: group.assistant_name })}</> : null}
@@ -267,7 +275,9 @@ export function GroupDetailPage() {
         </div>
       </Card>
 
-      <h3 className="type-section mt-5 mb-2">{t('groups.rosterTitle', { count: roster.length })}</h3>
+      {/* القائمة: العمود الرئيسي عند الديسكتوب (3A-930) */}
+      <div className="lg:col-start-1 min-w-0">
+      <h3 className="type-section mt-5 mb-2 lg:mt-0">{t('groups.rosterTitle', { count: roster.length })}</h3>
       {roster.length === 0 ? (
         <EmptyState mascot icon={Users} title={t('groups.rosterEmptyTitle')} hint={t('groups.rosterEmptyHint')} />
       ) : (
@@ -313,7 +323,11 @@ export function GroupDetailPage() {
         </Card>
       )}
 
-      <h3 className="type-section mt-5 mb-2">{t('groups.waitlistTitle', { count: waitlist.length })}</h3>
+      </div>
+
+      {/* قائمة الانتظار: سكة جانبية عند الديسكتوب */}
+      <div className="lg:col-start-2 min-w-0">
+      <h3 className="type-section mt-5 mb-2 lg:mt-0">{t('groups.waitlistTitle', { count: waitlist.length })}</h3>
       <Card className="rise-in" style={{ animationDelay: '90ms' }}>
         {waitlistQ.isPending ? (
           <LoadingState label={t('groups.waitlistLoading')} />
@@ -402,12 +416,13 @@ export function GroupDetailPage() {
         </div>
         )}
       </Card>
+      </div>
 
       {/* منطقة الخطر — حذف/أرشفة آمنة (خطوة 10):
           الأرشفة (archived_at من 0007) توقف توليد الحصص والتسجيل الجديد مع
           حفظ التاريخ كاملاً. الحذف النهائي للمالك فقط ولمجموعة فارغة تماماً
           (لا تسجيلات/حصص/فواتير/تقييمات)، وبعد كتابة اسم المجموعة كاملاً. */}
-      <Card className="rise-in border-bad/50 mt-5" style={{ animationDelay: '140ms' }}>
+      <Card className="rise-in border-bad/50 mt-5 lg:mt-0 lg:col-span-2 min-w-0" style={{ animationDelay: '140ms' }}>
         <div className="flex items-center gap-2 mb-2">
           <TriangleAlert size={20} className="text-bad-text" />
           <span className="font-extrabold text-[15px] text-bad-text">{t('groups.dangerTitle')}</span>

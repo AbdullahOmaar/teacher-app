@@ -20,8 +20,8 @@ import { AssessmentFormSheet } from './sheets'
 
 function AssessmentCard({ item, index }: { item: AssessmentListItem; index: number }) {
   return (
-    <Link to={`/assessments/${item.id}`} className="block no-underline text-text">
-      <Card className="rise-in" style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}>
+    <Link to={`/assessments/${item.id}`} className="block no-underline text-text lg:h-full">
+      <Card className="rise-in lg:h-full lg:mb-0" style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}>
         <div className="flex items-start justify-between gap-2">
           <div className="font-bold text-[15px]">{item.title}</div>
           {item.avg_pct != null && (
@@ -137,7 +137,10 @@ export function GradesPage() {
           />
         </Card>
       ) : (
-        filtered.map((a, i) => <AssessmentCard key={a.id} item={a} index={i} />)
+        /* شبكة بطاقات عند الديسكتوب (3A-930): عمودان/ثلاثة */
+        <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-3 lg:items-stretch">
+          {filtered.map((a, i) => <AssessmentCard key={a.id} item={a} index={i} />)}
+        </div>
       )}
 
       <Fab onClick={() => setCreateOpen(true)} ariaLabel={t('grades.fabAria')} label={t('grades.fabLabel')} />

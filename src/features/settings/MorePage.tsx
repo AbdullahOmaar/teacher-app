@@ -25,6 +25,9 @@ import { Card } from '../../components/ui/Card'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { t } from '../../i18n'
 import { useFeedbackUnreadCount } from '../feedback/hooks'
+import { useNewFeatures } from '../newFeatures/hooks'
+import { NewBadge } from '../newFeatures/NewBadge'
+import { featureForPath } from '../newFeatures/registry'
 
 const MENU: { icon: LucideIcon; label: string; path: string; id?: 'feedback' }[] = [
   { icon: CalendarDays, label: t('settings.moreSchedule'), path: '/schedule' },
@@ -60,6 +63,10 @@ export function MorePage() {
   // واجهتي (data بلا قيمة) فلا تظهر شارة، ولا ينكسر أي صف آخر
   const unreadQ = useFeedbackUnreadCount(teacherId)
   const unread = unreadQ.data ?? 0
+  // شارات نظام «جديد» (المهمة 24): صف خاصية مسجلة غير مشاهَدة يحمل
+  // الشارة حتى أول فتح لها — الحالة من useNewFeatures (فشل جلبها =
+  // لا شارات، انظر hooks.ts)
+  const { isUnseen } = useNewFeatures(teacherId)
   // تسخين وجهات القائمة عند الخمول (3A-312 — بند ٢): أول ضغطة على أي
   // صف كانت تدفع ثمن جلب حزمة الوجهة وتحليلها بعد الضغطة (مقاساً حتى
   // 1207ms للتحليلات)؛ الآن تُسخَّن الحزم تسلسلياً أثناء وقوف المستخدم
@@ -70,6 +77,7 @@ export function MorePage() {
     <Card className="p-0 overflow-hidden">
       {MENU.map((item, i) => {
         const Icon = item.icon
+        const newDef = featureForPath(item.path)
         return (
           <button
             key={item.path}
@@ -89,6 +97,7 @@ export function MorePage() {
                 {unread}
               </span>
             ) : null}
+            {newDef && isUnseen(newDef.id) ? <NewBadge /> : null}
             <ChevronLeft size={20} className="text-muted" />
           </button>
         )

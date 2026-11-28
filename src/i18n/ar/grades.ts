@@ -13,6 +13,10 @@ export const grades = {
   saveScoresError: 'حصلت مشكلة في حفظ الدرجات — راجع القيم وحاول تاني',
   scoreMustBeNumber: 'الدرجة لازم تكون رقماً صفر أو أكبر',
   scoreAboveMax: 'في درجة أكبر من النهائية ({max}) — صحّحها قبل الحفظ',
+  /** منع صارم (3A-928): درجة نجاح فوق النهائية لا تُحفظ أبداً */
+  passAboveMax: 'درجة النجاح ({pass}) أكبر من الدرجة النهائية ({max}) — لازم تكون أقل منها أو تساويها',
+  maxScoreInvalid: 'الدرجة النهائية لازم تكون رقماً أكبر من صفر',
+  passScoreInvalid: 'درجة النجاح لازم تكون رقماً صفراً أو أكبر',
   detailSummaryLine: '{type} · {group} · {date} · النهائية {max} · النجاح {pass}',
   detailAutoSaveHint: 'الحفظ عند الخروج من الحقل',
   detailProgress: '{progress} درجة مسجلة',

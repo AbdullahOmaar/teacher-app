@@ -17,6 +17,7 @@ import {
   type RawPortalBrand,
 } from './tokenLifecycle'
 import type {
+  GroupSlot,
   GuardianAccessTokenRow,
   GuardianRow,
   PaymentMethod,
@@ -49,7 +50,8 @@ import type {
 // الرمز الخام: يُولّد في العميل بـ Web Crypto (32 بايت عشوائياً،
 // base64url)، يُهشّ بـ SHA-256 قبل الإرسال، ولا يُحفظ في القاعدة
 // ولا في أي log — يظهر للمدرس مرة واحدة وقت التوليد داخل رابط
-// البوابة، وإعادة التوليد تُبطل الروابط النشطة السابقة للطالب.
+// البوابة، والتوليد إضافي: لا يُبطل أي رابط نشط سابق للطالب
+// (إصلاح 2026-11-28 — الرابط يموت بانتهائه أو بإلغاء صريح فقط).
 // ---------------------------------------------------------------------------
 
 /** صلاحية رابط البوابة بالأيام — قرار المستخدم المعتمد عند الإطلاق */
@@ -57,7 +59,37 @@ export const PORTAL_TOKEN_TTL_DAYS = 30
 
 const TOKEN_COLS =
   'id, teacher_id, guardian_id, student_id, expires_at, revoked_at, last_used_at, created_at'
-const GUARDIAN_COLS = 'id, teacher_id, user_id, display_name, phone, created_at, updated_at'
+const GUARDIAN_COLS =
+  'id, teacher_id, user_id, display_name, phone, created_at, updated_at, whatsapp_opt_out'
+/** قائمة الأعمدة قبل مهاجرة 0073 — تُستخدم عند كشف غياب عمود whatsapp_opt_out (نمط #27) */
+const GUARDIAN_COLS_LEGACY =
+  'id, teacher_id, user_id, display_name, phone, created_at, updated_at'
+const GUARDIAN_EMBED_COLS =
+  'guardian_id, guardians(id, teacher_id, user_id, display_name, phone, created_at, updated_at, whatsapp_opt_out)'
+/** نفس التضمين بقائمة ما قبل 0073 (بلا whatsapp_opt_out) */
+const GUARDIAN_EMBED_COLS_LEGACY =
+  'guardian_id, guardians(id, teacher_id, user_id, display_name, phone, created_at, updated_at)'
+
+/**
+ * قراءة متسامحة لعمود whatsapp_opt_out (مهاجرة 0073، بوابة التجميد —
+ * نمط #27): على قاعدة بلا المهاجرة يرفض PostgREST الـ select بـ
+ * PGRST204 فينهار توليد رابط البوابة كله — نرجع لقائمة الأعمدة
+ * القديمة ونكمل الصف بالافتراضي (لا انسحاب = false كما في المهاجرة).
+ */
+export function isMissingWhatsappOptOutColumn(error: {
+  code?: string
+  message?: string
+} | null): boolean {
+  if (!error) return false
+  return error.code === 'PGRST204' || (error.message ?? '').includes('whatsapp_opt_out')
+}
+
+/** إكمال صف ولي أمر قديم (بلا whatsapp_opt_out) بالافتراضي false */
+export function withWhatsappOptOutDefault(
+  row: Omit<GuardianRow, 'whatsapp_opt_out'> & { whatsapp_opt_out?: boolean },
+): GuardianRow {
+  return { ...row, whatsapp_opt_out: row.whatsapp_opt_out ?? false }
+}
 
 // ---------------------------------------------------------------------------
 // توليد الرمز وهاشّه (Web Crypto — في المتصفح فقط، بلا أي إرسال للخام)
@@ -133,21 +165,100 @@ export function portalLinkWaUrl(
  * (guardian_phone ثم phone — وبلا أي رقم لا يمكن إنشاء ولي أمر
  * لأن guardians.phone أساس الربط في المخطط).
  */
+/** ولي الأمر المرتبط بالطالب عبر guardian_students (قراءة متسامحة 0073) */
+async function fetchLinkedGuardian(
+  teacherId: string,
+  studentId: string,
+): Promise<GuardianRow | null> {
+  const supa = db()
+  const { data, error } = await supa
+    .from('guardian_students')
+    .select(GUARDIAN_EMBED_COLS)
+    .eq('teacher_id', teacherId)
+    .eq('student_id', studentId)
+    .limit(1)
+    .maybeSingle()
+  if (error) {
+    if (isMissingWhatsappOptOutColumn(error)) {
+      const retry = await supa
+        .from('guardian_students')
+        .select(GUARDIAN_EMBED_COLS_LEGACY)
+        .eq('teacher_id', teacherId)
+        .eq('student_id', studentId)
+        .limit(1)
+        .maybeSingle()
+      if (retry.error) throw retry.error
+      return retry.data?.guardians ? withWhatsappOptOutDefault(retry.data.guardians) : null
+    }
+    throw error
+  }
+  return data?.guardians ? withWhatsappOptOutDefault(data.guardians) : null
+}
+
+/** ولي أمر السنتر برقمه (قراءة متسامحة 0073) */
+async function fetchGuardianByPhone(
+  teacherId: string,
+  phone: string,
+): Promise<GuardianRow | null> {
+  const supa = db()
+  const { data, error } = await supa
+    .from('guardians')
+    .select(GUARDIAN_COLS)
+    .eq('teacher_id', teacherId)
+    .eq('phone', phone)
+    .maybeSingle()
+  if (error) {
+    if (isMissingWhatsappOptOutColumn(error)) {
+      const retry = await supa
+        .from('guardians')
+        .select(GUARDIAN_COLS_LEGACY)
+        .eq('teacher_id', teacherId)
+        .eq('phone', phone)
+        .maybeSingle()
+      if (retry.error) throw retry.error
+      return retry.data ? withWhatsappOptOutDefault(retry.data) : null
+    }
+    throw error
+  }
+  return data ? withWhatsappOptOutDefault(data) : null
+}
+
+/** إنشاء ولي أمر جديد (كتابة متسامحة 0073 — نمط #64 في الكتابة) */
+async function insertGuardian(
+  teacherId: string,
+  name: string,
+  phone: string,
+): Promise<GuardianRow> {
+  const supa = db()
+  const { data, error } = await supa
+    .from('guardians')
+    .insert({ teacher_id: teacherId, display_name: name, phone })
+    .select(GUARDIAN_COLS)
+    .single()
+  if (error) {
+    if (isMissingWhatsappOptOutColumn(error)) {
+      // قاعدة بلا 0073: الـ insert مع الـ returning يفشل كجملة واحدة —
+      // لم يُنشأ صف، فنعيد الإنشاء كاملاً بقائمة الأعمدة القديمة.
+      const retry = await supa
+        .from('guardians')
+        .insert({ teacher_id: teacherId, display_name: name, phone })
+        .select(GUARDIAN_COLS_LEGACY)
+        .single()
+      if (retry.error) throw retry.error
+      return withWhatsappOptOutDefault(retry.data)
+    }
+    throw error
+  }
+  return withWhatsappOptOutDefault(data)
+}
+
 async function ensureGuardianAndLink(
   teacherId: string,
   student: StudentRow,
 ): Promise<GuardianRow> {
   const supa = db()
 
-  const { data: link, error: linkErr } = await supa
-    .from('guardian_students')
-    .select('guardian_id, guardians(id, teacher_id, user_id, display_name, phone, created_at, updated_at)')
-    .eq('teacher_id', teacherId)
-    .eq('student_id', student.id)
-    .limit(1)
-    .maybeSingle()
-  if (linkErr) throw linkErr
-  const linked = link?.guardians
+  const linked = await fetchLinkedGuardian(teacherId, student.id)
   if (linked) return linked
 
   const { name, phone } = effectiveGuardianFromStudent(student)
@@ -155,23 +266,9 @@ async function ensureGuardianAndLink(
     throw new Error(t('portal.apiNoGuardianPhoneError'))
   }
 
-  const { data: existing, error: exErr } = await supa
-    .from('guardians')
-    .select(GUARDIAN_COLS)
-    .eq('teacher_id', teacherId)
-    .eq('phone', phone)
-    .maybeSingle()
-  if (exErr) throw exErr
-
-  let guardian = existing ?? null
+  let guardian = await fetchGuardianByPhone(teacherId, phone)
   if (!guardian) {
-    const { data: created, error: insErr } = await supa
-      .from('guardians')
-      .insert({ teacher_id: teacherId, display_name: name, phone })
-      .select(GUARDIAN_COLS)
-      .single()
-    if (insErr) throw insErr
-    guardian = created
+    guardian = await insertGuardian(teacherId, name, phone)
   }
 
   const { error: gsErr } = await supa.from('guardian_students').upsert(
@@ -191,8 +288,8 @@ export interface CreatedPortalLink {
 
 /**
  * توليد رابط بوابة جديد لطالب: رمز عشوائي في العميل → هاش SHA-256
- * فقط يُرسل ويُخزّن. أي روابط نشطة سابقة لنفس الطالب تُبطَل أولاً
- * (إعادة التوليد = إبطال القديم، كما هو مطلوب).
+ * فقط يُرسل ويُخزّن. التوليد إضافي — الروابط النشطة السابقة لنفس
+ * الطالب تفضل شغالة (دورة الحياة المشتركة في tokenLifecycle).
  */
 export async function createPortalLink(
   teacherId: string,
@@ -252,6 +349,8 @@ interface PortalGroup {
   name: string
   days: number[]
   start_time: string
+  /** المواعيد الأسبوعية الكاملة (3A-926) — سطر عرض لكل موعد */
+  slots: GroupSlot[]
   room: string | null
   links: string[]
 }
@@ -300,10 +399,24 @@ export interface PortalOverview {
   sections: PortalSections
   attendance_rate: number | null
   balance: number
+  /** توجد أي فاتورة للطالب أصلاً (0071) — أساس فرق «مسدد» عن «لا فواتير» */
+  has_invoices: boolean
   groups: PortalGroup[]
   latest_scores: PortalScore[]
   notes: PortalNote[]
   recent_attendance: PortalAttendance[]
+}
+
+/**
+ * حالة مال الطالب المعروضة في البوابة (3A-925 بند ٤): مستحقّ إن وُجد رصيد،
+ * «مسدد» إن وُجدت فواتير ورصيدها صفر، و«لا فواتير» إن لم توجد أي فاتورة
+ * أصلاً — الخلط بين الأخيرتين كان يعرض «مسدد» لطالب لم تُنشأ له فاتورة قط.
+ */
+export type PortalMoneyState = 'due' | 'paid' | 'none'
+
+export function portalMoneyState(o: { balance: number; has_invoices: boolean }): PortalMoneyState {
+  if (o.balance > 0) return 'due'
+  return o.has_invoices ? 'paid' : 'none'
 }
 
 /** قراءة البوابة بالرمز الخام عبر الـ RPC — المسار الآمن الوحيد للـ anon */
@@ -413,14 +526,30 @@ export const PROOF_STATUS_META: Record<
 const META_FALLBACK_BADGE = 'bg-soft text-muted border-border'
 
 /**
+ * بحث ميتا محروس (3A-909 + 3A-928): لا يعيد undefined أبداً مهما كانت
+ * القيمة القادمة من الخادم — مفتاح غير نصي (null/undefined من JSONB)،
+ * أو فارغ، أو غير معروف، أو موروث من النموذج الأولي للكائنات
+ * ('toString'/'constructor' — البحث الخام كان يعيد دالة فيُقرأ منها
+ * badge فارغ) — الكل يتحل لشارة محايدة بتسمية البديل. الفحص بـ
+ * Object.hasOwn حتى لا تتسرب مفاتيح Object.prototype.
+ */
+function metaOf(
+  map: Record<string, { label: string; badge: string }>,
+  key: unknown,
+  fallbackLabel: string,
+): { label: string; badge: string } {
+  if (typeof key === 'string' && Object.hasOwn(map, key)) return map[key]
+  return { label: fallbackLabel, badge: META_FALLBACK_BADGE }
+}
+
+/**
  * حسم ميتا حالة إثبات بأمان (3A-909): الحالة تأتي من الخادم عبر JSONB
  * مُلقاة بنوع العميل — أي حالة لا يعرفها العميل (انحراف نسخ بين العميل
  * وقاعدة البيانات) تتحل هنا لشارة محايدة بدل أن ترمي أثناء العرض
  * وتُسقط صفحة البوابة كلها على حدّ الخطأ العام «حصلت مشكلة غير متوقعة».
  */
 export function portalProofStatusMeta(status: string): { label: string; badge: string } {
-  const known = (PROOF_STATUS_META as Partial<Record<string, { label: string; badge: string }>>)[status]
-  return known ?? { label: t('portal.apiProofStatusFallback'), badge: META_FALLBACK_BADGE }
+  return metaOf(PROOF_STATUS_META, status, t('portal.apiProofStatusFallback'))
 }
 
 export function proofErrorMessage(error: unknown): string {
@@ -713,8 +842,17 @@ export const PORTAL_NOTIF_META: Record<
  * العام). أي نوع غير معروف يتحل هنا لشارة «تنبيه» محايدة ولا يرمي أبداً.
  */
 export function portalNotifMeta(kind: string): { label: string; badge: string } {
-  const known = (PORTAL_NOTIF_META as Partial<Record<string, { label: string; badge: string }>>)[kind]
-  return known ?? { label: t('portal.apiNotifFallback'), badge: META_FALLBACK_BADGE }
+  return metaOf(PORTAL_NOTIF_META, kind, t('portal.apiNotifFallback'))
+}
+
+/**
+ * حسم ميتا حالة حضور في البوابة (3A-928): كان آخر بحث خام مباشر في
+ * خريطة عند صفحة البوابة — صار عبر metaOf المحروس كسائر الميتا، فأي
+ * حالة حضور لا يعرفها العميل (أو قيمة فارغة/غير نصية) تتحل لشارة
+ * «حضور» المحايدة ولا ترمي أبداً.
+ */
+export function portalAttMeta(status: string): { label: string; badge: string } {
+  return metaOf(PORTAL_ATT_META, status, t('portal.apiAttFallback'))
 }
 
 /** حالات الحضور الأربع في البوابة (§2.4) — الشارات مشتركة (buildAttMeta)، والتسميات بمفاتيح هذه البوابة */

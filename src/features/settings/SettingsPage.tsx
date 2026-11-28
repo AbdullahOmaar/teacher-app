@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card } from '../../components/ui/Card'
 import { useToast } from '../../components/ui/toast'
-import { Bell, Bug, CalendarCheck2, Crown, FolderCog, GraduationCap, Handshake, Info, MessageCircle, MonitorSmartphone, NotebookPen, Palette, Printer, SlidersHorizontal, Sparkles, UserRound } from 'lucide-react'
+import { Blocks, Bug, CalendarCheck2, Crown, FolderCog, GraduationCap, Handshake, Info, MonitorSmartphone, NotebookPen, Palette, Printer, SlidersHorizontal, UserRound } from 'lucide-react'
 import { PageToolBar } from '../../components/ui/PageToolBar'
 import { Button } from '../../components/ui/Button'
 import { Chip } from '../../components/ui/form'
@@ -41,6 +41,7 @@ import { EnrolLinkCard } from '../enrol/EnrolLinkCard'
 import { PushNotificationsCard } from './PushNotificationsCard'
 import { PrintFontCard } from './PrintFontCard'
 import { SubscriptionCard } from './SubscriptionCard'
+import { ProfileSettingsCard } from '../profile/ProfileSettingsCard'
 import { MascotSettingsCard } from './MascotSettingsCard'
 import { WhatsAppSettingsCard } from './WhatsAppSettingsCard'
 import { AssistantKeyCard } from './AssistantKeyCard'
@@ -252,6 +253,12 @@ export function SettingsPage() {
     e.preventDefault()
     if (!managedCentre) return
     setProfileMsg(null)
+    // النموذج noValidate (3A-911): اسم المدرس كان يعتمد على required
+    // الأصلية وحدها — الفحص هنا بالعربية وبنفس رسالة سطر الحالة
+    if (!(profileName ?? managedCentre.display_name).trim()) {
+      setProfileMsg(t('settings.teacherNameRequired'))
+      return
+    }
     updateProfile.mutate(
       {
         display_name: (profileName ?? managedCentre.display_name).trim(),
@@ -468,15 +475,13 @@ export function SettingsPage() {
       ? [{ id: 'team', title: t('settings.sectionTeam'), icon: Handshake }]
       : []),
     { id: 'install', title: t('settings.installTitle'), icon: MonitorSmartphone },
-    { id: 'push', title: t('settings.pushTitle'), icon: Bell },
+    // قسم «الربط والتكاملات» (ملاحظة المالك 2026-11-28): يجمع بطاقات
+    // الاتصال الخارجي (Push + واتساب + مفتاح المساعد) في قسم واحد بدل
+    // انتشارها أقساماً منفصلة في الصفحة الطويلة. القسم دائم الظهور لأن
+    // بطاقة Push بلا شرط، وبطاقتا المالك داخله بشرطيهما القائمين.
+    { id: 'integrations', title: t('settings.sectionIntegrations'), icon: Blocks },
     ...(isOwnerWorkspace
       ? [{ id: 'mascot', title: t('settings.sectionMascot'), icon: NotebookPen }]
-      : []),
-    ...(isOwnerWorkspace
-      ? [{ id: 'whatsapp', title: t('settings.sectionWhatsapp'), icon: MessageCircle }]
-      : []),
-    ...(isOwnerWorkspace
-      ? [{ id: 'assistant', title: t('settings.sectionAssistant'), icon: Sparkles }]
       : []),
     ...(isOwnerWorkspace
       ? [{ id: 'errors', title: t('settings.sectionErrors'), icon: Bug }]
@@ -703,29 +708,21 @@ export function SettingsPage() {
         <InstallAppCard />
       </SettingsSection>
 
-      {/* إشعارات Push (Phase 4) — بطاقة مكوّن قائمة: bare */}
-      <SettingsSection {...sectionProps('push')} bare>
+      {/* الربط والتكاملات (ملاحظة المالك 2026-11-28): بطاقات الاتصال
+          الخارجي مجمّعة في قسم واحد — إشعارات Push (Phase 4) للجميع،
+          وواتساب الاختياري per-teacher (3A-300 — 0026) ومفتاح مزوّد
+          الذكاء BYOK (T6 — 0049) للمالك فقط كما كانا تماماً. نقل
+          تنظيمي فقط: كل بطاقة بسلوكها وحالتها ومعالجاتها بلا تغيير */}
+      <SettingsSection {...sectionProps('integrations')} bare>
         <PushNotificationsCard />
+        {isOwnerWorkspace && <WhatsAppSettingsCard />}
+        {isOwnerWorkspace && <AssistantKeyCard />}
       </SettingsSection>
 
       {/* الماسكوت دُفّي (MASCOT-PLAN §٦ — 0028): البطاقة مالك فقط */}
       {isOwnerWorkspace && (
         <SettingsSection {...sectionProps('mascot')} bare>
           <MascotSettingsCard />
-        </SettingsSection>
-      )}
-
-      {/* واتساب الاختياري per-teacher (3A-300 — 0026): البطاقة مالك فقط */}
-      {isOwnerWorkspace && (
-        <SettingsSection {...sectionProps('whatsapp')} bare>
-          <WhatsAppSettingsCard />
-        </SettingsSection>
-      )}
-
-      {/* مفتاح مزوّد الذكاء BYOK (T6 — 0049): البطاقة مالك فقط */}
-      {isOwnerWorkspace && (
-        <SettingsSection {...sectionProps('assistant')} bare>
-          <AssistantKeyCard />
         </SettingsSection>
       )}
 
@@ -751,10 +748,13 @@ export function SettingsPage() {
       )}
 
       {/* باقتك الحالية (مهمة 19 — 0058): عرض قراءة فقط، مالك فقط؛
-          تُخفى البطاقة نفسها حتى تُطبَّق 0058 عند بوابة التجميد */}
+          تُخفى البطاقة نفسها حتى تُطبَّق 0058 عند بوابة التجميد.
+          وبطاقة الصفحة الشخصية (0074 — 3A-929) في نفس القسم: فيتشر
+          خطة برو ظاهرة للمالك دائماً وبشارة القفل لغير المستحق */}
       {isOwnerWorkspace && (
         <SettingsSection {...sectionProps('plan')} bare>
           <SubscriptionCard />
+          <ProfileSettingsCard />
         </SettingsSection>
       )}
 

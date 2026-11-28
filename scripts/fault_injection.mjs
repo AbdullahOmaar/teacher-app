@@ -73,6 +73,9 @@ console.log('fault injection: send-whatsapp-message provider failures')
     // تطبيق المهاجرة) فيُسمح — نفس دلالة الإنتاج (index.ts)؛ بدونه
     // ينهار السيناريو عند البوابة قبل أن يصل لعطل المزوّد المُحاكى.
     checkMessageLimit: async () => null,
+    // مبلغ الفاتورة لحظة التنفيذ (0073): الوضع الداخلي وحده يستخدمه —
+    // سيناريوهات هذا الملف يدوية فتكفي قيمة null.
+    loadInvoiceAmountText: async () => null,
     insertLog: async () => 'log-1',
     updateLog: async (id, patch) => {
       updates.push(patch)

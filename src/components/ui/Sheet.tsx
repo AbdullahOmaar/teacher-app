@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 interface SheetProps {
   open: boolean
-  title?: string
+  title?: ReactNode
   onClose: () => void
   children: ReactNode
   /** تذييل مثبت أسفل الـ Sheet (زر الحفظ في النماذج — بحث §5) يبقى ظاهراً أثناء التمرير */
@@ -17,6 +18,14 @@ const DISMISS_THRESHOLD = 90
  * overlay معتم، sheet يصعد من الأسفل بعرض أقصى 640px وانحناء علوي 24px،
  * إغلاق بالسحب للأسفل من المقبض/الترويسة + النقر خارجاً + Escape،
  * وقفل تمرير الخلفية (body scroll lock) أثناء الفتح.
+ *
+ * يُرسَل عبر Portal إلى document.body مباشرة (3A-925 بند ٦): أي سياق
+ * تكديس/احتواء عند أي أب (شريط أدوات لاصق بـ backdrop-filter أو غيره)
+ * لا يستطيع حبس التعتيم تحته — الخلفية تعتّم الصفحة كلها دائماً والنافذة
+ * فوق كل عناصر التطبيق (z-50 فوق الترويسة/التنقل z-20 والأزرار العائمة
+ * z-30، وتحت التنبيهات z-70 فتبقى رسائل التأكيد فوق النافذة).
+ * على الشاشات الأوسع (≥640px) تتوسّط النافذة رأسياً كحوار بدل الالتصاق
+ * بأسفل شاشة طويلة بعيداً عن المحتوى (3A-925 بند ٩).
  */
 export function Sheet({ open, title, onClose, children, footer }: SheetProps) {
   const [dragY, setDragY] = useState(0)
@@ -61,14 +70,14 @@ export function Sheet({ open, title, onClose, children, footer }: SheetProps) {
     dragStart.current = null
   }
 
-  return (
+  return createPortal(
     <div
-      className="sheet-overlay-in fixed inset-0 z-50 flex items-end justify-center bg-[rgba(15,23,42,0.5)]"
+      className="sheet-overlay-in fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-[rgba(15,23,42,0.5)]"
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="sheet-panel-in bg-elevated w-full max-w-[640px] max-h-[90vh] overflow-y-auto rounded-t-[24px] p-4 shadow-raised"
+        className="sheet-panel-in bg-elevated w-full max-w-[640px] max-h-[90vh] overflow-y-auto rounded-t-[24px] sm:rounded-[24px] p-4 shadow-raised"
         style={{
           transform: dragY ? `translateY(${dragY}px)` : undefined,
           transition: isDragging ? 'none' : 'transform 200ms ease-out',
@@ -88,7 +97,7 @@ export function Sheet({ open, title, onClose, children, footer }: SheetProps) {
         >
           <div className="w-11 h-1.5 rounded-full bg-border mx-auto" />
         </div>
-        {title && <h3 className="type-section mb-3">{title}</h3>}
+        {title && <h3 className="type-section mb-3 break-words">{title}</h3>}
         {children}
         {footer && (
           <div className="sticky bottom-0 bg-elevated border-t border-border -mx-4 px-4 pt-3 pb-1 mt-2">
@@ -96,6 +105,7 @@ export function Sheet({ open, title, onClose, children, footer }: SheetProps) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -5,11 +5,15 @@ import {
   confirmSignUpWithCode,
   createTeacherProfileViaRpc,
   fetchAuthUser,
+  googleReturnErrorMessage,
   isEmailUnconfirmed,
   isMissingRpcFunction,
+  onboardingPrefill,
+  signInWithGoogle,
   signUpNextStep,
   signUpWithEmail,
   translateAuthError,
+  validateEmailField,
 } from './api'
 import { t } from '../../i18n'
 
@@ -41,6 +45,10 @@ vi.mock('../../lib/supabase', () => ({
         return Promise.resolve(h.result)
       },
       signUp: (args: unknown) => {
+        h.authCalls.push({ args })
+        return Promise.resolve(h.result)
+      },
+      signInWithOAuth: (args: unknown) => {
         h.authCalls.push({ args })
         return Promise.resolve(h.result)
       },
@@ -253,5 +261,102 @@ describe('translateAuthError — حساب محذوف ناعماً (F1/F6)', () =
   it('رسالة الحظر من GoTrue تُترجم لرسالة الحذف المصممة لا للنص الخام', () => {
     expect(translateAuthError('User is banned')).toBe(t('auth.errAccountDeleted'))
     expect(translateAuthError('User is banned')).not.toContain('banned')
+  })
+})
+
+describe('validateEmailField — فحص حقل البريد في نماذج المصادقة (3A-911)', () => {
+  it('بريد فارغ أو مسافات = رسالة «اكتب بريدك الأول»', () => {
+    expect(validateEmailField('')).toBe(t('auth.emailRequired'))
+    expect(validateEmailField('   ')).toBe(t('auth.emailRequired'))
+  })
+  it('صيغة فاسدة = رسالة الصيغة غير الصحيحة', () => {
+    expect(validateEmailField('abc')).toBe(t('auth.authApiInvalidEmail'))
+    expect(validateEmailField('a@b')).toBe(t('auth.authApiInvalidEmail'))
+    expect(validateEmailField('a b@c.d')).toBe(t('auth.authApiInvalidEmail'))
+  })
+  it('بريد سليم = null، والمسافات الطرفية تُقصّ قبل الفحص', () => {
+    expect(validateEmailField('teacher@example.com')).toBeNull()
+    expect(validateEmailField('  teacher@example.com  ')).toBeNull()
+  })
+})
+
+describe('signInWithGoogle — بدء تحويل OAuth (3A-931)', () => {
+  it('يستدعي signInWithOAuth بمزود google ورجوع /login على نفس الأصل', async () => {
+    setAuth({ url: 'https://accounts.google.com/...' })
+    await signInWithGoogle()
+    expect(h.authCalls).toEqual([
+      {
+        args: {
+          provider: 'google',
+          options: { redirectTo: `${window.location.origin}/login` },
+        },
+      },
+    ])
+  })
+  it('مزود غير مفعّل على المشروع = رسالة «مش مفعّل لسه» المصممة، لا الخام', async () => {
+    setAuth(null, { message: 'Unsupported provider: provider is not enabled' })
+    await expect(signInWithGoogle()).rejects.toThrow(t('auth.errGoogleNotEnabled'))
+  })
+  it('خطأ آخر (شبكة) يمرّ بمترجم الأخطاء العام المهذب', async () => {
+    setAuth(null, { message: 'Failed to fetch' })
+    await expect(signInWithGoogle()).rejects.toThrow(t('auth.authApiNetworkError'))
+  })
+})
+
+describe('googleReturnErrorMessage — خطأ رجوع OAuth المصمم (3A-931)', () => {
+  it('access_denied في الاستعلام = رسالة الإلغاء', () => {
+    expect(
+      googleReturnErrorMessage('?error=access_denied&error_description=User%20cancelled', ''),
+    ).toBe(t('auth.errGoogleCancelled'))
+  })
+  it('خطأ في المقطع (#) = رسالة الفشل العامة، ونص الوصف الخام لا يتسرب أبداً', () => {
+    const msg = googleReturnErrorMessage(
+      '',
+      '#error=server_error&error_description=RAW_INTERNAL_DETAIL',
+    )
+    expect(msg).toBe(t('auth.errGoogleFailed'))
+    expect(msg).not.toContain('RAW_INTERNAL_DETAIL')
+  })
+  it('error_code بديل مقبول لنفس التصنيف', () => {
+    expect(googleReturnErrorMessage('?error_code=access_denied', '')).toBe(
+      t('auth.errGoogleCancelled'),
+    )
+    expect(googleReturnErrorMessage('?error_code=unexpected_failure', '')).toBe(
+      t('auth.errGoogleFailed'),
+    )
+  })
+  it('رجوع نظيف (كود نجاح أو لا شيء) = null بلا رسالة', () => {
+    expect(googleReturnErrorMessage('?code=abc123', '')).toBeNull()
+    expect(googleReturnErrorMessage('', '')).toBeNull()
+    expect(googleReturnErrorMessage('', '#access_token=xyz')).toBeNull()
+  })
+})
+
+describe('onboardingPrefill — تعبئة إكمال الحساب لكل مصادر الدخول (3A-931)', () => {
+  it('مسجّل الإيميل: display_name من نموذج التسجيل يتقدّم', () => {
+    expect(
+      onboardingPrefill({
+        user_metadata: { display_name: 'مستر أحمد', full_name: 'Ahmed X', phone: '0100' },
+      }),
+    ).toEqual({ displayName: 'مستر أحمد', phone: '0100' })
+  })
+  it('مستخدم جوجل: full_name يسقط له الاسم عند غياب display_name', () => {
+    expect(
+      onboardingPrefill({ user_metadata: { full_name: 'Sara Teacher', name: 'Sara' } }),
+    ).toEqual({ displayName: 'Sara Teacher', phone: '' })
+  })
+  it('name وحده يُستخدم عند غياب الاثنين، وقيم غير نصية تُتجاهل', () => {
+    expect(onboardingPrefill({ user_metadata: { name: 'Omar', phone: 123 } })).toEqual({
+      displayName: 'Omar',
+      phone: '',
+    })
+  })
+  it('رقم الحساب نفسه (هاتف) يعبّأ عند غياب رقم البيانات، وبلا مستخدم = فراغ', () => {
+    expect(onboardingPrefill({ user_metadata: {}, phone: '01012345678' })).toEqual({
+      displayName: '',
+      phone: '01012345678',
+    })
+    expect(onboardingPrefill(null)).toEqual({ displayName: '', phone: '' })
+    expect(onboardingPrefill(undefined)).toEqual({ displayName: '', phone: '' })
   })
 })

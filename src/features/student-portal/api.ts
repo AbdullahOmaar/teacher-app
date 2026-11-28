@@ -3,6 +3,7 @@ import { t } from '../../i18n'
 import { waLink } from '../../lib/format'
 import type {
   AssessmentType,
+  GroupSlot,
   PaymentMethod,
   ScoreSource,
   StudentAccessTokenRow,
@@ -35,7 +36,7 @@ import {
 // يُعرَف من صف التوكن — كنموذج روابط الامتحانات.
 //
 // جهة المدرس (جلسة مصادقة — سياسة المالك فقط على جدول التوكنات):
-// توليد/إعادة توليد (إعادة التوليد تُبطل النشط السابق للطالب نفسه)،
+// توليد روابط (التوليد إضافي — لا يُبطل أي رابط نشط سابق للطالب)،
 // قائمة الروابط، والإلغاء — من ملف الطالب (StudentPortalLinkSheet).
 // الرمز الخام يظهر مرة واحدة عند التوليد ولا يُحفظ في أي مكان.
 //
@@ -71,8 +72,9 @@ export interface CreatedStudentPortalLink {
 
 /**
  * توليد رابط بوابة طالب جديد: رمز عشوائي في العميل → هاش SHA-256 فقط
- * يُرسل ويُخزّن. أي روابط نشطة سابقة لنفس الطالب تُبطَل أولاً
- * (إعادة التوليد = إبطال القديم، كما في بوابة ولي الأمر والامتحانات).
+ * يُرسل ويُخزّن. التوليد إضافي — الروابط النشطة السابقة لنفس الطالب
+ * تفضل شغالة لحد انتهائها أو إلغاء المدرس لها صراحة (كما في بوابة
+ * ولي الأمر؛ روابط الامتحانات وحدها تحتفظ بقاعدة الاستبدال).
  */
 export async function createStudentPortalLink(
   teacherId: string,
@@ -156,11 +158,13 @@ interface StudentPortalGroup {
   name: string
   days: number[]
   start_time: string
+  /** المواعيد الأسبوعية الكاملة (3A-926) — سطر عرض لكل موعد */
+  slots: GroupSlot[]
   room: string | null
   links: string[]
 }
 
-interface StudentPortalSession {
+export interface StudentPortalSession {
   date: string
   start_time: string
   duration_minutes: number
@@ -370,3 +374,15 @@ export const STUDENT_PORTAL_ATT_META: Record<string, { label: string; badge: str
   l: t('studentPortal.apiAttLate'),
   m: t('studentPortal.apiAttMakeup'),
 })
+
+/**
+ * حسم ميتا حالة حضور بأمان (3A-928 — نفس قاعدة بوابة ولي الأمر): بحث
+ * محروس بـ Object.hasOwn وقبول القيم غير النصية — لا undefined أبداً
+ * مهما أرسل الخادم، فلا كراش «reading badge» في أي بوابة.
+ */
+export function studentPortalAttMeta(status: string): { label: string; badge: string } {
+  if (typeof status === 'string' && Object.hasOwn(STUDENT_PORTAL_ATT_META, status)) {
+    return STUDENT_PORTAL_ATT_META[status]
+  }
+  return { label: t('studentPortal.apiAttFallback'), badge: 'bg-soft text-muted border-border' }
+}

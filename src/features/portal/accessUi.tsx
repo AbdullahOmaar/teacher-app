@@ -202,7 +202,7 @@ export function PortalAccountBlock({
             </div>
           )}
 
-          <form
+          <form noValidate
             onSubmit={(e) => {
               e.preventDefault()
               if (problem || !password) return
@@ -289,7 +289,7 @@ export function PortalLoginForm({
   const [error, setError] = useState<string | null>(null)
 
   return (
-    <form
+    <form noValidate
       onSubmit={(e) => {
         e.preventDefault()
         if (pending) return
@@ -340,20 +340,29 @@ export function PortalLoginForm({
 
 // ---------------------------------------------------------------------------
 // جهة البوابة العامة: بطاقة «عيّن كلمة سر» لمن وصل برابط صالح — بعدها
-// يدخل باسم الدخول وكلمة السر بدل الرابط. دالة الإنشاء تُمرَّر من
-// الصفحة (تختلف الـ RPC بين البوابتين) وتعيد اسم الدخول المشتق.
+// يدخل باسم الدخول وكلمة السر بدل الرابط. البطاقة تنص صراحة على اسم
+// الدخول المتوقع وعنوان الدخول الكامل (سؤال المالك 2026-11-28: «الباسورد
+// دا هيدخل به فين؟»). دالة الإنشاء تُمرَّر من الصفحة (تختلف الـ RPC بين
+// البوابتين) وتعيد اسم الدخول المشتق.
 // ---------------------------------------------------------------------------
 
 export function ClaimPasswordCard({
   claim,
+  loginPath,
+  loginNameHint,
 }: {
   claim: (password: string) => Promise<{ username: string }>
+  /** مسار باب الدخول لهذه البوابة — يُعرض عنوانه الكامل في البطاقة حتى يعرف الزائر أين يدخل بعدها */
+  loginPath: '/portal' | '/student-portal'
+  /** سطر يوضح ما هو اسم الدخول لهذه البوابة (هاتف ولي الأمر / كود الطالب أو موبايله) */
+  loginNameHint: string
 }) {
   const [password, setPassword] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState(false)
   const [doneUsername, setDoneUsername] = useState<string | null>(null)
   const problem = password ? portalPasswordProblem(password) : null
+  const loginUrl = `${window.location.origin}${loginPath}`
 
   if (doneUsername) {
     return (
@@ -364,12 +373,18 @@ export function ClaimPasswordCard({
         <p className="text-[13.5px] mt-1 mb-0">
           {t('portal.claimDone', { username: doneUsername })}
         </p>
+        <p className="text-[13.5px] mt-1 mb-0">
+          {t('portal.claimLoginAtLabel')}{' '}
+          <span dir="ltr" className="font-semibold">
+            {loginUrl}
+          </span>
+        </p>
       </div>
     )
   }
 
   return (
-    <form
+    <form noValidate
       onSubmit={(e) => {
         e.preventDefault()
         if (pending || problem || !password) return
@@ -385,6 +400,14 @@ export function ClaimPasswordCard({
         <KeyRound size={20} className="text-primary" /> {t('portal.claimTitle')}
       </div>
       <p className="text-muted text-[13.5px] mt-0">{t('portal.claimIntro')}</p>
+      <p className="text-[13.5px] mt-0">
+        {loginNameHint}
+        <br />
+        {t('portal.claimLoginAtLabel')}{' '}
+        <span dir="ltr" className="font-semibold">
+          {loginUrl}
+        </span>
+      </p>
       <Field label={t('portal.claimPasswordLabel')}>
         <TextInput
           type="text"
@@ -429,7 +452,7 @@ export function SessionAccountCard({
       <div className="font-bold text-[15px] mb-1 flex items-center gap-2">
         <KeyRound size={20} className="text-primary" /> {t('portal.sessionTitle')}
       </div>
-      <form
+      <form noValidate
         onSubmit={(e) => {
           e.preventDefault()
           if (pending || problem || !oldPw || !newPw) return

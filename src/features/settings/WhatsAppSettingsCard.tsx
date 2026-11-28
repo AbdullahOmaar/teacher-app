@@ -98,6 +98,10 @@ export function WhatsAppSettingsCard() {
   const [wabaId, setWabaId] = useState('')
   const [templateName, setTemplateName] = useState('otp_code')
   const [templateLang, setTemplateLang] = useState('ar')
+  // استعداد الإرسال الآلي (0073 — المهمة 24): opt-in + حصة يومية،
+  // يُحفظان مع نفس نموذج الإعداد؛ لا أثر لهما قبل فتح المنصة للإرسال
+  const [autoSendEnabled, setAutoSendEnabled] = useState(false)
+  const [autoSendQuota, setAutoSendQuota] = useState('100')
   const [hydratedFor, setHydratedFor] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
@@ -135,6 +139,8 @@ export function WhatsAppSettingsCard() {
     setWabaId(configQ.data.waba_id)
     setTemplateName(configQ.data.template_name || 'otp_code')
     setTemplateLang(configQ.data.template_language || 'ar')
+    setAutoSendEnabled(configQ.data.auto_send_enabled ?? false)
+    setAutoSendQuota(String(configQ.data.auto_send_daily_quota ?? 100))
     setHydratedFor(teacherId)
   }, [configQ.data, hydratedFor, teacherId])
 
@@ -181,6 +187,8 @@ export function WhatsAppSettingsCard() {
   const handleSave = async () => {
     setMsg(null)
     setFormError(null)
+    // حصة الإرسال الآلي: عدد صحيح موجب — أي إدخال فاسد يرجع للافتراضي
+    const autoQuota = Math.max(1, Math.floor(Number(autoSendQuota)) || 100)
     try {
       if (enabled && missingPieces.length > 0) {
         // تفعيل بلا تهيئة مكتملة: تُحفَظ الحقول وحدها ويبقى التفعيل
@@ -191,6 +199,8 @@ export function WhatsAppSettingsCard() {
           waba_id: wabaId,
           template_name: templateName,
           template_language: templateLang,
+          auto_send_enabled: autoSendEnabled,
+          auto_send_daily_quota: autoQuota,
         })
         setEnabled(false)
         setMsg(t('settings.waEnableNotSaved'))
@@ -202,6 +212,8 @@ export function WhatsAppSettingsCard() {
         waba_id: wabaId,
         template_name: templateName,
         template_language: templateLang,
+        auto_send_enabled: autoSendEnabled,
+        auto_send_daily_quota: autoQuota,
       })
       setMsg(t('settings.waSavedMsg'))
     } catch (err) {
@@ -710,6 +722,47 @@ export function WhatsAppSettingsCard() {
                 </Button>
               </div>
 
+              {/* الإرسال الآلي (0073 — المهمة 24): استعداد يُحفظ مع
+                  نموذج الإعداد نفسه؛ لا إرسال قبل فتح المنصة (ق4) */}
+              <h3 className="type-section mt-0 mb-2 text-[15px]">{t('settings.waAutoTitle')}</h3>
+              <p className="text-muted text-[13px] mt-0 mb-3">{t('settings.waAutoIntro')}</p>
+              <div className="grid gap-3 mb-3">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="w-6 h-6 accent-primary"
+                    checked={autoSendEnabled}
+                    onChange={(e) => setAutoSendEnabled(e.target.checked)}
+                  />
+                  <span className="text-[14.5px] font-semibold">
+                    {t('settings.waAutoEnabledLabel')}
+                  </span>
+                </label>
+                <p className="text-muted text-[12.5px] mt-0 mb-0">
+                  {t('settings.waAutoEnabledHint')}
+                </p>
+                <Field label={t('settings.waAutoQuotaLabel')}>
+                  <TextInput
+                    dir="ltr"
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    value={autoSendQuota}
+                    onChange={(e) => setAutoSendQuota(e.target.value)}
+                    autoComplete="off"
+                  />
+                </Field>
+                <p className="text-muted text-[12.5px] mt-0 mb-0">{t('settings.waAutoQuotaHint')}</p>
+              </div>
+              <Button
+                variant="soft"
+                onClick={handleSave}
+                disabled={upsert.isPending}
+                className="mb-5"
+              >
+                {upsert.isPending ? t('settings.waSaving') : t('settings.waSave')}
+              </Button>
+
               <h3 className="type-section mt-0 mb-2 text-[15px]">{t('settings.waLogTitle')}</h3>
               {messageLogQ.data && messageLogQ.data.length === 0 && (
                 <p className="text-muted text-[13px] mt-0 mb-0">{t('settings.waLogEmpty')}</p>
@@ -726,6 +779,12 @@ export function WhatsAppSettingsCard() {
                     <span dir="ltr">{maskPhoneDisplay(row.recipient_phone)}</span>
                     {' — '}
                     <span>{t(MESSAGE_STATUS_KEYS[logStatusOf(row.status)])}</span>
+                    {' — '}
+                    <span>
+                      {row.source === 'auto'
+                        ? t('settings.waLogSourceAuto')
+                        : t('settings.waLogSourceManual')}
+                    </span>
                     {' — '}
                     <span className="text-muted">{formatDateTimeAr(row.created_at)}</span>
                     {row.status === 'failed' && (row.error_message || row.error_code) && (

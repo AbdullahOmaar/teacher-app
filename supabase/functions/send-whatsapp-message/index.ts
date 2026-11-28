@@ -7,8 +7,15 @@
 //
 // verify_jwt مفعّل على مستوى المنصة لهذه الدالة: المستدعي مستخدم
 // حقيقي بـ JWT من التطبيق، ثم يتحقق الكود من ملكية السنتر بعميل
-// إدارة. الأسرار (أسماء فقط): WHATSAPP_MESSAGING_ENABLED
-// (Kill switch المنصة — غير مضبوط = OFF)، SUPABASE_URL ‏،
+// إدارة. الوضع الداخلي (0073 — المهمة 24): نداءات سلّم القاعدة
+// (whatsapp_auto_dispatch عبر pg_net) تصل بلا JWT مستخدم فتُرفض عند
+// بوابة المنصة قبل الكود — تفعيل الوضع يحتاج تعطيل verify_jwt لهذه
+// الدالة عند بوابة التفعيل (قرار تشغيل ق4)؛ الكود نفسه يفرض بوابته:
+// ترويسة x-wa-internal-secret مطابقة لسرّ WHATSAPP_AUTO_INTERNAL_SECRET
+// + ‏internal:true، وإلا يبقى مسار JWT/الملكية هو الوحيد. الأسرار
+// (أسماء فقط): WHATSAPP_MESSAGING_ENABLED
+// (Kill switch المنصة — غير مضبوط = OFF)، WHATSAPP_AUTO_INTERNAL_SECRET
+// (سرّ الوضع الداخلي — غير مضبوط = الوضع معطّل)، SUPABASE_URL ‏،
 // ومفاتيح المنصة المحقونة الجديدة: SUPABASE_PUBLISHABLE_KEYS لعميل
 // التحقق من المستخدم وSUPABASE_SECRET_KEYS لعميل الإدارة (مدخل
 // default في كليهما — وبرجوع للمحفوظين القدماء حتى يُعطَّلا).
@@ -19,6 +26,7 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import {
   handleSendWhatsappMessage,
+  isMissingLogSourceColumnError,
   type WhatsappMessageDeps,
   type WhatsappMessageEnv,
 } from './core.ts'
@@ -133,20 +141,51 @@ const deps: WhatsappMessageDeps = {
       used: typeof row.used === 'number' ? row.used : 0,
     }
   },
+  // مبلغ الفاتورة النهائي لحظة التنفيذ (0073 — الوضع الداخلي فقط):
+  // يُقرأ من invoice_balances بعميل الإدارة؛ صياغته كنص المعامل تحاكي
+  // formatMoney في العميل (فاصل آلاف + «ج») بلا طبقة i18n هنا. صفر/
+  // غائب/خطأ = null فيوقف الـ core الإرسال (لا مبلغ جزئي أبداً).
+  loadInvoiceAmountText: async (teacherId, invoiceId) => {
+    const { data, error } = await serviceClient()
+      .from('invoice_balances')
+      .select('total')
+      .eq('teacher_id', teacherId)
+      .eq('invoice_id', invoiceId)
+      .maybeSingle()
+    if (error || !data) return null
+    const total = typeof data.total === 'string' ? parseFloat(data.total) : data.total
+    if (typeof total !== 'number' || !Number.isFinite(total) || total <= 0) return null
+    return `${total.toLocaleString('en-US')} ج`
+  },
   insertLog: async (row) => {
+    const base = {
+      teacher_id: row.teacherId,
+      kind: row.kind,
+      template_name: row.templateName,
+      recipient_phone: row.recipientPhone,
+      status: 'queued',
+    }
     const { data, error } = await serviceClient()
       .from('whatsapp_message_log')
-      .insert({
-        teacher_id: row.teacherId,
-        kind: row.kind,
-        template_name: row.templateName,
-        recipient_phone: row.recipientPhone,
-        status: 'queued',
-      })
+      .insert({ ...base, source: row.source })
       .select('id')
       .single()
-    if (error || !data) return null
-    return String(data.id)
+    if (!error && data) return String(data.id)
+    if (error && isMissingLogSourceColumnError(error)) {
+      // بوابة ترتيب النشر (QA #65): الدالة أُعيد نشرها قبل تطبيق 0073
+      // فعمود source غائب — نعيد الإدخال بدونه (يأخذ افتراضي القاعدة
+      // 'manual' بعد التطبيق، وقبلها الصف بلا مصدر صريح) حتى لا يتعطل
+      // الإرسال اليدوي الحي بقاعدة «لا إرسال بلا سجل». أي فشل آخر
+      // يبقى null فيوقف الـ core الإرسال كما هو مصمم.
+      const retry = await serviceClient()
+        .from('whatsapp_message_log')
+        .insert(base)
+        .select('id')
+        .single()
+      if (retry.error || !retry.data) return null
+      return String(retry.data.id)
+    }
+    return null
   },
   updateLog: async (logId, patch) => {
     const update: Record<string, unknown> = { status: patch.status }
@@ -165,6 +204,7 @@ Deno.serve((req: Request) => {
     WHATSAPP_MESSAGING_ENABLED: Deno.env.get('WHATSAPP_MESSAGING_ENABLED'),
     WHATSAPP_GRAPH_VERSION: Deno.env.get('WHATSAPP_GRAPH_VERSION'),
     WHATSAPP_GRAPH_BASE_URL: Deno.env.get('WHATSAPP_GRAPH_BASE_URL'),
+    WHATSAPP_AUTO_INTERNAL_SECRET: Deno.env.get('WHATSAPP_AUTO_INTERNAL_SECRET'),
   }
   return handleSendWhatsappMessage(req, env, deps, (msg) => console.log(msg))
 })

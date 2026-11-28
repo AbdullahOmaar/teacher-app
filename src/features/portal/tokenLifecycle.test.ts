@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   GUARDIAN_SECTION_KEYS,
   STUDENT_SECTION_KEYS,
@@ -6,6 +6,7 @@ import {
   TTL_PRESET_DAYS,
   buildAttMeta,
   clampTtlDays,
+  createTokenLink,
   normalizeOverviewHead,
   normalizePortalBrand,
   normalizeSections,
@@ -15,7 +16,34 @@ import {
 } from './tokenLifecycle'
 
 // اختبارات الوحدة المشتركة لدورة حياة التوكن (COD-3 / 3A-362) —
-// دوال نقية فقط؛ مسارات قاعدة البيانات تُغطّى باختبارات التفويض.
+// دوال نقية + createTokenLink بعميل قاعدة مُحاكى؛ باقي مسارات قاعدة
+// البيانات تُغطّى باختبارات التفويض.
+
+// عميل Supabase مُحاكى: يسجّل الإدراجات وأي محاولة تحديث (إبطال) —
+// قلب اختبار إصلاح 2026-11-28 هو إثبات غياب التحديث تماماً.
+const h = vi.hoisted(() => ({
+  inserts: [] as { table: string; row: Record<string, unknown> }[],
+  updates: [] as { table: string }[],
+  insertError: null as unknown,
+}))
+
+vi.mock('../../lib/supabase', () => ({
+  db: () => ({
+    from: (table: string) => ({
+      insert: (row: Record<string, unknown>) => {
+        h.inserts.push({ table, row })
+        return Promise.resolve({ error: h.insertError })
+      },
+      update: () => {
+        h.updates.push({ table })
+        const chain: Record<string, unknown> = {}
+        chain.eq = () => chain
+        chain.is = () => Promise.resolve({ error: null })
+        return chain
+      },
+    }),
+  }),
+}))
 
 describe('TOKEN_TTL_DAYS', () => {
   it('30 يوماً — قرار الإطلاق المعتمد للبوابتين', () => {
@@ -103,8 +131,48 @@ describe('normalizeOverviewHead', () => {
     expect(head.attendance_rate).toBe(87.5)
     expect(head.balance).toBe(120)
     expect(head.groups).toEqual([
-      { name: 'مجموعة', days: [1, 3], start_time: '16:00', room: null, links: [] },
+      {
+        name: 'مجموعة',
+        days: [1, 3],
+        start_time: '16:00',
+        // بلا slots من الخادم: تُشتق من الأيام/الوقت (مدة العرض الاحتياطية 60)
+        slots: [
+          { day: 1, start_time: '16:00', duration_minutes: 60 },
+          { day: 3, start_time: '16:00', duration_minutes: 60 },
+        ],
+        room: null,
+        links: [],
+      },
     ])
+  })
+  it('مواعيد الخادم الكاملة (0071) تُقرأ كما هي — أوقات مختلفة لكل يوم', () => {
+    const head = normalizeOverviewHead({
+      student: { name: 'ط', code: 'S', grade: null },
+      groups: [
+        {
+          name: 'مجموعة',
+          days: [6, 1],
+          start_time: '12:00',
+          room: null,
+          links: [],
+          slots: [
+            { day: 6, start_time: '12:00:00', duration_minutes: 60 },
+            { day: 1, start_time: '16:00', duration_minutes: 90 },
+          ],
+        },
+      ],
+    })
+    expect(head.groups[0].slots).toEqual([
+      { day: 6, start_time: '12:00', duration_minutes: 60 },
+      { day: 1, start_time: '16:00', duration_minutes: 90 },
+    ])
+  })
+  it('has_invoices: false الصريحة وحدها تعني «لا فواتير» — الغياب/ null = توجد (3A-925)', () => {
+    const base = { student: { name: 'ط', code: 'S', grade: null } }
+    expect(normalizeOverviewHead({ ...base, has_invoices: false }).has_invoices).toBe(false)
+    expect(normalizeOverviewHead({ ...base, has_invoices: true }).has_invoices).toBe(true)
+    expect(normalizeOverviewHead({ ...base, has_invoices: null }).has_invoices).toBe(true)
+    expect(normalizeOverviewHead(base).has_invoices).toBe(true)
   })
   it('حضور غائب = null ومجموعات غائبة = []', () => {
     const head = normalizeOverviewHead({
@@ -184,5 +252,63 @@ describe('normalizeSections (3A-385)', () => {
   it('قيم غير كائن تُهمل بأمان', () => {
     expect(normalizeSections('money', STUDENT_SECTION_KEYS).money).toBe(true)
     expect(normalizeSections(42, STUDENT_SECTION_KEYS).grades).toBe(true)
+  })
+})
+
+describe('createTokenLink — التوليد إضافي ولا يُبطل القائم (إصلاح 2026-11-28)', () => {
+  beforeEach(() => {
+    h.inserts = []
+    h.updates = []
+    h.insertError = null
+  })
+
+  const baseInput = {
+    teacherId: 'teacher-1',
+    studentId: 'student-1',
+    generateRawToken: () => 'raw-token-abc',
+    sha256Hex: async (text: string) => `hash:${text}`,
+    buildLink: (raw: string) => `https://example.test/student-portal?t=${raw}`,
+  }
+
+  it('يُدرج رابطاً جديداً بالهاش فقط — ولا يُصدر أي تحديث إبطال على الجدول', async () => {
+    const before = Date.now()
+    const res = await createTokenLink({ ...baseInput, table: 'student_access_tokens' })
+    const after = Date.now()
+
+    expect(res.link).toBe('https://example.test/student-portal?t=raw-token-abc')
+    expect(h.updates).toEqual([])
+    expect(h.inserts).toHaveLength(1)
+    expect(h.inserts[0].table).toBe('student_access_tokens')
+    expect(h.inserts[0].row.teacher_id).toBe('teacher-1')
+    expect(h.inserts[0].row.student_id).toBe('student-1')
+    expect(h.inserts[0].row.token_hash).toBe('hash:raw-token-abc')
+    const exp = new Date(h.inserts[0].row.expires_at as string).getTime()
+    expect(exp).toBeGreaterThanOrEqual(before + 29.9 * 24 * 3600 * 1000)
+    expect(exp).toBeLessThanOrEqual(after + 30.1 * 24 * 3600 * 1000)
+    expect(res.expiresAt).toBe(h.inserts[0].row.expires_at)
+  })
+
+  it('مدة المدرس المخصصة وأعمدة الإدراج الزائدة تمر كما هي (بوابة ولي الأمر)', async () => {
+    const before = Date.now()
+    await createTokenLink({
+      ...baseInput,
+      table: 'guardian_access_tokens',
+      ttlDays: 7,
+      extraInsert: { guardian_id: 'guardian-9' },
+    })
+    expect(h.updates).toEqual([])
+    expect(h.inserts).toHaveLength(1)
+    expect(h.inserts[0].row.guardian_id).toBe('guardian-9')
+    const exp = new Date(h.inserts[0].row.expires_at as string).getTime()
+    expect(exp).toBeGreaterThanOrEqual(before + 6.9 * 24 * 3600 * 1000)
+    expect(exp).toBeLessThanOrEqual(Date.now() + 7.1 * 24 * 3600 * 1000)
+  })
+
+  it('خطأ الإدراج ينتشر للمستدعي ولا يُبتلع', async () => {
+    h.insertError = new Error('insert failed')
+    await expect(
+      createTokenLink({ ...baseInput, table: 'student_access_tokens' }),
+    ).rejects.toThrow('insert failed')
+    expect(h.updates).toEqual([])
   })
 })

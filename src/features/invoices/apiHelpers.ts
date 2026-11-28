@@ -48,6 +48,70 @@ export function payStateOf(b: { total: number; paid: number; balance: number }):
   return b.paid > 0 ? 'partial' : 'due'
 }
 
+// ---------------------------------------------------------------------------
+// فلتر الشهر لقائمة الفواتير (ملاحظة المالك 2026-11-28: «الصفحه دي لما يكون
+// فيها اكتر من شهر يكون فلتر») — الشهر هنا هو invoices.period_month نفسه:
+// الصفحة تجمّع به وترتّب به وتعرض تسميته، فالفلتر يطابق نفس التعريف حرفياً.
+// ---------------------------------------------------------------------------
+
+/** قيمة فلتر الشهر «كل الشهور» — لا قيد على الفترة */
+export const INVOICE_MONTH_ALL = 'all'
+
+/** فلتر حالة القائمة — مفاتيح رقائق صفحة الفواتير */
+export type InvoiceStatusFilter = 'all' | 'due' | 'partial' | 'paid'
+
+/**
+ * الشهور المميزة الموجودة فعلاً في البيانات (period_month) — الأحدث أولاً.
+ * طولها هو شرط ظهور زر تصفية الشهر: أكثر من شهر = الزر يظهر، شهر واحد
+ * أو أقل = لا زر (الصفحة كما هي).
+ */
+export function invoiceMonthOptions(invoices: InvoiceListItem[]): string[] {
+  return [...new Set(invoices.map((i) => i.period_month))].sort((a, b) =>
+    a < b ? 1 : a > b ? -1 : 0,
+  )
+}
+
+/**
+ * القيمة الفعّالة لفلتر الشهر: اختيار المستخدم الصريح يُحترم ما دام موجوداً
+ * في البيانات («كل الشهور» اختيار صريح دائماً)؛ وبلا اختيار — أو اختيار
+ * لشهر اختفى من البيانات — فالافتراضي هو الشهر الحالي إن وُجد في البيانات،
+ * وإلا «كل الشهور» حتى لا تفتح الصفحة فارغة وبياناتها موجودة (تنقيح موثّق
+ * لافتراضي «الشهر الحالي»: مشروط بوجود فواتير فيه فعلاً).
+ */
+export function resolveInvoiceMonthFilter(
+  choice: string | null,
+  months: string[],
+  currentMonth: string,
+): string {
+  if (choice === INVOICE_MONTH_ALL) return INVOICE_MONTH_ALL
+  if (choice != null && months.includes(choice)) return choice
+  return months.includes(currentMonth) ? currentMonth : INVOICE_MONTH_ALL
+}
+
+/**
+ * فلترة قائمة الفواتير المعروضة: شهر ∩ حالة ∩ بحث — نفس دلالات رقائق
+ * الحالة والبحث كما كانت inline في الصفحة حرفياً (نُقلت هنا لتُختبَر):
+ * مستحقة = رصيد موجب، جزئية = دُفع بعضها وبقي رصيد، مسددة = لا رصيد باقٍ.
+ */
+export function filterInvoiceList(
+  invoices: InvoiceListItem[],
+  opts: { month: string; status: InvoiceStatusFilter; query: string },
+): InvoiceListItem[] {
+  const q = opts.query.trim().toLowerCase()
+  return invoices.filter((inv) => {
+    if (opts.month !== INVOICE_MONTH_ALL && inv.period_month !== opts.month) return false
+    if (opts.status === 'due' && !(inv.balance > 0)) return false
+    if (opts.status === 'partial' && !(inv.paid > 0 && inv.balance > 0)) return false
+    if (opts.status === 'paid' && !(inv.balance <= 0)) return false
+    if (!q) return true
+    return (
+      inv.student_name.toLowerCase().includes(q) ||
+      periodYm(inv.period_month).includes(q) ||
+      periodLabel(inv.period_month).includes(q)
+    )
+  })
+}
+
 /**
  * «غير مسدد» — التعريف الوحيد المعتمد (PAT-4): رصيد متبقٍّ أكبر من صفر.
  * كانت الصيغة `balance > 0` مكررة inline في الرئيسية وقائمة الفواتير

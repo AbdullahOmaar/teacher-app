@@ -23,9 +23,9 @@ import { daysLabel, formatMoney, formatTime12, safeExternalUrl } from '../../lib
 import { PublicPageShell } from '../../components/PublicPageShell'
 import { fmtScore, pctOf, ASSESSMENT_TYPE_LABELS } from '../grades/api'
 import { PAYMENT_METHOD_LABELS } from '../invoices/api'
-import { formatDateLabel, formatDayMonth, periodLabel } from '../schedule/api'
+import { periodLabel } from '../schedule/api'
 import {
-  STUDENT_PORTAL_ATT_META,
+  studentPortalAttMeta,
   fetchStudentPushStatus,
   studentPortalErrorInfo,
   subscribeStudentPush,
@@ -43,6 +43,9 @@ import {
   savePortalSessionToken,
 } from '../portal/accounts'
 import { ClaimPasswordCard, PortalLoginForm, SessionAccountCard } from '../portal/accessUi'
+import { TeacherRatingCard } from '../profile/TeacherRatingCard'
+import { PortalInstallCard } from '../portal/PortalInstallCard'
+import { UpcomingSessionsCalendar } from './UpcomingSessionsCalendar'
 import { STUDENT_PORTAL, useStudentPortalOverview } from './hooks'
 import { t } from '../../i18n'
 
@@ -114,10 +117,13 @@ function PortalMessage({
   icon: Icon,
   title,
   hint,
+  extra,
 }: {
   icon: IconComponent
   title: string
   hint: string
+  /** محتوى إضافي تحت بطاقة الرسالة (نموذج الدخول عند موت الرابط) */
+  extra?: React.ReactNode
 }) {
   return (
     <StudentPortalShell>
@@ -128,6 +134,7 @@ function PortalMessage({
         <div className="type-section mb-1">{title}</div>
         <p className="text-muted type-secondary mb-0">{hint}</p>
       </Card>
+      {extra}
     </StudentPortalShell>
   )
 }
@@ -206,6 +213,25 @@ export function StudentPortalPage() {
 
   const overviewQ = useStudentPortalOverview(rawToken)
 
+  // بطاقة الدخول باسم الدخول وكلمة السر — تظهر عند فتح البوابة من غير
+  // رابط، وتحت رسالة «الرابط غير صالح» أيضاً حتى لا يكون الرابط الميت
+  // طريقاً مسدوداً لمن عنده حساب.
+  const loginCard = (
+    <Card>
+      <div className="type-section mb-1">{t('portal.loginTitle')}</div>
+      <p className="text-muted text-[13.5px] mt-0">{t('portal.loginIntro')}</p>
+      <PortalLoginForm
+        role="student"
+        usernameLabel={t('studentPortal.loginUsernameCode')}
+        usernamePlaceholder={t('studentPortal.loginUsernamePlaceholder')}
+        onLoggedIn={(res) => {
+          clearCredentialCache()
+          setSessionToken(res.session_token)
+        }}
+      />
+    </Card>
+  )
+
   if (!urlToken && !sessionChecked) {
     return (
       <StudentPortalShell>
@@ -215,23 +241,7 @@ export function StudentPortalPage() {
   }
 
   if (!rawToken) {
-    return (
-      <StudentPortalShell>
-        <Card>
-          <div className="type-section mb-1">{t('portal.loginTitle')}</div>
-          <p className="text-muted text-[13.5px] mt-0">{t('portal.loginIntro')}</p>
-          <PortalLoginForm
-            role="student"
-            usernameLabel={t('studentPortal.loginUsernameCode')}
-            usernamePlaceholder={t('studentPortal.loginUsernamePlaceholder')}
-            onLoggedIn={(res) => {
-              clearCredentialCache()
-              setSessionToken(res.session_token)
-            }}
-          />
-        </Card>
-      </StudentPortalShell>
-    )
+    return <StudentPortalShell>{loginCard}</StudentPortalShell>
   }
 
   if (overviewQ.isPending) {
@@ -244,7 +254,21 @@ export function StudentPortalPage() {
 
   if (overviewQ.isError || !overviewQ.data) {
     const info = studentPortalErrorInfo(overviewQ.error)
-    return <PortalMessage icon={Clock} title={info.title} hint={info.hint} />
+    // نموذج الدخول يظهر تحت الرسالة عند موت الاعتماد فقط (رابط/جلسة
+    // غير صالحة) — أخطاء الشبكة العابرة تبقى رسالة بلا نموذج. رسالة
+    // الخطأ تُقرأ من خاصية message مباشرة: أخطاء PostgREST كائنات
+    // عادية لا مثيلات Error فـ instanceof لا يكفي.
+    const errMsg =
+      (overviewQ.error as { message?: string } | null)?.message ?? String(overviewQ.error ?? '')
+    const credentialDead = errMsg.includes('invalid or expired')
+    return (
+      <PortalMessage
+        icon={Clock}
+        title={info.title}
+        hint={info.hint}
+        extra={credentialDead ? loginCard : undefined}
+      />
+    )
   }
 
   const o = overviewQ.data
@@ -294,6 +318,10 @@ export function StudentPortalPage() {
                 <div className="text-muted text-[12px] font-semibold mb-0.5">{t('studentPortal.pageBalanceDueLabel')}</div>
             {o.balance > 0 ? (
               <div className="text-[20px] font-extrabold text-bad-text">{formatMoney(o.balance)}</div>
+            ) : o.invoices.length === 0 ? (
+              <div className="text-[20px] font-extrabold text-muted">
+                {t('studentPortal.pageNoInvoices')}
+              </div>
             ) : (
               <div className="text-[20px] font-extrabold text-ok-text flex items-center justify-center gap-1.5">
                 {t('studentPortal.pagePaidLabel')} <Check size={22} />
@@ -304,6 +332,12 @@ export function StudentPortalPage() {
           </div>
         )}
       </Card>
+
+      {/* تثبيت التطبيق على الجهاز (ملاحظة المالك 2026-11-28) — فوق
+          مفتاح الإشعارات كمجموعة واحدة «ثبّت وفعّل» */}
+      <div className="rise-in" style={{ animationDelay: '40ms' }}>
+        <PortalInstallCard />
+      </div>
 
       {/* إشعارات Push الفورية — اشتراك اختياري من البوابة (Phase 4 خطوة 2)؛
           محورها الواجبات/الحضور فتختفي مع إخفاء المدرس لقسمها (3A-385) */}
@@ -321,26 +355,7 @@ export function StudentPortalPage() {
             {o.upcoming_sessions.length === 0 ? (
         <StudentPortalEmptyNote text={t('studentPortal.pageUpcomingEmpty')} showMascot={o.brand.show_mascot} />
       ) : (
-        <Card className="p-0 overflow-hidden">
-          {o.upcoming_sessions.map((s, i) => (
-            <div
-              key={`${s.date}-${s.start_time}-${s.group_name}-${i}`}
-              className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.upcoming_sessions.length - 1 ? 'border-b border-border' : ''}`}
-            >
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[15px] break-words">{s.group_name}</div>
-                <div className="text-muted text-[12px]">
-                  {t('studentPortal.pageSessionLine', { date: formatDateLabel(s.date), time: formatTime12(s.start_time), duration: s.duration_minutes })}
-                  {s.room ? ` · ${s.room}` : ''}
-                  {s.kind === 'extra' ? t('studentPortal.pageSessionExtraSuffix') : s.kind === 'moved' ? t('studentPortal.pageSessionMovedSuffix') : ''}
-                </div>
-              </div>
-              <span className="text-[12px] font-bold bg-soft text-primary rounded-full px-2.5 py-1 whitespace-nowrap">
-                {formatDayMonth(s.date)}
-              </span>
-            </div>
-          ))}
-        </Card>
+        <UpcomingSessionsCalendar sessions={o.upcoming_sessions} />
       )}
       </div>
 
@@ -351,9 +366,16 @@ export function StudentPortalPage() {
           {o.groups.map((g) => (
             <Card key={g.name}>
               <div className="font-bold text-[15px]">{g.name}</div>
-              <div className="text-muted text-[13.5px] mt-0.5">
-                {daysLabel(g.days)} · {t('studentPortal.pageAtTime', { time: formatTime12(g.start_time) })}
-                {g.room ? ` · ${g.room}` : ''}
+              {/* البيانات الوصفية سطراً سطراً (قاعدة كروت البوابة —
+                  ملاحظة المالك 2026-11-28): كل موعد في سطر بيومه وميعاده،
+                  والقاعة في سطر آخر موعد — مواعيد المجموعة الكاملة (3A-926) */}
+              <div className="text-muted text-[13.5px] mt-1">
+                {g.slots.map((s, i) => (
+                  <div key={i}>
+                    {daysLabel([s.day])} · {t('studentPortal.pageAtTime', { time: formatTime12(s.start_time) })}
+                    {i === g.slots.length - 1 && g.room ? ` · ${g.room}` : ''}
+                  </div>
+                ))}
               </div>
               {g.links.some((link) => safeExternalUrl(link) !== null) && (
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -413,35 +435,36 @@ export function StudentPortalPage() {
       ) : (
         <Card className="p-0 overflow-hidden">
           {o.homework.map((h, i) => {
-            const meta = STUDENT_PORTAL_ATT_META[h.status] ?? {
-              label: h.status,
-              badge: 'bg-soft text-muted border-border',
-            }
+            const meta = studentPortalAttMeta(h.status)
             return (
               <div
                 key={`${h.date}-${h.group_name}-${i}`}
-                className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.homework.length - 1 ? 'border-b border-border' : ''}`}
+                className={`px-[14px] py-2.5 ${i < o.homework.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] break-words">{h.group_name}</div>
-                  <div className="text-muted text-[12px]">{h.date}</div>
+                {/* تخطيط كروت البوابة الموحّد: الاسم وشارة الحضور في
+                    سطر، والتاريخ وشارة الواجب في سطر البيانات */}
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">{h.group_name}</span>
+                  <span className={`shrink-0 text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
+                    {meta.label}
+                  </span>
                 </div>
-                <span className={`text-[12px] font-bold border rounded-full px-2.5 py-1 ${meta.badge}`}>
-                  {meta.label}
-                </span>
-                {h.status === 'a' ? (
-                  <span className="text-[12px] font-bold border rounded-full px-2.5 py-1 bg-soft text-muted border-border">
-                    {t('studentPortal.pageHomeworkAbsent')}
-                  </span>
-                ) : h.homework_done ? (
-                  <span className="inline-flex items-center gap-1 text-[12px] font-bold border rounded-full px-2.5 py-1 bg-ok/10 text-ok-text border-ok/30">
-                    <Check size={14} /> {t('studentPortal.pageHomeworkDone')}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[12px] font-bold border rounded-full px-2.5 py-1 bg-bad/10 text-bad-text border-bad/30">
-                    <X size={14} /> {t('studentPortal.pageHomeworkMissing')}
-                  </span>
-                )}
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-muted text-[12px] flex-1 min-w-0">{h.date}</span>
+                  {h.status === 'a' ? (
+                    <span className="shrink-0 text-[12px] font-bold border rounded-full px-2.5 py-1 bg-soft text-muted border-border">
+                      {t('studentPortal.pageHomeworkAbsent')}
+                    </span>
+                  ) : h.homework_done ? (
+                    <span className="shrink-0 inline-flex items-center gap-1 text-[12px] font-bold border rounded-full px-2.5 py-1 bg-ok/10 text-ok-text border-ok/30">
+                      <Check size={14} /> {t('studentPortal.pageHomeworkDone')}
+                    </span>
+                  ) : (
+                    <span className="shrink-0 inline-flex items-center gap-1 text-[12px] font-bold border rounded-full px-2.5 py-1 bg-bad/10 text-bad-text border-bad/30">
+                      <X size={14} /> {t('studentPortal.pageHomeworkMissing')}
+                    </span>
+                  )}
+                </div>
               </div>
             )
           })}
@@ -464,25 +487,29 @@ export function StudentPortalPage() {
             return (
               <div
                 key={`${s.title}-${s.date}-${i}`}
-                className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.grades.length - 1 ? 'border-b border-border' : ''}`}
+                className={`px-[14px] py-2.5 ${i < o.grades.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] break-words">{s.title}</div>
-                  <div className="text-muted text-[12px]">
+                {/* تخطيط كروت البوابة الموحّد: العنوان وشارة النسبة في
+                    سطر، والبيانات والدرجة في سطر البيانات */}
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">{s.title}</span>
+                  {pct != null && (
+                    <span
+                      className={`shrink-0 min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${pct >= 50 ? 'bg-ok-text' : 'bg-bad-text'}`}
+                    >
+                      {pct}%
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-muted text-[12px] flex-1 min-w-0">
                     {s.date} · {ASSESSMENT_TYPE_LABELS[s.type] ?? s.type}
                     {s.source === 'online_exam' ? t('studentPortal.pageGradeOnlineSuffix') : ''}
-                  </div>
-                </div>
-                <div className="text-[13.5px] font-semibold whitespace-nowrap">
-                  {t('studentPortal.pageScoreOf', { score: fmtScore(s.score), max: fmtScore(s.max_score) })}
-                </div>
-                {pct != null && (
-                  <span
-                    className={`min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${pct >= 50 ? 'bg-ok-text' : 'bg-bad-text'}`}
-                  >
-                    {pct}%
                   </span>
-                )}
+                  <span className="shrink-0 text-[13.5px] font-semibold whitespace-nowrap">
+                    {t('studentPortal.pageScoreOf', { score: fmtScore(s.score), max: fmtScore(s.max_score) })}
+                  </span>
+                </div>
               </div>
             )
           })}
@@ -496,23 +523,25 @@ export function StudentPortalPage() {
             {o.exam_results.map((r, i) => (
               <div
                 key={`${r.title}-${r.submitted_at}-${i}`}
-                className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.exam_results.length - 1 ? 'border-b border-border' : ''}`}
+                className={`px-[14px] py-2.5 ${i < o.exam_results.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] break-words">{r.title}</div>
-                  <div className="text-muted text-[12px]">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">{r.title}</span>
+                  <span
+                    className={`shrink-0 min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${r.pct >= 50 ? 'bg-ok-text' : 'bg-bad-text'}`}
+                  >
+                    {Math.round(r.pct)}%
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-muted text-[12px] flex-1 min-w-0">
                     {t('studentPortal.pageExamAttemptLine', { attempt: r.attempt_no, date: r.submitted_at.slice(0, 10) })}
                     {r.score_posted ? t('studentPortal.pageExamPostedSuffix') : ''}
-                  </div>
+                  </span>
+                  <span className="shrink-0 text-[13.5px] font-semibold whitespace-nowrap">
+                    {t('studentPortal.pageScoreOf', { score: fmtScore(r.score), max: fmtScore(r.max_score) })}
+                  </span>
                 </div>
-                <div className="text-[13.5px] font-semibold whitespace-nowrap">
-                  {t('studentPortal.pageScoreOf', { score: fmtScore(r.score), max: fmtScore(r.max_score) })}
-                </div>
-                <span
-                  className={`min-w-[48px] text-center text-[12px] font-extrabold rounded-full px-2 py-1 text-white ${r.pct >= 50 ? 'bg-ok-text' : 'bg-bad-text'}`}
-                >
-                  {Math.round(r.pct)}%
-                </span>
               </div>
             ))}
           </Card>
@@ -535,24 +564,24 @@ export function StudentPortalPage() {
               key={`${inv.period_month}-${inv.group_name}-${i}`}
               className={`px-[14px] py-2.5 ${i < o.invoices.length - 1 ? 'border-b border-border' : ''}`}
             >
-              <div className="flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px] break-words">
-                    {periodLabel(inv.period_month)} — {inv.group_name}
-                  </div>
-                  <div className="text-muted text-[12px]">
-                    {t('studentPortal.pageInvoiceLine', { total: formatMoney(inv.total), paid: formatMoney(inv.paid) })}
-                  </div>
-                </div>
+              {/* تخطيط كروت البوابة الموحّد: الاسم وشارة الحالة في
+                  سطر واحد قصاد بعض، وسطر الإجمالي/المدفوع تحتها */}
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">
+                  {periodLabel(inv.period_month)} — {inv.group_name}
+                </span>
                 {inv.is_paid ? (
-                  <span className="text-[12px] font-bold border rounded-full px-2.5 py-1 bg-ok/10 text-ok-text border-ok/30">
+                  <span className="shrink-0 text-[12px] font-bold border rounded-full px-2.5 py-1 bg-ok/10 text-ok-text border-ok/30">
                     {t('studentPortal.pageInvoicePaid')}
                   </span>
                 ) : (
-                  <span className="text-[12px] font-bold border rounded-full px-2.5 py-1 bg-bad/10 text-bad-text border-bad/30">
+                  <span className="shrink-0 text-[12px] font-bold border rounded-full px-2.5 py-1 bg-bad/10 text-bad-text border-bad/30">
                     {t('common.remaining', { amount: formatMoney(inv.balance) })}
                   </span>
                 )}
+              </div>
+              <div className="text-muted text-[12px] mt-0.5">
+                {t('studentPortal.pageInvoiceLine', { total: formatMoney(inv.total), paid: formatMoney(inv.paid) })}
               </div>
             </div>
           ))}
@@ -566,21 +595,21 @@ export function StudentPortalPage() {
             {o.recent_payments.map((p, i) => (
               <div
                 key={`${p.receipt_no}-${i}`}
-                className={`flex items-center gap-3 px-[14px] py-2.5 ${i < o.recent_payments.length - 1 ? 'border-b border-border' : ''}`}
+                className={`px-[14px] py-2.5 ${i < o.recent_payments.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px]">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[15px] flex-1 min-w-0 truncate">
                     {formatMoney(p.amount)} · {PAYMENT_METHOD_LABELS[p.method] ?? p.method}
-                  </div>
-                  <div className="text-muted text-[12px]">
-                    {t('studentPortal.pagePaymentReceiptLine', { date: p.paid_on })} <span dir="ltr">{p.receipt_no}</span>
-                  </div>
-                </div>
-                {p.amount < 0 && (
-                  <span className="text-[12px] font-bold border rounded-full px-2.5 py-1 bg-warn/15 text-warn-text border-warn/40">
-                    {t('studentPortal.pageReversalBadge')}
                   </span>
-                )}
+                  {p.amount < 0 && (
+                    <span className="shrink-0 text-[12px] font-bold border rounded-full px-2.5 py-1 bg-warn/15 text-warn-text border-warn/40">
+                      {t('studentPortal.pageReversalBadge')}
+                    </span>
+                  )}
+                </div>
+                <div className="text-muted text-[12px] mt-0.5">
+                  {t('studentPortal.pagePaymentReceiptLine', { date: p.paid_on })} <span dir="ltr">{p.receipt_no}</span>
+                </div>
               </div>
             ))}
           </Card>
@@ -601,7 +630,11 @@ export function StudentPortalPage() {
             <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
             <span>
               {t('portal.claimDone', { username: justClaimed.username })}{' '}
-              {justClaimed.linkClosed ? t('portal.claimLinkDone') : t('portal.claimLinkStillValid')}
+              {justClaimed.linkClosed ? t('portal.claimLinkDone') : t('portal.claimLinkStillValid')}{' '}
+              {t('portal.claimLoginAtLabel')}{' '}
+              <span dir="ltr" className="font-semibold">
+                {`${window.location.origin}/student-portal`}
+              </span>
             </span>
           </p>
         )}
@@ -617,6 +650,8 @@ export function StudentPortalPage() {
             />
           ) : (
             <ClaimPasswordCard
+              loginPath="/student-portal"
+              loginNameHint={t('studentPortal.claimLoginNameHint')}
               claim={(pw) =>
                 portalClaimStudent(rawToken, pw).then((res) => {
                   const outcome = resolveClaimOutcome(res)
@@ -639,6 +674,12 @@ export function StudentPortalPage() {
             />
           )}
         </Card>
+      </div>
+
+      {/* تقييم المدرّس (0074 — 3A-929): بطاقة اختيارية تتدهور بصمت —
+          تظهر فقط لطالب مسجّل فعلياً عند هذا المدرّس */}
+      <div className="mt-5">
+        <TeacherRatingCard mode="student" rawToken={rawToken} />
       </div>
 
       <p className="text-center text-muted text-[12px] mt-5 mb-0">

@@ -477,13 +477,16 @@ export function HomeworkPage() {
         await invalidatePrefixes(qc, [ATT, SCHED, SG])
       }}
     >
-    <div>
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-x-4 lg:items-start lg:grid-flow-dense">
       {/* شريط حالة مزامنة الحضور/الواجب — يظهر فقط عند وجود معلّق/فشل */}
-      <SyncStatusBar online={online} sync={sync} />
+      <div className="lg:col-span-2 min-w-0">
+        <SyncStatusBar online={online} sync={sync} />
+      </div>
       {/* بطاقة التعريف أُزيلت (3A-384 — ملاحظة المالك ٣: الصفحة طويلة
           جداً والشروح الطويلة تُختصر): عنوان الصفحة في شريط التطبيق
           أصلاً، والشاشة تبدأ مباشرة باختيار المجموعة والحصة */}
       {/* اختيار المجموعة */}
+      <div className="lg:col-span-2 min-w-0">
       <ChipRow>
         {groups.map((g) => (
           <Chip
@@ -498,10 +501,13 @@ export function HomeworkPage() {
           </Chip>
         ))}
       </ChipRow>
+      </div>
 
       {/* اختيار الحصة + النظرة الإجمالية: حصص الماضي واليوم أولاً (أحدث
           حصة فعلية في المقدمة) ونسبة تسليم كل حصة — والقادمة في قسم
-          مطوي منفصل تحتها (W1-2) */}
+          مطوي منفصل تحتها (W1-2). على الديسكتوب (3A-930) المنتقي
+          سكة جانبية ثابتة العرض وتفاصيل الحصة العمود الرئيسي */}
+      <div className="lg:col-start-2 min-w-0">
       <h3 className="type-section mt-1 mb-2">{t('homework.sessionsOf', { name: group?.name ?? '' })}</h3>
       {pickerPending ? (
         <>
@@ -579,8 +585,10 @@ export function HomeworkPage() {
           )}
         </>
       )}
+      </div>
 
       {selected && (
+        <div className="lg:col-start-1 min-w-0">
         <>
           {/* ملخص الحصة المختارة: العدّادات للحاضرين أساساً وتتحدث فوراً */}
           <Card className="rise-in" style={{ animationDelay: '140ms' }}>
@@ -791,6 +799,7 @@ export function HomeworkPage() {
             </>
           )}
         </>
+        </div>
       )}
     </div>
     </PullToRefresh>

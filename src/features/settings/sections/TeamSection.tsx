@@ -126,7 +126,7 @@ export function TeamSection({
           <Mail size={20} className="text-primary shrink-0" />
           <span className="font-bold text-[15px]">{t('settings.emailInviteTitle')}</span>
         </div>
-      <form onSubmit={handleEmailInvite}>
+      <form noValidate onSubmit={handleEmailInvite}>
         <Field label={t('settings.assistantEmailLabel')}>
           <TextInput
             type="email"
@@ -239,7 +239,7 @@ export function TeamSection({
           <KeyRound size={20} className="text-primary shrink-0" />
           <span className="font-bold text-[15px]">{t('settings.addByIdTitle')}</span>
         </div>
-      <form onSubmit={handleInvite}>
+      <form noValidate onSubmit={handleInvite}>
         <Field label={t('settings.assistantIdLabel')}>
           <TextInput
             dir="ltr"
