@@ -689,6 +689,74 @@ export const PERMISSION_LABELS: Record<string, string> = {
   can_view_money: t('auth.authPermMoney'),
 }
 
+// ---------------------------------------------------------------------------
+// صلاحيات الجلسة النشطة — عيب صلاحيات المساعد (رد سند 93، 2026-11-28):
+// الصفحات كانت تفرّق مالك/مساعد فقط (role) ولا تقرأ مفاتيح العضوية
+// إطلاقاً، فأزرار «طالب جديد»/«إنشاء مجموعة» ظهرت لمساعد سُحبت منه
+// إدارة الطلاب، وحالة الفراغ المضللة ظهرت لمساعد بلا قراءة. الحل
+// المركزي هنا: حلّ واحد نقي يقرأ عضوية السنتر النشط، وتستخدمه
+// الصفحات كلها (طلاب/مجموعات/حضور) بدل فحص مبعثر لكل صفحة.
+// المالك يملك كل الصلاحيات ضمناً؛ المساعد يملك مفاتيح عضويته فقط
+// (المفتاح الغائب = false — الافتراضي الآمن)، وبلا عضوية فعّالة
+// للسنتر النشط لا يملك شيئاً.
+// ---------------------------------------------------------------------------
+
+export type MemberPermissions = {
+  can_take_attendance: boolean
+  can_manage_students: boolean
+  can_manage_groups: boolean
+  can_manage_grades: boolean
+  can_view_money: boolean
+}
+
+const ALL_PERMISSIONS_ON: MemberPermissions = {
+  can_take_attendance: true,
+  can_manage_students: true,
+  can_manage_groups: true,
+  can_manage_grades: true,
+  can_view_money: true,
+}
+
+const ALL_PERMISSIONS_OFF: MemberPermissions = {
+  can_take_attendance: false,
+  can_manage_students: false,
+  can_manage_groups: false,
+  can_manage_grades: false,
+  can_view_money: false,
+}
+
+/** صلاحيات الجلسة النشطة من الدور + صف العضوية (نقي — قابل للاختبار). */
+export function resolveActivePermissions(
+  role: 'owner' | 'assistant',
+  member: TeacherMemberRow | null | undefined,
+): MemberPermissions {
+  if (role === 'owner') return { ...ALL_PERMISSIONS_ON }
+  if (!member) return { ...ALL_PERMISSIONS_OFF }
+  const p = member.permissions ?? {}
+  return {
+    can_take_attendance: p.can_take_attendance === true,
+    can_manage_students: p.can_manage_students === true,
+    can_manage_groups: p.can_manage_groups === true,
+    can_manage_grades: p.can_manage_grades === true,
+    can_view_money: p.can_view_money === true,
+  }
+}
+
+/**
+ * هل يقرأ المساعد جداول التشغيل (طلاب/مجموعات/تسجيلات)؟ مرآة دالة
+ * الخادم member_has_operational_permission (0079): أي صلاحية تشغيلية
+ * واحدة تكفي للقراءة؛ مساعد بلا أي منها لا يقرأ شيئاً بالتصميم
+ * وتعرض له الصفحة بطاقة صلاحية بدل حالة الفراغ المضللة.
+ */
+export function canReadOperational(p: MemberPermissions): boolean {
+  return (
+    p.can_take_attendance ||
+    p.can_manage_students ||
+    p.can_manage_groups ||
+    p.can_manage_grades
+  )
+}
+
 
 /** أعضاء فريق مدرس (يديرهم المالك بسياسة members_owner_all) */
 export async function fetchTeamMembers(teacherId: string): Promise<TeacherMemberRow[]> {

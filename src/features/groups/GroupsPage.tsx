@@ -8,10 +8,12 @@ import { Card } from '../../components/ui/Card'
 import { Users } from 'lucide-react'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
+import { PermissionDeniedCard } from '../../components/ui/PermissionDeniedCard'
 import { Chip, ChipRow } from '../../components/ui/form'
 import { ErrorState, LoadingState, NoTeacherProfile, SignInRequired } from '../../components/ui/states'
 import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { BILLING_LABELS, DAY_NAMES, formatMoney, formatTime12 } from '../../lib/format'
+import { canReadOperational } from '../auth/api'
 import { SG, useEnrollments } from '../students/hooks'
 import { countByGroup } from './api'
 import { groupSlotsOf } from './slots'
@@ -50,6 +52,19 @@ export function GroupsPage() {
     )
 
   const allGroups = groupsQ.data ?? []
+  // عيب صلاحيات المساعد (رد سند 93 — 0079): مساعد بلا أي صلاحية تشغيلية
+  // لا يقرأ المجموعات أصلاً (RLS) — بطاقة صلاحية صريحة (نمط المالية)
+  // بدل حالة الفراغ المضللة. وزر الإنشاء مقيد بمفتاح إدارة المجموعات.
+  const permissions = teacher.permissions
+  if (teacher.role === 'assistant' && !canReadOperational(permissions)) {
+    return (
+      <PermissionDeniedCard
+        title={t('groups.noPermissionTitle')}
+        body={t('groups.noPermissionBody')}
+      />
+    )
+  }
+  const canManageGroups = permissions.can_manage_groups
   // القائمة الافتراضية تعرض النشطة فقط؛ المؤرشفة في فلترها الخاص (خطوة 10)
   const groups = allGroups.filter((g) =>
     filter === 'archived' ? g.archived_at != null : g.archived_at == null,
@@ -75,7 +90,11 @@ export function GroupsPage() {
           icon={Users}
           title={t('groups.listEmptyTitle')}
           hint={t('groups.listEmptyHint')}
-          action={{ label: t('groups.listEmptyAction'), onClick: () => setFormOpen(true) }}
+          action={
+            canManageGroups
+              ? { label: t('groups.listEmptyAction'), onClick: () => setFormOpen(true) }
+              : undefined
+          }
         />
       ) : groups.length === 0 ? (
         <EmptyState
@@ -168,7 +187,9 @@ export function GroupsPage() {
         })
       )}
 
-      <Fab onClick={() => setFormOpen(true)} ariaLabel={t('groups.fabAria')} label={t('groups.formCreateTitle')} />
+      {canManageGroups && (
+        <Fab onClick={() => setFormOpen(true)} ariaLabel={t('groups.fabAria')} label={t('groups.formCreateTitle')} />
+      )}
 
       {formOpen && (
         <GroupFormSheet

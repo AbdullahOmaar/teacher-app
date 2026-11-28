@@ -2756,10 +2756,12 @@ def main():
                             body={"teacher_id": demo_teacher,
                                   "user_id": team_member_uid,
                                   "role": "assistant",
-                                  # can_manage_students لازم لقراءة
-                                  # الطلاب: سياسة students_assistant_all
-                                  # (0001) تشترطها، وبصلاحية الحضور فقط
-                                  # يقرأ العضو صفر طلاب بالتصميم.
+                                  # القراءة التشغيلية (0079): أي صلاحية
+                                  # تشغيلية واحدة تكفي لقراءة الطلاب
+                                  # (سياسة students_assistant_read)؛
+                                  # can_manage_students ما زال لازماً
+                                  # للكتابة، وبصلاحية الحضور فقط يقرأ
+                                  # العضو الطلاب لكنه لا ينشئ طالباً.
                                   "permissions": {
                                       "can_take_attendance": True,
                                       "can_manage_students": True},
@@ -2898,6 +2900,104 @@ def main():
                       left and int(left[0]["pa"]) == 0
                       and int(left[0]["ov"]) == 0
                       and int(left[0]["tm"]) == 0, f"got {left}")
+        # ---------- ASSISTANT OPERATIONAL READ (0079 — عيب صلاحيات المساعد) ----------
+        # ⚠️ المهاجرة 0079 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
+        # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند
+        # بوابة تجميد فيز 2 + QA فقط. القسم يفحص وجود السياسة أولاً: إن
+        # غابت يطبع تخطياً موثقاً (لا فشل — الغياب هو الحالة المتوقعة حتى
+        # البوابة)، وبعد التطبيق يشتغل كاملاً تلقائياً في نفس التشغيلة.
+        # الغرض (رد سند 93 — 2026-11-28): سياسات 0001 كانت تشترط مفتاح
+        # الإدارة نفسه للقراءة، فمساعد الحضور (attendance-only) يقرأ صفر
+        # طلاب/مجموعات رغم أن السنتر فيه 6 طلاب و3 مجموعات، فتظهر له حالة
+        # الفراغ المضللة. 0079 تفصل القراءة عن الكتابة: أي صلاحية تشغيلية
+        # واحدة تمنح قراءة الطلاب/المجموعات/التسجيلات، والكتابة تبقى مقيدة
+        # بمفتاح الإدارة. ومساعد بلا أي صلاحية تشغيلية يبقى بلا قراءة
+        # بالتصميم (والواجهة تعرض له بطاقة صلاحية بدل الفراغ).
+        # يعيد استخدام عضو التشغيلة الرئيسي (asst — حضور فقط) لفحوص القراءة
+        # والكتابة، وينشئ عضواً واحداً بلا صلاحيات لفحوص الحجب.
+        print("ASSISTANT OPERATIONAL READ (0079):")
+        op_probe = sql(ref, "select count(*) as n from pg_policies "
+                             "where schemaname = 'public' "
+                             "and tablename = 'students' "
+                             "and policyname = 'students_assistant_read'")
+        if not op_probe or int(op_probe[0].get("n", 0)) == 0:
+            print("  SKIP 0079 live section — migration 0079 is written but NOT "
+                  "applied (phase-freeze rule 2026-11-25: application deferred "
+                  "to the Phase-2 freeze + QA gate)")
+        else:
+            pw_noperm = secrets.token_urlsafe(18)
+            noperm_uid = None
+            try:
+                noperm_uid = create_user_sql(
+                    ref, "authz-0079-noperm@teacher-app.test", pw_noperm)
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/teacher_members",
+                            jwt=demo_jwt,
+                            body={"teacher_id": demo_teacher,
+                                  "user_id": noperm_uid,
+                                  "role": "assistant",
+                                  "permissions": {},
+                                  "status": "active"})
+                check("0079 owner adds a no-permission member",
+                      s in (200, 201), f"got {s} {str(b)[:160]}")
+                noperm_jwt, _ = sign_in(
+                    url, anon, "authz-0079-noperm@teacher-app.test",
+                    pw_noperm)
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/students?select=id&limit=1",
+                            jwt=asst_jwt)
+                check("0079 attendance-only member reads the host teacher's students",
+                      s == 200 and isinstance(b, list) and len(b) == 1,
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/groups?select=id&limit=1",
+                            jwt=asst_jwt)
+                check("0079 attendance-only member reads the host teacher's groups",
+                      s == 200 and isinstance(b, list) and len(b) == 1,
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/enrollments?select=id&limit=1",
+                            jwt=asst_jwt)
+                check("0079 attendance-only member reads the host teacher's enrollments",
+                      s == 200 and isinstance(b, list) and len(b) == 1,
+                      f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/students",
+                            jwt=asst_jwt,
+                            body={"teacher_id": demo_teacher,
+                                  "name": "authz 0079 intruder"})
+                check("0079 attendance-only member cannot insert a student (write still gated)",
+                      s in (401, 403), f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "POST",
+                            "/rest/v1/groups",
+                            jwt=asst_jwt,
+                            body={"teacher_id": demo_teacher,
+                                  "name": "authz 0079 intruder",
+                                  "start_time": "16:30:00"})
+                check("0079 attendance-only member cannot insert a group (write still gated)",
+                      s in (401, 403), f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/students?select=id&limit=1",
+                            jwt=noperm_jwt)
+                check("0079 no-permission member reads no students",
+                      s == 200 and b == [], f"got {s} {str(b)[:120]}")
+                s, b = rest(url, anon, "GET",
+                            "/rest/v1/groups?select=id&limit=1",
+                            jwt=noperm_jwt)
+                check("0079 no-permission member reads no groups",
+                      s == 200 and b == [], f"got {s} {str(b)[:120]}")
+            finally:
+                if noperm_uid:
+                    sql(ref, "delete from teacher_members "
+                             f"where teacher_id = '{demo_teacher}' "
+                             f"and user_id = '{noperm_uid}'")
+                    sql(ref, "delete from auth.users "
+                             f"where id = '{noperm_uid}'")
+                    left = sql(ref, "select count(*) as n from teacher_members "
+                                    f"where teacher_id = '{demo_teacher}' "
+                                    f"and user_id = '{noperm_uid}'")
+                    check("0079 fixtures cleaned",
+                          left and int(left[0].get("n", 1)) == 0, f"got {left}")
         # ---------- ANNOUNCEMENTS + TICKETS (0065 — T17/T23 الخطوة 8) ----------
         # ⚠️ المهاجرة 0065 مكتوبة ومراجعة في الـPR لكنها **غير مطبّقة على
         # الإنتاج** بقاعدة تجميد الفيز (أمر مالك 2026-11-25): التطبيق عند

@@ -8,9 +8,11 @@ import {
   TEACHER_COLS_BASE,
   claimTeacherInvites,
   isMissingAccountActivatedColumn,
+  resolveActivePermissions,
   toMemberRow,
   withAccountActivatedDefault,
 } from '../features/auth/api'
+import type { MemberPermissions } from '../features/auth/api'
 import type { TeacherMemberRow, TeacherRow } from '../types/database'
 
 export type TeacherResolution =
@@ -24,6 +26,8 @@ export type TeacherResolution =
       teacher: TeacherRow | null
       /** owner = مالك السنتر النشط، assistant = عضو فريق بصلاحيات */
       role: 'owner' | 'assistant'
+      /** صلاحيات الجلسة النشطة (المالك: الكل؛ المساعد: مفاتيح عضويته) */
+      permissions: MemberPermissions
       /** السنتر الأساسي للمستخدم (id = uid إن وُجد، وإلا أقدم سنتر يملكه) */
       ownTeacher: TeacherRow | null
       /** كل السناتر التي يملكها المستخدم (0016) مرتبة بالأقدم — للمبدّل */
@@ -106,6 +110,7 @@ export function useCurrentTeacher(): TeacherResolution {
       teacherId: string
       teacher: TeacherRow | null
       role: 'owner' | 'assistant'
+      permissions: MemberPermissions
       ownTeacher: TeacherRow | null
       ownTeachers: TeacherRow[]
       memberships: TeacherMemberRow[]
@@ -171,6 +176,7 @@ export function useCurrentTeacher(): TeacherResolution {
             teacherId: ownActive.id,
             teacher: ownActive,
             role: 'owner',
+            permissions: resolveActivePermissions('owner', undefined),
             ownTeacher,
             ownTeachers,
             memberships,
@@ -182,6 +188,7 @@ export function useCurrentTeacher(): TeacherResolution {
             teacherId: active.teacher_id,
             teacher: null, // RLS لا تسمح بقراءة ملف المدرس المضيف
             role: 'assistant',
+            permissions: resolveActivePermissions('assistant', active),
             ownTeacher,
             ownTeachers,
             memberships,
@@ -195,6 +202,7 @@ export function useCurrentTeacher(): TeacherResolution {
           teacherId: ownTeacher.id,
           teacher: ownTeacher,
           role: 'owner',
+          permissions: resolveActivePermissions('owner', undefined),
           ownTeacher,
           ownTeachers,
           memberships,
@@ -208,6 +216,7 @@ export function useCurrentTeacher(): TeacherResolution {
           teacherId: first.teacher_id,
           teacher: null,
           role: 'assistant',
+          permissions: resolveActivePermissions('assistant', first),
           ownTeacher: null,
           ownTeachers,
           memberships,
