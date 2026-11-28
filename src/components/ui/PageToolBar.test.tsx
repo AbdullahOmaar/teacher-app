@@ -10,8 +10,9 @@ import {
 } from './PageToolBar'
 import { Chip } from './form'
 
-// اختبارات نمط شريط الأدوات بعد إعادة الترتيب (3A-304): البحث في صفّه
-// المستقل بعرض كامل، والرقائق في صفّها، والعدّاد خارج الشريط اللاصق.
+// اختبارات نمط شريط الأدوات: ترتيب 3A-304 (الرقائق في صفّها والعدّاد
+// خارج الشريط اللاصق) مع تعديل المالك 2026-11-28 (3A-944): زر التصفية
+// بجانب خانة البحث في صفّها، وأيقونة العدسة داخل غلاف الحقل وحده.
 describe('PageToolBar — نمط الصفوف المنفصلة', () => {
   const setup = (over: Partial<Parameters<typeof PageToolBar>[0]> = {}) => {
     const onChange = vi.fn()
@@ -38,17 +39,52 @@ describe('PageToolBar — نمط الصفوف المنفصلة', () => {
     return { onChange, onFilter, ...utils }
   }
 
-  it('البحث بعرض كامل ولا يتقاسم صفّه المرن مع الرقائق', () => {
+  it('البحث مرن بلا فيض ولا يتقاسم صفّه مع الرقائق', () => {
     const { container } = setup()
     const input = screen.getByPlaceholderText('ابحث بالاسم')
     const searchWrap = input.closest('div.relative')
-    expect(searchWrap?.className).toContain('w-full')
+    expect(searchWrap?.className).toContain('flex-1')
+    expect(searchWrap?.className).toContain('min-w-0')
     // صف الرقائق حاوية مرنة مختلفة عن غلاف البحث
     const chipBtn = screen.getByRole('button', { name: 'النشطين' })
     const chipsRow = chipBtn.closest('div.flex')
     expect(chipsRow).not.toBeNull()
     expect(chipsRow?.contains(input)).toBe(false)
     expect(container.querySelector('.sticky')).not.toBeNull()
+  })
+
+  it('زر التصفية بجانب خانة البحث في صفّها لا في صف الرقائق (نمط 2026-11-28)', () => {
+    setup()
+    const input = screen.getByPlaceholderText('ابحث بالاسم')
+    const filterBtn = screen.getByRole('button', { name: 'تصفية متقدمة' })
+    // نفس الحاوية المرنة مع حقل البحث…
+    const searchRow = filterBtn.closest('div.flex')
+    expect(searchRow?.contains(input)).toBe(true)
+    // …وليس داخل صف الرقائق
+    const chipBtn = screen.getByRole('button', { name: 'النشطين' })
+    const chipsRow = chipBtn.closest('div.flex')
+    expect(chipsRow?.contains(filterBtn)).toBe(false)
+  })
+
+  it('أيقونة العدسة داخل غلاف الحقل وحده بلا حشوة تُزيح مركزها', () => {
+    setup()
+    const input = screen.getByPlaceholderText('ابحث بالاسم')
+    const wrap = input.closest('div.relative')
+    expect(wrap).not.toBeNull()
+    // الغلاف يضم الأيقونة والحقل فقط، وبلا حشوة رأسية داخله
+    expect(wrap?.querySelector('svg')).not.toBeNull()
+    expect(wrap?.className).not.toMatch(/\bp[ty]-/)
+  })
+
+  it('بلا بحث يبقى زر التصفية في صف الرقائق كما كان', () => {
+    const { container, onFilter } = setup({ search: undefined })
+    const filterBtn = screen.getByRole('button', { name: 'تصفية متقدمة' })
+    const chipBtn = screen.getByRole('button', { name: 'النشطين' })
+    const chipsRow = container.querySelector('div.h-14')
+    expect(chipsRow?.contains(chipBtn)).toBe(true)
+    expect(chipsRow?.contains(filterBtn)).toBe(true)
+    fireEvent.click(filterBtn)
+    expect(onFilter).toHaveBeenCalledTimes(1)
   })
 
   it('عدّاد النتائج خارج الشريط اللاصق لا داخله', () => {
