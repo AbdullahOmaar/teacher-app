@@ -7,6 +7,23 @@ export const invoices = {
   /** منتقي الشهر (ملاحظة المالك 2026-11-28) — Sheet بنمط فلتر المجموعات الموحّد */
   monthFilterTitle: 'تصفية حسب الشهر',
   monthFilterAll: 'كل الشهور',
+  /** الدفع الجماعي (قرار المدير 2026-11-28): وضع التحديد والشريط والتأكيد والملخص */
+  bulkSelect: 'تحديد',
+  bulkCancelSelect: 'إلغاء التحديد',
+  bulkSelectAll: 'تحديد الكل',
+  bulkBarCount: 'المحدد: {count} فاتورة',
+  bulkBarTotal: 'إجمالي المتبقي {total}',
+  bulkPayAction: 'تسجيل دفع',
+  bulkConfirmTitle: 'تأكيد الدفع الجماعي',
+  bulkConfirmLine:
+    'هيتسجّل دفع كامل لـ{count} فاتورة بإجمالي {total} — كل فاتورة دفعة مستقلة بإيصالها الخاص.',
+  bulkConfirmAction: 'تأكيد وتسجيل الدفع',
+  bulkRunning: 'جارٍ تسجيل الدفعات…',
+  bulkSummaryTitle: 'نتيجة الدفع الجماعي',
+  bulkSummaryPaid: 'اتسجّلت {count} دفعة بإجمالي {total}',
+  bulkSummaryReceipts: 'الإيصالات: {list}',
+  bulkSummarySkipped: 'اتخطّت {count} — كانت اتسددت بالكامل قبل التنفيذ',
+  bulkSummaryFailed: 'فشلت {count}: {reasons}',
   badgePartial: 'جزئي — باقي {amount}',
   /** توست نسخ قائمة المتأخرات (كان متسرباً في common — PAT-9) */
   copiedOverdueList: 'اتنسخت قائمة المتأخرات',

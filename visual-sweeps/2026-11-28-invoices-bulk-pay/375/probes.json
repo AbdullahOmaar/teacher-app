@@ -1,0 +1,41 @@
+[
+  {
+    "id": "bulk-select-mode",
+    "file": "bulk-select-mode.png",
+    "dom": {
+      "docOverflowX": false,
+      "barCount": "المحدد: 5 فاتورة",
+      "barTotal": "إجمالي المتبقي 1,200 ج",
+      "confirmVisible": false,
+      "summaryVisible": false,
+      "summaryPaid": null,
+      "vw": 375
+    }
+  },
+  {
+    "id": "bulk-confirm",
+    "file": "bulk-confirm.png",
+    "dom": {
+      "docOverflowX": false,
+      "barCount": "المحدد: 5 فاتورة",
+      "barTotal": "إجمالي المتبقي 1,200 ج",
+      "confirmVisible": true,
+      "summaryVisible": false,
+      "summaryPaid": null,
+      "vw": 375
+    }
+  },
+  {
+    "id": "bulk-summary",
+    "file": "bulk-summary.png",
+    "dom": {
+      "docOverflowX": false,
+      "barCount": null,
+      "barTotal": null,
+      "confirmVisible": false,
+      "summaryVisible": true,
+      "summaryPaid": "اتسجّلت 5 دفعة بإجمالي 1,200 ج",
+      "vw": 375
+    }
+  }
+]
