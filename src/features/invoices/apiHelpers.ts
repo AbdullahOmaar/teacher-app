@@ -112,6 +112,128 @@ export function filterInvoiceList(
   })
 }
 
+// ---------------------------------------------------------------------------
+// الدفع الجماعي (قرار المدير 2026-11-28): تحديد فواتير من القائمة وتسجيل
+// دفع كامل لكلٍّ منها بإيصالها المستقل عبر مسار الدفع الفردي نفسه
+// (createPayment بحارس الدفع الزائد 3A-910). لا معاملة جماعية من جهة
+// العميل: التنفيذ متسلسل فاتورةً فاتورة، والفشل الجزئي يُبلَّغ كما هو
+// في الملخص — لا ادّعاء ذرّية أبداً.
+// ---------------------------------------------------------------------------
+
+/** الفواتير القابلة للدفع/التحديد: رصيد متبقٍّ موجب (مستحقة أو جزئية) */
+export function payableInvoices(invoices: InvoiceListItem[]): InvoiceListItem[] {
+  return invoices.filter((inv) => inv.balance > 0)
+}
+
+/**
+ * «تحديد الكل»: يضيف القابل للدفع من المرئي حالياً (بعد فلاتر الشهر
+ * والحالة والبحث) إلى التحديد القائم — التحديد نفسه بالمعرّف ويبقى
+ * ثابتاً عبر تغيير الفلاتر.
+ */
+export function addVisiblePayableToSelection(
+  current: ReadonlySet<string>,
+  visible: InvoiceListItem[],
+): Set<string> {
+  const next = new Set(current)
+  for (const inv of payableInvoices(visible)) next.add(inv.invoice_id)
+  return next
+}
+
+/** عدّاد شريط التحديد وإجمالي المتبقي على كل المحدد — الحساب بالقرش */
+export function selectionTotals(
+  invoices: InvoiceListItem[],
+  selectedIds: ReadonlySet<string>,
+): { count: number; total: number } {
+  let count = 0
+  let piasters = 0
+  for (const inv of invoices) {
+    if (!selectedIds.has(inv.invoice_id)) continue
+    count += 1
+    piasters += Math.round(inv.balance * 100)
+  }
+  return { count, total: piasters / 100 }
+}
+
+export type BulkPayItemStatus = 'paid' | 'skipped' | 'failed'
+
+export interface BulkPayItemResult {
+  invoiceId: string
+  status: BulkPayItemStatus
+  /** المبلغ المسجل فعلياً (0 عند التخطي/الفشل) */
+  amount: number
+  receiptNo?: string
+  /** سبب الفشل كما هو (رسالة الخطأ الأصلية) — التخطي سببه معلوم من حالته */
+  reason?: string
+}
+
+export interface BulkPaySummary {
+  results: BulkPayItemResult[]
+  paidCount: number
+  paidTotal: number
+  skippedCount: number
+  failedCount: number
+}
+
+export interface BulkPayDeps {
+  /** إعادة قراءة الرصيد الحي وقت التنفيذ — null = لا صف رصيد للفاتورة */
+  fetchBalance: (invoiceId: string) => Promise<number | null>
+  /** تسجيل الدفعة عبر createPayment نفسها (بحارس الدفع الزائد) */
+  pay: (invoiceId: string, amount: number) => Promise<{ receiptNo: string }>
+}
+
+/**
+ * تنفيذ الدفع الجماعي متسلسلاً: لكل فاتورة يُعاد قراءة رصيدها الحي لحظة
+ * تنفيذها — رصيد صفر/غائب = تُتخطّى وتُبلَّغ (سُدّدت منذ التحديد)،
+ * والمبلغ المدفوع هو الرصيد المقروء الآن لا رصيد وقت التحديد، فيمرّ
+ * بحارس الدفع الزائد طبيعياً ولا يُدفع قرش فوق المستحق أبداً. فشل أي
+ * فاتورة لا يوقف الباقي، وسبب كل فشل يُحفظ في نتيجته كما هو.
+ */
+export async function runBulkPayments(
+  invoiceIds: string[],
+  deps: BulkPayDeps,
+): Promise<BulkPaySummary> {
+  const results: BulkPayItemResult[] = []
+  let paidPiasters = 0
+  for (const invoiceId of invoiceIds) {
+    let balance: number | null
+    try {
+      balance = await deps.fetchBalance(invoiceId)
+    } catch (e) {
+      results.push({
+        invoiceId,
+        status: 'failed',
+        amount: 0,
+        reason: e instanceof Error ? e.message : String(e),
+      })
+      continue
+    }
+    if (balance == null || !(balance > 0)) {
+      results.push({ invoiceId, status: 'skipped', amount: 0 })
+      continue
+    }
+    const amount = Math.round(balance * 100) / 100
+    try {
+      const { receiptNo } = await deps.pay(invoiceId, amount)
+      paidPiasters += Math.round(amount * 100)
+      results.push({ invoiceId, status: 'paid', amount, receiptNo })
+    } catch (e) {
+      results.push({
+        invoiceId,
+        status: 'failed',
+        amount: 0,
+        reason: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
+  return {
+    results,
+    paidCount: results.filter((r) => r.status === 'paid').length,
+    paidTotal: paidPiasters / 100,
+    skippedCount: results.filter((r) => r.status === 'skipped').length,
+    failedCount: results.filter((r) => r.status === 'failed').length,
+  }
+}
+
 /**
  * «غير مسدد» — التعريف الوحيد المعتمد (PAT-4): رصيد متبقٍّ أكبر من صفر.
  * كانت الصيغة `balance > 0` مكررة inline في الرئيسية وقائمة الفواتير

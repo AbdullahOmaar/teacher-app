@@ -13,7 +13,7 @@ import { AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp
 import { Sheet } from '../../components/ui/Sheet'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Fab } from '../../components/ui/Fab'
-import { Chip } from '../../components/ui/form'
+import { Chip, Field, Select } from '../../components/ui/form'
 import {
   PageToolBar,
   StickyGroupHeader,
@@ -26,15 +26,23 @@ import { useCurrentTeacher } from '../../hooks/useCurrentTeacher'
 import { formatMoney } from '../../lib/format'
 import { monthStartStr, todayStr } from '../home/api'
 import {
+  addVisiblePayableToSelection,
+  createPayment,
+  fetchInvoice,
   filterInvoiceList,
   INVOICE_MONTH_ALL,
   invoiceMonthOptions,
+  PAYMENT_METHODS,
   payStateOf,
   periodLabel,
   resolveInvoiceMonthFilter,
+  runBulkPayments,
+  selectionTotals,
+  type BulkPaySummary,
   type InvoiceListItem,
   type InvoiceStatusFilter,
 } from './api'
+import type { PaymentMethod } from '../../types/database'
 import { INV, useInvoices } from './hooks'
 import { InvoiceDetailPage } from './InvoiceDetailPage'
 import { IssueInvoicesSheet } from './sheets'
@@ -78,17 +86,32 @@ export function InvoiceCard({
   first = false,
   selected = false,
   onDesktopSelect,
+  selectMode = false,
+  bulkSelected = false,
+  onToggleSelect,
 }: {
   inv: InvoiceListItem
   first?: boolean
   selected?: boolean
   onDesktopSelect?: (id: string) => void
+  /** وضع تحديد الدفع الجماعي: الضغط يبدّل التحديد لا يتنقّل */
+  selectMode?: boolean
+  bulkSelected?: boolean
+  onToggleSelect?: (id: string) => void
 }) {
+  // القابلة للتحديد هي ذات الرصيد المتبقي فقط؛ المسددة بلا مربع اختيار
+  // أصلاً وضغطها في وضع التحديد لا يفعل شيئاً (قرار موثّق في PR الدفعة)
+  const selectable = selectMode && inv.balance > 0
   return (
     <Link
       to={`/invoices/${inv.invoice_id}`}
       className="block no-underline text-text active:bg-soft"
       onClick={(e) => {
+        if (selectMode) {
+          e.preventDefault()
+          if (inv.balance > 0) onToggleSelect?.(inv.invoice_id)
+          return
+        }
         // عند ≥1024px الاختيار يعرض التفاصيل في اللوحة الجانبية بلا تنقل
         if (onDesktopSelect && window.matchMedia('(min-width: 1024px)').matches) {
           e.preventDefault()
@@ -98,8 +121,26 @@ export function InvoiceCard({
     >
       <ListRow
         first={first}
-        className={selected ? 'lg:bg-soft' : ''}
-        leading={<Avatar name={inv.student_name} />}
+        className={`${selected ? 'lg:bg-soft' : ''} ${bulkSelected ? 'bg-soft' : ''}`}
+        leading={
+          selectable ? (
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className={`flex items-center justify-center w-6 h-6 rounded-md border-2 shrink-0 ${
+                  bulkSelected
+                    ? 'bg-primary border-primary text-on-primary'
+                    : 'bg-card border-border-interactive'
+                }`}
+              >
+                {bulkSelected && <Check size={15} strokeWidth={3.5} />}
+              </span>
+              <Avatar name={inv.student_name} />
+            </span>
+          ) : (
+            <Avatar name={inv.student_name} />
+          )
+        }
         title={
           // (ملاحظات المالك 2026-11-28 — بند ٤): شارة الحالة على سطر
           // الاسم نفسه في طرفه المقابل (أقصى الشمال بصرياً)، لا في عمود
@@ -144,7 +185,9 @@ export function InvoiceCard({
  * الفواتير (المواصفات §3.5): بحث فوري (طالب/شهر)، فلاتر حالة من view
  * ‏invoice_balances (الكل/مستحقة/جزئية/مسددة — و?filter=due من الرئيسية
  * يفتح على «مستحقة»)، فلتر شهر عند تعدد الشهور (افتراضيه الشهر الحالي)،
- * بطاقة متأخرات، وزر إصدار فواتير الشهر.
+ * بطاقة متأخرات، وزر إصدار فواتير الشهر. ودفع جماعي بوضع تحديد: دفع
+ * كامل لكل فاتورة محددة بإيصالها المستقل عبر createPayment نفسها،
+ * بتأكيد واحد (عدد/إجمالي/طريقة) وملخص نتيجة صريح (نجاح/تخطٍّ/فشل).
  * المالية محجوبة عن المساعد: RLS تمنع القراءة أصلاً، والواجهة تعرض قفلاً.
  */
 export function InvoicesPage() {
@@ -172,6 +215,15 @@ export function InvoicesPage() {
   // الطلاب): زر تصفية الشريط يفتحها، والاختيار غير الافتراضي يُشار إليه
   // بشارة على الزر وبرقاقة إزالة في صف الرقائق
   const [monthOpen, setMonthOpen] = useState(false)
+  // الدفع الجماعي (قرار المدير 2026-11-28): وضع تحديد (التحديد بالمعرّف
+  // ويبقى عبر الفلاتر) + تأكيد واحد (عدد/إجمالي/طريقة) + ملخص نتيجة
+  // يبقى ظاهراً بعد التنفيذ حتى يُغلقه المدرس بنفسه
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set())
+  const [bulkMethod, setBulkMethod] = useState<PaymentMethod>('cash')
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false)
+  const [bulkRunning, setBulkRunning] = useState(false)
+  const [bulkSummary, setBulkSummary] = useState<BulkPaySummary | null>(null)
   const [issueOpen, setIssueOpen] = useState(false)
   const [showOverdue, setShowOverdue] = useState(false)
   const [showCurrentDue, setShowCurrentDue] = useState(false)
@@ -193,6 +245,50 @@ export function InvoicesPage() {
     () => filterInvoiceList(invoices, { month: monthFilter, status: filter, query: search }),
     [invoices, monthFilter, filter, search],
   )
+
+  // إجمالي شريط الدفع الجماعي: كل المحدد من القائمة الكاملة (لا المرئية
+  // فقط) — التحديد يبقى عبر الفلاتر فتطابق أرقام الشريط حقيقته دائماً
+  const selTotals = selectionTotals(invoices, selectedIds)
+  const toggleSelect = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  // الخروج من وضع التحديد يمسح التحديد كله بلا أي أثر جانبي (قرار الشكل ٥)
+  const exitSelectMode = () => {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+  }
+  // تنفيذ الدفع الجماعي: متسلسل عبر createPayment نفسها (بحارسها) مع
+  // إعادة قراءة رصيد كل فاتورة لحظة تنفيذها؛ الملخص يبقى بعد الخروج
+  const runBulk = async () => {
+    if (!teacherId || bulkRunning) return
+    setBulkRunning(true)
+    try {
+      const summary = await runBulkPayments([...selectedIds], {
+        fetchBalance: async (id) => {
+          const inv = await fetchInvoice(teacherId, id)
+          return inv ? inv.balance : null
+        },
+        pay: async (id, amount) => {
+          const p = await createPayment(teacherId, id, {
+            amount,
+            method: bulkMethod,
+            paid_on: todayStr(),
+          })
+          return { receiptNo: p.receipt_no }
+        },
+      })
+      setBulkSummary(summary)
+    } finally {
+      setBulkRunning(false)
+      setBulkConfirmOpen(false)
+      exitSelectMode()
+      void invalidatePrefixes(qc, [INV])
+    }
+  }
 
   // تعريف «متأخر» المعتمد في التطبيق (تدقيق أول استخدام — M4): فاتورة
   // شهرٍ سابق برصيد موجب — هكذا يحسب الملخص اليومي في migration ‏0015
@@ -271,6 +367,33 @@ export function InvoicesPage() {
                 <X size={14} />
               </Chip>
             )}
+            {/* رقاقتا الدفع الجماعي: «تحديد» تدخل وضع التحديد (وتتحول
+                لإلغائه بمسح كامل)، و«تحديد الكل» تضيف القابل للدفع من
+                المرئي بعد الفلاتر — تظهران فقط حين توجد فواتير قابلة للدفع */}
+            {(selectMode || invoices.some((i) => i.balance > 0)) && (
+              <Chip
+                active={selectMode}
+                onClick={() => {
+                  if (selectMode) exitSelectMode()
+                  else {
+                    setSelectMode(true)
+                    setPage(0)
+                  }
+                }}
+              >
+                {selectMode ? t('invoices.bulkCancelSelect') : t('invoices.bulkSelect')}
+              </Chip>
+            )}
+            {selectMode && (
+              <Chip
+                active={false}
+                onClick={() =>
+                  setSelectedIds(addVisiblePayableToSelection(selectedIds, filtered))
+                }
+              >
+                {t('invoices.bulkSelectAll')}
+              </Chip>
+            )}
             {FILTERS.map((f) => (
               <Chip
                 key={f.key}
@@ -289,6 +412,64 @@ export function InvoicesPage() {
         activeFilterCount={monthFilter !== defaultMonthFilter ? 1 : 0}
         resultCount={invoicesQ.isPending ? undefined : filtered.length}
       />
+
+      {/* ملخص نتيجة الدفع الجماعي: يبقى ظاهراً بعد التنفيذ والخروج من
+          وضع التحديد حتى يُغلقه المدرس — يصرّح بالنجاح والتخطي والفشل
+          كما حدثوا فعلاً (لا ذرّية مدّعاة) */}
+      {bulkSummary && (
+        <Card className="rise-in border-primary/40 bg-primary/5">
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="font-extrabold text-[15px] mb-0.5">{t('invoices.bulkSummaryTitle')}</div>
+              {bulkSummary.paidCount > 0 && (
+                <div className="text-[13.5px]">
+                  {t('invoices.bulkSummaryPaid', {
+                    count: bulkSummary.paidCount,
+                    total: formatMoney(bulkSummary.paidTotal),
+                  })}
+                </div>
+              )}
+              {bulkSummary.paidCount > 0 && (
+                <div className="text-muted text-[12.5px]">
+                  {t('invoices.bulkSummaryReceipts', {
+                    list: bulkSummary.results
+                      .filter((r) => r.status === 'paid' && r.receiptNo)
+                      .map((r) => r.receiptNo)
+                      .join(', '),
+                  })}
+                </div>
+              )}
+              {bulkSummary.skippedCount > 0 && (
+                <div className="text-[13.5px] text-warn-text font-semibold">
+                  {t('invoices.bulkSummarySkipped', { count: bulkSummary.skippedCount })}
+                </div>
+              )}
+              {bulkSummary.failedCount > 0 && (
+                <div className="text-[13.5px] text-bad-text font-semibold">
+                  {t('invoices.bulkSummaryFailed', {
+                    count: bulkSummary.failedCount,
+                    reasons: [
+                      ...new Set(
+                        bulkSummary.results
+                          .filter((r) => r.status === 'failed' && r.reason)
+                          .map((r) => r.reason as string),
+                      ),
+                    ].join(' — '),
+                  })}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              aria-label={t('common.close')}
+              onClick={() => setBulkSummary(null)}
+              className="shrink-0 p-1.5 rounded-full hover:bg-soft cursor-pointer text-muted"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </Card>
+      )}
 
       {teacherId && (
         <ProofsReviewSection teacherId={teacherId} reviewerId={teacherId} />
@@ -433,6 +614,9 @@ export function InvoicesPage() {
                         first={i === 0}
                         selected={paneInvoiceId === inv.invoice_id}
                         onDesktopSelect={setSelectedId}
+                        selectMode={selectMode}
+                        bulkSelected={selectedIds.has(inv.invoice_id)}
+                        onToggleSelect={toggleSelect}
                       />
                     ))}
                   </Card>
@@ -468,8 +652,10 @@ export function InvoicesPage() {
                 </div>
               )}
               {/* حشوة تمرير سفلية: آخر فاتورة تمرّ بالكامل فوق الـ FAB
-                  العائم فلا يحجب الزر صفها ولا شارة حالتها */}
-              <div aria-hidden="true" className="h-[76px]" />
+                  العائم فلا يحجب الزر صفها ولا شارة حالتها — وفي وضع
+                  التحديد تكبر الحشوة حتى لا يحجب شريط الدفع الجماعي
+                  الثابت آخر الصفوف أيضاً */}
+              <div aria-hidden="true" className={selectMode ? 'h-[180px]' : 'h-[76px]'} />
             </>
           )}
         </>
@@ -491,12 +677,16 @@ export function InvoicesPage() {
         )}
       </div>
 
-      <Fab
-        onClick={() => setIssueOpen(true)}
-        ariaLabel={t('invoices.fabIssueAria', { month: currentMonthLabel })}
-        label={t('invoices.issueAction')}
-        icon={ReceiptText}
-      />
+      {/* الـFAB يختفي في وضع التحديد: الشريط الثابت هو إجراء الشاشة
+          الوحيد حينها حتى لا يتداخلا فوق آخر القائمة */}
+      {!selectMode && (
+        <Fab
+          onClick={() => setIssueOpen(true)}
+          ariaLabel={t('invoices.fabIssueAria', { month: currentMonthLabel })}
+          label={t('invoices.issueAction')}
+          icon={ReceiptText}
+        />
+      )}
 
       {/* Sheet «تصفية حسب الشهر» — النمط الموحّد (كـSheet مجموعات الطلاب
           حرفياً): «كل الشهور» أولاً ثم الشهور الفعلية الأحدث أولاً،
@@ -525,6 +715,80 @@ export function InvoicesPage() {
               {monthFilter === opt.value && <Check size={19} />}
             </button>
           ))}
+        </div>
+      </Sheet>
+
+      {/* شريط الدفع الجماعي الثابت (وضع التحديد): عدد المحدد + إجمالي
+          متبقيه + زر تسجيل الدفع — فوق شريط تنقّل التطبيق في الموبايل
+          (bottom-[88px]) وعند أسفل الشاشة في الديسكتوب حيث لا شريط سفلي،
+          مزاحاً بعد الشريط الجانبي (lg:start-[264px]) */}
+      {selectMode && (
+        <div className="fixed start-0 end-0 bottom-[88px] lg:bottom-5 lg:start-[264px] z-30 px-4">
+          <div className="mx-auto max-w-[560px] bg-card border border-border-interactive rounded-2xl shadow-[0_16px_40px_-16px_rgba(15,23,42,0.5)] px-4 py-3 flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="font-extrabold text-[14.5px]">
+                {t('invoices.bulkBarCount', { count: selTotals.count })}
+              </div>
+              <div className="text-muted text-[13px]">
+                {t('invoices.bulkBarTotal', { total: formatMoney(selTotals.total) })}
+              </div>
+            </div>
+            <Button
+              disabled={selTotals.count === 0}
+              onClick={() => setBulkConfirmOpen(true)}
+            >
+              {t('invoices.bulkPayAction')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* تأكيد الدفع الجماعي: خطوة واحدة قبل التنفيذ — عدد + إجمالي +
+          طريقة دفع واحدة للكل (من PAYMENT_METHODS، مصدر الدفع الفردي
+          نفسه)؛ التاريخ هو اليوم افتراضياً كما في الدفع الفردي */}
+      <Sheet
+        open={bulkConfirmOpen}
+        onClose={() => {
+          if (!bulkRunning) setBulkConfirmOpen(false)
+        }}
+        title={t('invoices.bulkConfirmTitle')}
+        footer={
+          <>
+            <Button full disabled={bulkRunning || selTotals.count === 0} onClick={() => void runBulk()}>
+              {bulkRunning ? t('invoices.bulkRunning') : t('invoices.bulkConfirmAction')}
+            </Button>
+            <Button
+              full
+              variant="ghost"
+              className="mt-2"
+              disabled={bulkRunning}
+              onClick={() => setBulkConfirmOpen(false)}
+            >
+              {t('invoices.cancel')}
+            </Button>
+          </>
+        }
+      >
+        <div className="pb-2">
+          <p className="text-[14.5px] leading-[1.9] mb-3">
+            {t('invoices.bulkConfirmLine', {
+              count: selTotals.count,
+              total: formatMoney(selTotals.total),
+            })}
+          </p>
+          <Field label={t('invoices.sheetMethodLabel')}>
+            <Select
+              value={bulkMethod}
+              disabled={bulkRunning}
+              onChange={(e) => setBulkMethod(e.target.value as PaymentMethod)}
+            >
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m.code} value={m.code}>
+                  {m.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
         </div>
       </Sheet>
 
