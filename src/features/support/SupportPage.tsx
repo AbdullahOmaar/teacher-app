@@ -172,12 +172,15 @@ export function SupportPage() {
                 />
               </Card>
             ) : (
-              items.map((row, i) => {
+              /* شبكة بطاقات عند الديسكتوب (3A-930) — items-start حتى
+                 لا يشدّ فتح تذكرة جاراتها */
+              <div className="lg:grid lg:grid-cols-2 lg:gap-3 lg:items-start">
+              {items.map((row, i) => {
                 const open = openTicketId === row.id
                 return (
                   <Card
                     key={row.id}
-                    className="rise-in mb-3"
+                    className="rise-in mb-3 lg:mb-0"
                     style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
                   >
                     <button
@@ -275,7 +278,8 @@ export function SupportPage() {
                     )}
                   </Card>
                 )
-              })
+              })}
+              </div>
             )}
           </>
         )}

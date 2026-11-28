@@ -362,10 +362,10 @@ export function HomePage() {
         await invalidatePrefixes(qc, [HOME, ATRISK])
       }}
     >
-    <div>
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-4 lg:items-start lg:grid-flow-dense">
       {/* ترحيب دُفّي اليومي — أول دخول كل يوم فقط (MASCOT-PLAN §٦) */}
       {showWelcome && (
-        <Card>
+        <Card className="lg:col-span-2">
           <div className="flex items-center gap-3">
             <Mascot state="welcome" size={58} />
             <div className="flex-1 min-w-0">
@@ -388,8 +388,9 @@ export function HomePage() {
         </Card>
       )}
 
-      {/* شبكة الإجراءات السريعة — وجهات حقيقية موجودة فقط (المرجع §3.1) */}
-      <div className="grid grid-cols-4 gap-2 mb-3 rise-in">
+      {/* شبكة الإجراءات السريعة — وجهات حقيقية موجودة فقط (المرجع §3.1)؛
+          على الديسكتوب (3A-930) في العمود الرئيسي لا بعرض الشبكة كله */}
+      <div className="grid grid-cols-4 gap-2 mb-3 rise-in lg:col-start-1 min-w-0">
         {quickActions.map((a) => {
           const ActionIcon = a.icon
           return (
@@ -410,11 +411,12 @@ export function HomePage() {
       </div>
 
       {primaryPending ? (
-        <>
+        <div className="lg:col-span-2 min-w-0">
           <PageLoadingOverlay />
           <Skeleton className="h-[118px] mb-3" />
-        </>
+        </div>
       ) : primaryError ? (
+        <div className="lg:col-span-2 min-w-0">
         <ErrorState
           message={primaryError instanceof Error ? primaryError.message : t('common.unknownError')}
           onRetry={() => {
@@ -424,12 +426,14 @@ export function HomePage() {
             void invalidatePrefixes(qc, [HOME, ATRISK])
           }}
         />
+        </div>
       ) : (
         <>
           {/* بطاقة «ابدأ هنا» — للمدرس الجديد فقط (M3): خطوات مرتبة
-              تُعلَّم من بياناته الفعلية وتختفي عند اكتمالها */}
+              تُعلَّم من بياناته الفعلية وتختفي عند اكتمالها؛ على
+              الديسكتوب بعرض الشبكة كله (3A-930) */}
           {showStartHere && (
-            <Card>
+            <Card className="lg:col-span-2">
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="font-bold text-[15px] flex items-center gap-2">
                   {/* دُفّي الشارح يرافق خطوات الإعداد (خطة الهوية P-6) —
@@ -471,7 +475,7 @@ export function HomePage() {
 
           {/* Hero: الحصة القادمة بتدرّج نيلي — وبصمة الهوية: علامة
               الكتاب/الصح مائية بيضاء خفيفة جداً على التدرّج نفسه */}
-          <div className="rise-in relative overflow-hidden rounded-2xl p-4 mb-3 text-on-primary bg-[linear-gradient(135deg,var(--primary),var(--primary-d))] shadow-raised" style={{ animationDelay: '50ms' }}>
+          <div className="rise-in relative overflow-hidden rounded-2xl p-4 mb-3 text-on-primary bg-[linear-gradient(135deg,var(--primary),var(--primary-d))] shadow-raised lg:col-start-1 min-w-0" style={{ animationDelay: '50ms' }}>
             <div className="absolute -bottom-10 -end-10 pointer-events-none" aria-hidden="true">
               <Logo mono decorative size={190} className="text-white opacity-[0.09]" />
             </div>
@@ -544,13 +548,13 @@ export function HomePage() {
           بهيكل تحميل محجوز الارتفاع في موضعه النهائي فلا قفزة — هذا هو
           نموذج التحميل الموحّد بصيغة «خانة محجوزة لكل بطاقة» لا بصيغة
           احتجاز المحتوى السريع رهينةً لأبطأ استعلام حتى يجهز الكل */}
-      <div className="rise-in" style={{ animationDelay: '90ms' }}>
+      <div className="rise-in lg:col-start-2 min-w-0" style={{ animationDelay: '90ms' }}>
         <AtRiskCard />
         <PendingProofsCard />
       </div>
 
       {primaryPending ? (
-        <>
+        <div className="lg:col-span-2 min-w-0">
           <div className="grid grid-cols-2 gap-2 mb-3">
             <Skeleton className="h-[78px]" />
             <Skeleton className="h-[78px]" />
@@ -558,14 +562,14 @@ export function HomePage() {
             {isOwner && <Skeleton className="h-[78px]" />}
           </div>
           <Skeleton className="h-[120px]" />
-        </>
+        </div>
       ) : !primaryError ? (
         <>
           {/* KPIs — صف واحد من أربعة على الشاشات الواسعة (R-16)، وكل
               مؤشر بدلتا نفس أيام الشهر الماضي (R-13) عدا «غير المسددة»
               فرقمها مخزون حالي لا يُعاد بناؤه تاريخياً — يحمل تعريفه
               بدلاً منها (R-15) */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3 rise-in" style={{ animationDelay: '140ms' }}>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3 rise-in lg:col-start-1 min-w-0" style={{ animationDelay: '140ms' }}>
             <KpiCard
               to="/students"
               value={String(activeStudentsQ.data ?? 0)}
@@ -655,7 +659,7 @@ export function HomePage() {
 
           {/* هدف تحصيل الشهر — يظهر فقط عند وجود فواتير صادرة للشهر (المرجع §3.1) */}
           {isOwner && goalPct != null && (
-            <Card className="rise-in" style={{ animationDelay: '165ms' }}>
+            <Card className="rise-in lg:col-start-2 min-w-0" style={{ animationDelay: '165ms' }}>
               <div className="flex justify-between items-center mb-2">
                 <span className="font-bold text-[15px]">{t('home.goal.title')}</span>
                 <span className="font-extrabold text-ok-text">{goalPct}%</span>
@@ -672,7 +676,9 @@ export function HomePage() {
           {/* التنبيهات ليست هنا عمداً (طلب المالك): مكانها الوحيد زر الجرس
               في الشريط العلوي بعدّاده، وشاشة الإشعارات خلفه */}
 
-          {/* حصص اليوم */}
+          {/* حصص اليوم — في العمود الرئيسي، وبطاقاتها شبكة ثنائية
+              عند xl (3A-930) */}
+          <div className="lg:col-start-1 min-w-0">
           <h2 className="type-section mb-2 mt-1 rise-in" style={{ animationDelay: '190ms' }}>{t('home.today.title')}</h2>
           {todaySessions.length === 0 ? (
             <Card className="rise-in" style={{ animationDelay: '215ms' }}>
@@ -683,7 +689,8 @@ export function HomePage() {
               />
             </Card>
           ) : (
-            todaySessions.map((s, i) => (
+            <div className="xl:grid xl:grid-cols-2 xl:gap-3 xl:[&>*]:mb-0">
+            {todaySessions.map((s, i) => (
               <TodaySessionCard
                 key={s.id}
                 session={s}
@@ -698,8 +705,10 @@ export function HomePage() {
                   void marksQ.refetch()
                 }}
               />
-            ))
+            ))}
+            </div>
           )}
+          </div>
         </>
       ) : null}
     </div>

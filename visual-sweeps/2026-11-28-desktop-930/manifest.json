@@ -1,0 +1,117 @@
+{
+  "tool": "visual-capture (one-off puppeteer script, local build of feat/desktop-layer-930 + vite preview + relay to live demo backend)",
+  "note": "بناء محلي لفرع طبقة الديسكتوب يُخدَّم محلياً، والبيانات من حساب الديمو العام الحي عبر ريلاي اعتراض (نفس طوبولوجيا e2e/run.mjs) — لا بيانات محلية مخترعة. اللقطات عند 1440 تُثبت طبقة الديسكتوب (شريط جانبي + جداول/أجزاء تفاصيل)، ولقطتا 375 تُثبتان أن تخطيط الموبايل لم يتغيّر.",
+  "base": "http://127.0.0.1:4173",
+  "branch": "feat/desktop-layer-930",
+  "frozenNowUtc": "2026-11-21T22:00:00.000Z",
+  "timezone": "Africa/Cairo",
+  "theme": "default(saved/auto)",
+  "startedAt": "2026-11-28T01:43:03.028Z",
+  "widths": {
+    "375": [
+      {
+        "id": "home-375-recheck",
+        "file": "375/home-375-recheck.png",
+        "note": "إعادة فحص 375: الرئيسية بتخطيط الموبايل كما هي (شريط سفلي، بلا شريط جانبي)",
+        "bytes": 145695,
+        "pngWidth": 375,
+        "pngHeight": 1490,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 375,
+          "vw": 375,
+          "theme": "light"
+        }
+      },
+      {
+        "id": "students-375-recheck",
+        "file": "375/students-375-recheck.png",
+        "note": "إعادة فحص 375: قائمة الطلاب ببطاقات الموبايل كما هي (الجدول مخفي تحت lg)",
+        "bytes": 403685,
+        "pngWidth": 375,
+        "pngHeight": 5161,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 375,
+          "vw": 375,
+          "theme": "light"
+        }
+      }
+    ],
+    "1440": [
+      {
+        "id": "home-desktop",
+        "file": "1440/home-desktop.png",
+        "note": "الرئيسية عند 1440 (لقطة إطار عرض 1440×1200): قشرة التطبيق بالشريط الجانبي + شبكة ودجت الرئيسية وسكّة الملخص",
+        "bytes": 229336,
+        "pngWidth": 1440,
+        "pngHeight": 1200,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 1440,
+          "vw": 1440,
+          "theme": "light"
+        }
+      },
+      {
+        "id": "attendance-desktop-shell",
+        "file": "1440/attendance-desktop-shell.png",
+        "note": "الحضور عند 1440 (لقطة إطار عرض): القشرة بالشريط الجانبي + منتقي اليوم + القائمة وسكّة الملخص اللاصقة — قائمة حضور عند إزاحة +0 يوم من اليوم المجمّد",
+        "bytes": 110426,
+        "pngWidth": 1440,
+        "pngHeight": 900,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 1440,
+          "vw": 1440,
+          "theme": "light"
+        }
+      },
+      {
+        "id": "students-desktop-table-detail",
+        "file": "1440/students-desktop-table-detail.png",
+        "note": "الطلاب عند 1440: جدول الديسكتوب + جزء تفاصيل الطالب المحدد (400px لاصق)",
+        "bytes": 667548,
+        "pngWidth": 1440,
+        "pngHeight": 4346,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 1440,
+          "vw": 1440,
+          "theme": "light"
+        }
+      },
+      {
+        "id": "invoices-desktop-detail",
+        "file": "1440/invoices-desktop-detail.png",
+        "note": "الفواتير عند 1440: قائمة الفواتير + جزء تفاصيل الفاتورة المحددة (440px لاصق) — الاختيار بنقر بطاقة الفاتورة يعرض التفاصيل في اللوحة بلا تنقّل عند ≥1024px",
+        "bytes": 419956,
+        "pngWidth": 1440,
+        "pngHeight": 2909,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 1440,
+          "vw": 1440,
+          "theme": "light"
+        }
+      },
+      {
+        "id": "schedule-desktop-week",
+        "file": "1440/schedule-desktop-week.png",
+        "note": "الجدول عند 1440 (لقطة إطار عرض): لوحة الأسبوع بسبعة أعمدة داخل القشرة بالشريط الجانبي",
+        "bytes": 148189,
+        "pngWidth": 1440,
+        "pngHeight": 900,
+        "dom": {
+          "docOverflowX": false,
+          "docScrollWidth": 1440,
+          "vw": 1440,
+          "theme": "light"
+        }
+      }
+    ]
+  },
+  "finishedAt": "2026-11-28T01:51:27.962Z",
+  "relayAborted": 0,
+  "fixNote": "إعادة لقطة موثقة: خياطة fullPage أزاحت أفقياً ثلاث صفحات قصيرة بارتفاع الشاشة (رئيسية/حضور/جدول) فأُعيدت كلقطات إطار عرض؛ ولقطة الفواتير الأولى نقرت عنصر تنقّل بالخطأ فأُعيدت بنقر بطاقة الفاتورة الصحيح."
+}

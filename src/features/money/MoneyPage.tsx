@@ -204,10 +204,11 @@ export function MoneyPage() {
 
   return (
     <PullToRefresh onRefresh={() => invalidatePrefixes(qc, [MONEY])}>
-    <div>
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-4 lg:items-start lg:grid-flow-dense">
       {/* شريط الشهور الموحّد (W3 — R-10): رقائق آخر 6 شهور بدل زرّي
           السابق/التالي — اختيار شهر أقدم من خارج الستة يبقى ظاهراً
           رقاقة نشطة حتى لا يضيع سياق الاختيار */}
+      <div className="lg:col-span-2 min-w-0">
       <PageToolBar
         chips={
           <>
@@ -229,27 +230,46 @@ export function MoneyPage() {
         }
         resultCount={pending ? undefined : expenses.length}
       />
+      </div>
       {!isCurrentMonth && (
+        <div className="lg:col-span-2 min-w-0">
         <Button full variant="soft" className="mb-3" onClick={() => setSelectedMonth(currentMonth)}>
           {t('money.backToCurrent', { month: periodLabel(currentMonth) })}
         </Button>
+        </div>
       )}
 
       {/* تدقيق اليوم (مهمة 11 — بند 4): فحص قرائي بسطر واحد أعلى
-          أقسام المال اليومية — لا ينفّذ أي إجراء بنفسه */}
-      {teacherId && <DailyAuditCard teacherId={teacherId} />}
+          أقسام المال اليومية — لا ينفّذ أي إجراء بنفسه؛ سكة جانبية
+          عند الديسكتوب (3A-930) */}
+      {teacherId && (
+        <div className="lg:col-start-2 min-w-0">
+          <DailyAuditCard teacherId={teacherId} />
+        </div>
+      )}
 
       {/* الإغلاق اليومي للخزنة (خطوة 5): قسم مستقل بحالاته الخاصة،
-          يومي الإيقاع فلا يرتبط بتنقّل الشهور أسفله */}
-      {teacherId && <CashboxSection teacherId={teacherId} />}
+          يومي الإيقاع فلا يرتبط بتنقّل الشهور أسفله — بعرض كامل */}
+      {teacherId && (
+        <div className="lg:col-span-2 min-w-0">
+          <CashboxSection teacherId={teacherId} />
+        </div>
+      )}
 
       {/* دفتر السنتر (migration ‏0051 — مهمة 10): مشتريات ومبيعات وموردون،
-          مالك فقط كسائر المالية فلا يُرسم لغير المالك أصلاً */}
-      {teacherId && isOwner && <LedgerSection teacherId={teacherId} />}
+          مالك فقط كسائر المالية فلا يُرسم لغير المالك أصلاً — بعرض كامل */}
+      {teacherId && isOwner && (
+        <div className="lg:col-span-2 min-w-0">
+          <LedgerSection teacherId={teacherId} />
+        </div>
+      )}
 
       {pending ? (
-        <LoadingState label={t('money.loading')} />
+        <div className="lg:col-span-2 min-w-0">
+          <LoadingState label={t('money.loading')} />
+        </div>
       ) : error ? (
+        <div className="lg:col-span-2 min-w-0">
         <ErrorState
           message={error instanceof Error ? error.message : t('common.unknownError')}
           onRetry={() => {
@@ -259,10 +279,11 @@ export function MoneyPage() {
             void recurringQ.refetch()
           }}
         />
+        </div>
       ) : (
         <>
           {/* ملخص الفترة — من view ‏monthly_profit حرفياً */}
-          <div className="grid grid-cols-3 gap-2 mb-3 rise-in" style={{ animationDelay: '0ms' }}>
+          <div className="grid grid-cols-3 gap-2 mb-3 rise-in lg:col-start-1 min-w-0" style={{ animationDelay: '0ms' }}>
             <Kpi value={formatMoney(summary.collected)} label={t('money.kpiCollected')} valueClass="text-ok-text" />
             <Kpi value={formatMoney(summary.expenses)} label={t('money.kpiExpenses')} valueClass="text-bad-text" />
             <Kpi
@@ -274,7 +295,7 @@ export function MoneyPage() {
 
           {/* بطاقة نسبة السنتر — تظهر عند تفعيلها فقط (المرجع §3.12) */}
           {centerPercent > 0 && (
-            <Card className="border-primary/30 bg-soft/60">
+            <Card className="border-primary/30 bg-soft/60 lg:col-start-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <div className="font-extrabold text-[16px] flex items-center gap-2"><Building2 size={22} className="text-primary" /> {t('money.centreShareTitle', { pct: centerPercent })}</div>
@@ -289,7 +310,8 @@ export function MoneyPage() {
             </Card>
           )}
 
-          {/* آخر 6 شهور */}
+          {/* آخر 6 شهور — سكة جانبية عند الديسكتوب (3A-930) */}
+          <div className="lg:col-start-2 min-w-0">
           <h2 className="type-section mb-2 mt-1">{t('money.lastSixMonths')}</h2>
           <Card className="rise-in" style={{ animationDelay: '50ms' }}>
             {sixMonths.map((row) => (
@@ -305,8 +327,10 @@ export function MoneyPage() {
               {t('money.barsNote')}
             </p>
           </Card>
+          </div>
 
-          {/* مصروفات الشهر المختار */}
+          {/* مصروفات الشهر المختار — العمود الرئيسي */}
+          <div className="lg:col-start-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mt-4 mb-2">
             <h2 className="type-section">{t('money.expensesOfMonth', { month: periodLabel(selectedMonth) })}</h2>
           </div>
@@ -405,8 +429,10 @@ export function MoneyPage() {
               </div>
             ))
           )}
+          </div>
 
-          {/* المصروفات الشهرية الثابتة (القوالب) */}
+          {/* المصروفات الشهرية الثابتة (القوالب) — سكة جانبية */}
+          <div className="lg:col-start-2 min-w-0">
           <div className="flex items-center justify-between gap-2 mt-4 mb-2">
             <h2 className="type-section">{t('money.recurringTitle')}</h2>
             <Button variant="soft" onClick={() => setRecurringSheet({ mode: 'create' })}>
@@ -469,6 +495,7 @@ export function MoneyPage() {
           <p className="text-muted text-[13.5px] mt-1">
             {t('money.recurringNote')}
           </p>
+          </div>
         </>
       )}
 

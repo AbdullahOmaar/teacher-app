@@ -275,9 +275,9 @@ export function AssessmentDetailPage() {
         await invalidatePrefixes(qc, [GRADES, ATT, SG])
       }}
     >
-    <div>
-      {/* شريط الملخص */}
-      <Card className="rise-in">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-4 lg:items-start lg:grid-flow-dense">
+      {/* شريط الملخص — بعرض الشبكة كله عند الديسكتوب (3A-930) */}
+      <Card className="rise-in lg:col-span-2">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="font-extrabold text-[16px]">{assessment.title}</div>
@@ -346,7 +346,7 @@ export function AssessmentDetailPage() {
 
       {/* الامتحان الإلكتروني بتصحيح تلقائي — Phase 3 خطوة 4 */}
       {teacherId && (
-        <div className="rise-in" style={{ animationDelay: '50ms' }}>
+        <div className="rise-in lg:col-start-1 min-w-0" style={{ animationDelay: '50ms' }}>
         <OnlineExamPanel
           teacherId={teacherId}
           assessment={assessment}
@@ -357,7 +357,7 @@ export function AssessmentDetailPage() {
       )}
 
       {maxMismatch && (
-        <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2.5 mb-3 text-[13.5px] flex items-center justify-between gap-2 flex-wrap">
+        <div className="border border-warn/50 bg-warn/10 rounded-xl px-3 py-2.5 mb-3 text-[13.5px] flex items-center justify-between gap-2 flex-wrap lg:col-span-2 min-w-0">
           <span className="flex items-start gap-2">
             <AlertTriangle size={20} className="shrink-0 mt-0.5 text-warn-text" />
             <span>
@@ -392,7 +392,8 @@ export function AssessmentDetailPage() {
         </div>
       )}
 
-      {/* إدخال الدرجات السريع */}
+      {/* إدخال الدرجات السريع — العمود الرئيسي عند الديسكتوب (3A-930) */}
+      <div className="lg:col-start-1 min-w-0">
       {rosterQ.isPending || scoresQ.isPending || !rowsReady ? (
         <>
           <Skeleton className="h-[64px] mb-3" />
@@ -544,10 +545,11 @@ export function AssessmentDetailPage() {
           </p>
         </>
       )}
+      </div>
 
-      {/* لوحة الشرف — أعلى 3 طلاب بالنسبة (المرجع §3.11) */}
+      {/* لوحة الشرف — أعلى 3 طلاب بالنسبة (المرجع §3.11)؛ سكة جانبية عند الديسكتوب */}
       {honor.length > 0 && (
-        <Card className="rise-in" style={{ animationDelay: '140ms' }}>
+        <Card className="rise-in lg:col-start-2 min-w-0" style={{ animationDelay: '140ms' }}>
           <div className="flex items-center justify-between gap-2 mb-2">
             <span className="font-bold text-[16px] flex items-center gap-2"><Trophy size={22} className="text-accent" /> {t('grades.detailHonorTitle')}</span>
             <Button

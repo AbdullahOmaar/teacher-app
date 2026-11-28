@@ -50,7 +50,7 @@ export function PublicPageShell({
   return (
     <div className="min-h-screen bg-bg text-text" style={accentVars}>
       <header className="sticky top-0 z-20 h-[52px] bg-card border-b border-border">
-        <div className="mx-auto max-w-[640px] h-full px-4 flex items-center gap-2">
+        <div className="mx-auto max-w-[640px] lg:max-w-[860px] h-full px-4 flex items-center gap-2">
           {brand?.logo_url ? (
             <img
               src={brand.logo_url}
@@ -73,7 +73,10 @@ export function PublicPageShell({
           {headerExtra}
         </div>
       </header>
-      <main className="mx-auto max-w-[640px] px-4 pt-[14px] pb-10">{children}</main>
+      {/* البوابات العامة (3A-930): 640px على الموبايل كما هي،
+          و860px عند الديسكتوب — أسطح قراءة/نماذج لوليّ الأمر
+          والطالب فالاتساع المعتدل أقرأ من أعمدة البيانات الكاملة */}
+      <main className="mx-auto max-w-[640px] lg:max-w-[860px] px-4 pt-[14px] pb-10">{children}</main>
     </div>
   )
 }

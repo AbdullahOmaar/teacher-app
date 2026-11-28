@@ -324,7 +324,7 @@ export function ExamPage() {
     return (
       <ExamShell brand={brand} title={attempt.exam_title}>
         <div className="sticky top-[52px] z-10 -mx-4 px-4 py-2 bg-bg/95 backdrop-blur border-b border-border mb-3">
-          <div className="max-w-[640px] mx-auto flex items-center justify-between gap-2">
+          <div className="max-w-[640px] lg:max-w-[860px] mx-auto flex items-center justify-between gap-2">
             <span className="flex-1 min-w-0 text-[13.5px] font-bold truncate">
               {t('exams.pageAttemptHeader', { name: attempt.student_name, no: attempt.attempt_no })}
             </span>
@@ -344,7 +344,7 @@ export function ExamPage() {
               </span>
             )}
           </div>
-          <div className="max-w-[640px] mx-auto flex items-center gap-2 mt-2">
+          <div className="max-w-[640px] lg:max-w-[860px] mx-auto flex items-center gap-2 mt-2">
             <div className="flex-1 h-2 rounded-full bg-soft overflow-hidden">
               <div
                 className="h-full rounded-full bg-primary"

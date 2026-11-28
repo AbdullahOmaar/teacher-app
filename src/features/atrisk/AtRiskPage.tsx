@@ -82,12 +82,14 @@ export function AtRiskPage() {
           />
         </Card>
       ) : (
-        items.map((item, i) => {
+        /* شبكة بطاقات عند الديسكتوب (3A-930) */
+        <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-3 lg:items-stretch">
+        {items.map((item, i) => {
           const waUrl = atRiskWaUrl(item, brand.name)
           const busy =
             followUp.isPending && followUp.variables?.studentId === item.student.id
           return (
-            <Card key={item.student.id} className="rise-in" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
+            <Card key={item.student.id} className="rise-in lg:mb-0 lg:h-full" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
               <div className="flex items-center gap-2.5 mb-2">
                 <Avatar name={item.student.name} />
                 <div className="min-w-0">
@@ -156,7 +158,8 @@ export function AtRiskPage() {
               </ActionTiles>
             </Card>
           )
-        })
+        })}
+        </div>
       )}
     </div>
     </PullToRefresh>

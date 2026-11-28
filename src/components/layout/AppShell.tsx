@@ -21,6 +21,7 @@ import { AccountDeletedScreen } from '../../features/auth/AccountDeletedScreen'
 import { useAccountDeletedAt } from '../../hooks/useAccountDeleted'
 import { AttendanceSyncBridge } from '../../features/attendance/SyncBridge'
 import { OfflineStrip } from './OfflineStrip'
+import { SideNav } from './SideNav'
 import { InstallButton } from '../InstallButton'
 import { LoadingState } from '../ui/states'
 import { t } from '../../i18n'
@@ -110,10 +111,11 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const deletedAt = useAccountDeletedAt()
   const { screen, tab } = resolveRoute(location.pathname)
   const isRoot = TAB_ROOTS.has(screen)
-  // شاشتا الطلاب والفواتير بنمط List-Detail عند ≥1024px (بحث §5):
-  // الحاويات تتسع لهما فقط، وباقي الشاشات تبقى 640px كما هي
-  const wide = location.pathname === '/students' || location.pathname === '/invoices'
-  const containerCls = wide ? 'max-w-[640px] lg:max-w-[1180px]' : 'max-w-[640px]'
+  // طبقة الديسكتوب (3A-930): فوق 1024px تتسع كل الشاشات لحاوية
+  // 1200px واحدة (كانت الطلاب/الفواتير فقط عند 1180px بنمط
+  // List-Detail §5، فوُحّد الرقم حتى لا تقفز الحاوية بين الشاشات)،
+  // وتحت نقطة الكسر يبقى سقف 640px كما هو حرفياً
+  const containerCls = 'max-w-[640px] lg:max-w-[1200px]'
   const teacherId = teacher.status === 'ready' ? teacher.teacherId : undefined
   const isOwner = teacher.status === 'ready' && teacher.role === 'owner'
   // شارة التنبيهات: نفس استعلام وكاش بطاقة تنبيهات الرئيسية وشاشة
@@ -147,6 +149,16 @@ export function AppShell({ children }: { children?: ReactNode }) {
     <div className="min-h-screen bg-bg text-text">
       {/* مزامنة الحضور أوفلاين تعمل طوال الجلسة (إقلاع + عودة اتصال) */}
       <AttendanceSyncBridge />
+      {/* الشريط الجانبي للديسكتوب (3A-930): ≥1024px فقط (hidden تحتها)،
+          وبقية القشرة تنزاح بجانبه بحشوة بداية منطقية */}
+      <SideNav
+        teacherId={teacherId}
+        alertsCount={alertsCount}
+        displayName={teacher.status === 'ready' ? teacher.teacher?.display_name : null}
+        avatarUrl={avatarUrl}
+        avatarLetter={avatarLetter}
+      />
+      <div className="lg:ps-[264px]">
       {/* الشريط العلوي — لاصق، أزراره أهداف لمس ≥48px (بحث §5) */}
       <header className="sticky top-0 z-20 bg-card border-b border-border shadow-[0_10px_24px_-18px_rgba(15,23,42,0.45)]">
         <div className={`mx-auto ${containerCls} px-2 flex items-center gap-1`}>
@@ -213,8 +225,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
           ولو أُوقف دُفّي (بأيقونة بديلة — شرط المراجعة B2) */}
       <OfflineStrip containerCls={containerCls} essential={screen === 'att'} />
 
-      {/* المحتوى — حاوية 640px وحشوة سفلية تترك مكاناً للشريط السفلي (64px + safe-area) */}
-      <main className={`mx-auto ${containerCls} px-4 pt-[14px] pb-[calc(88px+env(safe-area-inset-bottom,0px))]`}>
+      {/* المحتوى — حاوية 640px وحشوة سفلية تترك مكاناً للشريط السفلي (64px + safe-area)؛
+          على الديسكتوب (3A-930) الحاوية 1200px ولا شريط سفلي فحشوة عادية */}
+      <main className={`mx-auto ${containerCls} px-4 pt-[14px] pb-[calc(88px+env(safe-area-inset-bottom,0px))] lg:pb-10`}>
         {/* انتقال تنقّل خفيف (3A-312 — بند ٤): غلاف بمفتاح المسار يعيد
             تشغيل route-in (عتامة فقط — انظر index.css لسبب غياب
             الـ transform) عند كل تنقّل؛ ليس حاوية السكرول ولا يلمس
@@ -237,8 +250,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <InstallButton />
 
       {/* الشريط السفلي — أيقونة + نص دائماً، pill خلف النشط بأيقونة ممتلئة،
-          منطقة لمس 64px مع safe-area (بحث §5) */}
-      <nav className="fixed bottom-0 inset-x-0 z-20 bg-card border-t border-border shadow-[0_-10px_24px_-18px_rgba(15,23,42,0.45)] pb-[env(safe-area-inset-bottom,0px)]">
+          منطقة لمس 64px مع safe-area (بحث §5). على الديسكتوب (3A-930)
+          يختفي تماماً: التنقّل كله للشريط الجانبي */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-20 bg-card border-t border-border shadow-[0_-10px_24px_-18px_rgba(15,23,42,0.45)] pb-[env(safe-area-inset-bottom,0px)]">
         <div className={`mx-auto ${containerCls} flex`}>
           {TABS.map((item) => {
             const active = tab === item.key
@@ -269,6 +283,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           })}
         </div>
       </nav>
+      </div>
     </div>
   )
 }

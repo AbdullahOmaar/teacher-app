@@ -444,7 +444,7 @@ export function LoginPage() {
       >
         <Logo decorative size={430} className="opacity-[0.06]" />
       </div>
-      <div className="relative w-full max-w-[640px] px-4 pt-14 pb-10">
+      <div className="relative w-full max-w-[640px] lg:max-w-[420px] px-4 pt-14 pb-10">
         <div className="text-center mb-6 rise-in">
           <div className="flex justify-center mb-3">
             {mascotVisible ? (
