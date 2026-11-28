@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { t } from '../../i18n'
-import { portalNotifMeta, portalProofStatusMeta, proofErrorMessage } from './api'
+import type { GuardianRow } from '../../types/database'
+import {
+  isMissingWhatsappOptOutColumn,
+  portalNotifMeta,
+  portalProofStatusMeta,
+  proofErrorMessage,
+  withWhatsappOptOutDefault,
+} from './api'
 
 // اختبارات وحدة لمساعدات بوابة ولي الأمر النقية (3A-909): حسم ميتا
 // التنبيهات/حالات الإثبات بأمان ضد انحراف نسخ العميل/الخادم، وربط
@@ -72,5 +79,47 @@ describe('proofErrorMessage (3A-909)', () => {
 
   it('خطأ غير معروف يقع على الرسالة العامة المهذبة', () => {
     expect(proofErrorMessage(new Error('boom'))).toBe(t('portal.apiProofErrorGeneric'))
+  })
+})
+
+describe('isMissingWhatsappOptOutColumn — كشف غياب عمود whatsapp_opt_out (0073)', () => {
+  it('PGRST204 = عمود مفقود', () => {
+    expect(
+      isMissingWhatsappOptOutColumn({
+        code: 'PGRST204',
+        message: "Could not find the 'whatsapp_opt_out' column of 'guardians' in the schema cache",
+      }),
+    ).toBe(true)
+  })
+  it('رسالة تذكر whatsapp_opt_out = عمود مفقود', () => {
+    expect(
+      isMissingWhatsappOptOutColumn({ code: '42703', message: 'column "whatsapp_opt_out" does not exist' }),
+    ).toBe(true)
+  })
+  it('خطأ آخر = ليس غياب عمود', () => {
+    expect(isMissingWhatsappOptOutColumn({ code: '23505', message: 'duplicate key' })).toBe(false)
+    expect(isMissingWhatsappOptOutColumn({ code: 'PGRST204', message: 'some other column' })).toBe(true)
+    expect(isMissingWhatsappOptOutColumn(null)).toBe(false)
+  })
+})
+
+describe('withWhatsappOptOutDefault — إكمال صف قديم بالافتراضي', () => {
+  const legacyRow = {
+    id: 'g1',
+    teacher_id: 't1',
+    user_id: null,
+    display_name: 'ولي أمر',
+    phone: '+201012345678',
+    created_at: '2026-11-01T00:00:00.000Z',
+    updated_at: '2026-11-01T00:00:00.000Z',
+  } as Omit<GuardianRow, 'whatsapp_opt_out'>
+
+  it('غياب العمود = لا انسحاب (false) كما في افتراضي المهاجرة', () => {
+    expect(withWhatsappOptOutDefault(legacyRow).whatsapp_opt_out).toBe(false)
+  })
+
+  it('قيمة موجودة تُحفَظ كما هي', () => {
+    expect(withWhatsappOptOutDefault({ ...legacyRow, whatsapp_opt_out: true }).whatsapp_opt_out).toBe(true)
+    expect(withWhatsappOptOutDefault({ ...legacyRow, whatsapp_opt_out: false }).whatsapp_opt_out).toBe(false)
   })
 })

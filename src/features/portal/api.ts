@@ -60,6 +60,35 @@ const TOKEN_COLS =
   'id, teacher_id, guardian_id, student_id, expires_at, revoked_at, last_used_at, created_at'
 const GUARDIAN_COLS =
   'id, teacher_id, user_id, display_name, phone, created_at, updated_at, whatsapp_opt_out'
+/** قائمة الأعمدة قبل مهاجرة 0073 — تُستخدم عند كشف غياب عمود whatsapp_opt_out (نمط #27) */
+const GUARDIAN_COLS_LEGACY =
+  'id, teacher_id, user_id, display_name, phone, created_at, updated_at'
+const GUARDIAN_EMBED_COLS =
+  'guardian_id, guardians(id, teacher_id, user_id, display_name, phone, created_at, updated_at, whatsapp_opt_out)'
+/** نفس التضمين بقائمة ما قبل 0073 (بلا whatsapp_opt_out) */
+const GUARDIAN_EMBED_COLS_LEGACY =
+  'guardian_id, guardians(id, teacher_id, user_id, display_name, phone, created_at, updated_at)'
+
+/**
+ * قراءة متسامحة لعمود whatsapp_opt_out (مهاجرة 0073، بوابة التجميد —
+ * نمط #27): على قاعدة بلا المهاجرة يرفض PostgREST الـ select بـ
+ * PGRST204 فينهار توليد رابط البوابة كله — نرجع لقائمة الأعمدة
+ * القديمة ونكمل الصف بالافتراضي (لا انسحاب = false كما في المهاجرة).
+ */
+export function isMissingWhatsappOptOutColumn(error: {
+  code?: string
+  message?: string
+} | null): boolean {
+  if (!error) return false
+  return error.code === 'PGRST204' || (error.message ?? '').includes('whatsapp_opt_out')
+}
+
+/** إكمال صف ولي أمر قديم (بلا whatsapp_opt_out) بالافتراضي false */
+export function withWhatsappOptOutDefault(
+  row: Omit<GuardianRow, 'whatsapp_opt_out'> & { whatsapp_opt_out?: boolean },
+): GuardianRow {
+  return { ...row, whatsapp_opt_out: row.whatsapp_opt_out ?? false }
+}
 
 // ---------------------------------------------------------------------------
 // توليد الرمز وهاشّه (Web Crypto — في المتصفح فقط، بلا أي إرسال للخام)
@@ -135,21 +164,100 @@ export function portalLinkWaUrl(
  * (guardian_phone ثم phone — وبلا أي رقم لا يمكن إنشاء ولي أمر
  * لأن guardians.phone أساس الربط في المخطط).
  */
+/** ولي الأمر المرتبط بالطالب عبر guardian_students (قراءة متسامحة 0073) */
+async function fetchLinkedGuardian(
+  teacherId: string,
+  studentId: string,
+): Promise<GuardianRow | null> {
+  const supa = db()
+  const { data, error } = await supa
+    .from('guardian_students')
+    .select(GUARDIAN_EMBED_COLS)
+    .eq('teacher_id', teacherId)
+    .eq('student_id', studentId)
+    .limit(1)
+    .maybeSingle()
+  if (error) {
+    if (isMissingWhatsappOptOutColumn(error)) {
+      const retry = await supa
+        .from('guardian_students')
+        .select(GUARDIAN_EMBED_COLS_LEGACY)
+        .eq('teacher_id', teacherId)
+        .eq('student_id', studentId)
+        .limit(1)
+        .maybeSingle()
+      if (retry.error) throw retry.error
+      return retry.data?.guardians ? withWhatsappOptOutDefault(retry.data.guardians) : null
+    }
+    throw error
+  }
+  return data?.guardians ? withWhatsappOptOutDefault(data.guardians) : null
+}
+
+/** ولي أمر السنتر برقمه (قراءة متسامحة 0073) */
+async function fetchGuardianByPhone(
+  teacherId: string,
+  phone: string,
+): Promise<GuardianRow | null> {
+  const supa = db()
+  const { data, error } = await supa
+    .from('guardians')
+    .select(GUARDIAN_COLS)
+    .eq('teacher_id', teacherId)
+    .eq('phone', phone)
+    .maybeSingle()
+  if (error) {
+    if (isMissingWhatsappOptOutColumn(error)) {
+      const retry = await supa
+        .from('guardians')
+        .select(GUARDIAN_COLS_LEGACY)
+        .eq('teacher_id', teacherId)
+        .eq('phone', phone)
+        .maybeSingle()
+      if (retry.error) throw retry.error
+      return retry.data ? withWhatsappOptOutDefault(retry.data) : null
+    }
+    throw error
+  }
+  return data ? withWhatsappOptOutDefault(data) : null
+}
+
+/** إنشاء ولي أمر جديد (كتابة متسامحة 0073 — نمط #64 في الكتابة) */
+async function insertGuardian(
+  teacherId: string,
+  name: string,
+  phone: string,
+): Promise<GuardianRow> {
+  const supa = db()
+  const { data, error } = await supa
+    .from('guardians')
+    .insert({ teacher_id: teacherId, display_name: name, phone })
+    .select(GUARDIAN_COLS)
+    .single()
+  if (error) {
+    if (isMissingWhatsappOptOutColumn(error)) {
+      // قاعدة بلا 0073: الـ insert مع الـ returning يفشل كجملة واحدة —
+      // لم يُنشأ صف، فنعيد الإنشاء كاملاً بقائمة الأعمدة القديمة.
+      const retry = await supa
+        .from('guardians')
+        .insert({ teacher_id: teacherId, display_name: name, phone })
+        .select(GUARDIAN_COLS_LEGACY)
+        .single()
+      if (retry.error) throw retry.error
+      return withWhatsappOptOutDefault(retry.data)
+    }
+    throw error
+  }
+  return withWhatsappOptOutDefault(data)
+}
+
 async function ensureGuardianAndLink(
   teacherId: string,
   student: StudentRow,
 ): Promise<GuardianRow> {
   const supa = db()
 
-  const { data: link, error: linkErr } = await supa
-    .from('guardian_students')
-    .select('guardian_id, guardians(id, teacher_id, user_id, display_name, phone, created_at, updated_at, whatsapp_opt_out)')
-    .eq('teacher_id', teacherId)
-    .eq('student_id', student.id)
-    .limit(1)
-    .maybeSingle()
-  if (linkErr) throw linkErr
-  const linked = link?.guardians
+  const linked = await fetchLinkedGuardian(teacherId, student.id)
   if (linked) return linked
 
   const { name, phone } = effectiveGuardianFromStudent(student)
@@ -157,23 +265,9 @@ async function ensureGuardianAndLink(
     throw new Error(t('portal.apiNoGuardianPhoneError'))
   }
 
-  const { data: existing, error: exErr } = await supa
-    .from('guardians')
-    .select(GUARDIAN_COLS)
-    .eq('teacher_id', teacherId)
-    .eq('phone', phone)
-    .maybeSingle()
-  if (exErr) throw exErr
-
-  let guardian = existing ?? null
+  let guardian = await fetchGuardianByPhone(teacherId, phone)
   if (!guardian) {
-    const { data: created, error: insErr } = await supa
-      .from('guardians')
-      .insert({ teacher_id: teacherId, display_name: name, phone })
-      .select(GUARDIAN_COLS)
-      .single()
-    if (insErr) throw insErr
-    guardian = created
+    guardian = await insertGuardian(teacherId, name, phone)
   }
 
   const { error: gsErr } = await supa.from('guardian_students').upsert(
