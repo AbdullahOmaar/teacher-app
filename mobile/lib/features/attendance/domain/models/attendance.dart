@@ -5,7 +5,8 @@ enum AttendanceStatus { present, absent, late, makeup }
 
 /// حمولة التغيير الكاملة (نفس الويب حرفيًا).
 class AttendanceValue {
-  const AttendanceValue({this.status, this.homeworkDone = false, this.starred = false});
+  const AttendanceValue(
+      {this.status, this.homeworkDone = false, this.starred = false,});
 
   /// null = لم يُسجَّل بعد.
   final AttendanceStatus? status;
@@ -16,7 +17,9 @@ class AttendanceValue {
 
   bool get isEmpty => status == null && !homeworkDone && !starred;
 
-  AttendanceValue copyWith({AttendanceStatus? status, bool? homeworkDone, bool? starred}) => AttendanceValue(
+  AttendanceValue copyWith(
+          {AttendanceStatus? status, bool? homeworkDone, bool? starred,}) =>
+      AttendanceValue(
         status: status ?? this.status,
         homeworkDone: homeworkDone ?? this.homeworkDone,
         starred: starred ?? this.starred,

@@ -17,6 +17,22 @@ class Student {
     required this.updatedAt,
   });
 
+  factory Student.fromJson(Map<String, dynamic> json) => Student(
+        id: json['id'] as String,
+        teacherId: json['teacher_id'] as String,
+        publicCode: json['public_code'] as String,
+        name: json['name'] as String,
+        grade: json['grade'] as String?,
+        school: json['school'] as String?,
+        paused: json['paused'] as bool? ?? false,
+        phone: json['phone'] as String?,
+        guardianName: json['guardian_name'] as String?,
+        guardianPhone: json['guardian_phone'] as String?,
+        levelNote: json['level_note'] as String?,
+        createdAt: DateTime.parse(json['created_at'] as String),
+        updatedAt: DateTime.parse(json['updated_at'] as String),
+      );
+
   final String id;
   final String teacherId;
 
@@ -68,6 +84,18 @@ class StudentInput {
   final String? guardianName;
   final String? guardianPhone;
   final String? levelNote;
+
+  /// للإرسال للخادم — بلا public_code (يولّده trigger).
+  Map<String, dynamic> toJson(String teacherId) => {
+        'teacher_id': teacherId,
+        'name': name,
+        'grade': grade,
+        'school': school,
+        'phone': phone,
+        'guardian_name': guardianName,
+        'guardian_phone': guardianPhone,
+        'level_note': levelNote,
+      };
 }
 
 class Enrollment {
@@ -80,6 +108,16 @@ class Enrollment {
     this.prepaidSessions,
     required this.createdAt,
   });
+
+  factory Enrollment.fromJson(Map<String, dynamic> json) => Enrollment(
+        id: json['id'] as String,
+        teacherId: json['teacher_id'] as String,
+        studentId: json['student_id'] as String,
+        groupId: json['group_id'] as String,
+        priceOverride: (json['price_override'] as num?)?.toDouble(),
+        prepaidSessions: json['prepaid_sessions'] as int?,
+        createdAt: DateTime.parse(json['created_at'] as String),
+      );
 
   final String id;
   final String teacherId;
@@ -94,7 +132,10 @@ class Enrollment {
 
 /// view‏ `student_balances` — محسوب خادميًا، غير مخزّن. لا حساب رصيد في العميل.
 class StudentBalance {
-  const StudentBalance({required this.teacherId, required this.studentId, required this.balance});
+  const StudentBalance(
+      {required this.teacherId,
+      required this.studentId,
+      required this.balance,});
   final String teacherId;
   final String studentId;
   final double balance;

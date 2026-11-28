@@ -3,7 +3,8 @@ import 'package:mister/core/error/app_error.dart';
 
 void main() {
   test('Postgres 23503 maps to deleteBlockedByLinks (عقود §5-2)', () {
-    expect(AppError.fromPostgresCode('23503').arbKey, 'common_delete_blocked_by_links');
+    expect(AppError.fromPostgresCode('23503').arbKey,
+        'common_delete_blocked_by_links',);
   });
 
   test('Postgres 23505 maps to duplicate entry', () {
@@ -15,7 +16,8 @@ void main() {
   });
 
   test('Unknown code falls back to common_unexpected_error — never raw', () {
-    expect(AppError.fromPostgresCode('99999').arbKey, 'common_unexpected_error');
+    expect(
+        AppError.fromPostgresCode('99999').arbKey, 'common_unexpected_error',);
   });
 
   test('Network error uses the single unified key', () {

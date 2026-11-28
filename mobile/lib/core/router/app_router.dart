@@ -7,23 +7,38 @@ final GoRouter appRouter = GoRouter(
   initialLocation: '/splash',
   routes: [
     GoRoute(path: '/splash', builder: (context, state) => const SplashView()),
-    GoRoute(path: '/login', builder: (context, state) => const LoginPlaceholderView()),
-    GoRoute(path: '/home', builder: (context, state) => const HomePlaceholderView()),
-    GoRoute(path: '/students', builder: (context, state) => const StudentsPlaceholderView()),
+    GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginPlaceholderView(),),
+    GoRoute(
+        path: '/home',
+        builder: (context, state) => const HomePlaceholderView(),),
+    GoRoute(
+        path: '/students',
+        builder: (context, state) => const StudentsPlaceholderView(),),
     GoRoute(
       path: '/students/:id',
-      builder: (context, state) => StudentsPlaceholderView(studentId: state.pathParameters['id']),
+      builder: (context, state) =>
+          StudentsPlaceholderView(studentId: state.pathParameters['id']),
     ),
-    GoRoute(path: '/groups', builder: (context, state) => const GroupsPlaceholderView()),
+    GoRoute(
+        path: '/groups',
+        builder: (context, state) => const GroupsPlaceholderView(),),
     GoRoute(
       path: '/groups/:id',
-      builder: (context, state) => GroupsPlaceholderView(groupId: state.pathParameters['id']),
+      builder: (context, state) =>
+          GroupsPlaceholderView(groupId: state.pathParameters['id']),
     ),
-    GoRoute(path: '/schedule', builder: (context, state) => const SchedulePlaceholderView()),
+    GoRoute(
+        path: '/schedule',
+        builder: (context, state) => const SchedulePlaceholderView(),),
     GoRoute(
       path: '/attendance/:sessionId',
-      builder: (context, state) => AttendancePlaceholderView(sessionId: state.pathParameters['sessionId']!),
+      builder: (context, state) => AttendancePlaceholderView(
+          sessionId: state.pathParameters['sessionId']!,),
     ),
-    GoRoute(path: '/settings', builder: (context, state) => const SettingsPlaceholderView()),
+    GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsPlaceholderView(),),
   ],
 );

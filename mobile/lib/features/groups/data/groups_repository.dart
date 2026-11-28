@@ -4,8 +4,8 @@ import 'package:mister/features/groups/domain/models/group.dart';
 abstract class GroupsRepository {
   Future<List<Group>> list(String teacherId);
   Future<Group?> get(String teacherId, String groupId);
-  Future<Group> create(String teacherId, Group group);
-  Future<Group> update(String teacherId, String groupId, Group group);
+  Future<Group> create(String teacherId, GroupInput input);
+  Future<Group> update(String teacherId, String groupId, GroupInput input);
 
   /// أرشفة لا حذف (0007).
   Future<void> archive(String teacherId, String groupId);
