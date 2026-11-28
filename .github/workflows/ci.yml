@@ -65,7 +65,7 @@ jobs:
           tar -xz -C /tmp -f /tmp/gitleaks.tar.gz gitleaks
           /tmp/gitleaks detect --source=. --redact --no-banner
       - name: OSV-Scanner (ثغرات الاعتماديات من package-lock)
-        uses: google/osv-scanner-action/osv-scanner-action@2a387edfbe02a11d856b89172f6e978100177eb4 # v2.3.2
+        uses: google/osv-scanner-action/osv-scanner-action@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
         with:
           scan-args: |-
             --lockfile=package-lock.json
