@@ -3,10 +3,9 @@ import 'package:mister/core/data/current_teacher_provider.dart';
 import 'package:mister/core/data/providers.dart';
 import 'package:mister/core/error/app_error.dart';
 import 'package:mister/features/groups/domain/models/group.dart';
-import 'package:mister/features/students/domain/models/student.dart';
 
-/// بيانات أعضاء مجموعة — لا دالة أعضاء مخصصة في العقد v1.1:
-/// الربط عبر `StudentsRepository.listEnrollments` (تفصيل F1-T6 ‏4-6).
+/// بيانات أعضاء مجموعة — عقود v1.2: `GroupsRepository.listMembers`
+/// (roster من fetchGroupRoster — join enrollments × students).
 class GroupMembersData {
   const GroupMembersData({
     required this.group,
@@ -16,7 +15,7 @@ class GroupMembersData {
 
   /// null = مجموعة غير موجودة (فراغ مهذب).
   final Group? group;
-  final List<Student> members;
+  final List<GroupMember> members;
   final int waitlistCount;
 }
 
@@ -41,19 +40,13 @@ class GroupMembersViewModel
         );
         return;
       }
-      final studentsRepo = ref.read(studentsRepositoryProvider);
-      final students = await studentsRepo.list(teacherId);
-      final enrollments = await studentsRepo.listEnrollments(teacherId);
-      final memberIds = enrollments
-          .where((e) => e.groupId == arg)
-          .map((e) => e.studentId)
-          .toSet();
-      final waitlist =
-          await ref.read(groupsRepositoryProvider).listWaitlist(teacherId, arg);
+      final groupsRepo = ref.read(groupsRepositoryProvider);
+      final members = await groupsRepo.listMembers(teacherId, arg);
+      final waitlist = await groupsRepo.listWaitlist(teacherId, arg);
       state = UiState.data(
         GroupMembersData(
           group: group,
-          members: students.where((s) => memberIds.contains(s.id)).toList(),
+          members: members,
           waitlistCount: waitlist.length,
         ),
       );

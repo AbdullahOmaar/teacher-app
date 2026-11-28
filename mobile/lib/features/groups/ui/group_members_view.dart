@@ -127,15 +127,15 @@ class GroupMembersView extends ConsumerWidget {
             padding: EdgeInsets.zero,
             child: Column(
               children: [
-                for (final s in data.members)
+                for (final m in data.members)
                   AppListRow(
-                    leading: AppAvatar(name: s.name),
-                    title: s.name,
-                    subtitle: s.phone,
-                    trailing: s.paused
+                    leading: AppAvatar(name: m.studentName),
+                    title: m.studentName,
+                    subtitle: m.studentCode.isEmpty ? null : m.studentCode,
+                    trailing: m.studentPaused
                         ? AppBadge(label: l10n.groups_badge_paused)
                         : null,
-                    onTap: () => context.push('/students/${s.id}'),
+                    onTap: () => context.push('/students/${m.studentId}'),
                   ),
               ],
             ),

@@ -14,8 +14,8 @@ class GroupWaitlistData {
 }
 
 /// فيوموديل قائمة الانتظار (family بمعرّف المجموعة).
-/// الترقية: لا دالة ترقية/تسجيل في العقد v1.1 — تُنشئ طالبًا عبر
-/// `StudentsRepository.create` (حل التفصيل الموثّق في F1-T6 ‏4-7).
+/// الترقية (عقود v1.2): إنشاء طالب عبر `StudentsRepository.create`
+/// ثم تسجيله في المجموعة عبر `enroll` (upsert).
 class GroupWaitlistViewModel
     extends FamilyNotifier<UiState<GroupWaitlistData>, String> {
   @override
@@ -39,14 +39,38 @@ class GroupWaitlistViewModel
     }
   }
 
-  /// ترقية منتظر لطالب — يعيد AppError عند الفشل وnull عند النجاح.
+  /// ترقية منتظر لطالب — ينشئ الطالب ثم يسجّله في المجموعة عبر enroll.
+  /// يعيد AppError عند الفشل وnull عند النجاح.
   Future<AppError?> accept(GroupWaitlist entry) async {
     try {
       final teacherId = await ref.read(currentTeacherIdProvider.future);
-      await ref.read(studentsRepositoryProvider).create(
-            teacherId,
-            StudentInput(name: entry.name, phone: entry.phone),
-          );
+      final repo = ref.read(studentsRepositoryProvider);
+      final student = await repo.create(
+        teacherId,
+        StudentInput(name: entry.name, phone: entry.phone),
+      );
+      await repo.enroll(
+        teacherId,
+        EnrollmentInput(studentId: student.id, groupId: arg),
+      );
+      await load();
+      return null;
+    } on AppError catch (e) {
+      return e;
+    } catch (_) {
+      return AppError.unknown();
+    }
+  }
+
+  /// إضافة منتظر جديد — `addWaitlistEntry` (source الافتراضي 'manual'
+  /// خادميًا — لا يُرسل من العميل). يعيد AppError عند الفشل وnull عند النجاح.
+  Future<AppError?> add(WaitlistInput input) async {
+    try {
+      final teacherId = await ref.read(currentTeacherIdProvider.future);
+      await ref
+          .read(groupsRepositoryProvider)
+          .addWaitlistEntry(teacherId, arg, input);
+      await load();
       return null;
     } on AppError catch (e) {
       return e;

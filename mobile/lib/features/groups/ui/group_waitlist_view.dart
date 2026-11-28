@@ -10,6 +10,7 @@ import 'package:mister/core/widgets/app_toast.dart';
 import 'package:mister/core/widgets/list_row.dart';
 import 'package:mister/core/widgets/states.dart';
 import 'package:mister/features/groups/domain/models/group.dart';
+import 'package:mister/features/groups/ui/group_waitlist_form_sheet.dart';
 import 'package:mister/features/groups/ui/group_waitlist_view_model.dart';
 import 'package:mister/l10n/app_localizations.dart';
 
@@ -42,11 +43,37 @@ class GroupWaitlistView extends ConsumerWidget {
 
   Widget _body(BuildContext context, WidgetRef ref, GroupWaitlistData data) {
     final l10n = AppLocalizations.of(context);
+    final archived = data.group?.archivedAt != null;
+    final addButton = archived
+        ? null
+        : AppButton(
+            label: l10n.groups_wl_add_btn,
+            icon: Icons.hourglass_empty,
+            full: true,
+            onPressed: () async {
+              final saved = await showWaitlistFormSheet(
+                context,
+                groupId: groupId,
+              );
+              if (saved == true) {
+                ref.invalidate(groupWaitlistViewModelProvider(groupId));
+              }
+            },
+          );
     if (data.entries.isEmpty) {
-      return EmptyState(
-        icon: Icons.hourglass_empty,
-        title: l10n.groups_waitlist_title(0),
-        hint: l10n.groups_waitlist_empty,
+      return ListView(
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 16, 24),
+        children: [
+          EmptyState(
+            icon: Icons.hourglass_empty,
+            title: l10n.groups_waitlist_title(0),
+            hint: l10n.groups_waitlist_empty,
+          ),
+          if (addButton != null) ...[
+            const SizedBox(height: 16),
+            addButton,
+          ],
+        ],
       );
     }
     return ListView(
@@ -60,7 +87,11 @@ class GroupWaitlistView extends ConsumerWidget {
             ],
           ),
         ),
-        if (data.group?.archivedAt != null) ...[
+        if (addButton != null) ...[
+          const SizedBox(height: 16),
+          addButton,
+        ],
+        if (archived) ...[
           const SizedBox(height: 12),
           Text(
             l10n.groups_wl_archived_note,
