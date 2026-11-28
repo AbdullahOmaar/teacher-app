@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mister/app_build_info.dart';
+import 'package:mister/core/data/app_database.dart';
+import 'package:mister/core/data/providers.dart';
 import 'package:mister/core/data/secure_storage_service.dart';
 import 'package:mister/core/data/supabase_service.dart';
 import 'package:mister/core/router/app_router.dart';
@@ -24,7 +26,13 @@ Future<void> main() async {
       ),
     );
   }
-  runApp(const ProviderScope(child: MisterApp()));
+  final db = await AppDatabase.openOnDevice();
+  runApp(
+    ProviderScope(
+      overrides: [appDatabaseProvider.overrideWithValue(db)],
+      child: const MisterApp(),
+    ),
+  );
 }
 
 class MisterApp extends StatelessWidget {

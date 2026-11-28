@@ -39,6 +39,16 @@ class LocalCache {
         .toList();
   }
 
+  /// كل صفوف كيان عبر المدرّسين (لكاش الحصص — cachedSessions بلا teacherId).
+  Future<List<Map<String, dynamic>>> getAllAcrossTeachers(String entity) async {
+    final query = _db.select(_db.cachedEntities)
+      ..where((t) => t.entity.equals(entity));
+    final rows = await query.get();
+    return rows
+        .map((r) => (jsonDecode(r.payload) as Map).cast<String, dynamic>())
+        .toList();
+  }
+
   /// استبدال كامل لكيان مدرّس (بعد جلب ناجح من الخادم).
   Future<void> replaceAll(
       String entity, String teacherId, List<Map<String, dynamic>> rows,) async {

@@ -1,4 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mister/core/data/app_database.dart';
+import 'package:mister/core/data/connectivity_service.dart';
+import 'package:mister/core/data/local_storage_service.dart';
 import 'package:mister/core/data/secure_storage_service.dart';
 import 'package:mister/core/data/services.dart';
 import 'package:mister/core/data/supabase_service.dart';
@@ -6,6 +9,8 @@ import 'package:mister/features/auth/data/app_lock_service.dart';
 import 'package:mister/features/auth/data/auth_gateway.dart';
 import 'package:mister/features/auth/data/auth_repository.dart';
 import 'package:mister/features/auth/data/auth_repository_impl.dart';
+import 'package:mister/features/attendance/data/attendance_repository.dart';
+import 'package:mister/features/attendance/data/attendance_repository_impl.dart';
 import 'package:mister/features/auth/data/teacher_repository.dart';
 import 'package:mister/features/auth/data/teacher_repository_impl.dart';
 import 'package:mister/features/groups/data/groups_repository.dart';
@@ -72,5 +77,28 @@ final appLockServiceProvider = Provider<AppLockService>(
   (ref) => AppLockService(
     ref.watch(secureStorageServiceProvider),
     ref.watch(biometricGatewayProvider),
+  ),
+);
+
+/// F1-T7 — التخزين المحلي والحضور.
+/// قاعدة Drift تُفتح في main وتُحقن هنا (override) — أي قراءة بلا حقن = خطأ برمجي.
+final appDatabaseProvider = Provider<AppDatabase>(
+  (ref) => throw UnimplementedError('AppDatabase تُحقن في main بعد فتحها'),
+);
+
+final localStorageServiceProvider = Provider<LocalStorageServiceImpl>(
+  (ref) => LocalStorageServiceImpl(ref.watch(appDatabaseProvider)),
+);
+
+final connectivityServiceProvider = Provider<ConnectivityService>(
+  (ref) => ConnectivityServiceImpl(),
+);
+
+final attendanceRepositoryProvider = Provider<AttendanceRepository>(
+  (ref) => AttendanceRepositoryImpl(
+    ref.watch(supabaseServiceProvider),
+    ref.watch(localStorageServiceProvider),
+    ref.watch(scheduleRepositoryProvider),
+    ref.watch(connectivityServiceProvider),
   ),
 );

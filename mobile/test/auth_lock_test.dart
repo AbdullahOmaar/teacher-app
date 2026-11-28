@@ -52,6 +52,7 @@ class FakeAuthGateway implements AuthGateway {
 }
 
 /// خدمة Supabase وهمية مختصرة — F1-T5 يحتاج rpc فقط هنا.
+/// (بقية الواجهة عبر noSuchMethod — لا تُستدعى في هذه الاختبارات.)
 class RpcOnlyService implements SupabaseService {
   final List<String> rpcNames = [];
 

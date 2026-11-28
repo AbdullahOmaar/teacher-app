@@ -22,7 +22,24 @@ class CachedEntities extends Table {
   Set<Column<Object>> get primaryKey => {entity, id};
 }
 
-@DriftDatabase(tables: [CachedEntities])
+/// طابور حضور الأوفلاين — جدول محلي فقط (لا جدول خادم جديد).
+/// payload = JSON قيمة الحضور (status/homework_done/starred).
+class AttendanceQueueItems extends Table {
+  TextColumn get key => text()();
+  TextColumn get teacherId => text()();
+  TextColumn get sessionId => text()();
+  TextColumn get studentId => text()();
+  TextColumn get payload => text()();
+  DateTimeColumn get queuedAt => dateTime()();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get lastError => text().nullable()();
+  BoolColumn get failed => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {key};
+}
+
+@DriftDatabase(tables: [CachedEntities, AttendanceQueueItems])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
@@ -34,5 +51,13 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          if (from < 2) await m.createTable(attendanceQueueItems);
+        },
+      );
 }
