@@ -137,8 +137,13 @@ begin
   end if;
 
   -- حجة التأكيد: بريد الحساب نفسه كما يكتبه المالك في الواجهة.
-  if p_confirmation is null
-     or lower(btrim(p_confirmation)) <> lower(coalesce(v_email, '')) then
+  -- إصلاح QA على PR #71 (تعليق 7231230488): حساب هاتف فقط (بريد
+  -- NULL) كان يتخطى التأكيد بحجة فارغة '' عبر coalesce(v_email, '') —
+  -- البريد NULL أو الحجة الفارغة (بعد التقليم) يُرفضان صراحة قبل أي مسار حذف.
+  if v_email is null
+     or p_confirmation is null
+     or btrim(p_confirmation) = ''
+     or lower(btrim(p_confirmation)) <> lower(v_email) then
     raise exception 'confirmation mismatch';
   end if;
 
