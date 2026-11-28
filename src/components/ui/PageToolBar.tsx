@@ -5,17 +5,23 @@ import { TextInput } from './form'
 
 /**
  * شريط أدوات الصفحات الطويلة الموحّد (موجة التحسينات W3 — بحث R-10/R-11،
- * وأعيد ترتيبه 2026-11-21 بملاحظة مالك من استخدام حقيقي — 3A-304):
+ * وأعيد ترتيبه 2026-11-21 بملاحظة مالك من استخدام حقيقي — 3A-304، ثم
+ * عدّله المالك 2026-11-28 من اختبار حي على صفحة الطلاب — 3A-944):
  * شريط لاصق واحد فقط تحت شريط التطبيق مباشرة، خلفيته معتمة بلون البطاقة
- * بحدّ سفلي، وبنيته صفوف متراكبة لا صف واحد مزدحم:
- *  - صف بحث مستقل بعرض الشاشة كاملاً على الموبايل (يُحدّ بعرض أقصى على
- *    الشاشات الأوسع حتى لا يتمدد بلا معنى) — لا يتقاسم صفه مع أي عنصر.
- *  - صف فلاتر تحته: رقائق أفقية قابلة للتمرير بحافة تلاشٍ + زر «تصفية»
- *    في طرف الصف يفتح Sheet الفلاتر المتقدمة (مع شارة بعددها المفعّل).
+ * بحدّ سفلي، وبنيته:
+ *  - صف بحث (يُحدّ بعرض أقصى على الشاشات الأوسع حتى لا يتمدد بلا معنى)
+ *    يجلس في طرفه زر «تصفية» بجانب خانة البحث مباشرة — نمط موحّد لشاشات
+ *    القوائم بقرار المالك 2026-11-28 (كان الزر في صف الرقائق فانتقل هنا؛
+ *    يفتح Sheet الفلاتر المتقدمة كما كان، مع شارة بعددها المفعّل). بلا
+ *    بحث يبقى الزر في صف الرقائق كما كان.
+ *  - صف فلاتر تحته: رقائق أفقية قابلة للتمرير بحافة تلاشٍ.
  *  - عدّاد النتائج خارج الشريط اللاصق أصلاً: سطر نصي خفيف فوق القائمة
  *    مباشرة في مكانه الطبيعي، لا يُحشر بين الأدوات.
- * ممنوع بموجب النمط: حشر البحث والرقائق والعدّاد والتصفية في صف واحد،
- * أو شريط لاصق ثانٍ في نفس الصفحة.
+ * ممنوع بموجب النمط: حشر الرقائق والعدّاد داخل صف البحث، أو شريط لاصق
+ * ثانٍ في نفس الصفحة.
+ * أيقونة العدسة: غلافها النسبي يضمّها مع الحقل وحده (بلا حشوة داخله) —
+ * حشوة صف البحث كانت تُزيح مركزها عن مركز الحقل فتبدو طافية على ركنه
+ * (ملاحظة المالك 2026-11-28)؛ الآن تتوسّط الحقل حرفياً في الحالتين.
  *
  * الرقائق نفسها يمرّرها المستدعي: فلاتر في صفحات السجلات، وأنقورز تنقّل
  * في صفحات الأقسام (إعدادات/إشعارات)، ورقائق فلاتر مفعّلة قابلة للإزالة
@@ -45,7 +51,26 @@ export function PageToolBar({
   /** true: يمتد لحواف الحاوية (صفحات العرض الواحد) — false داخل عمود List-Detail */
   bleed?: boolean
 }) {
-  const hasChipsRow = chips != null || onFilter != null
+  // زر التصفية بجانب البحث متى وُجد بحث (نمط 2026-11-28)؛ بلا بحث يبقى
+  // في صف الرقائق، وصف الرقائق نفسه لا يُرسم إن لم يبقَ فيه شيء.
+  const filterBesideSearch = search != null && onFilter != null
+  const hasChipsRow = chips != null || (onFilter != null && !filterBesideSearch)
+  const filterButton = onFilter ? (
+    <button
+      type="button"
+      onClick={onFilter}
+      aria-label={t('common.filterAdvanced')}
+      className="relative shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-3 rounded-full border border-border-interactive bg-card text-text text-[13.5px] font-semibold cursor-pointer hover:bg-soft"
+    >
+      <SlidersHorizontal size={19} />
+      <span className="hidden min-[420px]:inline">{t('common.filter')}</span>
+      {activeFilterCount > 0 && (
+        <span className="absolute -top-1 -end-1 min-w-[20px] h-5 px-1 rounded-full bg-primary text-on-primary text-[11px] font-bold flex items-center justify-center">
+          {activeFilterCount}
+        </span>
+      )}
+    </button>
+  ) : null
   // تلاشي حافة بداية صف الرقائق عند التمرير (3A-384 — ملاحظة المالك ٥-أ:
   // الرقائق تُقصّ عند الحافة): التلاشي القائم (.chip-row-fade) يغطي حافة
   // الفائض فقط؛ عند تمرير الصف تبقى الرقائق مقصوصة بحدّ حاد عند حافة
@@ -62,21 +87,24 @@ export function PageToolBar({
       >
         {search && (
           <div
-            className={`relative w-full min-[560px]:max-w-[340px] ${
-              hasChipsRow ? 'pt-2' : 'py-2'
-            }`}
+            className={`flex items-center gap-2 ${hasChipsRow ? 'pt-2' : 'py-2'}`}
           >
-            <Search
-              size={18}
-              className="absolute start-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
-            />
-            <TextInput
-              value={search.value}
-              onChange={(e) => search.onChange(e.target.value)}
-              placeholder={search.placeholder}
-              className="ps-8"
-              aria-label={search.placeholder}
-            />
+            {/* الغلاف النسبي حول الأيقونة والحقل وحدهما (بلا حشوة) حتى
+                يتوسّط مركز الأيقونة مركزَ الحقل بالضبط */}
+            <div className="relative flex-1 min-w-0 min-[560px]:max-w-[340px]">
+              <Search
+                size={18}
+                className="absolute start-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
+              />
+              <TextInput
+                value={search.value}
+                onChange={(e) => search.onChange(e.target.value)}
+                placeholder={search.placeholder}
+                className="ps-8"
+                aria-label={search.placeholder}
+              />
+            </div>
+            {filterBesideSearch && filterButton}
           </div>
         )}
         {hasChipsRow && (
@@ -105,22 +133,7 @@ export function PageToolBar({
                 />
               </div>
             )}
-            {onFilter && (
-              <button
-                type="button"
-                onClick={onFilter}
-                aria-label={t('common.filterAdvanced')}
-                className="relative shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-3 rounded-full border border-border-interactive bg-card text-text text-[13.5px] font-semibold cursor-pointer hover:bg-soft"
-              >
-                <SlidersHorizontal size={19} />
-                <span className="hidden min-[420px]:inline">{t('common.filter')}</span>
-                {activeFilterCount > 0 && (
-                  <span className="absolute -top-1 -end-1 min-w-[20px] h-5 px-1 rounded-full bg-primary text-on-primary text-[11px] font-bold flex items-center justify-center">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-            )}
+            {!filterBesideSearch && filterButton}
           </div>
         )}
       </div>
